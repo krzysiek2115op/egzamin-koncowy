@@ -1,52 +1,57 @@
 # Dział 1 — Pobranie danych z bazy (BD-3)
 
 > Kod: [`includes/pipeline/departments/class-mp-department-01.php`](../includes/pipeline/departments/class-mp-department-01.php)
+>
+> **Zasada (Golden Rule #2):** agenci i krytycy tego działu korzystają **wyłącznie
+> z oryginalnych/oficjalnych źródeł** wymienionych niżej — nigdy z danych zmyślonych,
+> wpisanych na sztywno ani wtórnych.
+
+## Źródła (oficjalne)
+Dział 1 czyta dane **wyłącznie z autorytatywnego źródła projektu — bazy BD-3** — przez
+oficjalne API bazodanowe WordPressa:
+
+| Źródło | Rola | Odnośnik |
+|---|---|---|
+| **BD-3** (źródło prawdy) | tabele `wp_mp_leads`, `wp_mp_offers`, `wp_mp_activity_log` | schemat: [`class-mp-db.php`](../includes/db/class-mp-db.php) |
+| WordPress `wpdb` | oficjalny dostęp do bazy (odczyt przez `prepare`/`get_results`) | https://developer.wordpress.org/reference/classes/wpdb/ |
+| WordPress Plugin Handbook | oficjalna dokumentacja wtyczek | https://developer.wordpress.org/plugins/ |
+
+Dział **tylko czyta** — nie wykonuje żadnych zapisów.
 
 ## Cel
-Jednym przebiegiem (zgodnie z zasadą **1 AJAX**) pobrać z BD-3 dane potrzebne dalej
-w pipeline: istniejące **leady** pasujące do zgłaszającej firmy (po NIP), powiązane
-z nimi **oferty** oraz **historię aktywności**. Dzięki temu kolejne działy (m.in.
-wykrywanie duplikatów w dziale 7) mają komplet kontekstu.
+Jednym przebiegiem (zasada **1 AJAX**) pobrać z BD-3 dane istniejące dla zgłaszającej firmy,
+aby kolejne działy miały pełny kontekst.
 
-**Dział tylko czyta** — nie wykonuje żadnych zapisów do bazy.
-
-## Wejście (kontekst / JSON)
-Surowe pola zgłoszenia, w szczególności:
-
-| Klucz | Opis |
-|---|---|
-| `nip` | NIP firmy (jeszcze niezwalidowany — służy do wyszukania istniejących rekordów) |
+## Wejście (kontekst)
+| Klucz | Źródło | Opis |
+|---|---|---|
+| `nip` | zgłoszenie z formularza | NIP firmy (na tym etapie jeszcze niezwalidowany) |
 
 ## Agenci i krytycy
-| Agent | Zadanie | Krytyk |
-|---|---|---|
-| **1.1** Pobiera leady | `SELECT` z `wp_mp_leads` gdzie `nip = ?` i `deleted_at IS NULL` | **K1.1** — sprawdza, że wynik zawiera tablicę `leads` |
-| **1.2** Pobiera oferty | `SELECT` z `wp_mp_offers` dla znalezionych `lead_id` | **K1.2** — sprawdza tablicę `offers` |
-| **1.3** Pobiera historię | `SELECT` z `wp_mp_activity_log` dla `lead_id` (ostatnie 50) | **K1.3** — sprawdza tablicę `activity_log` |
+Wszyscy agenci odczytują dane **bezpośrednio z BD-3** przez `wpdb` (patrz „Źródła"):
 
-Każdy agent ma dokładnie 1 krytyka. Jeśli krytyk wykryje złą strukturę wyniku → **STOP**.
+| Agent | Odczyt z oficjalnego źródła (BD-3) | Krytyk |
+|---|---|---|
+| **1.1** Pobiera leady | `wp_mp_leads` — rekordy o `nip` ze zgłoszenia, `deleted_at IS NULL` | **K1.1** — sprawdza, że wynik to tablica `leads` |
+| **1.2** Pobiera oferty | `wp_mp_offers` — dla `lead_id` znalezionych leadów | **K1.2** — sprawdza tablicę `offers` |
+| **1.3** Pobiera historię | `wp_mp_activity_log` — wpisy dla `lead_id` | **K1.3** — sprawdza tablicę `activity_log` |
+
+Każdy agent ma dokładnie 1 krytyka. Zła struktura wyniku → **STOP**.
 
 ## Bramka jakości (po dziale)
-- **QA Agent 1** — kontrola kompletności: w kontekście muszą być `leads`, `offers`
-  i `activity_log` (każde jako tablica).
-- **QA Krytyk 1** — akceptuje lub odrzuca wynik całego działu.
+- **QA Agent 1** — kontrola kompletności: w kontekście są `leads`, `offers`, `activity_log`.
+- **QA Krytyk 1** — akceptuje lub odrzuca wynik działu.
 
 ## Wyjście (JSON)
 ```json
-{
-  "leads": [ /* wiersze leadów pasujących po NIP (może być puste) */ ],
-  "offers": [ /* oferty tych leadów */ ],
-  "activity_log": [ /* ostatnie wpisy historii */ ]
-}
+{ "leads": [ ... ], "offers": [ ... ], "activity_log": [ ... ] }
 ```
+Dane pochodzą 1:1 z BD-3 (bez przekształceń poza odczytem).
 
 ## Obsługa błędów
-Błąd krytyka lub bramki jakości → **STOP pipeline** + wpis do `wp_mp_activity_log`
-(`action = pipeline_error`) + (docelowo, krok 4) powiadomienie administratora.
-
-## Tabele BD-3
-Odczyt: `wp_mp_leads`, `wp_mp_offers`, `wp_mp_activity_log`. Zapisów: brak.
+Błąd krytyka/bramki → **STOP** + wpis do `wp_mp_activity_log` (`action = pipeline_error`)
++ (krok 4) powiadomienie administratora.
 
 ## Powiązanie z kryteriami odbioru
-Dostarcza dane wejściowe do **wykrywania duplikatów firmy** (dedup po NIP w dziale 7)
-oraz do odtwarzania **historii operacji**.
+Dostarcza dane z autorytatywnego źródła (BD-3) do wykrywania duplikatów firmy oraz do
+odtwarzania historii operacji.

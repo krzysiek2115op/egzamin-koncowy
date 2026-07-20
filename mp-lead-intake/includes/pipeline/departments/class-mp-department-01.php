@@ -14,6 +14,11 @@
  *
  * Dokumentacja: docs/dzial-01-pobranie-danych.md
  *
+ * Źródła (oficjalne) — Golden Rule #2:
+ *  - BD-3 (źródło prawdy): wp_mp_leads / wp_mp_offers / wp_mp_activity_log
+ *  - WordPress wpdb: https://developer.wordpress.org/reference/classes/wpdb/
+ * Agenci czytają wyłącznie z BD-3 przez wpdb — bez danych zmyślonych/wtórnych.
+ *
  * @package MP_Lead_Intake
  */
 
