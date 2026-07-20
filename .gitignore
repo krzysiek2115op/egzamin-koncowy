@@ -1,0 +1,33 @@
+# --- Zależności / build ---
+/vendor/
+/node_modules/
+composer.lock
+package-lock.json
+*.log
+
+# --- Środowisko / sekrety ---
+.env
+.env.*
+*.local.php
+wp-config.php
+/secrets/
+
+# --- Artefakty ---
+*.zip
+*.tar.gz
+/dist/
+/build/
+*.cache
+
+# --- IDE / OS ---
+.idea/
+.vscode/
+*.sublime-*
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# --- WordPress (gdyby ktoś podłożył pełną instalkę obok wtyczek) ---
+wp-content/uploads/
+wp-content/cache/
