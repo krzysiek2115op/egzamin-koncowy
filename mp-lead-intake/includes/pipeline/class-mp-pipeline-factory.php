@@ -33,6 +33,10 @@ class MP_Pipeline_Factory {
 	public static function make() {
 		$pipeline = new MP_Pipeline( new MP_Pipeline_Logger() );
 
+		// Dział 1 — realna logika (krok 3).
+		$pipeline->add_department( MP_Department_01::build() );
+
+		// Działy 2–11 — na razie zaślepki (kolejne kroki 3).
 		foreach ( self::definitions() as $def ) {
 			$pairs = array();
 
@@ -75,17 +79,6 @@ class MP_Pipeline_Factory {
 	 */
 	private static function definitions() {
 		return array(
-			array(
-				'number'      => 1,
-				'key'         => 'fetch-data',
-				'label'       => 'Pobranie danych z bazy (BD-3)',
-				'description' => 'Pobranie wszystkich niezbędnych danych z BD-3 jednym strzałem (1 AJAX).',
-				'agents'      => array(
-					array( 'id' => '1.1', 'label' => 'Pobiera leady', 'purpose' => 'Odczyt istniejących leadów z wp_mp_leads' ),
-					array( 'id' => '1.2', 'label' => 'Pobiera oferty', 'purpose' => 'Odczyt istniejących ofert z wp_mp_offers' ),
-					array( 'id' => '1.3', 'label' => 'Pobiera historię aktywności', 'purpose' => 'Odczyt wpisów z wp_mp_activity_log' ),
-				),
-			),
 			array(
 				'number'      => 2,
 				'key'         => 'validate-form',

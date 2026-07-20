@@ -61,6 +61,79 @@ class MP_Lead_Intake_DB {
 		return $wpdb->prefix . 'mp_activity_log';
 	}
 
+	/* --------------------------------------------------------------------- *
+	 *  Odczyt danych (używane m.in. przez Dział 1 pipeline)
+	 * --------------------------------------------------------------------- */
+
+	/**
+	 * Zwraca aktywne (niezarchiwizowane) leady o podanym NIP.
+	 *
+	 * @param string $nip NIP firmy.
+	 * @return array Lista wierszy (ARRAY_A); pusta, gdy brak.
+	 */
+	public static function get_leads_by_nip( $nip ) {
+		global $wpdb;
+		$table = self::leads_table();
+
+		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->prepare( "SELECT * FROM $table WHERE nip = %s AND deleted_at IS NULL", $nip ),
+			ARRAY_A
+		);
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * Zwraca oferty powiązane z podanymi lead_id.
+	 *
+	 * @param array $lead_ids Lista identyfikatorów leadów.
+	 * @return array Lista wierszy (ARRAY_A).
+	 */
+	public static function get_offers_by_lead_ids( array $lead_ids ) {
+		global $wpdb;
+		if ( empty( $lead_ids ) ) {
+			return array();
+		}
+
+		$table        = self::offers_table();
+		$lead_ids     = array_map( 'absint', $lead_ids );
+		$placeholders = implode( ',', array_fill( 0, count( $lead_ids ), '%d' ) );
+
+		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL
+			$wpdb->prepare( "SELECT * FROM $table WHERE lead_id IN ($placeholders)", $lead_ids ),
+			ARRAY_A
+		);
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * Zwraca ostatnie wpisy historii aktywności dla podanych lead_id.
+	 *
+	 * @param array $lead_ids Lista identyfikatorów leadów.
+	 * @param int   $limit    Maks. liczba wpisów (domyślnie 50).
+	 * @return array Lista wierszy (ARRAY_A).
+	 */
+	public static function get_activity_by_lead_ids( array $lead_ids, $limit = 50 ) {
+		global $wpdb;
+		if ( empty( $lead_ids ) ) {
+			return array();
+		}
+
+		$table        = self::activity_log_table();
+		$lead_ids     = array_map( 'absint', $lead_ids );
+		$limit        = absint( $limit );
+		$placeholders = implode( ',', array_fill( 0, count( $lead_ids ), '%d' ) );
+		$params       = array_merge( $lead_ids, array( $limit ) );
+
+		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL
+			$wpdb->prepare( "SELECT * FROM $table WHERE lead_id IN ($placeholders) ORDER BY created_at DESC LIMIT %d", $params ),
+			ARRAY_A
+		);
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
 	/**
 	 * Tworzy lub aktualizuje wszystkie tabele BD-3.
 	 *

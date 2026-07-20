@@ -4,7 +4,7 @@ Tags: leads, woocommerce, oferty, formularz
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 0.3.0
+Stable tag: 0.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,12 @@ Pierwsza z trzech wtyczek procesu "formularz → oferta". Odpowiada za odbiór
 zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej bazy.
 
 == Changelog ==
+
+= 0.4.0 =
+* Krok 3 — Dział 1 (Pobranie danych z BD-3): realni agenci 1.1/1.2/1.3 + krytycy + QA.
+* Bazowe klasy Agent/Krytyk, uniwersalny QA Krytyk (MP_Accept_Critic).
+* Metody odczytu w warstwie DB (get_leads_by_nip, get_offers/activity_by_lead_ids).
+* Dokumentacja działu: docs/dzial-01-pobranie-danych.md.
 
 = 0.3.0 =
 * Krok 2: rusztowanie pipeline (11 działów). Klasy: Result, Context (JSON),
