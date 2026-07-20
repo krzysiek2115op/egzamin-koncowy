@@ -4,7 +4,7 @@ Tags: leads, woocommerce, oferty, formularz
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 0.2.1
+Stable tag: 0.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,11 @@ Pierwsza z trzech wtyczek procesu "formularz → oferta". Odpowiada za odbiór
 zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej bazy.
 
 == Changelog ==
+
+= 0.3.0 =
+* Krok 2: rusztowanie pipeline (11 działów). Klasy: Result, Context (JSON),
+  kontrakty Agent/Krytyk, Quality Gate, Department, Pipeline, Logger, Factory.
+* Agenci/krytycy jako zaślepki (logika i dokumentacja w kroku 3).
 
 = 0.2.1 =
 * Leady: kolumna deleted_at (soft delete — archiwizacja zamiast kasowania).
