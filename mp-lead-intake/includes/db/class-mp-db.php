@@ -26,7 +26,7 @@ class MP_Lead_Intake_DB {
 	 * Wersja schematu bazy. Podbijamy przy KAŻDEJ zmianie struktury tabel,
 	 * żeby mechanizm migracji wiedział, że trzeba zaktualizować bazę.
 	 */
-	const DB_VERSION = '1.0.0';
+	const DB_VERSION = '1.1.0';
 
 	/** Nazwa opcji WordPress przechowującej aktualną wersję bazy. */
 	const DB_VERSION_OPTION = 'mp_lead_intake_db_version';
@@ -100,12 +100,14 @@ class MP_Lead_Intake_DB {
 			consent_version varchar(20) DEFAULT NULL,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			deleted_at datetime DEFAULT NULL,
 			PRIMARY KEY  (id),
 			UNIQUE KEY uq_nip (nip),
 			KEY email (email),
 			KEY status (status),
-			KEY salesman_id (salesman_id)
-		) $charset_collate;";
+			KEY salesman_id (salesman_id),
+			KEY deleted_at (deleted_at)
+		) ENGINE=InnoDB $charset_collate;";
 
 		// --- Tabela 2: oferty ---
 		$sql_offers = "CREATE TABLE $offers (
@@ -120,7 +122,7 @@ class MP_Lead_Intake_DB {
 			PRIMARY KEY  (id),
 			UNIQUE KEY uq_offer_number (offer_number),
 			KEY lead_id (lead_id)
-		) $charset_collate;";
+		) ENGINE=InnoDB $charset_collate;";
 
 		// --- Tabela 3: log aktywności (audyt) ---
 		$sql_log = "CREATE TABLE $log (
@@ -136,13 +138,48 @@ class MP_Lead_Intake_DB {
 			KEY lead_id (lead_id),
 			KEY action (action),
 			KEY created_at (created_at)
-		) $charset_collate;";
+		) ENGINE=InnoDB $charset_collate;";
 
 		dbDelta( $sql_leads );
 		dbDelta( $sql_offers );
 		dbDelta( $sql_log );
 
+		self::add_foreign_keys();
+
 		update_option( self::DB_VERSION_OPTION, self::DB_VERSION );
+	}
+
+	/**
+	 * Dodaje klucze obce, których dbDelta() nie potrafi utworzyć.
+	 *
+	 * Relacja oferta -> lead z ON DELETE RESTRICT: baza NIE pozwoli fizycznie
+	 * usunąć leada mającego oferty. Leady i tak tylko archiwizujemy (deleted_at),
+	 * nie kasujemy. Tabela activity_log CELOWO bez FK — log audytowy ma przetrwać
+	 * (przy żądaniu RODO anonimizujemy wpisy, a nie usuwamy).
+	 *
+	 * @return void
+	 */
+	private static function add_foreign_keys() {
+		global $wpdb;
+
+		$offers = self::offers_table();
+		$leads  = self::leads_table();
+
+		$exists = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(1) FROM information_schema.TABLE_CONSTRAINTS
+				 WHERE CONSTRAINT_SCHEMA = %s AND TABLE_NAME = %s
+				   AND CONSTRAINT_NAME = %s AND CONSTRAINT_TYPE = 'FOREIGN KEY'",
+				DB_NAME,
+				$offers,
+				'fk_offers_lead'
+			)
+		);
+
+		if ( 0 === $exists ) {
+			// Nazwy tabel pochodzą z kodu (nie z danych użytkownika) — bezpieczne.
+			$wpdb->query( "ALTER TABLE $offers ADD CONSTRAINT fk_offers_lead FOREIGN KEY (lead_id) REFERENCES $leads (id) ON DELETE RESTRICT ON UPDATE CASCADE" ); // phpcs:ignore WordPress.DB.PreparedSQL
+		}
 	}
 
 	/**

@@ -4,7 +4,7 @@ Tags: leads, woocommerce, oferty, formularz
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 0.2.0
+Stable tag: 0.2.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,11 @@ Pierwsza z trzech wtyczek procesu "formularz → oferta". Odpowiada za odbiór
 zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej bazy.
 
 == Changelog ==
+
+= 0.2.1 =
+* Leady: kolumna deleted_at (soft delete — archiwizacja zamiast kasowania).
+* Klucz obcy offers.lead_id -> leads.id (ON DELETE RESTRICT). activity_log bez FK (audyt).
+* Tabele jawnie ENGINE=InnoDB (transakcje + klucze obce).
 
 = 0.2.0 =
 * Baza danych BD-3: tabele wp_mp_leads, wp_mp_offers, wp_mp_activity_log (dbDelta).
