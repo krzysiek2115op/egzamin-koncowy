@@ -33,6 +33,7 @@ require_once $mp_pipeline_dir . 'departments/class-mp-department-04.php';
 require_once $mp_pipeline_dir . 'departments/class-mp-department-05.php';
 require_once $mp_pipeline_dir . 'departments/class-mp-department-06.php';
 require_once $mp_pipeline_dir . 'departments/class-mp-department-07.php';
+require_once $mp_pipeline_dir . 'departments/class-mp-department-08.php';
 
 require_once $mp_pipeline_dir . 'class-mp-pipeline-factory.php';
 

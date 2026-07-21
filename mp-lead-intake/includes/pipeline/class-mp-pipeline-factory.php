@@ -41,8 +41,9 @@ class MP_Pipeline_Factory {
 		$pipeline->add_department( MP_Department_05::build() );
 		$pipeline->add_department( MP_Department_06::build() );
 		$pipeline->add_department( MP_Department_07::build() );
+		$pipeline->add_department( MP_Department_08::build() );
 
-		// Działy 8–11 — na razie zaślepki (kolejne kroki 3).
+		// Działy 9–11 — na razie zaślepki (kolejne kroki 3).
 		foreach ( self::definitions() as $def ) {
 			$pairs = array();
 
@@ -85,17 +86,6 @@ class MP_Pipeline_Factory {
 	 */
 	private static function definitions() {
 		return array(
-			array(
-				'number'      => 8,
-				'key'         => 'activity-log',
-				'label'       => 'Zapis historii aktywności',
-				'description' => 'Zapisanie operacji w wp_mp_activity_log (BD-3).',
-				'agents'      => array(
-					array( 'id' => '8.1', 'label' => 'Przygotowuje wpis logu', 'purpose' => 'Budowa rekordu zdarzenia' ),
-					array( 'id' => '8.2', 'label' => 'Dodaje meta informacje', 'purpose' => 'IP, user_id, meta_json' ),
-					array( 'id' => '8.3', 'label' => 'Zapisuje log w BD-3', 'purpose' => 'INSERT do wp_mp_activity_log' ),
-				),
-			),
 			array(
 				'number'      => 9,
 				'key'         => 'start-process',
