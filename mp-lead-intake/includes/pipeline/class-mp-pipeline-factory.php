@@ -43,8 +43,9 @@ class MP_Pipeline_Factory {
 		$pipeline->add_department( MP_Department_07::build() );
 		$pipeline->add_department( MP_Department_08::build() );
 		$pipeline->add_department( MP_Department_09::build() );
+		$pipeline->add_department( MP_Department_10::build() );
 
-		// Działy 10–11 — na razie zaślepki (kolejne kroki 3).
+		// Dział 11 — na razie zaślepka (kolejny krok 3).
 		foreach ( self::definitions() as $def ) {
 			$pairs = array();
 
@@ -87,17 +88,6 @@ class MP_Pipeline_Factory {
 	 */
 	private static function definitions() {
 		return array(
-			array(
-				'number'      => 10,
-				'key'         => 'return-result',
-				'label'       => 'Zwrócenie wyniku do pluginu',
-				'description' => 'Zwrócenie ostatecznego wyniku do wtyczki (MP Lead Intake).',
-				'agents'      => array(
-					array( 'id' => '10.1', 'label' => 'Buduje odpowiedź', 'purpose' => 'Złożenie wyniku (success, lead_id)' ),
-					array( 'id' => '10.2', 'label' => 'Dodaje podsumowanie', 'purpose' => 'Status + komunikat dla pluginu' ),
-					array( 'id' => '10.3', 'label' => 'Finalizuje payload', 'purpose' => 'Ostateczny JSON zwrotny' ),
-				),
-			),
 			array(
 				'number'      => 11,
 				'key'         => 'finish',
