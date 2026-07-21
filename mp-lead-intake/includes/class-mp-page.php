@@ -139,7 +139,9 @@ class MP_Lead_Intake_Page {
 	/**
 	 * Ostrzeżenie w panelu admina, gdy nie udało się automatycznie dodać strony
 	 * do żadnego menu (motyw nie rejestruje menu WP) — jawna informacja zamiast
-	 * cichej porażki. Wyłączalne filtrem 'mp_lead_intake_show_menu_notice'.
+	 * cichej porażki, niezależnie od tego, czy zadziała fallback HTML poniżej
+	 * (fallback jest "best effort" — admin i tak dostaje pewny, ręczny link).
+	 * Wyłączalne filtrem 'mp_lead_intake_show_menu_notice'.
 	 *
 	 * @return void
 	 */
@@ -161,10 +163,100 @@ class MP_Lead_Intake_Page {
 
 		printf(
 			'<div class="notice notice-warning is-dismissible"><p><strong>MP Lead Intake:</strong> %s <a href="%s" target="_blank" rel="noopener">%s</a></p></div>',
-			esc_html__( 'nie udało się automatycznie dodać strony formularza do menu — Twój motyw nie używa standardowego systemu menu WordPressa. Dodaj ręcznie link do:', 'mp-lead-intake' ),
+			esc_html__( 'Twój motyw nie rejestruje standardowego menu WordPressa — wtyczka spróbowała automatycznie dołożyć link do formularza w wykrytym menu strony (element <nav>). Sprawdź na stronie, czy się pojawił; jeśli nie, dodaj ręcznie link do:', 'mp-lead-intake' ),
 			esc_url( $url ),
 			esc_html( $url )
 		);
+	}
+
+	/**
+	 * Uruchamia bufor wyjścia frontendu, który dołoży link do menu w renderowanym
+	 * HTML-u (zob. inject_menu_link_html()) — TYLKO gdy oficjalne API menu (wyżej)
+	 * zawiodło, bo motyw nie rejestruje żadnej lokalizacji menu. Zero kosztu/ryzyka
+	 * dla motywów, dla których oficjalne API już zadziałało.
+	 *
+	 * Pominięte celowo dla feedów i REST — tam wstrzyknięcie HTML-u zepsułoby
+	 * format odpowiedzi (XML/JSON). Wyłączalne filtrem
+	 * 'mp_lead_intake_menu_html_fallback'.
+	 *
+	 * @return void
+	 */
+	public static function maybe_start_menu_buffer() {
+		if ( is_feed() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
+			return;
+		}
+		if ( '0' !== (string) get_option( self::OPTION_MENU_OK, '1' ) ) {
+			return;
+		}
+		if ( ! apply_filters( 'mp_lead_intake_menu_html_fallback', true ) ) {
+			return;
+		}
+		ob_start( array( __CLASS__, 'inject_menu_link_html' ) );
+	}
+
+	/**
+	 * Dokłada link do formularza w pierwszym elemencie <nav> znalezionym w
+	 * wyrenderowanym HTML-u strony — dla motywów, które nie rejestrują menu
+	 * przez register_nav_menu() (więc oficjalne API WP nic tu nie może zrobić).
+	 *
+	 * Celowo NIE używamy DOMDocument na całej stronie: pełne parsowanie i
+	 * ponowna serializacja całego dokumentu (encoding, DOCTYPE, znaczniki
+	 * <script> ze znakami specjalnymi) może subtelnie uszkodzić inne części
+	 * strony klienta. Zamiast tego: precyzyjnie dopasowany, ograniczony do
+	 * fragmentu <nav>...</nav> wzorzec regex + preg_replace_callback (bez
+	 * interpretacji backreference w treści), z insercją w JEDNYM znanym
+	 * miejscu. Brak dopasowania = brak zmian w HTML-u (fail-safe) — wtedy
+	 * jedyną informacją zostaje ostrzeżenie w adminie (maybe_admin_notice()).
+	 * Idempotentne (znacznik data-mp-lead-intake pilnuje przed duplikatem).
+	 *
+	 * @param string $html Pełny HTML strony (callback ob_start()).
+	 * @return string HTML, ewentualnie z dołożonym linkiem.
+	 */
+	public static function inject_menu_link_html( $html ) {
+		if ( ! is_string( $html ) || false !== strpos( $html, 'data-mp-lead-intake' ) ) {
+			return $html;
+		}
+
+		$url = self::url();
+		if ( '' === $url ) {
+			return $html;
+		}
+
+		$href  = esc_url( $url );
+		$label = esc_html__( 'Zapytanie ofertowe', 'mp-lead-intake' );
+		$count = 0;
+
+		// Wariant A: <nav> zawiera listę <ul>...</ul> — dołóż <li><a> jako
+		// ostatni element listy (dziedziczy stylowanie CSS listy motywu).
+		$with_list = preg_replace_callback(
+			'/(<nav\b[^>]*>.*?)(<\/ul>\s*<\/nav>)/is',
+			function ( $m ) use ( $href, $label ) {
+				return $m[1] . '<li><a href="' . $href . '" data-mp-lead-intake="1">' . $label . '</a></li>' . $m[2];
+			},
+			$html,
+			1,
+			$count
+		);
+		if ( $count > 0 && null !== $with_list ) {
+			return $with_list;
+		}
+
+		// Wariant B: <nav> bez listy (płaskie linki wprost w <nav>) — dołóż
+		// <a> tuż przed zamknięciem </nav>.
+		$flat = preg_replace_callback(
+			'/(<nav\b[^>]*>.*?)(<\/nav>)/is',
+			function ( $m ) use ( $href, $label ) {
+				return $m[1] . '<a href="' . $href . '" data-mp-lead-intake="1">' . $label . '</a>' . $m[2];
+			},
+			$html,
+			1,
+			$count
+		);
+		if ( $count > 0 && null !== $flat ) {
+			return $flat;
+		}
+
+		return $html; // Brak <nav> w markupie motywu — zostaje samo ostrzeżenie w adminie.
 	}
 
 	/**

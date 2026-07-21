@@ -92,6 +92,9 @@ function mp_lead_intake_bootstrap() {
 	MP_Lead_Intake_Security::register();
 	// Ostrzeżenie w panelu, gdy motyw nie wspiera menu WP (jawnie, bez cichej porażki).
 	add_action( 'admin_notices', array( 'MP_Lead_Intake_Page', 'maybe_admin_notice' ) );
+	// Fallback: gdy motyw nie rejestruje menu WP, spróbuj dołożyć link do
+	// wykrytego <nav> bezpośrednio w renderowanym HTML-u (poza panelem admina).
+	add_action( 'template_redirect', array( 'MP_Lead_Intake_Page', 'maybe_start_menu_buffer' ) );
 	// Async weryfikacja VAT w tle (kolejkowanie po utworzeniu leada + reconcile).
 	MP_Lead_Intake_Vat_Verifier::register();
 	// "1 AJAX" — endpoint (drzwi we wtyczce), który uruchamia cały pipeline.
