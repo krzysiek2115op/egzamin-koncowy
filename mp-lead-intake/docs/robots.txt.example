@@ -1,0 +1,22 @@
+# WZÓR robots.txt — wskazówki bezpieczeństwa/prywatności.
+#
+# UWAGA: wtyczka NIE nadpisuje robots.txt witryny (to należy do właściciela).
+# WordPress serwuje wirtualny robots.txt; można go modyfikować filtrem `robots_txt`
+# albo (gdy istnieje fizyczny plik w root) edytować bezpośrednio.
+#
+# robots.txt NIE jest mechanizmem bezpieczeństwa — to tylko sugestia dla botów.
+# Ochronę realizują: ABSPATH, index.php, uprawnienia serwera, nagłówki. Nie wpisuj
+# tu ścieżek, które chcesz ukryć (ujawniasz je crawlerom).
+
+User-agent: *
+# Obszary administracyjne / prywatne (poza admin-ajax, którego front potrzebuje):
+Disallow: /wp-admin/
+Allow: /wp-admin/admin-ajax.php
+Disallow: /wp-login.php
+# Katalogi robocze/tymczasowe (jeśli istnieją na tej instalacji):
+Disallow: /wp-content/uploads/private/
+Disallow: /wp-content/cache/
+Disallow: /*?s=            # wyniki wyszukiwania (oszczędza crawl budget)
+
+# Sitemap (jeśli używasz):
+Sitemap: https://[twojadomena.pl]/sitemap.xml
