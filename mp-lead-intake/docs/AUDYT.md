@@ -55,10 +55,13 @@ Po fixach: **php -l 38/38 OK**, **harness 7/7 scenariuszy + 8/8 niezmienników P
 
 ---
 
-## 3. Świadomie NIE naprawione — rekomendacje na później (decyzja użytkownika)
+## 3. Zrealizowane po audycie (kolejne iteracje)
 
-- **[WYS] Brak transakcji wokół zapisów działów 7–9.** Awaria zapisu logu (dz.8/9) po utworzeniu leada (dz.7) → osierocony, niekompletny rekord. Kod sam oznacza to jako „możliwe rozszerzenie (krok 4)". *Rekomendacja:* `START TRANSACTION`/`ROLLBACK` wokół 7–9.
-- **[ŚR] RODO: IP w logu bez zadeklarowanej anonimizacji/retencji.** Komentarz w `class-mp-db.php` obiecuje anonimizację, mechanizmu brak. *Rekomendacja:* hashowanie/skracanie IP + TTL wpisów.
+- **[WYS] Transakcyjność zapisów działów 7–9** — `MP_Pipeline::set_transactional_from(7)`: COMMIT na sukces, ROLLBACK na STOP przed logowaniem. Koniec osieroconych leadów. (commit `577f44f`)
+- **[ŚR] RODO — anonimizacja + retencja IP** — `anonymize_ip()` (truncacja) przy zapisie w loggerze/dz.8/dz.9; `purge_old_ip_addresses()` (dzienny cron, 90 dni); `anonymize_lead_ips()` (erasure on-demand). (commit `963423c`)
+
+## 4. Świadomie NIE naprawione — rekomendacje na później
+
 - **[NIS] `$wpdb->insert` bez `$format`** (dz.7/8/9, logger) — NIE SQLi (wartości przez `prepare`, klucze z kodu); ryzyko tylko typów w STRICT. Zostawione świadomie (zmienne `$data` grozi niedopasowaniem formatu).
 - **[NIS] `MP_Context::merge` bez ochrony kolizji kluczy** — harness potwierdził brak zgubień na happy-path; namespacing to większy refactor bez udowodnionej regresji.
 - **[NIS] Rate-limit: read-modify-write (nieatomowy) + klucz po `REMOTE_ADDR`** — miękki przy współbieżności; za proxy wspólny kubełek. Znane ograniczenie wzorca transientowego.
@@ -67,7 +70,7 @@ Po fixach: **php -l 38/38 OK**, **harness 7/7 scenariuszy + 8/8 niezmienników P
 
 ---
 
-## 4. Potwierdzenia bezpieczeństwa (SPRAWDZONE-OK)
+## 5. Potwierdzenia bezpieczeństwa (SPRAWDZONE-OK)
 
 - **SQLi:** wszystkie zapytania sparametryzowane (`prepare %s/%d`, `IN(...)` z `array_fill`+`absint`, `LIMIT %d`); nazwy tabel z `$wpdb->prefix` (kod), nie z wejścia.
 - **XSS:** JS wstawia odpowiedzi przez `textContent` (zero `innerHTML`); PHP przez `esc_html_e`/`esc_attr`.
