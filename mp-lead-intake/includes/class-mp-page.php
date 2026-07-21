@@ -70,6 +70,24 @@ class MP_Lead_Intake_Page {
 	}
 
 	/**
+	 * Ponownie sprawdza i odświeża OPTION_MENU_OK. Flaga ustawiana w create()
+	 * jest z natury "lepka": jeśli admin PO fakcie przypisze menu do lokalizacji
+	 * motywu (albo przełączy się na motyw, który rejestruje menu), bez tego
+	 * odświeżenia flaga zostałaby nieaktualna — fallback (bufor HTML na KAŻDEJ
+	 * stronie frontendu + ostrzeżenie w adminie) działałby dłużej niż potrzeba.
+	 * Podpięte pod 'switch_theme' i 'wp_update_nav_menu'.
+	 *
+	 * @return void
+	 */
+	public static function refresh_menu_status() {
+		$page_id = (int) get_option( self::OPTION );
+		if ( ! $page_id || ! get_post( $page_id ) ) {
+			return;
+		}
+		update_option( self::OPTION_MENU_OK, self::add_to_menus( $page_id ) ? 1 : 0 );
+	}
+
+	/**
 	 * Dokłada stronę do KAŻDEJ lokalizacji menu motywu, która ma przypisane
 	 * menu (get_nav_menu_locations()) — inaczej podstrona byłaby "niewidoczna"
 	 * dla klienta mimo poprawnego utworzenia. Idempotentne: pomija lokalizację,

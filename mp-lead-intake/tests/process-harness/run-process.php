@@ -419,6 +419,45 @@ printf(
 );
 $GLOBALS['__mp_cfg']['archived_lead'] = null;
 
+// 19) Audyt (jakość kodu + architektura): VIES rozstrzyga, ale Biała lista akurat
+//     nie odpowiada (WP_Error, brak klucza 'wl-api.mf.gov.pl' w canned responses) →
+//     company_status NIE MOŻE zostać nadpisany wartością null, jeśli poprzednio był
+//     już ustalony ('Czynny') — inaczej lead cicho traci +20 pkt scoringu na zawsze.
+$reset_async();
+$prov19 = run_pipeline( base_input( $VALID_NIP ) );
+$lid19  = (int) ( isset( $prov19['final_data']['lead_id'] ) ? $prov19['final_data']['lead_id'] : 0 );
+$GLOBALS['__mp_cfg']['http_responses'] = array(
+	'ec.europa.eu'     => array( 'response' => array( 'code' => 200 ), 'body' => json_encode( array( 'isValid' => true, 'name' => 'ACME' ) ) ),
+	'wl-api.mf.gov.pl' => array( 'response' => array( 'code' => 200 ), 'body' => json_encode( array( 'result' => array( 'subject' => array( 'statusVat' => 'Czynny' ) ) ) ) ),
+);
+MP_Lead_Intake_Vat_Verifier::run( $lid19 ); // 1. przebieg: WL OK → company_status='Czynny' utrwalony.
+$row19a = $find_lead( $lid19 );
+
+// Symulacja ponownej weryfikacji (np. po reconcile) z WL akurat niedostępnym —
+// TYLKO klucz VIES w canned responses, WL bez dopasowania → WP_Error w stubie.
+$GLOBALS['wpdb']->update(
+	MP_Lead_Intake_DB::leads_table(),
+	array( 'vat_status' => 'pending' ),
+	array( 'id' => $lid19 )
+);
+$GLOBALS['__mp_cfg']['http_responses'] = array(
+	'ec.europa.eu' => array( 'response' => array( 'code' => 200 ), 'body' => json_encode( array( 'isValid' => true, 'name' => 'ACME' ) ) ),
+);
+MP_Lead_Intake_Vat_Verifier::run( $lid19 );
+$row19b = $find_lead( $lid19 );
+$inv19  = $row19a && 'Czynny' === ( isset( $row19a['company_status'] ) ? $row19a['company_status'] : '' )
+	&& $row19b
+	&& 'Czynny' === ( isset( $row19b['company_status'] ) ? $row19b['company_status'] : '' )
+	&& (int) ( isset( $row19b['score'] ) ? $row19b['score'] : -1 ) === (int) ( isset( $row19a['score'] ) ? $row19a['score'] : -2 );
+printf(
+	"[%-4s] WL-down po VIES-checked: company_status zachowany (1.=%s, 2.=%s), score bez zmian (%d→%d)\n",
+	$inv19 ? 'PASS' : 'FAIL',
+	$row19a && isset( $row19a['company_status'] ) ? $row19a['company_status'] : '-',
+	$row19b && isset( $row19b['company_status'] ) ? $row19b['company_status'] : '-',
+	$row19a && isset( $row19a['score'] ) ? (int) $row19a['score'] : -1,
+	$row19b && isset( $row19b['score'] ) ? (int) $row19b['score'] : -1
+);
+
 /* ---------- Podsumowanie ---------- */
 
 echo "\n=== PODSUMOWANIE ===\n";

@@ -30,8 +30,14 @@ class MP_D7_Agent_Dedup extends MP_Abstract_Agent {
 	 * @return MP_Result
 	 */
 	public function run( MP_Context $context ) {
-		$nip      = (string) $context->get( 'nip', '' );
-		$existing = ( '' !== $nip ) ? MP_Lead_Intake_DB::get_leads_by_nip( $nip ) : array();
+		$nip = (string) $context->get( 'nip', '' );
+		// Reużycie wyniku działu 1.1 (już pobrał aktywne leady po tym samym,
+		// znormalizowanym NIP) zamiast powtórnego zapytania do BD-3 — audyt
+		// architektury (S-2) wykazał, że dział 1 był pobierany, ale nigdzie
+		// dalej nieużywany. NIP w kontekście jest identyczny w obu miejscach
+		// (ta sama normalizacja preg_replace('/\D+/','',...) na tym samym
+		// wejściu, dział 1 działa PRZED normalizującym działem 2).
+		$existing = (array) $context->get( 'leads', array() );
 		$dup      = ! empty( $existing );
 
 		// Aktywny lead o tym NIP = twardy duplikat (STOP przez K7.1). Zarchiwizowany
@@ -135,7 +141,10 @@ class MP_D7_Agent_Prepare extends MP_Abstract_Agent {
 			'country'              => (string) $context->get( 'country', 'PL' ),
 			'segment'              => ( '' !== trim( (string) $context->get( 'segment', '' ) ) ) ? (string) $context->get( 'segment' ) : null,
 			'client_category'      => ( '' !== trim( (string) $context->get( 'client_category', '' ) ) ) ? (string) $context->get( 'client_category' ) : null,
+			'products'             => ( '' !== trim( (string) $context->get( 'products', '' ) ) ) ? (string) $context->get( 'products' ) : null,
+			'est_volume'           => ( '' !== trim( (string) $context->get( 'est_volume', '' ) ) ) ? (string) $context->get( 'est_volume' ) : null,
 			'salesman_id'          => $salesman,
+			'salesman_assigned_at' => $salesman ? current_time( 'mysql' ) : null,
 			'score'                => $score,
 			'status'               => 'new',
 			'vat_valid'            => is_null( $vat_valid ) ? null : ( $vat_valid ? 1 : 0 ),

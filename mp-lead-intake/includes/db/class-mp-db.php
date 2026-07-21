@@ -26,7 +26,7 @@ class MP_Lead_Intake_DB {
 	 * Wersja schematu bazy. Podbijamy przy KAŻDEJ zmianie struktury tabel,
 	 * żeby mechanizm migracji wiedział, że trzeba zaktualizować bazę.
 	 */
-	const DB_VERSION = '1.2.0';
+	const DB_VERSION = '1.3.0';
 
 	/** Nazwa opcji WordPress przechowującej aktualną wersję bazy. */
 	const DB_VERSION_OPTION = 'mp_lead_intake_db_version';
@@ -120,7 +120,9 @@ class MP_Lead_Intake_DB {
 			return false;
 		}
 		$data['deleted_at'] = null;
-		$data['updated_at'] = current_time( 'mysql' );
+		// GMT (nie lokalny czas WP) — updated_at jest porównywane w SQL w reset_stuck_vat()
+		// z UTC_TIMESTAMP(); mieszanie stref dawało do ~2h błędnego okna bezczynności.
+		$data['updated_at'] = current_time( 'mysql', true );
 		if ( ! isset( $data['status'] ) || '' === $data['status'] ) {
 			$data['status'] = 'new';
 		}
@@ -251,7 +253,7 @@ class MP_Lead_Intake_DB {
 		$affected = $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			$wpdb->prepare(
 				"UPDATE $table SET vat_status = 'verifying', vat_attempts = vat_attempts + 1, updated_at = %s WHERE id = %d AND vat_status = 'pending'",
-				current_time( 'mysql' ),
+				current_time( 'mysql', true ), // GMT — spójne z reset_stuck_vat()/UTC_TIMESTAMP().
 				$id
 			)
 		);
@@ -272,7 +274,7 @@ class MP_Lead_Intake_DB {
 		if ( $id <= 0 || empty( $fields ) ) {
 			return false;
 		}
-		$fields['updated_at'] = current_time( 'mysql' );
+		$fields['updated_at'] = current_time( 'mysql', true ); // GMT — jw.
 
 		$ok = $wpdb->update( self::leads_table(), $fields, array( 'id' => $id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 
@@ -311,8 +313,11 @@ class MP_Lead_Intake_DB {
 		$minutes = max( 1, absint( $minutes ) );
 		$table   = self::leads_table();
 
+		// UTC_TIMESTAMP() (nie NOW()) — updated_at jest zapisywane w GMT (current_time('mysql', true)
+		// w claim_vat_verification()/update_vat_result()/reactivate_lead()); NOW() zwraca czas
+		// sesji MySQL, który zwykle NIE jest zsynchronizowany ze strefą WordPressa.
 		$rows = $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$wpdb->prepare( "UPDATE $table SET vat_status = 'pending' WHERE vat_status = 'verifying' AND updated_at < DATE_SUB( NOW(), INTERVAL %d MINUTE )", $minutes )
+			$wpdb->prepare( "UPDATE $table SET vat_status = 'pending' WHERE vat_status = 'verifying' AND updated_at < DATE_SUB( UTC_TIMESTAMP(), INTERVAL %d MINUTE )", $minutes )
 		);
 
 		return (int) $rows;
@@ -440,7 +445,10 @@ class MP_Lead_Intake_DB {
 			country char(2) DEFAULT NULL,
 			segment varchar(100) DEFAULT NULL,
 			client_category varchar(50) DEFAULT NULL,
+			products text DEFAULT NULL,
+			est_volume varchar(100) DEFAULT NULL,
 			salesman_id bigint(20) unsigned DEFAULT NULL,
+			salesman_assigned_at datetime DEFAULT NULL,
 			score int(11) NOT NULL DEFAULT 0,
 			status varchar(30) NOT NULL DEFAULT 'new',
 			vat_valid tinyint(1) DEFAULT NULL,

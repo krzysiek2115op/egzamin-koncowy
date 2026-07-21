@@ -23,6 +23,43 @@ class MP_Lead_Intake_Form {
 	const SHORTCODE = 'mp_lead_intake_form';
 
 	/**
+	 * Kraje UE (ISO 3166-1 alpha-2) do wyboru w formularzu — VIES obsługuje
+	 * wyłącznie kraje UE. Wyjątek: Grecja jako 'EL' (nie ISO 'GR') — REST API
+	 * Komisji Europejskiej (VIES) przyjmuje ten kod krajowy dla Grecji zamiast
+	 * ISO 'GR'; ta jedna rozbieżność NIE jest opisana w docs/dzial-03/vies-rest-api.md
+	 * (pobranym wcześniej fragmencie), więc nie cytujemy jej jako stamtąd.
+	 */
+	const COUNTRIES = array(
+		'PL' => 'Polska',
+		'AT' => 'Austria',
+		'BE' => 'Belgia',
+		'BG' => 'Bułgaria',
+		'CY' => 'Cypr',
+		'CZ' => 'Czechy',
+		'DE' => 'Niemcy',
+		'DK' => 'Dania',
+		'EE' => 'Estonia',
+		'EL' => 'Grecja',
+		'ES' => 'Hiszpania',
+		'FI' => 'Finlandia',
+		'FR' => 'Francja',
+		'HR' => 'Chorwacja',
+		'HU' => 'Węgry',
+		'IE' => 'Irlandia',
+		'IT' => 'Włochy',
+		'LT' => 'Litwa',
+		'LU' => 'Luksemburg',
+		'LV' => 'Łotwa',
+		'MT' => 'Malta',
+		'NL' => 'Holandia',
+		'PT' => 'Portugalia',
+		'RO' => 'Rumunia',
+		'SE' => 'Szwecja',
+		'SI' => 'Słowenia',
+		'SK' => 'Słowacja',
+	);
+
+	/**
 	 * Rejestruje shortcode i rejestrację assetów.
 	 *
 	 * @return void
@@ -94,6 +131,22 @@ class MP_Lead_Intake_Form {
 			<div class="mp-field">
 				<label for="mp-segment"><?php esc_html_e( 'Segment / branża', 'mp-lead-intake' ); ?></label>
 				<input type="text" id="mp-segment" name="segment">
+			</div>
+			<div class="mp-field">
+				<label for="mp-country"><?php esc_html_e( 'Kraj', 'mp-lead-intake' ); ?></label>
+				<select id="mp-country" name="country">
+					<?php foreach ( self::COUNTRIES as $code => $label ) : ?>
+						<option value="<?php echo esc_attr( $code ); ?>"<?php echo ( 'PL' === $code ) ? ' selected' : ''; ?>><?php echo esc_html( $label ); ?> (<?php echo esc_html( $code ); ?>)</option>
+					<?php endforeach; ?>
+				</select>
+			</div>
+			<div class="mp-field">
+				<label for="mp-products"><?php esc_html_e( 'Produkty / zakres zainteresowania', 'mp-lead-intake' ); ?></label>
+				<textarea id="mp-products" name="products" rows="3"></textarea>
+			</div>
+			<div class="mp-field">
+				<label for="mp-volume"><?php esc_html_e( 'Przewidywany wolumen', 'mp-lead-intake' ); ?></label>
+				<input type="text" id="mp-volume" name="est_volume" placeholder="<?php echo esc_attr__( 'np. 100 szt./mies.', 'mp-lead-intake' ); ?>">
 			</div>
 
 			<label class="mp-consent">

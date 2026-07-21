@@ -140,9 +140,15 @@ class MP_Lead_Intake_Vat_Verifier {
 		$vies = MP_D3_Agent_Vat::resolve_vies( $country, $nip );
 		$wl   = MP_D3_Agent_Company_Status::resolve_wl( $nip );
 
-		$vat_valid      = array_key_exists( 'vat_valid', $vies ) ? $vies['vat_valid'] : null;
-		$vat_checked    = ! empty( $vies['vat_checked'] );
-		$company_status = array_key_exists( 'company_status', $wl ) ? $wl['company_status'] : null;
+		$vat_valid   = array_key_exists( 'vat_valid', $vies ) ? $vies['vat_valid'] : null;
+		$vat_checked = ! empty( $vies['vat_checked'] );
+		$wl_checked  = ! empty( $wl['company_status_checked'] );
+		// Gdy Biała lista akurat nie odpowie, NIE nadpisujemy wcześniej ustalonego
+		// statusu (i jego wkładu w scoring) wartością null — audyt wykazał, że to
+		// prowadziło do cichej, trwałej utraty +20 pkt przy VIES-up/WL-down.
+		$company_status = $wl_checked
+			? ( array_key_exists( 'company_status', $wl ) ? $wl['company_status'] : null )
+			: ( isset( $lead['company_status'] ) ? $lead['company_status'] : null );
 		$attempts       = (int) ( isset( $lead['vat_attempts'] ) ? $lead['vat_attempts'] : 0 );
 
 		// Re-scoring TYM SAMYM scorerem co dział 7.2 (sygnały z wiersza leada + świeży VAT).

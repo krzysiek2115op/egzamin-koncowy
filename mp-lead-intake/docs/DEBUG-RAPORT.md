@@ -249,3 +249,63 @@ Zero nowych błędów krytycznych/wysokich. System **stabilny, bezpieczny, przet
 to **synchroniczny dział 3** — reszta to quick-winy i porządki. Rekomendowana kolejność: P-1 → P2 → P3.
 
 *Debug: analiza statyczna + harness (11 niezmienników) + benchmark (DB/pamięć/czas/JSON/edge). Bez subagentów.*
+
+---
+
+## 16. Audyt ostateczny przed produkcją (2026-07-22) — 6 równoległych agentów Opus
+
+Po wdrożeniu P-1 (async dział 3, poprzednia sesja) i zmian menu/SEO/responsywności (ta sesja):
+6 niezależnych agentów, każdy z inną soczewką na cały plugin 1 (kod produkcyjny + `docs/`).
+
+| Soczewka | Ocena | Zmiana vs §13 |
+|---|---|---|
+| Bezpieczeństwo | 90/100 | bez zmian — zero KRYTYCZNYCH/WYSOKICH/ŚREDNICH |
+| Architektura pipeline | 86/100 | bez zmian — struktura 11×(Agent+Krytyk)+Bramka NIENARUSZONA |
+| Jakość kodu | 86/100 | ↓4 — nowe znaleziska w kodzie async z tej sesji (naprawione, patrz niżej) |
+| Wydajność | **86/100** | **↑16 z 70** — fix async VAT (P-1) potwierdzony: request-path 0 HTTP, ~16 s → ~0.1 ms |
+| Dokumentacja / Golden Rule #2 | 70/100 | nowy wymiar — wykryto parafrazy oznaczone jako "skopiowane wiernie" |
+| Kryteria odbioru / zakres 1↔2↔3 | 78/100 | nowy wymiar — brak scope-creep do plugin 2/3, ale KROK 1 niekompletny |
+
+### Naprawione w tej sesji (potwierdzone niezależnie przez ≥1 agenta, zweryfikowane harnessem)
+1. **Worker w tle nadpisywał `company_status`/scoring wartością `null`**, gdy VIES rozstrzygnął a Biała
+   lista akurat nie odpowiedziała — cicha, trwała utrata +20 pkt. Fix: `MP_Lead_Intake_Vat_Verifier::run()`
+   zachowuje poprzednio ustaloną wartość, gdy `company_status_checked=false`. Niezmiennik harnessu #19.
+2. **Niespójność stref czasowych w `reset_stuck_vat()`** — `updated_at` zapisywane `current_time('mysql')`
+   (lokalny czas WP), porównywane w SQL z `NOW()` (czas serwera MySQL, zwykle UTC) → do ~2h błędnego okna,
+   w którym siatka bezpieczeństwa reconcile nie odblokowywała zawieszonych weryfikacji. Fix: GMT spójnie
+   (`current_time('mysql', true)` + `UTC_TIMESTAMP()` w SQL).
+3. **"Lepka" flaga `OPTION_MENU_OK`** — nie odświeżała się, gdy admin później przypisał menu motywu;
+   fallback (bufor HTML na każdej stronie frontendu) działał dłużej niż potrzeba. Fix: `refresh_menu_status()`
+   podpięte pod `switch_theme`/`wp_update_nav_menu`.
+4. **Dział 1 "martwe odczyty"** (znany dług z poprzedniego audytu, §8/A-1) — dział 7.1 (dedup) teraz
+   reużywa `leads` z kontekstu (dział 1.1) zamiast osobnego zapytania do BD-3. NIP w obu miejscach
+   normalizowany identycznie (ta sama funkcja, to samo źródłowe pole), więc dane pozostają spójne.
+5. **KROK 1 niekompletny** (formularz zbierał tylko dane firmy, bez rynku/produktów/wolumenu ze zlecenia;
+   kraj nigdy nie docierał z formularza, więc VIES był faktycznie jednokrajowy) — dodano pola kraj
+   (select, 27 krajów UE), produkty, wolumen; whitelist AJAX rozszerzona; BD 1.2.0 → **1.3.0**
+   (`products`, `est_volume`, `salesman_id` + nowe `salesman_assigned_at`).
+6. **Golden Rule #2** — `docs/dzial-09/zrodla-wordpress.md` i `docs/dzial-11/zrodla-wordpress.md` (jedyne
+   pliki z ZERO dosłownych cytatów mimo nagłówka "skopiowane wiernie") przepisane na rzeczywiste cytaty
+   z developer.wordpress.org. `docs/dzial-03/nip-algorytm-sumy-kontrolnej.md` — dodano źródła i datę
+   (z jawną uwagą: brak jednego kanonicznego URL-a rządowego dla tego wzoru — dwa niezależne, zweryfikowane
+   źródła publiczne potwierdzają identyczny algorytm).
+
+### Świadomie NIE naprawione teraz (udokumentowane, do decyzji/kolejnej iteracji)
+- **9 pozostałych plików `docs/dzial-NN/*.md`** ma nagłówek "skopiowane wiernie", ale treść to parafraza
+  z pojedynczymi cytatami, nie pełny wierny fragment (dzial-01 ×2, dzial-02 ×3, dzial-03/wp_remote_get,
+  dzial-05 ×2, dzial-06/current_time, dzial-07/dzial-08 wpdb-insert, dzial-10/wp_json_encode) — wzorzec
+  do naśladowania: `docs/dzial-03/wordpress-wp-cron.md`. Wymaga ~9 kolejnych WebFetch + przepisania.
+- **Hook `mp_lead_created` odpala się przed COMMIT** transakcji dz.7-11 — nieszkodliwe dziś (brak
+  zewnętrznych subskrybentów), istotne dla integracji plugin 2/3 w przyszłości. Wymaga przeniesienia
+  emisji poza transakcję w `MP_Pipeline::run()` — świadomie odłożone, bo dotyka chronionej struktury pipeline.
+- **WP-Cron pojedyncze zdarzenia puchną w autoloadowanej opcji `cron` przy high-load** — znany,
+  udokumentowany trade-off natywnego WP-Cron (bez Action Scheduler, celowo — to domena pluginu 2).
+- Drobne NISKIE: martwa `anonymize_lead_ips()` (scaffolding pod przyszłe żądanie RODO), ryzyko podwójnego
+  `<meta name="description">` przy realnej wtyczce SEO (filtr `mp_lead_intake_seo_meta_description` już
+  pozwala wyłączyć), regexy wstrzykiwania menu jako "best-effort" (świadomie, admin i tak dostaje notice).
+
+### Zweryfikowano po wszystkich fixach
+`php -l` + PHPCS czyste na wszystkich zmienionych plikach; harness **19/19 PASS** (18 poprzednich +
+nowy niezmiennik #19 chroniący przed regresją pkt. 1 powyżej); zero zmian w strukturze pipeline
+(11 działów, pary agent-krytyk, bramki jakości — nienaruszone, potwierdzone niezależnie przez agenta
+architektury).

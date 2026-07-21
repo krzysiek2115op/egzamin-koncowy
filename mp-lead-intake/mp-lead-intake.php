@@ -3,7 +3,7 @@
  * Plugin Name:       MP Lead Intake
  * Plugin URI:        https://github.com/krzysiek2115op/egzamin-koncowy
  * Description:       Przyjęcie i kwalifikacja lead-a z formularza ofertowego WordPress. Pierwszy element procesu formularz → oferta.
- * Version:           1.1.0
+ * Version:           1.2.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            krzysiek2115op
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // --- Stałe wtyczki ---
-define( 'MP_LEAD_INTAKE_VERSION', '1.1.0' );
+define( 'MP_LEAD_INTAKE_VERSION', '1.2.0' );
 define( 'MP_LEAD_INTAKE_FILE', __FILE__ );
 define( 'MP_LEAD_INTAKE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MP_LEAD_INTAKE_URL', plugin_dir_url( __FILE__ ) );
@@ -95,6 +95,10 @@ function mp_lead_intake_bootstrap() {
 	// Fallback: gdy motyw nie rejestruje menu WP, spróbuj dołożyć link do
 	// wykrytego <nav> bezpośrednio w renderowanym HTML-u (poza panelem admina).
 	add_action( 'template_redirect', array( 'MP_Lead_Intake_Page', 'maybe_start_menu_buffer' ) );
+	// Odśwież status menu, gdy admin zmieni motyw lub przypisze/zmieni menu —
+	// inaczej flaga OPTION_MENU_OK zostaje "lepka" (audyt wydajności, Ś-1).
+	add_action( 'switch_theme', array( 'MP_Lead_Intake_Page', 'refresh_menu_status' ) );
+	add_action( 'wp_update_nav_menu', array( 'MP_Lead_Intake_Page', 'refresh_menu_status' ) );
 	// SEO: meta description na pod-stronie formularza (motyw może nie mieć własnej).
 	add_action( 'wp_head', array( 'MP_Lead_Intake_Page', 'maybe_meta_description' ) );
 	// Async weryfikacja VAT w tle (kolejkowanie po utworzeniu leada + reconcile).

@@ -53,7 +53,9 @@
 
 .mp-lead-form input[type="text"],
 .mp-lead-form input[type="email"],
-.mp-lead-form input[type="tel"] {
+.mp-lead-form input[type="tel"],
+.mp-lead-form select,
+.mp-lead-form textarea {
 	width: 100%;
 	padding: 0.6rem 0.75rem;
 	border: 1px solid currentColor;
@@ -63,6 +65,10 @@
 	font: inherit;
 	box-sizing: border-box;
 	min-height: 44px;
+}
+
+.mp-lead-form textarea {
+	resize: vertical;
 }
 
 .mp-lead-form .mp-consent {

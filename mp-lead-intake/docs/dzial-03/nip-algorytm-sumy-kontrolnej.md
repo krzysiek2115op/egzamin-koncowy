@@ -1,5 +1,13 @@
 <!--
-ŹRÓDŁO OFICJALNE — algorytm sumy kontrolnej NIP (standard krajowy).
+ŹRÓDŁA — algorytm sumy kontrolnej NIP (standard krajowy, powszechnie stosowany).
+- https://pl.wikibooks.org/wiki/Kody_%C5%BAr%C3%B3d%C5%82owe/Implementacja_NIP (pobrano 2026-07-22)
+- http://www.algorytm.org/numery-identyfikacyjne/nip.html (zweryfikowano 2026-07-22, opisuje ten sam algorytm)
+Uwaga uczciwości (Golden Rule #2): nie znaleziono jednego kanonicznego URL-a rządowego
+publikującego wprost ten wzór (podstawa prawna to struktura NIP wg przepisów o ewidencji
+podatników — Ministerstwo Finansów/KAS nie publikuje wzoru w formie jednej strony referencyjnej
+analogicznej do developer.wordpress.org). Powyższe źródła niezależnie potwierdzają IDENTYCZNY
+algorytm (wagi, modulo, regułę ważności) — cytowane jako zweryfikowane, publicznie dostępne
+opisy powszechnie stosowanego standardu, nie jako oficjalny akt prawny.
 Dotyczy: Dział 3 — agent 3.1 (weryfikacja NIP offline).
 -->
 
