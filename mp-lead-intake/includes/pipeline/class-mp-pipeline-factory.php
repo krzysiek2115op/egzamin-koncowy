@@ -37,8 +37,9 @@ class MP_Pipeline_Factory {
 		$pipeline->add_department( MP_Department_01::build() );
 		$pipeline->add_department( MP_Department_02::build() );
 		$pipeline->add_department( MP_Department_03::build() );
+		$pipeline->add_department( MP_Department_04::build() );
 
-		// Działy 4–11 — na razie zaślepki (kolejne kroki 3).
+		// Działy 5–11 — na razie zaślepki (kolejne kroki 3).
 		foreach ( self::definitions() as $def ) {
 			$pairs = array();
 
@@ -81,17 +82,6 @@ class MP_Pipeline_Factory {
 	 */
 	private static function definitions() {
 		return array(
-			array(
-				'number'      => 4,
-				'key'         => 'country-segment',
-				'label'       => 'Przypisanie kraju i segmentu',
-				'description' => 'Automatyczne lub ręczne przypisanie kraju, segmentu i kategorii klienta.',
-				'agents'      => array(
-					array( 'id' => '4.1', 'label' => 'Ustala kraj', 'purpose' => 'Kraj na podstawie NIP/VAT/danych' ),
-					array( 'id' => '4.2', 'label' => 'Przypisuje segment', 'purpose' => 'Segment wg reguł (słownik branż)' ),
-					array( 'id' => '4.3', 'label' => 'Dobiera kategorię klienta', 'purpose' => 'Kategoria (np. B2B) wg reguł' ),
-				),
-			),
 			array(
 				'number'      => 5,
 				'key'         => 'secure-form',
