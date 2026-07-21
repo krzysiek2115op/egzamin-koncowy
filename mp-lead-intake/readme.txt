@@ -4,7 +4,7 @@ Tags: leads, woocommerce, oferty, formularz
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 0.4.0
+Stable tag: 0.4.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,12 @@ Pierwsza z trzech wtyczek procesu "formularz → oferta". Odpowiada za odbiór
 zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej bazy.
 
 == Changelog ==
+
+= 0.4.1 =
+* docs/ przebudowane wg zasady: docs = FAKTYCZNA oficjalna dokumentacja źródeł działu
+  (pobrane wiernie z URL + data), którą "czytają" agenci/krytycy. Zadania agentów są w kodzie.
+* Dział 1: docs/dzial-01/ = oficjalna dokumentacja WordPress wpdb (get_results, prepare).
+* Usunięto błędny plik opisujący zadania (dzial-01-pobranie-danych.md).
 
 = 0.4.0 =
 * Krok 3 — Dział 1 (Pobranie danych z BD-3): realni agenci 1.1/1.2/1.3 + krytycy + QA.

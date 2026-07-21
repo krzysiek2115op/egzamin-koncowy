@@ -12,12 +12,12 @@
  *  - QA Agent 1             (kontrola kompletności działu)
  *  - MP_Department_01       (budowniczy działu)
  *
- * Dokumentacja: docs/dzial-01-pobranie-danych.md
- *
- * Źródła (oficjalne) — Golden Rule #2:
- *  - BD-3 (źródło prawdy): wp_mp_leads / wp_mp_offers / wp_mp_activity_log
- *  - WordPress wpdb: https://developer.wordpress.org/reference/classes/wpdb/
- * Agenci czytają wyłącznie z BD-3 przez wpdb — bez danych zmyślonych/wtórnych.
+ * Źródła (oficjalne) — Golden Rule #2. Dokumentacja, którą "czytają" agenci/krytycy:
+ *  - docs/dzial-01/wordpress-wpdb-get_results.md
+ *  - docs/dzial-01/wordpress-wpdb-prepare.md
+ * Dane wyłącznie z BD-3 (wp_mp_leads / wp_mp_offers / wp_mp_activity_log) przez wpdb —
+ * bez danych zmyślonych/wtórnych. ZADANIE każdego agenta/krytyka jest przypisane do
+ * niego (patrz label/opis i metoda run() w klasach niżej), nie w dokumentacji.
  *
  * @package MP_Lead_Intake
  */
