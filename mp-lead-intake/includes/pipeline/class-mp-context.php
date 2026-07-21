@@ -49,12 +49,12 @@ class MP_Context {
 	/**
 	 * Pobiera wartość.
 	 *
-	 * @param string $key     Klucz.
-	 * @param mixed  $default Domyślna wartość.
+	 * @param string $key      Klucz.
+	 * @param mixed  $fallback Domyślna wartość.
 	 * @return mixed
 	 */
-	public function get( $key, $default = null ) {
-		return array_key_exists( $key, $this->data ) ? $this->data[ $key ] : $default;
+	public function get( $key, $fallback = null ) {
+		return array_key_exists( $key, $this->data ) ? $this->data[ $key ] : $fallback;
 	}
 
 	/**

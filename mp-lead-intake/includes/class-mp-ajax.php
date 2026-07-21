@@ -41,7 +41,18 @@ class MP_Lead_Intake_Ajax {
 	 * @return void
 	 */
 	public static function handle() {
-		// Dane wejściowe (nonce/antyspam/rate-limit weryfikuje pipeline: działy 5 i 2).
+		// CSRF: weryfikacja nonce na wejściu (fail-fast). Dział 5 dodatkowo odnotowuje CSRF w pipeline.
+		if ( ! check_ajax_referer( 'mp_lead_intake', 'mp_nonce', false ) ) {
+			wp_send_json_error(
+				array(
+					'code'    => 'invalid_nonce',
+					'message' => 'Nieprawidłowy token bezpieczeństwa. Odśwież stronę i spróbuj ponownie.',
+				),
+				403
+			);
+		}
+
+		// Dane wejściowe (antyspam/rate-limit/walidacja realizuje pipeline: działy 5 i 2).
 		$input = array(
 			'company_name'      => isset( $_POST['company_name'] ) ? sanitize_text_field( wp_unslash( $_POST['company_name'] ) ) : '',
 			'nip'               => isset( $_POST['nip'] ) ? sanitize_text_field( wp_unslash( $_POST['nip'] ) ) : '',

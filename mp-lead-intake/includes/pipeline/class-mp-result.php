@@ -29,7 +29,7 @@ class MP_Result {
 	protected $code;
 
 	/**
-	 * @param bool   $ok     Sukces?
+	 * @param bool   $ok     Czy operacja się powiodła.
 	 * @param array  $data   Dane.
 	 * @param array  $errors Błędy.
 	 * @param string $code   Kod.

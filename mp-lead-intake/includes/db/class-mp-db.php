@@ -61,10 +61,7 @@ class MP_Lead_Intake_DB {
 		return $wpdb->prefix . 'mp_activity_log';
 	}
 
-	/*
-	--------------------------------------------------------------------- *
-	 *  Odczyt danych (używane m.in. przez Dział 1 pipeline)
-	 * --------------------------------------------------------------------- */
+	// --- Odczyt danych (używane m.in. przez Dział 1 pipeline). ---
 
 	/**
 	 * Zwraca aktywne (niezarchiwizowane) leady o podanym NIP.
@@ -135,10 +132,7 @@ class MP_Lead_Intake_DB {
 		return is_array( $rows ) ? $rows : array();
 	}
 
-	/*
-	--------------------------------------------------------------------- *
-	 *  Zapis danych (używane m.in. przez Działy 7, 8, 9)
-	 * --------------------------------------------------------------------- */
+	// --- Zapis danych (używane m.in. przez Działy 7, 8, 9). ---
 
 	/**
 	 * Wstawia leada do wp_mp_leads.

@@ -1,0 +1,92 @@
+<?xml version="1.0"?>
+<ruleset name="Egzamin koncowy - MP plugins">
+	<description>
+		Standardy kodowania projektu (baza: WordPress Coding Standards).
+		Część reguł świadomie rozluźniono tam, gdzie zderzają się z decyzjami
+		architektonicznymi projektu — każda z uzasadnieniem poniżej.
+	</description>
+
+	<!-- Co skanujemy -->
+	<file>mp-lead-intake</file>
+	<arg name="extensions" value="php"/>
+	<arg name="basepath" value="."/>
+	<arg value="ps"/><!-- p = progress, s = pokaz kody sniffow -->
+
+	<!-- Standard bazowy: pełny WordPress (Core + Docs + Extra) -->
+	<rule ref="WordPress"/>
+
+	<!-- Minimalna wersja WP i PHP dla kontroli zgodności -->
+	<config name="minimum_wp_version" value="6.0"/>
+
+	<!-- Text domain wtyczki (i18n) -->
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="mp-lead-intake"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!--
+		Prefiks globalny: klasy MP_*, funkcje mp_lead_intake_*. WPCS wymaga prefiksu
+		>= 3 znaki; nasz MP_ ma 2. Pełne przemianowanie (~72 klasy) należy do opcji
+		"pełna zgodność", której świadomie nie wybraliśmy — prefiks MP_ jest spójny
+		i unikalny w projekcie, więc tę regułę rozluźniamy.
+	-->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<severity>0</severity>
+	</rule>
+
+	<!--
+		=== Reguły świadomie rozluźnione (decyzja projektowa) ===
+	-->
+
+	<!-- Konwencja projektu "1 plik = 1 dział": kilka powiązanych klas w pliku działu -->
+	<rule ref="Generic.Files.OneObjectStructurePerFile">
+		<severity>0</severity>
+	</rule>
+	<!-- Nazwy plików nie muszą odpowiadać jednej klasie (wieloklasowe pliki działów) -->
+	<rule ref="WordPress.Files.FileName">
+		<severity>0</severity>
+	</rule>
+
+	<!-- Krótki opis w docblocku nie jest wymagany dla prostych metod (run/getterów) -->
+	<rule ref="Generic.Commenting.DocComment.MissingShort">
+		<severity>0</severity>
+	</rule>
+	<!-- Trywialne metody (np. konstruktory delegujące) nie wymagają docblocka -->
+	<rule ref="Squiz.Commenting.FunctionComment.Missing">
+		<severity>0</severity>
+	</rule>
+	<!-- Pliki-zaślepki (index.php "Silence is golden") bez pełnego docblocka pliku -->
+	<rule ref="Squiz.Commenting.FileComment.Missing">
+		<severity>0</severity>
+	</rule>
+	<rule ref="Squiz.Commenting.FileComment.WrongStyle">
+		<severity>0</severity>
+	</rule>
+
+	<!--
+		=== Zapytania do bazy — tylko w warstwie DB/pipeline ===
+		To wtyczka z WŁASNYMI tabelami (BD-3). Zapytania bezpośrednie są zamierzone;
+		wartości użytkownika idą przez $wpdb->prepare()/placeholdery, a interpolowane
+		są wyłącznie nazwy tabel pochodzące z kodu. Cache obiektowy nie ma tu
+		zastosowania (dane transakcyjne). Dlatego wyłączamy te sniffy w tych ścieżkach.
+	-->
+	<rule ref="WordPress.DB.DirectDatabaseQuery">
+		<exclude-pattern>*/includes/db/*</exclude-pattern>
+		<exclude-pattern>*/includes/pipeline/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.DB.PreparedSQL">
+		<exclude-pattern>*/includes/db/*</exclude-pattern>
+		<exclude-pattern>*/includes/pipeline/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.DB.PreparedSQLPlaceholders">
+		<exclude-pattern>*/includes/db/*</exclude-pattern>
+		<exclude-pattern>*/includes/pipeline/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.DB.SlowDBQuery">
+		<exclude-pattern>*/includes/db/*</exclude-pattern>
+		<exclude-pattern>*/includes/pipeline/*</exclude-pattern>
+	</rule>
+</ruleset>
