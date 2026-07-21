@@ -38,8 +38,9 @@ class MP_Pipeline_Factory {
 		$pipeline->add_department( MP_Department_02::build() );
 		$pipeline->add_department( MP_Department_03::build() );
 		$pipeline->add_department( MP_Department_04::build() );
+		$pipeline->add_department( MP_Department_05::build() );
 
-		// Działy 5–11 — na razie zaślepki (kolejne kroki 3).
+		// Działy 6–11 — na razie zaślepki (kolejne kroki 3).
 		foreach ( self::definitions() as $def ) {
 			$pairs = array();
 
@@ -82,17 +83,6 @@ class MP_Pipeline_Factory {
 	 */
 	private static function definitions() {
 		return array(
-			array(
-				'number'      => 5,
-				'key'         => 'secure-form',
-				'label'       => 'Zabezpieczenie formularza',
-				'description' => 'Zabezpieczenia formularza przed nadużyciami.',
-				'agents'      => array(
-					array( 'id' => '5.1', 'label' => 'Antyspam', 'purpose' => 'Honeypot / heurystyki antyspamowe' ),
-					array( 'id' => '5.2', 'label' => 'Sprawdza CSRF', 'purpose' => 'Weryfikacja nonce WordPress' ),
-					array( 'id' => '5.3', 'label' => 'Rate limit', 'purpose' => 'Ograniczenie liczby zgłoszeń w czasie' ),
-				),
-			),
 			array(
 				'number'      => 6,
 				'key'         => 'consents',
