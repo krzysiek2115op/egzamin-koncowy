@@ -46,6 +46,12 @@ function mp_lead_intake_activate() {
 	MP_Lead_Intake_DB::install();
 	MP_Lead_Intake_Roles::create();
 	MP_Lead_Intake_Page::create();
+
+	// Retencja RODO: dzienne czyszczenie adresów IP z logu (jeśli nie zaplanowane).
+	if ( ! wp_next_scheduled( 'mp_lead_intake_ip_retention' ) ) {
+		wp_schedule_event( time() + DAY_IN_SECONDS, 'daily', 'mp_lead_intake_ip_retention' );
+	}
+
 	flush_rewrite_rules();
 }
 register_activation_hook( __FILE__, 'mp_lead_intake_activate' );
@@ -53,11 +59,15 @@ register_activation_hook( __FILE__, 'mp_lead_intake_activate' );
 // Aktualizacja schematu bazy po podbiciu wersji (bez potrzeby reaktywacji).
 add_action( 'admin_init', array( 'MP_Lead_Intake_DB', 'maybe_upgrade' ) );
 
+// Retencja RODO: cron usuwa adresy IP z logu starsze niż okres retencji (90 dni).
+add_action( 'mp_lead_intake_ip_retention', array( 'MP_Lead_Intake_DB', 'purge_old_ip_addresses' ) );
+
 /**
  * Deaktywacja wtyczki (bez usuwania danych — to robi uninstall.php).
  */
 function mp_lead_intake_deactivate() {
-	// TODO(etap: cron/kolejki): wyczyścić zaplanowane zadania, jeśli będą.
+	// Sprzątanie zaplanowanych zadań (retencja RODO).
+	wp_clear_scheduled_hook( 'mp_lead_intake_ip_retention' );
 }
 register_deactivation_hook( __FILE__, 'mp_lead_intake_deactivate' );
 

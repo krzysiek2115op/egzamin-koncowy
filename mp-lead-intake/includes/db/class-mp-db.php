@@ -31,6 +31,9 @@ class MP_Lead_Intake_DB {
 	/** Nazwa opcji WordPress przechowującej aktualną wersję bazy. */
 	const DB_VERSION_OPTION = 'mp_lead_intake_db_version';
 
+	/** Retencja pełnego adresu IP w logu (dni). Po tym okresie IP jest usuwane (RODO). */
+	const IP_RETENTION_DAYS = 90;
+
 	/**
 	 * Nazwa tabeli leadów (z prefiksem instalacji WP, np. wp_mp_leads).
 	 *
@@ -202,6 +205,83 @@ class MP_Lead_Intake_DB {
 		global $wpdb;
 		$ok = $wpdb->insert( self::activity_log_table(), $data ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		return $ok ? (int) $wpdb->insert_id : false;
+	}
+
+	// --- RODO: anonimizacja i retencja adresów IP (dane osobowe). ---
+
+	/**
+	 * Anonimizuje adres IP (RODO / privacy by design): obcina część hosta,
+	 * zostawiając tylko sieć. IPv4 → zerujemy ostatni oktet (203.0.113.55 →
+	 * 203.0.113.0); IPv6 → zostają pierwsze 3 hextety (48 bitów). Zachowuje
+	 * wartość do analizy nadużyć (podsieć), minimalizując dane. Wartość
+	 * niepoprawna → pusty string.
+	 *
+	 * @param string $ip Adres IP.
+	 * @return string Adres zanonimizowany ('' gdy niepoprawny).
+	 */
+	public static function anonymize_ip( $ip ) {
+		$ip = trim( (string) $ip );
+		if ( '' === $ip ) {
+			return '';
+		}
+		if ( filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 ) ) {
+			$parts    = explode( '.', $ip );
+			$parts[3] = '0';
+			return implode( '.', $parts );
+		}
+		if ( filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6 ) ) {
+			$packed = inet_pton( $ip );
+			if ( false !== $packed ) {
+				$out = inet_ntop( substr( $packed, 0, 6 ) . str_repeat( "\0", 10 ) );
+				if ( false !== $out ) {
+					return $out;
+				}
+			}
+			return '';
+		}
+		return '';
+	}
+
+	/**
+	 * Retencja RODO: usuwa (NULL-uje) adresy IP w logu starsze niż $days dni.
+	 * Log audytowy pozostaje — znika tylko dana osobowa (IP). Uruchamiane cyklicznie
+	 * (dzienny cron mp_lead_intake_ip_retention).
+	 *
+	 * @param int $days Okres retencji w dniach.
+	 * @return int Liczba zaktualizowanych wierszy.
+	 */
+	public static function purge_old_ip_addresses( $days = self::IP_RETENTION_DAYS ) {
+		global $wpdb;
+		$table = self::activity_log_table();
+		$days  = max( 1, absint( $days ) );
+
+		$rows = $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->prepare( "UPDATE $table SET ip_address = NULL WHERE ip_address IS NOT NULL AND created_at < DATE_SUB( NOW(), INTERVAL %d DAY )", $days )
+		);
+
+		return (int) $rows;
+	}
+
+	/**
+	 * Anonimizuje wpisy logu powiązane z leadem — żądanie RODO „prawo do bycia
+	 * zapomnianym": usuwa IP z całej historii aktywności danego leada.
+	 *
+	 * @param int $lead_id Identyfikator leada.
+	 * @return int Liczba zaktualizowanych wierszy.
+	 */
+	public static function anonymize_lead_ips( $lead_id ) {
+		global $wpdb;
+		$lead_id = absint( $lead_id );
+		if ( $lead_id <= 0 ) {
+			return 0;
+		}
+		$table = self::activity_log_table();
+
+		$rows = $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->prepare( "UPDATE $table SET ip_address = NULL WHERE lead_id = %d", $lead_id )
+		);
+
+		return (int) $rows;
 	}
 
 	/**

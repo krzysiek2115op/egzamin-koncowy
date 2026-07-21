@@ -83,7 +83,7 @@ class MP_D9_Agent_Persist extends MP_Abstract_Agent {
 				'action'      => 'process_started',
 				'description' => 'Rozpoczęto proces obsługi leada',
 				'user_id'     => get_current_user_id() ? get_current_user_id() : null,
-				'ip_address'  => isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : null,
+				'ip_address'  => isset( $_SERVER['REMOTE_ADDR'] ) ? MP_Lead_Intake_DB::anonymize_ip( sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) ) : null,
 				'meta_json'   => wp_json_encode(
 					array(
 						'process_id' => $context->get( 'process_id' ),

@@ -60,7 +60,7 @@ class MP_D8_Agent_Meta extends MP_Abstract_Agent {
 		$data = (array) $context->get( 'activity_data', array() );
 
 		$data['user_id']    = get_current_user_id() ? get_current_user_id() : null;
-		$data['ip_address'] = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : null;
+		$data['ip_address'] = isset( $_SERVER['REMOTE_ADDR'] ) ? MP_Lead_Intake_DB::anonymize_ip( sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) ) : null;
 		$data['meta_json']  = wp_json_encode(
 			array(
 				'score'          => $context->get( 'score' ),

@@ -260,11 +260,18 @@ $commit = run_pipeline( base_input( $VALID_NIP ) );
 $inv10  = $commit['ok'] && 'COMMIT' === $GLOBALS['wpdb']->last_tx;
 printf( "[%-4s] Transakcja: happy-path COMMIT (last_tx=%s)\n", $inv10 ? 'PASS' : 'FAIL', $GLOBALS['wpdb']->last_tx );
 
+// 11) RODO: anonymize_ip() obcina host (IPv4 ostatni oktet, IPv6 → 3 hextety, śmieci → '').
+$a4    = MP_Lead_Intake_DB::anonymize_ip( '203.0.113.55' );
+$a6    = MP_Lead_Intake_DB::anonymize_ip( '2001:db8:85a3:1:2:3:4:5' );
+$ax    = MP_Lead_Intake_DB::anonymize_ip( 'nie-jest-ip' );
+$inv11 = '203.0.113.0' === $a4 && 0 === strpos( $a6, '2001:db8:85a3' ) && '' === $ax;
+printf( "[%-4s] RODO anonymize_ip: v4=%s v6=%s śmieci=%s\n", $inv11 ? 'PASS' : 'FAIL', $a4, $a6, var_export( $ax, true ) );
+
 /* ---------- Podsumowanie ---------- */
 
 echo "\n=== PODSUMOWANIE ===\n";
 printf( "Scenariusze: PASS=%d FAIL=%d (z %d ocenianych)\n", $pass, $fail, $pass + $fail );
-$hard_fail = $fail + ( $inv1 ? 0 : 1 ) + ( $inv2 ? 0 : 1 ) + ( $inv3 ? 0 : 1 ) + ( $inv5 ? 0 : 1 ) + ( $inv6 ? 0 : 1 ) + ( $inv7 ? 0 : 1 ) + ( $inv8 ? 0 : 1 ) + ( $inv9 ? 0 : 1 ) + ( $inv10 ? 0 : 1 );
+$hard_fail = $fail + ( $inv1 ? 0 : 1 ) + ( $inv2 ? 0 : 1 ) + ( $inv3 ? 0 : 1 ) + ( $inv5 ? 0 : 1 ) + ( $inv6 ? 0 : 1 ) + ( $inv7 ? 0 : 1 ) + ( $inv8 ? 0 : 1 ) + ( $inv9 ? 0 : 1 ) + ( $inv10 ? 0 : 1 ) + ( $inv11 ? 0 : 1 );
 echo $hard_fail === 0
 	? "WYNIK: proces spójny wg niezmienników.\n"
 	: "WYNIK: wykryto {$hard_fail} naruszeń — patrz FAIL powyżej.\n";
