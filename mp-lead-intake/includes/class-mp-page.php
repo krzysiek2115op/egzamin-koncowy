@@ -30,6 +30,9 @@ class MP_Lead_Intake_Page {
 	/** Opcja przechowująca ID utworzonej strony. */
 	const OPTION = 'mp_lead_intake_page_id';
 
+	/** Opcja: czy stronę udało się umieścić w co najmniej jednym menu motywu. */
+	const OPTION_MENU_OK = 'mp_lead_intake_menu_ok';
+
 	/**
 	 * Tworzy pod-stronę, jeśli jeszcze nie istnieje (idempotentnie).
 	 *
@@ -40,7 +43,7 @@ class MP_Lead_Intake_Page {
 		if ( $existing && get_post( $existing ) ) {
 			// Strona już istnieje — nie duplikujemy, ale ewentualnie dołóż do
 			// menu (np. motyw dostał przypisane menu PO utworzeniu strony).
-			self::add_to_menus( $existing );
+			update_option( self::OPTION_MENU_OK, self::add_to_menus( $existing ) ? 1 : 0 );
 			return;
 		}
 
@@ -56,7 +59,7 @@ class MP_Lead_Intake_Page {
 
 		if ( $page_id && ! is_wp_error( $page_id ) ) {
 			update_option( self::OPTION, (int) $page_id );
-			self::add_to_menus( (int) $page_id );
+			update_option( self::OPTION_MENU_OK, self::add_to_menus( (int) $page_id ) ? 1 : 0 );
 		}
 	}
 
@@ -67,19 +70,32 @@ class MP_Lead_Intake_Page {
 	 * jeśli strona już jest w danym menu (sprawdzenie po object_id).
 	 * Wyłączalne filtrem 'mp_lead_intake_add_page_to_menu' (domyślnie true).
 	 *
+	 * UWAGA: część motywów (zwłaszcza własnoręcznie pisanych, jak niestandardowe
+	 * szablony klienta) w ogóle NIE rejestruje menu przez register_nav_menu() —
+	 * renderują nawigację na sztywno w PHP. Dla takich motywów get_nav_menu_locations()
+	 * zwraca pustą tablicę i NIE ISTNIEJE żaden bezpieczny, generyczny sposób
+	 * doklejenia linku (modyfikowanie plików motywu przez plugin byłoby kruche —
+	 * zniknęłoby przy każdej aktualizacji motywu). W takim wypadku zwracamy false,
+	 * a create() zapisuje to w OPTION_MENU_OK — maybe_admin_notice() poinformuje
+	 * administratora wprost, zamiast pozostawić go w niewiedzy (Golden Rule: bez
+	 * teatru bezpieczeństwa/automatyzacji — jawna informacja zamiast cichej porażki).
+	 *
 	 * @param int $page_id ID strony.
-	 * @return void
+	 * @return bool True, jeśli strona jest (lub została dodana) w co najmniej
+	 *              jednym menu motywu; false, gdy motyw nie ma żadnej lokalizacji
+	 *              menu do wykorzystania.
 	 */
 	private static function add_to_menus( $page_id ) {
 		if ( ! apply_filters( 'mp_lead_intake_add_page_to_menu', true ) ) {
-			return;
+			return true; // Świadomie wyłączone filtrem — nie traktujemy jako porażki.
 		}
 
 		$locations = get_nav_menu_locations();
 		if ( empty( $locations ) ) {
-			return;
+			return false;
 		}
 
+		$added_anywhere = false;
 		foreach ( array_unique( $locations ) as $menu_id ) {
 			$menu_id = (int) $menu_id;
 			if ( $menu_id <= 0 ) {
@@ -97,10 +113,11 @@ class MP_Lead_Intake_Page {
 				}
 			}
 			if ( $in_menu ) {
+				$added_anywhere = true;
 				continue;
 			}
 
-			wp_update_nav_menu_item(
+			$result = wp_update_nav_menu_item(
 				$menu_id,
 				0,
 				array(
@@ -111,7 +128,43 @@ class MP_Lead_Intake_Page {
 					'menu-item-status'    => 'publish',
 				)
 			);
+			if ( $result && ! is_wp_error( $result ) ) {
+				$added_anywhere = true;
+			}
 		}
+
+		return $added_anywhere;
+	}
+
+	/**
+	 * Ostrzeżenie w panelu admina, gdy nie udało się automatycznie dodać strony
+	 * do żadnego menu (motyw nie rejestruje menu WP) — jawna informacja zamiast
+	 * cichej porażki. Wyłączalne filtrem 'mp_lead_intake_show_menu_notice'.
+	 *
+	 * @return void
+	 */
+	public static function maybe_admin_notice() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		if ( '0' !== (string) get_option( self::OPTION_MENU_OK, '1' ) ) {
+			return; // Brak flagi porażki (albo jeszcze nie ustawiona, albo sukces).
+		}
+		if ( ! apply_filters( 'mp_lead_intake_show_menu_notice', true ) ) {
+			return;
+		}
+
+		$url = self::url();
+		if ( '' === $url ) {
+			return;
+		}
+
+		printf(
+			'<div class="notice notice-warning is-dismissible"><p><strong>MP Lead Intake:</strong> %s <a href="%s" target="_blank" rel="noopener">%s</a></p></div>',
+			esc_html__( 'nie udało się automatycznie dodać strony formularza do menu — Twój motyw nie używa standardowego systemu menu WordPressa. Dodaj ręcznie link do:', 'mp-lead-intake' ),
+			esc_url( $url ),
+			esc_html( $url )
+		);
 	}
 
 	/**
@@ -126,6 +179,7 @@ class MP_Lead_Intake_Page {
 			wp_delete_post( $page_id, true );
 		}
 		delete_option( self::OPTION );
+		delete_option( self::OPTION_MENU_OK );
 	}
 
 	/**

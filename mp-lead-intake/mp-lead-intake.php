@@ -90,6 +90,8 @@ function mp_lead_intake_bootstrap() {
 
 	// Hardening: opt-in globalne nagłówki bezpieczeństwa (domyślnie OFF).
 	MP_Lead_Intake_Security::register();
+	// Ostrzeżenie w panelu, gdy motyw nie wspiera menu WP (jawnie, bez cichej porażki).
+	add_action( 'admin_notices', array( 'MP_Lead_Intake_Page', 'maybe_admin_notice' ) );
 	// Async weryfikacja VAT w tle (kolejkowanie po utworzeniu leada + reconcile).
 	MP_Lead_Intake_Vat_Verifier::register();
 	// "1 AJAX" — endpoint (drzwi we wtyczce), który uruchamia cały pipeline.
