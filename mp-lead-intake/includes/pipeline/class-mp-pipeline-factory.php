@@ -40,8 +40,9 @@ class MP_Pipeline_Factory {
 		$pipeline->add_department( MP_Department_04::build() );
 		$pipeline->add_department( MP_Department_05::build() );
 		$pipeline->add_department( MP_Department_06::build() );
+		$pipeline->add_department( MP_Department_07::build() );
 
-		// Działy 7–11 — na razie zaślepki (kolejne kroki 3).
+		// Działy 8–11 — na razie zaślepki (kolejne kroki 3).
 		foreach ( self::definitions() as $def ) {
 			$pairs = array();
 
@@ -84,17 +85,6 @@ class MP_Pipeline_Factory {
 	 */
 	private static function definitions() {
 		return array(
-			array(
-				'number'      => 7,
-				'key'         => 'create-lead',
-				'label'       => 'Utworzenie leada',
-				'description' => 'Utworzenie leada w wp_mp_leads (BD-3).',
-				'agents'      => array(
-					array( 'id' => '7.1', 'label' => 'Sprawdza unikalność firmy', 'purpose' => 'Dedup po NIP (brak duplikatów)' ),
-					array( 'id' => '7.2', 'label' => 'Przygotowuje dane leada', 'purpose' => 'Zebranie i mapowanie pól leada' ),
-					array( 'id' => '7.3', 'label' => 'Tworzy lead w BD-3', 'purpose' => 'INSERT do wp_mp_leads (w transakcji)' ),
-				),
-			),
 			array(
 				'number'      => 8,
 				'key'         => 'activity-log',

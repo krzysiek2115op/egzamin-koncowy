@@ -134,6 +134,34 @@ class MP_Lead_Intake_DB {
 		return is_array( $rows ) ? $rows : array();
 	}
 
+	/* --------------------------------------------------------------------- *
+	 *  Zapis danych (używane m.in. przez Działy 7, 8, 9)
+	 * --------------------------------------------------------------------- */
+
+	/**
+	 * Wstawia leada do wp_mp_leads.
+	 *
+	 * @param array $data Pary kolumna => wartość.
+	 * @return int|false ID nowego leada lub false przy błędzie.
+	 */
+	public static function insert_lead( array $data ) {
+		global $wpdb;
+		$ok = $wpdb->insert( self::leads_table(), $data ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		return $ok ? (int) $wpdb->insert_id : false;
+	}
+
+	/**
+	 * Wstawia wpis do wp_mp_activity_log.
+	 *
+	 * @param array $data Pary kolumna => wartość.
+	 * @return int|false ID wpisu lub false przy błędzie.
+	 */
+	public static function insert_activity( array $data ) {
+		global $wpdb;
+		$ok = $wpdb->insert( self::activity_log_table(), $data ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		return $ok ? (int) $wpdb->insert_id : false;
+	}
+
 	/**
 	 * Tworzy lub aktualizuje wszystkie tabele BD-3.
 	 *
