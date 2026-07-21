@@ -4,7 +4,7 @@ Tags: leads, woocommerce, oferty, formularz
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 0.9.0
+Stable tag: 1.0.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,12 @@ Pierwsza z trzech wtyczek procesu "formularz → oferta". Odpowiada za odbiór
 zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej bazy.
 
 == Changelog ==
+
+= 1.0.0 =
+* Krok 4 (sprawy techniczne): endpoint "1 AJAX" -> pipeline, formularz B2B (shortcode),
+  pod-strona auto-tworzona (dziedziczy motyw), role WP (manager sprzedazy/handlowiec),
+  powiadomienia admina (wp_mail, z throttlingiem).
+* Wtyczka funkcjonalnie kompletna dla pluginu 1.
 
 = 0.9.0 =
 * Krok 3 UKOŃCZONY — działy 7-11 z realną logiką:

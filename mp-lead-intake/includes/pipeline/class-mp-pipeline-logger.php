@@ -58,18 +58,36 @@ class MP_Pipeline_Logger {
 	}
 
 	/**
-	 * Powiadomienie administratora o błędzie.
+	 * Powiadomienie administratora o błędzie (e-mail), z ograniczeniem
+	 * częstotliwości (max 1 wiadomość na 15 minut na dany dział), by nie spamować.
 	 *
-	 * TODO(krok 4 — sprawy techniczne): konfigurowalny kanał powiadomień
-	 * (e-mail/webhook) i ograniczenie częstotliwości, by nie spamować.
-	 * Na razie celowo puste, żeby budowa nie wysyłała maili.
+	 * Oficjalne API: wp_mail() https://developer.wordpress.org/reference/functions/wp_mail/
 	 *
 	 * @param MP_Department $department Dział.
 	 * @param MP_Result     $result     Wynik.
 	 * @return void
 	 */
 	protected function notify_admin( MP_Department $department, MP_Result $result ) {
-		// Zaślepka — implementacja w kroku 4.
-		unset( $department, $result );
+		$throttle_key = 'mp_notify_' . $department->get_key();
+		if ( get_transient( $throttle_key ) ) {
+			return;
+		}
+		set_transient( $throttle_key, 1, 15 * MINUTE_IN_SECONDS );
+
+		$to = get_option( 'admin_email' );
+		if ( ! $to ) {
+			return;
+		}
+
+		$subject = sprintf( '[MP Lead Intake] Błąd w dziale %d (%s)', $department->get_number(), $department->get_key() );
+		$body    = sprintf(
+			"Pipeline zatrzymany w dziale %d (%s).\nKod: %s\nBłędy: %s\n",
+			$department->get_number(),
+			$department->get_key(),
+			$result->get_code(),
+			wp_json_encode( $result->get_errors() )
+		);
+
+		wp_mail( $to, $subject, $body );
 	}
 }
