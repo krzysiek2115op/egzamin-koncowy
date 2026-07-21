@@ -35,6 +35,10 @@ require_once MP_LEAD_INTAKE_DIR . 'includes/pipeline/bootstrap.php';
 require_once MP_LEAD_INTAKE_DIR . 'includes/class-mp-roles.php';
 require_once MP_LEAD_INTAKE_DIR . 'includes/class-mp-page.php';
 
+// --- Front: endpoint AJAX ("1 AJAX") i formularz ---
+require_once MP_LEAD_INTAKE_DIR . 'includes/class-mp-ajax.php';
+require_once MP_LEAD_INTAKE_DIR . 'includes/class-mp-form.php';
+
 /**
  * Aktywacja wtyczki — tabele BD-3 + role + pod-strona z formularzem.
  */
@@ -63,7 +67,9 @@ register_deactivation_hook( __FILE__, 'mp_lead_intake_deactivate' );
 function mp_lead_intake_bootstrap() {
 	load_plugin_textdomain( 'mp-lead-intake', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
 
-	// TODO(etap: przyjęcie lead-a): podpiąć obsługę formularza (REST / admin-post / hook wtyczki formularzy).
-	// TODO(etap: kwalifikacja): reguły scoringu lead-a.
+	// "1 AJAX" — endpoint (drzwi we wtyczce), który uruchamia cały pipeline.
+	MP_Lead_Intake_Ajax::register();
+	// Formularz B2B (shortcode [mp_lead_intake_form]) + assety.
+	MP_Lead_Intake_Form::register();
 }
 add_action( 'plugins_loaded', 'mp_lead_intake_bootstrap' );
