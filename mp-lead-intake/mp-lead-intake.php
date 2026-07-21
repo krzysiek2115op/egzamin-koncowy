@@ -95,6 +95,8 @@ function mp_lead_intake_bootstrap() {
 	// Fallback: gdy motyw nie rejestruje menu WP, spróbuj dołożyć link do
 	// wykrytego <nav> bezpośrednio w renderowanym HTML-u (poza panelem admina).
 	add_action( 'template_redirect', array( 'MP_Lead_Intake_Page', 'maybe_start_menu_buffer' ) );
+	// SEO: meta description na pod-stronie formularza (motyw może nie mieć własnej).
+	add_action( 'wp_head', array( 'MP_Lead_Intake_Page', 'maybe_meta_description' ) );
 	// Async weryfikacja VAT w tle (kolejkowanie po utworzeniu leada + reconcile).
 	MP_Lead_Intake_Vat_Verifier::register();
 	// "1 AJAX" — endpoint (drzwi we wtyczce), który uruchamia cały pipeline.

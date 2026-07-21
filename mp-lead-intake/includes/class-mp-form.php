@@ -53,11 +53,13 @@ class MP_Lead_Intake_Form {
 	/**
 	 * Renderuje formularz (shortcode).
 	 *
-	 * @param array $atts Atrybuty shortcode.
+	 * @param array $atts Atrybuty shortcode. `heading` (domyślnie "1") — pokaż
+	 *              nagłówek H1 + krótki wstęp; wyłącz `heading="0"`, gdy
+	 *              shortcode jest wklejany w treść, która ma już własny tytuł.
 	 * @return string HTML.
 	 */
 	public static function render( $atts ) {
-		unset( $atts );
+		$atts = shortcode_atts( array( 'heading' => '1' ), (array) $atts, self::SHORTCODE );
 
 		wp_enqueue_style( 'mp-lead-form' );
 		wp_enqueue_script( 'mp-lead-form' );
@@ -66,6 +68,12 @@ class MP_Lead_Intake_Form {
 
 		ob_start();
 		?>
+		<div class="mp-lead-intake-wrap">
+		<?php if ( '0' !== (string) $atts['heading'] ) : ?>
+			<?php // Literały (nie MP_Lead_Intake_Page::TITLE/DESCRIPTION) — WPCS I18n wymaga dosłownego stringa w __()/esc_html__(). ?>
+			<h1 class="mp-lead-intake-title"><?php esc_html_e( 'Zapytanie ofertowe', 'mp-lead-intake' ); ?></h1>
+			<p class="mp-lead-intake-lead"><?php esc_html_e( 'Wypełnij formularz zapytania ofertowego, a nasz zespół skontaktuje się z Tobą z indywidualną ofertą.', 'mp-lead-intake' ); ?></p>
+		<?php endif; ?>
 		<form class="mp-lead-form" method="post" novalidate>
 			<div class="mp-field">
 				<label for="mp-company"><?php esc_html_e( 'Nazwa firmy', 'mp-lead-intake' ); ?> *</label>
@@ -109,7 +117,9 @@ class MP_Lead_Intake_Form {
 		 * Hook dla pozostałych wtyczek (plugin 2/3) — mogą dołożyć treść pod formularzem.
 		 */
 		do_action( 'mp_lead_intake_after_form' );
-
+		?>
+		</div>
+		<?php
 		return (string) ob_get_clean();
 	}
 }

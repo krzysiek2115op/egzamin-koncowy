@@ -33,6 +33,12 @@ class MP_Lead_Intake_Page {
 	/** Opcja: czy stronę udało się umieścić w co najmniej jednym menu motywu. */
 	const OPTION_MENU_OK = 'mp_lead_intake_menu_ok';
 
+	/** Tytuł pod-strony — jedno źródło prawdy (post_title, wpis menu, H1, fallback linku). */
+	const TITLE = 'Zapytanie ofertowe';
+
+	/** Krótki opis pod-strony — jedno źródło prawdy (meta description, lead pod H1). */
+	const DESCRIPTION = 'Wypełnij formularz zapytania ofertowego, a nasz zespół skontaktuje się z Tobą z indywidualną ofertą.';
+
 	/**
 	 * Tworzy pod-stronę, jeśli jeszcze nie istnieje (idempotentnie).
 	 *
@@ -49,7 +55,7 @@ class MP_Lead_Intake_Page {
 
 		$page_id = wp_insert_post(
 			array(
-				'post_title'   => 'Zapytanie ofertowe',
+				'post_title'   => self::TITLE,
 				'post_name'    => 'zapytanie-ofertowe',
 				'post_status'  => 'publish',
 				'post_type'    => 'page',
@@ -121,7 +127,7 @@ class MP_Lead_Intake_Page {
 				$menu_id,
 				0,
 				array(
-					'menu-item-title'     => 'Zapytanie ofertowe',
+					'menu-item-title'     => self::TITLE,
 					'menu-item-object-id' => $page_id,
 					'menu-item-object'    => 'page',
 					'menu-item-type'      => 'post_type',
@@ -222,7 +228,9 @@ class MP_Lead_Intake_Page {
 			return $html;
 		}
 
-		$href  = esc_url( $url );
+		$href = esc_url( $url );
+		// Literał, nie self::TITLE — WPCS (WordPress.WP.I18n) wymaga w __()/esc_html__()
+		// dosłownego stringa do wyciągania tłumaczeń, stąd ta jedna świadoma duplikacja.
 		$label = esc_html__( 'Zapytanie ofertowe', 'mp-lead-intake' );
 		$count = 0;
 
@@ -257,6 +265,33 @@ class MP_Lead_Intake_Page {
 		}
 
 		return $html; // Brak <nav> w markupie motywu — zostaje samo ostrzeżenie w adminie.
+	}
+
+	/**
+	 * Meta description pod-strony formularza — SEO. Motyw klienta (jak w tym
+	 * projekcie widać na przykładzie kredyt-kompas) może nie mieć żadnej wtyczki
+	 * SEO ani własnej logiki meta description; ta pod-strona i tak powinna mieć
+	 * poprawny opis w wynikach wyszukiwania. Działa TYLKO na tej jednej stronie
+	 * (is_page), więc nie koliduje z ewentualną wtyczką SEO zainstalowaną później
+	 * dla pozostałych stron — a i tak można wyłączyć filtrem
+	 * 'mp_lead_intake_seo_meta_description'.
+	 *
+	 * @return void
+	 */
+	public static function maybe_meta_description() {
+		$page_id = (int) get_option( self::OPTION );
+		if ( ! $page_id || ! is_page( $page_id ) ) {
+			return;
+		}
+		if ( ! apply_filters( 'mp_lead_intake_seo_meta_description', true ) ) {
+			return;
+		}
+
+		printf(
+			'<meta name="description" content="%s">' . "\n",
+			// Literał (nie self::DESCRIPTION) — wymóg WPCS I18n, jak wyżej.
+			esc_attr__( 'Wypełnij formularz zapytania ofertowego, a nasz zespół skontaktuje się z Tobą z indywidualną ofertą.', 'mp-lead-intake' )
+		);
 	}
 
 	/**
