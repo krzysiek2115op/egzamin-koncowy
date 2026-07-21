@@ -296,8 +296,13 @@ Po wdrożeniu P-1 (async dział 3, poprzednia sesja) i zmian menu/SEO/responsywn
   dzial-05 ×2, dzial-06/current_time, dzial-07/dzial-08 wpdb-insert, dzial-10/wp_json_encode) — wzorzec
   do naśladowania: `docs/dzial-03/wordpress-wp-cron.md`. Wymaga ~9 kolejnych WebFetch + przepisania.
 - **Hook `mp_lead_created` odpala się przed COMMIT** transakcji dz.7-11 — nieszkodliwe dziś (brak
-  zewnętrznych subskrybentów), istotne dla integracji plugin 2/3 w przyszłości. Wymaga przeniesienia
-  emisji poza transakcję w `MP_Pipeline::run()` — świadomie odłożone, bo dotyka chronionej struktury pipeline.
+  zewnętrznych subskrybentów), istotne dla integracji plugin 2/3 w przyszłości. NIE wymaga powrotu
+  do tego brancha: plugin 2/3 powinny obsługiwać ten hook TYM SAMYM wzorcem, którego plugin 1 już
+  używa u siebie (`MP_Lead_Intake_Vat_Verifier::on_lead_created()` → kolejkowanie przez WP-Cron,
+  a nie synchroniczny zapis w handlerze) — wtedy faktyczne wykonanie zadania następuje kilka sekund
+  później, gdy transakcja pluginu 1 na pewno jest już zacommitowana, i timing przestaje mieć znaczenie.
+  Powrót do tego brancha (przeniesienie emisji hooka poza transakcję w `MP_Pipeline::run()`) byłby
+  potrzebny TYLKO, gdyby plugin 2/3 chciał robić coś synchronicznie wprost w handlerze hooka.
 - **WP-Cron pojedyncze zdarzenia puchną w autoloadowanej opcji `cron` przy high-load** — znany,
   udokumentowany trade-off natywnego WP-Cron (bez Action Scheduler, celowo — to domena pluginu 2).
 - Drobne NISKIE: martwa `anonymize_lead_ips()` (scaffolding pod przyszłe żądanie RODO), ryzyko podwójnego
