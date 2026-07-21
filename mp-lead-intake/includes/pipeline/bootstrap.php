@@ -27,6 +27,7 @@ require_once $mp_pipeline_dir . 'class-mp-pipeline.php';
 // --- Działy z realną logiką (krok 3) ---
 require_once $mp_pipeline_dir . 'departments/class-mp-department-01.php';
 require_once $mp_pipeline_dir . 'departments/class-mp-department-02.php';
+require_once $mp_pipeline_dir . 'departments/class-mp-department-03.php';
 
 require_once $mp_pipeline_dir . 'class-mp-pipeline-factory.php';
 

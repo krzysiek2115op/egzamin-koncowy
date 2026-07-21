@@ -36,8 +36,9 @@ class MP_Pipeline_Factory {
 		// Działy z realną logiką (krok 3).
 		$pipeline->add_department( MP_Department_01::build() );
 		$pipeline->add_department( MP_Department_02::build() );
+		$pipeline->add_department( MP_Department_03::build() );
 
-		// Działy 3–11 — na razie zaślepki (kolejne kroki 3).
+		// Działy 4–11 — na razie zaślepki (kolejne kroki 3).
 		foreach ( self::definitions() as $def ) {
 			$pairs = array();
 
@@ -80,17 +81,6 @@ class MP_Pipeline_Factory {
 	 */
 	private static function definitions() {
 		return array(
-			array(
-				'number'      => 3,
-				'key'         => 'nip-vat',
-				'label'       => 'Sprawdzenie NIP / VAT',
-				'description' => 'Weryfikacja NIP/VAT UE i statusu firmy (unikalność firmy).',
-				'agents'      => array(
-					array( 'id' => '3.1', 'label' => 'Weryfikuje NIP', 'purpose' => 'Suma kontrolna NIP (offline)' ),
-					array( 'id' => '3.2', 'label' => 'Weryfikuje VAT UE', 'purpose' => 'Sprawdzenie w VIES (z cache i timeoutem)' ),
-					array( 'id' => '3.3', 'label' => 'Sprawdza status firmy', 'purpose' => 'Status aktywności podatnika' ),
-				),
-			),
 			array(
 				'number'      => 4,
 				'key'         => 'country-segment',
