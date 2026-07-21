@@ -95,7 +95,12 @@ class MP_D9_Agent_Persist extends MP_Abstract_Agent {
 			return MP_Result::fail( 'Nie udało się zapisać startu procesu', array(), 'process_log_failed' );
 		}
 
-		return MP_Result::ok( array( 'process_log_id' => $log_id, 'process_started' => true ) );
+		return MP_Result::ok(
+			array(
+				'process_log_id'  => $log_id,
+				'process_started' => true,
+			)
+		);
 	}
 }
 

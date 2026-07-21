@@ -86,7 +86,12 @@ class MP_D7_Agent_Prepare extends MP_Abstract_Agent {
 	 * @return int|null
 	 */
 	protected function assign_salesman( $nip ) {
-		$users = get_users( array( 'role' => 'mp_handlowiec', 'fields' => 'ID' ) );
+		$users = get_users(
+			array(
+				'role'   => 'mp_handlowiec',
+				'fields' => 'ID',
+			)
+		);
 		if ( empty( $users ) ) {
 			return null;
 		}

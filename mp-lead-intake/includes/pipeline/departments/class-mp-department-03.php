@@ -88,27 +88,55 @@ class MP_D3_Agent_Vat extends MP_Abstract_Agent {
 			$country = 'PL';
 		}
 		if ( '' === $nip ) {
-			return MP_Result::ok( array( 'vat_valid' => null, 'vat_checked' => false ) );
+			return MP_Result::ok(
+				array(
+					'vat_valid'   => null,
+					'vat_checked' => false,
+				)
+			);
 		}
 
 		$cache_key = 'mp_vies_' . $country . '_' . $nip;
 		$cached    = get_transient( $cache_key );
 		if ( false !== $cached ) {
-			return MP_Result::ok( array( 'vat_valid' => (bool) $cached, 'vat_checked' => true, 'vat_source' => 'cache' ) );
+			return MP_Result::ok(
+				array(
+					'vat_valid'   => (bool) $cached,
+					'vat_checked' => true,
+					'vat_source'  => 'cache',
+				)
+			);
 		}
 
 		$url  = sprintf( 'https://ec.europa.eu/taxation_customs/vies/rest-api/ms/%s/vat/%s', rawurlencode( $country ), rawurlencode( $nip ) );
-		$resp = wp_remote_get( $url, array( 'timeout' => 8, 'headers' => array( 'Accept' => 'application/json' ) ) );
+		$resp = wp_remote_get(
+			$url,
+			array(
+				'timeout' => 8,
+				'headers' => array( 'Accept' => 'application/json' ),
+			)
+		);
 
 		if ( is_wp_error( $resp ) ) {
 			// Łagodny fallback — nie zatrzymujemy pipeline z powodu awarii VIES.
-			return MP_Result::ok( array( 'vat_valid' => null, 'vat_checked' => false, 'vat_error' => $resp->get_error_message() ) );
+			return MP_Result::ok(
+				array(
+					'vat_valid'   => null,
+					'vat_checked' => false,
+					'vat_error'   => $resp->get_error_message(),
+				)
+			);
 		}
 
 		$code = (int) wp_remote_retrieve_response_code( $resp );
 		$body = json_decode( wp_remote_retrieve_body( $resp ), true );
 		if ( 200 !== $code || ! is_array( $body ) ) {
-			return MP_Result::ok( array( 'vat_valid' => null, 'vat_checked' => false ) );
+			return MP_Result::ok(
+				array(
+					'vat_valid'   => null,
+					'vat_checked' => false,
+				)
+			);
 		}
 
 		$valid = ! empty( $body['isValid'] );
@@ -116,10 +144,10 @@ class MP_D3_Agent_Vat extends MP_Abstract_Agent {
 
 		return MP_Result::ok(
 			array(
-				'vat_valid'  => $valid,
+				'vat_valid'   => $valid,
 				'vat_checked' => true,
-				'vat_source' => 'vies',
-				'vat_name'   => isset( $body['name'] ) ? $body['name'] : null,
+				'vat_source'  => 'vies',
+				'vat_name'    => isset( $body['name'] ) ? $body['name'] : null,
 			)
 		);
 	}
@@ -141,33 +169,66 @@ class MP_D3_Agent_Company_Status extends MP_Abstract_Agent {
 	public function run( MP_Context $context ) {
 		$nip = preg_replace( '/\D+/', '', (string) $context->get( 'nip', '' ) );
 		if ( '' === $nip ) {
-			return MP_Result::ok( array( 'company_status' => null, 'company_status_checked' => false ) );
+			return MP_Result::ok(
+				array(
+					'company_status'         => null,
+					'company_status_checked' => false,
+				)
+			);
 		}
 
 		$date      = gmdate( 'Y-m-d' );
 		$cache_key = 'mp_wl_' . $nip . '_' . $date;
 		$cached    = get_transient( $cache_key );
 		if ( false !== $cached ) {
-			return MP_Result::ok( array( 'company_status' => $cached, 'company_status_checked' => true, 'company_status_source' => 'cache' ) );
+			return MP_Result::ok(
+				array(
+					'company_status'         => $cached,
+					'company_status_checked' => true,
+					'company_status_source'  => 'cache',
+				)
+			);
 		}
 
 		$url  = sprintf( 'https://wl-api.mf.gov.pl/api/search/nip/%s?date=%s', rawurlencode( $nip ), rawurlencode( $date ) );
-		$resp = wp_remote_get( $url, array( 'timeout' => 8, 'headers' => array( 'Accept' => 'application/json' ) ) );
+		$resp = wp_remote_get(
+			$url,
+			array(
+				'timeout' => 8,
+				'headers' => array( 'Accept' => 'application/json' ),
+			)
+		);
 
 		if ( is_wp_error( $resp ) ) {
-			return MP_Result::ok( array( 'company_status' => null, 'company_status_checked' => false ) );
+			return MP_Result::ok(
+				array(
+					'company_status'         => null,
+					'company_status_checked' => false,
+				)
+			);
 		}
 
 		$code = (int) wp_remote_retrieve_response_code( $resp );
 		$body = json_decode( wp_remote_retrieve_body( $resp ), true );
 		if ( 200 !== $code || ! is_array( $body ) ) {
-			return MP_Result::ok( array( 'company_status' => null, 'company_status_checked' => false ) );
+			return MP_Result::ok(
+				array(
+					'company_status'         => null,
+					'company_status_checked' => false,
+				)
+			);
 		}
 
 		$status = isset( $body['result']['subject']['statusVat'] ) ? $body['result']['subject']['statusVat'] : null;
 		set_transient( $cache_key, $status, 12 * HOUR_IN_SECONDS );
 
-		return MP_Result::ok( array( 'company_status' => $status, 'company_status_checked' => true, 'company_status_source' => 'wl' ) );
+		return MP_Result::ok(
+			array(
+				'company_status'         => $status,
+				'company_status_checked' => true,
+				'company_status_source'  => 'wl',
+			)
+		);
 	}
 }
 

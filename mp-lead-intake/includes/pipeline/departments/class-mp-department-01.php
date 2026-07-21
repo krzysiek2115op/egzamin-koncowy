@@ -61,8 +61,8 @@ class MP_D1_Agent_Fetch_Offers extends MP_Abstract_Agent {
 	 * @return MP_Result
 	 */
 	public function run( MP_Context $context ) {
-		$leads = (array) $context->get( 'leads', array() );
-		$ids   = $leads ? wp_list_pluck( $leads, 'id' ) : array();
+		$leads  = (array) $context->get( 'leads', array() );
+		$ids    = $leads ? wp_list_pluck( $leads, 'id' ) : array();
 		$offers = $ids ? MP_Lead_Intake_DB::get_offers_by_lead_ids( $ids ) : array();
 
 		return MP_Result::ok( array( 'offers' => $offers ) );
