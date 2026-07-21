@@ -386,12 +386,45 @@ MP_Lead_Intake_Vat_Verifier::reconcile();
 $inv17 = count( $GLOBALS['__mp_cron'] ) >= 1 && MP_Lead_Intake_Vat_Verifier::VERIFY_HOOK === ( isset( $GLOBALS['__mp_cron'][0]['hook'] ) ? $GLOBALS['__mp_cron'][0]['hook'] : '' );
 printf( "[%-4s] Reconcile: zaległy 'pending' dokolejkowany (zdarzeń=%d)\n", $inv17 ? 'PASS' : 'FAIL', count( $GLOBALS['__mp_cron'] ) );
 
+// 18) Reaktywacja resetuje cykl VAT: zarchiwizowany lead z vat_attempts=5/'unknown'
+//     po reaktywacji → vat_status='pending', vat_attempts=0, deleted_at wyczyszczone.
+$reset_async();
+$_SERVER['REMOTE_ADDR']      = '203.0.113.88';
+$GLOBALS['wpdb']->rows_leads = array(
+	array(
+		'id'           => 900,
+		'nip'          => $VALID_NIP,
+		'vat_status'   => 'unknown',
+		'vat_attempts' => 5,
+		'deleted_at'   => '2026-01-01 00:00:00',
+	),
+);
+$GLOBALS['__mp_cfg']['archived_lead'] = array(
+	'id'         => 900,
+	'nip'        => $VALID_NIP,
+	'deleted_at' => '2026-01-01 00:00:00',
+);
+$re     = run_pipeline( base_input( $VALID_NIP ) );
+$row900 = $find_lead( 900 );
+$inv18  = $re['ok'] && $row900
+	&& 'pending' === ( isset( $row900['vat_status'] ) ? $row900['vat_status'] : '' )
+	&& 0 === (int) ( isset( $row900['vat_attempts'] ) ? $row900['vat_attempts'] : -1 )
+	&& empty( $row900['deleted_at'] );
+printf(
+	"[%-4s] Reaktywacja resetuje VAT: vat_status=%s, vat_attempts=%s, deleted_at=%s\n",
+	$inv18 ? 'PASS' : 'FAIL',
+	$row900 && isset( $row900['vat_status'] ) ? $row900['vat_status'] : '-',
+	var_export( $row900 && isset( $row900['vat_attempts'] ) ? $row900['vat_attempts'] : null, true ),
+	var_export( $row900 && isset( $row900['deleted_at'] ) ? $row900['deleted_at'] : null, true )
+);
+$GLOBALS['__mp_cfg']['archived_lead'] = null;
+
 /* ---------- Podsumowanie ---------- */
 
 echo "\n=== PODSUMOWANIE ===\n";
 printf( "Scenariusze: PASS=%d FAIL=%d (z %d ocenianych)\n", $pass, $fail, $pass + $fail );
 $hard_fail = $fail + ( $inv1 ? 0 : 1 ) + ( $inv2 ? 0 : 1 ) + ( $inv3 ? 0 : 1 ) + ( $inv5 ? 0 : 1 ) + ( $inv6 ? 0 : 1 ) + ( $inv7 ? 0 : 1 ) + ( $inv8 ? 0 : 1 ) + ( $inv9 ? 0 : 1 ) + ( $inv10 ? 0 : 1 ) + ( $inv11 ? 0 : 1 )
-	+ ( $inv12 ? 0 : 1 ) + ( $inv13 ? 0 : 1 ) + ( $inv14 ? 0 : 1 ) + ( $inv15 ? 0 : 1 ) + ( $inv16 ? 0 : 1 ) + ( $inv17 ? 0 : 1 );
+	+ ( $inv12 ? 0 : 1 ) + ( $inv13 ? 0 : 1 ) + ( $inv14 ? 0 : 1 ) + ( $inv15 ? 0 : 1 ) + ( $inv16 ? 0 : 1 ) + ( $inv17 ? 0 : 1 ) + ( $inv18 ? 0 : 1 );
 echo $hard_fail === 0
 	? "WYNIK: proces spójny wg niezmienników.\n"
 	: "WYNIK: wykryto {$hard_fail} naruszeń — patrz FAIL powyżej.\n";

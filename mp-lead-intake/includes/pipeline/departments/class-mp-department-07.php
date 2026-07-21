@@ -141,6 +141,11 @@ class MP_D7_Agent_Prepare extends MP_Abstract_Agent {
 			'vat_valid'            => is_null( $vat_valid ) ? null : ( $vat_valid ? 1 : 0 ),
 			'company_status'       => ( '' !== trim( (string) $company_status ) ) ? (string) $company_status : null,
 			'vat_status'           => $vat_status,
+			// Świeży cykl weryfikacji dla KAŻDEGO zgłoszenia (także reaktywacji powracającej
+			// firmy) — inaczej stare vat_attempts z zarchiwizowanego leada wypchnęłyby status
+			// od razu do 'unknown', pomijając weryfikację w tle.
+			'vat_attempts'         => 0,
+			'vat_checked_at'       => $vat_pending ? null : current_time( 'mysql' ),
 			'consent_marketing'    => (int) $context->get( 'consent_marketing', 0 ),
 			'consent_rodo'         => (int) $context->get( 'consent_rodo', 0 ),
 			'consent_marketing_at' => $context->get( 'consent_marketing_at' ),
