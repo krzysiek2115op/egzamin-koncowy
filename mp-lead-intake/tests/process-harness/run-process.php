@@ -233,11 +233,38 @@ $after  = MP_D5_Agent_Rate_Limit::over_limit( '198.51.100.5' );
 $inv8   = ! $before && $after;
 printf( "[%-4s] Pre-gate DoS: over_limit() blokuje po limicie (%s→%s)\n", $inv8 ? 'PASS' : 'FAIL', var_export( $before, true ), var_export( $after, true ) );
 
+// 9) Transakcyjność 7-9: awaria zapisu w dziale 8 → ROLLBACK, lead z działu 7 NIE utrwalony.
+$_SERVER['REMOTE_ADDR']                       = '203.0.113.55';
+$GLOBALS['__mp_transients']                   = array();
+$GLOBALS['__mp_cfg']['leads_by_nip']          = array();
+$GLOBALS['__mp_cfg']['archived_lead']         = null;
+$GLOBALS['wpdb']->rows_leads                  = array();
+$GLOBALS['wpdb']->last_tx                     = '';
+$GLOBALS['__mp_cfg']['fail_activity_insert']  = true;
+$tx = run_pipeline( base_input( $VALID_NIP ) );
+$GLOBALS['__mp_cfg']['fail_activity_insert']  = false;
+$inv9 = ! $tx['ok'] && 8 === (int) $tx['stop_dept'] && 'ROLLBACK' === $GLOBALS['wpdb']->last_tx && 0 === count( $GLOBALS['wpdb']->rows_leads );
+printf(
+	"[%-4s] Transakcja 7-9: awaria dz.8 → STOP(dept=%s) + %s, lead NIE utrwalony (rows_leads=%d)\n",
+	$inv9 ? 'PASS' : 'FAIL',
+	$tx['stop_dept'],
+	$GLOBALS['wpdb']->last_tx !== '' ? $GLOBALS['wpdb']->last_tx : '-',
+	count( $GLOBALS['wpdb']->rows_leads )
+);
+
+// 10) Kontrola pozytywna: happy-path COMMIT-uje transakcję.
+$GLOBALS['__mp_transients'] = array();
+$GLOBALS['wpdb']->rows_leads = array();
+$GLOBALS['wpdb']->last_tx    = '';
+$commit = run_pipeline( base_input( $VALID_NIP ) );
+$inv10  = $commit['ok'] && 'COMMIT' === $GLOBALS['wpdb']->last_tx;
+printf( "[%-4s] Transakcja: happy-path COMMIT (last_tx=%s)\n", $inv10 ? 'PASS' : 'FAIL', $GLOBALS['wpdb']->last_tx );
+
 /* ---------- Podsumowanie ---------- */
 
 echo "\n=== PODSUMOWANIE ===\n";
 printf( "Scenariusze: PASS=%d FAIL=%d (z %d ocenianych)\n", $pass, $fail, $pass + $fail );
-$hard_fail = $fail + ( $inv1 ? 0 : 1 ) + ( $inv2 ? 0 : 1 ) + ( $inv3 ? 0 : 1 ) + ( $inv5 ? 0 : 1 ) + ( $inv6 ? 0 : 1 ) + ( $inv7 ? 0 : 1 ) + ( $inv8 ? 0 : 1 );
+$hard_fail = $fail + ( $inv1 ? 0 : 1 ) + ( $inv2 ? 0 : 1 ) + ( $inv3 ? 0 : 1 ) + ( $inv5 ? 0 : 1 ) + ( $inv6 ? 0 : 1 ) + ( $inv7 ? 0 : 1 ) + ( $inv8 ? 0 : 1 ) + ( $inv9 ? 0 : 1 ) + ( $inv10 ? 0 : 1 );
 echo $hard_fail === 0
 	? "WYNIK: proces spójny wg niezmienników.\n"
 	: "WYNIK: wykryto {$hard_fail} naruszeń — patrz FAIL powyżej.\n";

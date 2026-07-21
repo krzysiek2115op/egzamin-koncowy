@@ -35,9 +35,10 @@ $GLOBALS['__mp_posts']      = array();
 $GLOBALS['__mp_actions']    = array(); // do_action zliczone
 // Sterowanie testami: co zwraca get_leads_by_nip; czy insert leada ma udać.
 $GLOBALS['__mp_cfg'] = array(
-	'leads_by_nip'  => array(), // wiersze zwracane przez get_leads_by_nip (AKTYWNE)
-	'archived_lead' => null,    // zarchiwizowany lead zwracany przez get_archived_lead_by_nip
-	'valid_nonce'   => 'valid',
+	'leads_by_nip'         => array(), // wiersze zwracane przez get_leads_by_nip (AKTYWNE)
+	'archived_lead'        => null,    // zarchiwizowany lead zwracany przez get_archived_lead_by_nip
+	'valid_nonce'          => 'valid',
+	'fail_activity_insert' => false,   // symulacja awarii zapisu do activity_log (test transakcji)
 );
 
 // --- WP_Error ---
@@ -254,10 +255,12 @@ function current_time_gmt() {
 
 // --- Fałszywy $wpdb ---
 class MP_Fake_WPDB {
-	public $prefix     = 'wp_';
-	public $insert_id  = 0;
-	public $last_error = '';
-	public $rows_leads = array(); // egzekwowanie UNIQUE(nip)
+	public $prefix      = 'wp_';
+	public $insert_id   = 0;
+	public $last_error  = '';
+	public $rows_leads  = array(); // egzekwowanie UNIQUE(nip)
+	public $tx_snapshot = null;    // snapshot rows_leads na czas transakcji
+	public $last_tx     = '';      // ostatnia operacja transakcyjna (START/COMMIT/ROLLBACK)
 
 	public function get_charset_collate() {
 		return 'DEFAULT CHARSET=utf8mb4';
@@ -279,6 +282,10 @@ class MP_Fake_WPDB {
 		);
 	}
 	public function insert( $table, $data, $format = null ) {
+		if ( strpos( $table, 'mp_activity_log' ) !== false && ! empty( $GLOBALS['__mp_cfg']['fail_activity_insert'] ) ) {
+			$this->last_error = 'symulowana awaria zapisu activity_log';
+			return false;
+		}
 		if ( strpos( $table, 'mp_leads' ) !== false ) {
 			$nip = isset( $data['nip'] ) ? (string) $data['nip'] : '';
 			foreach ( $this->rows_leads as $r ) {
@@ -315,6 +322,20 @@ class MP_Fake_WPDB {
 		return 0;
 	}
 	public function query( $query ) {
+		$q = strtoupper( trim( (string) $query ) );
+		if ( 'START TRANSACTION' === $q ) {
+			$this->tx_snapshot = $this->rows_leads;
+			$this->last_tx     = 'START';
+		} elseif ( 'ROLLBACK' === $q ) {
+			if ( null !== $this->tx_snapshot ) {
+				$this->rows_leads = $this->tx_snapshot;
+			}
+			$this->tx_snapshot = null;
+			$this->last_tx     = 'ROLLBACK';
+		} elseif ( 'COMMIT' === $q ) {
+			$this->tx_snapshot = null;
+			$this->last_tx     = 'COMMIT';
+		}
 		return true;
 	}
 }

@@ -31,6 +31,11 @@ class MP_Pipeline_Factory {
 	public static function make() {
 		$pipeline = new MP_Pipeline( new MP_Pipeline_Logger() );
 
+		// Zapisy do BD-3 zaczynają się w dziale 7 (lead) i trwają w 8/9 (log, proces).
+		// Obejmujemy je jedną transakcją — awaria w 8/9 wycofa też leada z działu 7
+		// (brak osieroconego rekordu i brak trwałej blokady NIP).
+		$pipeline->set_transactional_from( 7 );
+
 		// Działy z realną logiką (krok 3).
 		$pipeline->add_department( MP_Department_01::build() );
 		$pipeline->add_department( MP_Department_02::build() );
