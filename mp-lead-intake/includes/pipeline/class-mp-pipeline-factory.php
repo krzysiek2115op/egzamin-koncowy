@@ -39,8 +39,9 @@ class MP_Pipeline_Factory {
 		$pipeline->add_department( MP_Department_03::build() );
 		$pipeline->add_department( MP_Department_04::build() );
 		$pipeline->add_department( MP_Department_05::build() );
+		$pipeline->add_department( MP_Department_06::build() );
 
-		// Działy 6–11 — na razie zaślepki (kolejne kroki 3).
+		// Działy 7–11 — na razie zaślepki (kolejne kroki 3).
 		foreach ( self::definitions() as $def ) {
 			$pairs = array();
 
@@ -83,17 +84,6 @@ class MP_Pipeline_Factory {
 	 */
 	private static function definitions() {
 		return array(
-			array(
-				'number'      => 6,
-				'key'         => 'consents',
-				'label'       => 'Zapis zgód',
-				'description' => 'Zapisanie wszystkich wymaganych zgód wraz z datą i wersją.',
-				'agents'      => array(
-					array( 'id' => '6.1', 'label' => 'Zgoda marketingowa', 'purpose' => 'Odczyt/zapis zgody marketingowej' ),
-					array( 'id' => '6.2', 'label' => 'Zgoda RODO', 'purpose' => 'Odczyt/zapis zgody RODO' ),
-					array( 'id' => '6.3', 'label' => 'Data i wersja zgody', 'purpose' => 'Znacznik czasu + wersja treści zgody' ),
-				),
-			),
 			array(
 				'number'      => 7,
 				'key'         => 'create-lead',
