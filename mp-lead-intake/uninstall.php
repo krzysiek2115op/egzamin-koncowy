@@ -2,8 +2,8 @@
 /**
  * Deinstalacja wtyczki MP Lead Intake.
  *
- * Uruchamiane przez WordPress przy usuwaniu wtyczki. Usuwa tabele BD-3
- * oraz opcje wtyczki.
+ * Uruchamiane przez WordPress przy usuwaniu wtyczki. Usuwa tabele BD-3, role,
+ * pod-stronę oraz opcje wtyczki.
  *
  * @package MP_Lead_Intake
  */
@@ -14,5 +14,9 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 }
 
 require_once __DIR__ . '/includes/db/class-mp-db.php';
+require_once __DIR__ . '/includes/class-mp-roles.php';
+require_once __DIR__ . '/includes/class-mp-page.php';
 
 MP_Lead_Intake_DB::uninstall();
+MP_Lead_Intake_Roles::remove();
+MP_Lead_Intake_Page::remove();

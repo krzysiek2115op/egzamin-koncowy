@@ -31,11 +31,18 @@ require_once MP_LEAD_INTAKE_DIR . 'includes/db/class-mp-db.php';
 // --- Warstwa pipeline (11 działów: agenci, krytycy, bramki jakości) ---
 require_once MP_LEAD_INTAKE_DIR . 'includes/pipeline/bootstrap.php';
 
+// --- Infrastruktura: role i pod-strona ---
+require_once MP_LEAD_INTAKE_DIR . 'includes/class-mp-roles.php';
+require_once MP_LEAD_INTAKE_DIR . 'includes/class-mp-page.php';
+
 /**
- * Aktywacja wtyczki — tworzy tabele BD-3 (leady, oferty, log aktywności).
+ * Aktywacja wtyczki — tabele BD-3 + role + pod-strona z formularzem.
  */
 function mp_lead_intake_activate() {
 	MP_Lead_Intake_DB::install();
+	MP_Lead_Intake_Roles::create();
+	MP_Lead_Intake_Page::create();
+	flush_rewrite_rules();
 }
 register_activation_hook( __FILE__, 'mp_lead_intake_activate' );
 
