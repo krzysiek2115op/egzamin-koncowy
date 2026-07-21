@@ -33,12 +33,15 @@ $GLOBALS['__mp_options']    = array( 'admin_email' => 'admin@example.test' );
 $GLOBALS['__mp_mails']      = array();
 $GLOBALS['__mp_posts']      = array();
 $GLOBALS['__mp_actions']    = array(); // do_action zliczone
+$GLOBALS['__mp_cron']       = array(); // zaplanowane zdarzenia (wp_schedule_single_event)
+$GLOBALS['__mp_http_calls'] = 0;       // licznik wywołań wp_remote_get (weryfikacja: 0 w ścieżce żądania)
 // Sterowanie testami: co zwraca get_leads_by_nip; czy insert leada ma udać.
 $GLOBALS['__mp_cfg'] = array(
 	'leads_by_nip'         => array(), // wiersze zwracane przez get_leads_by_nip (AKTYWNE)
 	'archived_lead'        => null,    // zarchiwizowany lead zwracany przez get_archived_lead_by_nip
 	'valid_nonce'          => 'valid',
 	'fail_activity_insert' => false,   // symulacja awarii zapisu do activity_log (test transakcji)
+	'http_responses'       => array(), // needle(URL) => kanoniczna odpowiedź HTTP (VIES/WL) dla testów async
 );
 
 // --- WP_Error ---
@@ -148,8 +151,15 @@ function delete_transient( $k ) {
 	return true;
 }
 
-// --- HTTP (offline: zawsze WP_Error -> łagodny fallback w dziale 3) ---
+// --- HTTP (domyślnie offline -> WP_Error; testy async mogą wstrzyknąć odpowiedź) ---
 function wp_remote_get( $url, $args = array() ) {
+	$GLOBALS['__mp_http_calls'] = ( $GLOBALS['__mp_http_calls'] ?? 0 ) + 1;
+	$canned = isset( $GLOBALS['__mp_cfg']['http_responses'] ) ? $GLOBALS['__mp_cfg']['http_responses'] : array();
+	foreach ( $canned as $needle => $resp ) {
+		if ( false !== strpos( $url, (string) $needle ) ) {
+			return $resp; // np. array( 'response' => array( 'code' => 200 ), 'body' => '{...}' )
+		}
+	}
 	return new WP_Error( 'offline_harness: ' . $url );
 }
 function wp_remote_post( $url, $args = array() ) {
@@ -201,6 +211,30 @@ function do_action( $tag, ...$a ) {
 function apply_filters( $tag, $value, ...$a ) {
 	return $value; }
 function add_shortcode( ...$a ) {
+	return true; }
+
+// --- WP-Cron (rejestruje zaplanowane zdarzenia; dedup po hook+args) ---
+function wp_schedule_single_event( $timestamp, $hook, $args = array() ) {
+	$GLOBALS['__mp_cron'][] = array(
+		'ts'   => $timestamp,
+		'hook' => $hook,
+		'args' => $args,
+	);
+	return true;
+}
+function wp_next_scheduled( $hook, $args = array() ) {
+	foreach ( $GLOBALS['__mp_cron'] as $e ) {
+		if ( $e['hook'] === $hook && $e['args'] === $args ) {
+			return $e['ts'];
+		}
+	}
+	return false;
+}
+function wp_schedule_event( $timestamp, $recurrence, $hook, $args = array() ) {
+	return true; }
+function wp_clear_scheduled_hook( $hook, $args = array() ) {
+	return true; }
+function wp_unschedule_event( ...$a ) {
 	return true; }
 
 // --- URL / posty ---
@@ -303,9 +337,29 @@ class MP_Fake_WPDB {
 		return 1;
 	}
 	public function update( $table, $data, $where, $f = null, $wf = null ) {
+		// Aktualizacja leada po id (reaktywacja / update_vat_result): scal dane w rows_leads.
+		if ( strpos( $table, 'mp_leads' ) !== false && isset( $where['id'] ) ) {
+			$id = (int) $where['id'];
+			foreach ( $this->rows_leads as &$r ) {
+				if ( (int) ( $r['id'] ?? 0 ) === $id ) {
+					$r = array_merge( $r, $data );
+					return 1;
+				}
+			}
+		}
 		return 1;
 	}
 	public function get_results( $query, $output = OBJECT ) {
+		// get_leads_needing_vat: SELECT id ... WHERE vat_status = 'pending'
+		if ( strpos( $query, 'mp_leads' ) !== false && stripos( $query, 'vat_status' ) !== false ) {
+			$out = array();
+			foreach ( $this->rows_leads as $r ) {
+				if ( ( $r['vat_status'] ?? '' ) === 'pending' && empty( $r['deleted_at'] ) ) {
+					$out[] = array( 'id' => $r['id'] );
+				}
+			}
+			return $out;
+		}
 		if ( strpos( $query, 'mp_leads' ) !== false ) {
 			return $GLOBALS['__mp_cfg']['leads_by_nip'];
 		}
@@ -315,6 +369,16 @@ class MP_Fake_WPDB {
 		// get_archived_lead_by_nip: WHERE ... deleted_at IS NOT NULL
 		if ( strpos( $query, 'mp_leads' ) !== false && strpos( $query, 'IS NOT NULL' ) !== false ) {
 			return $GLOBALS['__mp_cfg']['archived_lead'];
+		}
+		// get_lead: WHERE id = N (bez IS NOT NULL) — zwróć wiersz z rows_leads.
+		if ( strpos( $query, 'mp_leads' ) !== false && preg_match( '/id\s*=\s*(\d+)/i', $query, $m ) ) {
+			$id = (int) $m[1];
+			foreach ( $this->rows_leads as $r ) {
+				if ( (int) ( $r['id'] ?? 0 ) === $id ) {
+					return $r;
+				}
+			}
+			return null;
 		}
 		return null;
 	}
@@ -335,6 +399,29 @@ class MP_Fake_WPDB {
 		} elseif ( 'COMMIT' === $q ) {
 			$this->tx_snapshot = null;
 			$this->last_tx     = 'COMMIT';
+		} elseif ( false !== strpos( (string) $query, 'mp_leads' ) && false !== strpos( (string) $query, "SET vat_status = 'verifying'" ) ) {
+			// claim_vat_verification: pending -> verifying (+inkrement prób), atomowo.
+			if ( preg_match( '/id\s*=\s*(\d+)/i', (string) $query, $m ) ) {
+				$id = (int) $m[1];
+				foreach ( $this->rows_leads as &$r ) {
+					if ( (int) ( $r['id'] ?? 0 ) === $id && ( $r['vat_status'] ?? '' ) === 'pending' ) {
+						$r['vat_status']   = 'verifying';
+						$r['vat_attempts'] = (int) ( $r['vat_attempts'] ?? 0 ) + 1;
+						return 1;
+					}
+				}
+			}
+			return 0;
+		} elseif ( false !== strpos( (string) $query, 'mp_leads' ) && false !== strpos( (string) $query, "SET vat_status = 'pending'" ) ) {
+			// reset_stuck_vat: verifying -> pending (w teście pomijamy warunek czasu).
+			$n = 0;
+			foreach ( $this->rows_leads as &$r ) {
+				if ( ( $r['vat_status'] ?? '' ) === 'verifying' ) {
+					$r['vat_status'] = 'pending';
+					++$n;
+				}
+			}
+			return $n;
 		}
 		return true;
 	}

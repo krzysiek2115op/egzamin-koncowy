@@ -72,23 +72,19 @@ class MP_D7_Agent_Prepare extends MP_Abstract_Agent {
 	 * @return int
 	 */
 	protected function calculate_score( MP_Context $context ) {
-		$score = 0;
-		if ( true === $context->get( 'vat_valid' ) ) {
-			$score += 30;
-		}
-		if ( 'Czynny' === $context->get( 'company_status' ) ) {
-			$score += 20;
-		}
-		if ( '' !== trim( (string) $context->get( 'phone', '' ) ) ) {
-			$score += 10;
-		}
-		if ( $context->get( 'consent_marketing' ) ) {
-			$score += 10;
-		}
-		if ( in_array( $context->get( 'segment' ), array( 'Produkcja', 'IT', 'Budownictwo' ), true ) ) {
-			$score += 15;
-		}
-		return $score;
+		// Wspólny scorer (to samo źródło prawdy, którego używa weryfikator w tle
+		// przy re-scoringu po potwierdzeniu VAT/statusu). Przy async cache-miss
+		// vat_valid/company_status są null → score prowizoryczny (bez bonusu VAT),
+		// korygowany w tle po weryfikacji.
+		return MP_Lead_Scoring::calculate(
+			array(
+				'vat_valid'         => $context->get( 'vat_valid' ),
+				'company_status'    => $context->get( 'company_status' ),
+				'phone'             => $context->get( 'phone', '' ),
+				'consent_marketing' => $context->get( 'consent_marketing' ),
+				'segment'           => $context->get( 'segment' ),
+			)
+		);
 	}
 
 	/**
@@ -123,6 +119,14 @@ class MP_D7_Agent_Prepare extends MP_Abstract_Agent {
 		$company = (string) $context->get( 'company_name', '' );
 		$email   = (string) $context->get( 'email', '' );
 
+		// Stan weryfikacji VAT/statusu. W trybie async cache-miss (vat_pending) →
+		// zapisujemy leada jako 'pending'; weryfikator w tle rozstrzygnie i skoryguje
+		// score. Cache-hit lub tryb synchroniczny → 'checked' od razu.
+		$vat_valid      = $context->get( 'vat_valid' );
+		$company_status = $context->get( 'company_status' );
+		$vat_pending    = ( $context->get( 'vat_pending' ) || $context->get( 'company_status_pending' ) );
+		$vat_status     = $vat_pending ? 'pending' : 'checked';
+
 		$lead_data = array(
 			'company_name'         => $company,
 			'nip'                  => $nip,
@@ -134,6 +138,9 @@ class MP_D7_Agent_Prepare extends MP_Abstract_Agent {
 			'salesman_id'          => $salesman,
 			'score'                => $score,
 			'status'               => 'new',
+			'vat_valid'            => is_null( $vat_valid ) ? null : ( $vat_valid ? 1 : 0 ),
+			'company_status'       => ( '' !== trim( (string) $company_status ) ) ? (string) $company_status : null,
+			'vat_status'           => $vat_status,
 			'consent_marketing'    => (int) $context->get( 'consent_marketing', 0 ),
 			'consent_rodo'         => (int) $context->get( 'consent_rodo', 0 ),
 			'consent_marketing_at' => $context->get( 'consent_marketing_at' ),
@@ -149,6 +156,7 @@ class MP_D7_Agent_Prepare extends MP_Abstract_Agent {
 				'score'       => $score,
 				'salesman_id' => $salesman,
 				'lead_ready'  => $ready,
+				'vat_status'  => $vat_status,
 			)
 		);
 	}

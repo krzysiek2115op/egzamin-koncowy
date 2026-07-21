@@ -25,6 +25,9 @@ require_once $mp_pipeline_dir . 'class-mp-department.php';
 require_once $mp_pipeline_dir . 'class-mp-pipeline-logger.php';
 require_once $mp_pipeline_dir . 'class-mp-pipeline.php';
 
+// Wspólny scorer (używany przez dział 7.2 i weryfikator w tle) — przed działami.
+require_once $mp_pipeline_dir . 'class-mp-lead-scoring.php';
+
 // --- Działy z realną logiką (krok 3) ---
 require_once $mp_pipeline_dir . 'departments/class-mp-department-01.php';
 require_once $mp_pipeline_dir . 'departments/class-mp-department-02.php';

@@ -26,7 +26,7 @@ class MP_Lead_Intake_DB {
 	 * Wersja schematu bazy. Podbijamy przy KAŻDEJ zmianie struktury tabel,
 	 * żeby mechanizm migracji wiedział, że trzeba zaktualizować bazę.
 	 */
-	const DB_VERSION = '1.1.0';
+	const DB_VERSION = '1.2.0';
 
 	/** Nazwa opcji WordPress przechowującej aktualną wersję bazy. */
 	const DB_VERSION_OPTION = 'mp_lead_intake_db_version';
@@ -207,6 +207,117 @@ class MP_Lead_Intake_DB {
 		return $ok ? (int) $wpdb->insert_id : false;
 	}
 
+	// --- Weryfikacja VAT w tle (async dział 3): odczyt/claim/aktualizacja/reconcile. ---
+
+	/**
+	 * Zwraca pełny wiersz leada po ID (m.in. dla weryfikatora w tle).
+	 *
+	 * @param int $id Identyfikator leada.
+	 * @return array|null Wiersz (ARRAY_A) lub null.
+	 */
+	public static function get_lead( $id ) {
+		global $wpdb;
+		$id = absint( $id );
+		if ( $id <= 0 ) {
+			return null;
+		}
+		$table = self::leads_table();
+
+		$row = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->prepare( "SELECT * FROM $table WHERE id = %d", $id ),
+			ARRAY_A
+		);
+
+		return is_array( $row ) ? $row : null;
+	}
+
+	/**
+	 * Atomowo przejmuje leada do weryfikacji VAT: 'pending' → 'verifying'
+	 * (+ inkrement licznika prób). Zwraca liczbę zajętych wierszy — 1 oznacza,
+	 * że TEN wywołujący wygrał wyścig; 0 = ktoś inny już przejął / stan nie 'pending'
+	 * (idempotencja przy równoległych cronach/reconcile).
+	 *
+	 * @param int $id Identyfikator leada.
+	 * @return int Liczba zajętych wierszy (0 lub 1).
+	 */
+	public static function claim_vat_verification( $id ) {
+		global $wpdb;
+		$id = absint( $id );
+		if ( $id <= 0 ) {
+			return 0;
+		}
+		$table = self::leads_table();
+
+		$affected = $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->prepare(
+				"UPDATE $table SET vat_status = 'verifying', vat_attempts = vat_attempts + 1, updated_at = %s WHERE id = %d AND vat_status = 'pending'",
+				current_time( 'mysql' ),
+				$id
+			)
+		);
+
+		return (int) $affected;
+	}
+
+	/**
+	 * Zapisuje wynik weryfikacji VAT (kolumny vat_*, score) dla leada.
+	 *
+	 * @param int   $id     Identyfikator leada.
+	 * @param array $fields Pary kolumna => wartość (podzbiór kolumn wp_mp_leads).
+	 * @return bool
+	 */
+	public static function update_vat_result( $id, array $fields ) {
+		global $wpdb;
+		$id = absint( $id );
+		if ( $id <= 0 || empty( $fields ) ) {
+			return false;
+		}
+		$fields['updated_at'] = current_time( 'mysql' );
+
+		$ok = $wpdb->update( self::leads_table(), $fields, array( 'id' => $id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+		return ( false !== $ok );
+	}
+
+	/**
+	 * Zwraca ID leadów oczekujących na weryfikację VAT (vat_status='pending').
+	 * Używane przez reconcile (siatka bezpieczeństwa cronu).
+	 *
+	 * @param int $limit Maks. liczba wierszy.
+	 * @return array Lista wierszy (ARRAY_A) z kluczem 'id'.
+	 */
+	public static function get_leads_needing_vat( $limit = 100 ) {
+		global $wpdb;
+		$limit = max( 1, absint( $limit ) );
+		$table = self::leads_table();
+
+		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->prepare( "SELECT id FROM $table WHERE vat_status = 'pending' AND deleted_at IS NULL ORDER BY id ASC LIMIT %d", $limit ),
+			ARRAY_A
+		);
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * Odblokowuje „zawieszone" weryfikacje: 'verifying' starsze niż $minutes → 'pending'
+	 * (worker padł w trakcie). Reconcile wraca do nich w następnym przebiegu.
+	 *
+	 * @param int $minutes Próg zawieszenia w minutach.
+	 * @return int Liczba odblokowanych wierszy.
+	 */
+	public static function reset_stuck_vat( $minutes = 15 ) {
+		global $wpdb;
+		$minutes = max( 1, absint( $minutes ) );
+		$table   = self::leads_table();
+
+		$rows = $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->prepare( "UPDATE $table SET vat_status = 'pending' WHERE vat_status = 'verifying' AND updated_at < DATE_SUB( NOW(), INTERVAL %d MINUTE )", $minutes )
+		);
+
+		return (int) $rows;
+	}
+
 	// --- RODO: anonimizacja i retencja adresów IP (dane osobowe). ---
 
 	/**
@@ -332,6 +443,11 @@ class MP_Lead_Intake_DB {
 			salesman_id bigint(20) unsigned DEFAULT NULL,
 			score int(11) NOT NULL DEFAULT 0,
 			status varchar(30) NOT NULL DEFAULT 'new',
+			vat_valid tinyint(1) DEFAULT NULL,
+			company_status varchar(30) DEFAULT NULL,
+			vat_status varchar(20) NOT NULL DEFAULT 'checked',
+			vat_checked_at datetime DEFAULT NULL,
+			vat_attempts smallint(5) unsigned NOT NULL DEFAULT 0,
 			consent_marketing tinyint(1) NOT NULL DEFAULT 0,
 			consent_rodo tinyint(1) NOT NULL DEFAULT 0,
 			consent_marketing_at datetime DEFAULT NULL,
@@ -344,6 +460,7 @@ class MP_Lead_Intake_DB {
 			UNIQUE KEY uq_nip (nip),
 			KEY email (email),
 			KEY status (status),
+			KEY vat_status (vat_status),
 			KEY salesman_id (salesman_id),
 			KEY deleted_at (deleted_at)
 		) ENGINE=InnoDB $charset_collate;";

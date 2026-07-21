@@ -22,5 +22,6 @@ MP_Lead_Intake_DB::delete_transients();
 MP_Lead_Intake_Roles::remove();
 MP_Lead_Intake_Page::remove();
 
-// Sprzątanie zaplanowanych zadań (retencja RODO).
+// Sprzątanie zaplanowanych zadań (retencja RODO + reconcile weryfikacji VAT).
 wp_clear_scheduled_hook( 'mp_lead_intake_ip_retention' );
+wp_clear_scheduled_hook( 'mp_lead_intake_vat_reconcile' );

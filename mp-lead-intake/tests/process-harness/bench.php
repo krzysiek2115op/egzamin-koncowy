@@ -101,16 +101,21 @@ function run_once( array $in ) {
 
 echo "NIP testowy: $VALID\n\n";
 
-/* --- Zapytania DB na 1 zgłoszenie (happy path, brak istniejącego leada) --- */
+/* --- Zapytania DB + HTTP na 1 zgłoszenie (happy path, brak istniejącego leada) --- */
 reset_state();
 $GLOBALS['wpdb']->reset_calls();
-$r = run_once( good_input( $VALID ) );
-$c = $GLOBALS['wpdb']->calls;
+$GLOBALS['__mp_http_calls'] = 0;
+$r         = run_once( good_input( $VALID ) );
+$c         = $GLOBALS['wpdb']->calls;
+$http_reqs = (int) $GLOBALS['__mp_http_calls'];
 echo "=== ZAPYTANIA DB / 1 zgłoszenie (happy path) ===\n";
-printf( "odczyty=%d  zapisy=%d  transakcje(START/COMMIT)=%d  prepare=%d  | ok=%s\n",
-	$c['read'], $c['write'], $c['tx'], $c['prepare'], $r->is_ok() ? 'true' : 'false' );
-echo "  (UWAGA: transienty rate-limit/cache VIES/WL w realnym WP to DODATKOWE zapytania do wp_options,\n";
-echo "   chyba że działa persistent object cache; wp_remote_get dz.3 = 2 wywołania HTTP na cache-miss.)\n\n";
+printf( "odczyty=%d  zapisy=%d  transakcje(START/COMMIT)=%d  prepare=%d  | HTTP w żądaniu=%d | ok=%s\n",
+	$c['read'], $c['write'], $c['tx'], $c['prepare'], $http_reqs, $r->is_ok() ? 'true' : 'false' );
+echo ( 0 === $http_reqs
+	? "  → P-1 rozwiązane: 0 wywołań HTTP w ścieżce żądania (VIES/Biała lista przeniesione do tła).\n"
+	: "  → UWAGA: $http_reqs wywołań HTTP w ścieżce żądania (spodziewane 0 w trybie async).\n" );
+echo "  (UWAGA: transienty rate-limit w realnym WP to DODATKOWE zapytania do wp_options,\n";
+echo "   chyba że działa persistent object cache. Weryfikacja VAT/statusu = worker w tle.)\n\n";
 
 /* --- Rozmiar JSON odpowiedzi (sukces) --- */
 $sample = array(

@@ -18,6 +18,7 @@ if ( ! $PLUGIN || ! is_dir( $PLUGIN ) ) {
 }
 require $PLUGIN . '/includes/db/class-mp-db.php';
 require $PLUGIN . '/includes/pipeline/bootstrap.php';
+require $PLUGIN . '/includes/class-mp-vat-verifier.php';
 
 /* ---------- Narzędzia ---------- */
 
@@ -267,11 +268,130 @@ $ax    = MP_Lead_Intake_DB::anonymize_ip( 'nie-jest-ip' );
 $inv11 = '203.0.113.0' === $a4 && 0 === strpos( $a6, '2001:db8:85a3' ) && '' === $ax;
 printf( "[%-4s] RODO anonymize_ip: v4=%s v6=%s śmieci=%s\n", $inv11 ? 'PASS' : 'FAIL', $a4, $a6, var_export( $ax, true ) );
 
+/* ---------- Niezmienniki ASYNC (weryfikacja VAT w tle, dział 3 → P-1) ---------- */
+
+echo "\n=== NIEZMIENNIKI ASYNC (weryfikacja VAT w tle) ===\n";
+
+// Znajdź wiersz leada po id w fake $wpdb.
+$find_lead = function ( $id ) {
+	foreach ( $GLOBALS['wpdb']->rows_leads as $r ) {
+		if ( (int) ( isset( $r['id'] ) ? $r['id'] : 0 ) === (int) $id ) {
+			return $r;
+		}
+	}
+	return null;
+};
+
+// Izolacja stanu dla ścieżki async.
+$reset_async = function () {
+	$GLOBALS['__mp_transients']            = array();
+	$GLOBALS['__mp_cfg']['leads_by_nip']   = array();
+	$GLOBALS['__mp_cfg']['archived_lead']  = null;
+	$GLOBALS['__mp_cfg']['http_responses'] = array();
+	$GLOBALS['wpdb']->rows_leads           = array();
+	$GLOBALS['__mp_cron']                  = array();
+};
+
+// 12) Async cache-miss: lead tworzony jako vat_status='pending', BEZ HTTP w ścieżce żądania.
+$reset_async();
+$GLOBALS['__mp_http_calls'] = 0;
+$a12    = run_pipeline( base_input( $VALID_NIP ) );
+$lead12 = $find_lead( isset( $a12['final_data']['lead_id'] ) ? $a12['final_data']['lead_id'] : 0 );
+$inv12  = $a12['ok'] && $lead12 && 'pending' === ( isset( $lead12['vat_status'] ) ? $lead12['vat_status'] : '' ) && 0 === (int) $GLOBALS['__mp_http_calls'];
+printf(
+	"[%-4s] Async: cache-miss → lead 'pending', 0 HTTP w żądaniu (vat_status=%s, http=%d)\n",
+	$inv12 ? 'PASS' : 'FAIL',
+	$lead12 && isset( $lead12['vat_status'] ) ? $lead12['vat_status'] : '-',
+	(int) $GLOBALS['__mp_http_calls']
+);
+
+// 13) Worker rozstrzyga: VIES valid + WL 'Czynny' → 'checked', re-scoring (+50), mp_lead_verified.
+$reset_async();
+$prov13     = run_pipeline( base_input( $VALID_NIP ) );
+$lid13      = (int) ( isset( $prov13['final_data']['lead_id'] ) ? $prov13['final_data']['lead_id'] : 0 );
+$row13a     = $find_lead( $lid13 );
+$prov_score = (int) ( $row13a && isset( $row13a['score'] ) ? $row13a['score'] : -1 );
+$GLOBALS['__mp_cfg']['http_responses'] = array(
+	'ec.europa.eu'     => array( 'response' => array( 'code' => 200 ), 'body' => json_encode( array( 'isValid' => true, 'name' => 'ACME' ) ) ),
+	'wl-api.mf.gov.pl' => array( 'response' => array( 'code' => 200 ), 'body' => json_encode( array( 'result' => array( 'subject' => array( 'statusVat' => 'Czynny' ) ) ) ) ),
+);
+$verified_before = isset( $GLOBALS['__mp_actions']['mp_lead_verified'] ) ? $GLOBALS['__mp_actions']['mp_lead_verified'] : 0;
+MP_Lead_Intake_Vat_Verifier::run( $lid13 );
+$row13b = $find_lead( $lid13 );
+$inv13  = $row13b
+	&& 'checked' === ( isset( $row13b['vat_status'] ) ? $row13b['vat_status'] : '' )
+	&& 1 === (int) ( isset( $row13b['vat_valid'] ) ? $row13b['vat_valid'] : -1 )
+	&& 'Czynny' === ( isset( $row13b['company_status'] ) ? $row13b['company_status'] : '' )
+	&& (int) ( isset( $row13b['score'] ) ? $row13b['score'] : 0 ) === $prov_score + 50
+	&& ( isset( $GLOBALS['__mp_actions']['mp_lead_verified'] ) ? $GLOBALS['__mp_actions']['mp_lead_verified'] : 0 ) === $verified_before + 1;
+printf(
+	"[%-4s] Worker: 'checked', vat_valid=1, status=Czynny, score %d→%d (+50), mp_lead_verified++\n",
+	$inv13 ? 'PASS' : 'FAIL',
+	$prov_score,
+	(int) ( $row13b && isset( $row13b['score'] ) ? $row13b['score'] : 0 )
+);
+
+// 14) Idempotencja: drugi run() = no-op (claim=0), bez ponownej emisji i HTTP.
+$verified_before14 = isset( $GLOBALS['__mp_actions']['mp_lead_verified'] ) ? $GLOBALS['__mp_actions']['mp_lead_verified'] : 0;
+$http_before14     = (int) $GLOBALS['__mp_http_calls'];
+MP_Lead_Intake_Vat_Verifier::run( $lid13 );
+$inv14 = ( isset( $GLOBALS['__mp_actions']['mp_lead_verified'] ) ? $GLOBALS['__mp_actions']['mp_lead_verified'] : 0 ) === $verified_before14
+	&& (int) $GLOBALS['__mp_http_calls'] === $http_before14;
+printf( "[%-4s] Idempotencja: powtórny worker to no-op (verified +0, http +0)\n", $inv14 ? 'PASS' : 'FAIL' );
+
+// 15) Zły VAT (VIES INVALID) → vat_status='invalid', lead ZOSTAJE (bez soft-delete).
+$reset_async();
+$prov15 = run_pipeline( base_input( $VALID_NIP ) );
+$lid15  = (int) ( isset( $prov15['final_data']['lead_id'] ) ? $prov15['final_data']['lead_id'] : 0 );
+$GLOBALS['__mp_cfg']['http_responses'] = array(
+	'ec.europa.eu' => array( 'response' => array( 'code' => 200 ), 'body' => json_encode( array( 'isValid' => false, 'userError' => 'INVALID' ) ) ),
+);
+MP_Lead_Intake_Vat_Verifier::run( $lid15 );
+$row15 = $find_lead( $lid15 );
+$inv15 = $row15
+	&& 'invalid' === ( isset( $row15['vat_status'] ) ? $row15['vat_status'] : '' )
+	&& empty( $row15['deleted_at'] )
+	&& 0 === (int) ( isset( $row15['vat_valid'] ) ? $row15['vat_valid'] : -1 );
+printf(
+	"[%-4s] Zły VAT: vat_status=invalid, lead zostaje (deleted_at=%s, vat_valid=%s)\n",
+	$inv15 ? 'PASS' : 'FAIL',
+	var_export( $row15 && isset( $row15['deleted_at'] ) ? $row15['deleted_at'] : null, true ),
+	var_export( $row15 && isset( $row15['vat_valid'] ) ? $row15['vat_valid'] : null, true )
+);
+
+// 16) Kolejkowanie: on_lead_created('pending') planuje 1 zdarzenie; druga próba nie duplikuje.
+$reset_async();
+$prov16 = run_pipeline( base_input( $VALID_NIP ) );
+$lid16  = (int) ( isset( $prov16['final_data']['lead_id'] ) ? $prov16['final_data']['lead_id'] : 0 );
+$GLOBALS['__mp_cron'] = array();
+MP_Lead_Intake_Vat_Verifier::on_lead_created( $lid16, array( 'vat_status' => 'pending' ) );
+$after_first = count( $GLOBALS['__mp_cron'] );
+MP_Lead_Intake_Vat_Verifier::on_lead_created( $lid16, array( 'vat_status' => 'pending' ) );
+$after_second   = count( $GLOBALS['__mp_cron'] );
+$scheduled_hook = $after_first > 0 ? $GLOBALS['__mp_cron'][0]['hook'] : '-';
+$inv16 = 1 === $after_first && 1 === $after_second && MP_Lead_Intake_Vat_Verifier::VERIFY_HOOK === $scheduled_hook;
+printf(
+	"[%-4s] Kolejka: on_lead_created('pending') → 1 zdarzenie (dedup: %d→%d, hook=%s)\n",
+	$inv16 ? 'PASS' : 'FAIL',
+	$after_first,
+	$after_second,
+	$scheduled_hook
+);
+
+// 17) Reconcile: zaległy 'pending' w bazie → dokolejkowanie zdarzenia weryfikacji.
+$reset_async();
+run_pipeline( base_input( $VALID_NIP ) ); // rows_leads ma leada 'pending'
+$GLOBALS['__mp_cron'] = array();
+MP_Lead_Intake_Vat_Verifier::reconcile();
+$inv17 = count( $GLOBALS['__mp_cron'] ) >= 1 && MP_Lead_Intake_Vat_Verifier::VERIFY_HOOK === ( isset( $GLOBALS['__mp_cron'][0]['hook'] ) ? $GLOBALS['__mp_cron'][0]['hook'] : '' );
+printf( "[%-4s] Reconcile: zaległy 'pending' dokolejkowany (zdarzeń=%d)\n", $inv17 ? 'PASS' : 'FAIL', count( $GLOBALS['__mp_cron'] ) );
+
 /* ---------- Podsumowanie ---------- */
 
 echo "\n=== PODSUMOWANIE ===\n";
 printf( "Scenariusze: PASS=%d FAIL=%d (z %d ocenianych)\n", $pass, $fail, $pass + $fail );
-$hard_fail = $fail + ( $inv1 ? 0 : 1 ) + ( $inv2 ? 0 : 1 ) + ( $inv3 ? 0 : 1 ) + ( $inv5 ? 0 : 1 ) + ( $inv6 ? 0 : 1 ) + ( $inv7 ? 0 : 1 ) + ( $inv8 ? 0 : 1 ) + ( $inv9 ? 0 : 1 ) + ( $inv10 ? 0 : 1 ) + ( $inv11 ? 0 : 1 );
+$hard_fail = $fail + ( $inv1 ? 0 : 1 ) + ( $inv2 ? 0 : 1 ) + ( $inv3 ? 0 : 1 ) + ( $inv5 ? 0 : 1 ) + ( $inv6 ? 0 : 1 ) + ( $inv7 ? 0 : 1 ) + ( $inv8 ? 0 : 1 ) + ( $inv9 ? 0 : 1 ) + ( $inv10 ? 0 : 1 ) + ( $inv11 ? 0 : 1 )
+	+ ( $inv12 ? 0 : 1 ) + ( $inv13 ? 0 : 1 ) + ( $inv14 ? 0 : 1 ) + ( $inv15 ? 0 : 1 ) + ( $inv16 ? 0 : 1 ) + ( $inv17 ? 0 : 1 );
 echo $hard_fail === 0
 	? "WYNIK: proces spójny wg niezmienników.\n"
 	: "WYNIK: wykryto {$hard_fail} naruszeń — patrz FAIL powyżej.\n";

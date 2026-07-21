@@ -84,6 +84,114 @@ class MP_D3_Agent_Vat extends MP_Abstract_Agent {
 	}
 
 	/**
+	 * Czy weryfikacja VAT/statusu ma iść w TLE (async, poza ścieżką żądania).
+	 * Domyślnie TAK; filtr pozwala wrócić do zachowania synchronicznego (m.in. testy).
+	 *
+	 * @return bool
+	 */
+	public static function async_enabled() {
+		return (bool) apply_filters( 'mp_lead_intake_async_verification', true );
+	}
+
+	/**
+	 * Klucz cache (transient) wyniku VIES dla pary kraj+NIP. Jedno źródło formatu
+	 * klucza dla ścieżki synchronicznej i weryfikatora w tle.
+	 *
+	 * @param string $country Kod kraju (np. PL).
+	 * @param string $nip     NIP (same cyfry).
+	 * @return string
+	 */
+	public static function vies_cache_key( $country, $nip ) {
+		return 'mp_vies_' . $country . '_' . $nip;
+	}
+
+	/**
+	 * PEŁNE rozstrzygnięcie VAT w VIES: cache-albo-HTTP (z zapisem do cache i łagodnym
+	 * fallbackiem). To jedyne miejsce z kosztownym wywołaniem sieciowym VIES — wołane
+	 * synchronicznie tylko przy async OFF, a w trybie async wyłącznie przez weryfikator
+	 * w tle (poza żądaniem klienta).
+	 *
+	 * @param string $country Kod kraju.
+	 * @param string $nip     NIP.
+	 * @return array Kształt: vat_valid (bool|null), vat_checked (bool), [vat_source|vat_name|vat_error].
+	 */
+	public static function resolve_vies( $country, $nip ) {
+		$nip     = preg_replace( '/\D+/', '', (string) $nip );
+		$country = strtoupper( (string) $country );
+		if ( '' === $country ) {
+			$country = 'PL';
+		}
+		if ( '' === $nip ) {
+			return array(
+				'vat_valid'   => null,
+				'vat_checked' => false,
+			);
+		}
+
+		$cache_key = self::vies_cache_key( $country, $nip );
+		$cached    = get_transient( $cache_key );
+		if ( false !== $cached ) {
+			return array(
+				'vat_valid'   => (bool) $cached,
+				'vat_checked' => true,
+				'vat_source'  => 'cache',
+			);
+		}
+
+		$url  = sprintf( 'https://ec.europa.eu/taxation_customs/vies/rest-api/ms/%s/vat/%s', rawurlencode( $country ), rawurlencode( $nip ) );
+		$resp = wp_remote_get(
+			$url,
+			array(
+				'timeout' => 8,
+				'headers' => array( 'Accept' => 'application/json' ),
+			)
+		);
+
+		if ( is_wp_error( $resp ) ) {
+			// Łagodny fallback — nie zatrzymujemy pipeline z powodu awarii VIES.
+			return array(
+				'vat_valid'   => null,
+				'vat_checked' => false,
+				'vat_error'   => $resp->get_error_message(),
+			);
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $resp );
+		$body = json_decode( wp_remote_retrieve_body( $resp ), true );
+		if ( 200 !== $code || ! is_array( $body ) ) {
+			return array(
+				'vat_valid'   => null,
+				'vat_checked' => false,
+			);
+		}
+
+		$is_valid = ! empty( $body['isValid'] );
+		$user_err = isset( $body['userError'] ) ? strtoupper( (string) $body['userError'] ) : '';
+
+		// VIES zwraca isValid=false także gdy państwo członkowskie chwilowo nie
+		// odpowiada (np. MS_UNAVAILABLE/SERVICE_UNAVAILABLE/TIMEOUT). Tylko jawne
+		// „INVALID" (lub brak userError) traktujemy jako realnie błędny VAT — inaczej
+		// odrzucalibyśmy (i cache'owali na 24h) legalne leady w czasie awarii VIES.
+		if ( ! $is_valid && '' !== $user_err && 'INVALID' !== $user_err ) {
+			return array(
+				'vat_valid'   => null,
+				'vat_checked' => false,
+				'vat_error'   => $user_err,
+			);
+		}
+
+		$valid = $is_valid;
+		set_transient( $cache_key, $valid ? 1 : 0, DAY_IN_SECONDS );
+
+		return array(
+			'vat_valid'   => $valid,
+			'vat_checked' => true,
+			'vat_source'  => 'vies',
+			'vat_name'    => isset( $body['name'] ) ? $body['name'] : null,
+		);
+	}
+
+	/**
 	 * @param MP_Context $context Kontekst.
 	 * @return MP_Result
 	 */
@@ -102,77 +210,31 @@ class MP_D3_Agent_Vat extends MP_Abstract_Agent {
 			);
 		}
 
-		$cache_key = 'mp_vies_' . $country . '_' . $nip;
-		$cached    = get_transient( $cache_key );
-		if ( false !== $cached ) {
-			return MP_Result::ok(
-				array(
-					'vat_valid'   => (bool) $cached,
-					'vat_checked' => true,
-					'vat_source'  => 'cache',
-				)
-			);
-		}
-
-		$url  = sprintf( 'https://ec.europa.eu/taxation_customs/vies/rest-api/ms/%s/vat/%s', rawurlencode( $country ), rawurlencode( $nip ) );
-		$resp = wp_remote_get(
-			$url,
-			array(
-				'timeout' => 8,
-				'headers' => array( 'Accept' => 'application/json' ),
-			)
-		);
-
-		if ( is_wp_error( $resp ) ) {
-			// Łagodny fallback — nie zatrzymujemy pipeline z powodu awarii VIES.
+		// Tryb async (domyślny): w ścieżce żądania NIE wykonujemy HTTP. Cache-hit
+		// wykorzystujemy (szybko; zachowany szybki reject cached-invalid przez K3.2),
+		// a cache-miss ODKŁADAMY do weryfikatora w tle (vat_pending).
+		if ( self::async_enabled() ) {
+			$cached = get_transient( self::vies_cache_key( $country, $nip ) );
+			if ( false !== $cached ) {
+				return MP_Result::ok(
+					array(
+						'vat_valid'   => (bool) $cached,
+						'vat_checked' => true,
+						'vat_source'  => 'cache',
+					)
+				);
+			}
 			return MP_Result::ok(
 				array(
 					'vat_valid'   => null,
 					'vat_checked' => false,
-					'vat_error'   => $resp->get_error_message(),
+					'vat_pending' => true,
 				)
 			);
 		}
 
-		$code = (int) wp_remote_retrieve_response_code( $resp );
-		$body = json_decode( wp_remote_retrieve_body( $resp ), true );
-		if ( 200 !== $code || ! is_array( $body ) ) {
-			return MP_Result::ok(
-				array(
-					'vat_valid'   => null,
-					'vat_checked' => false,
-				)
-			);
-		}
-
-		$is_valid = ! empty( $body['isValid'] );
-		$user_err = isset( $body['userError'] ) ? strtoupper( (string) $body['userError'] ) : '';
-
-		// VIES zwraca isValid=false także gdy państwo członkowskie chwilowo nie
-		// odpowiada (np. MS_UNAVAILABLE/SERVICE_UNAVAILABLE/TIMEOUT). Tylko jawne
-		// „INVALID" (lub brak userError) traktujemy jako realnie błędny VAT — inaczej
-		// odrzucalibyśmy (i cache'owali na 24h) legalne leady w czasie awarii VIES.
-		if ( ! $is_valid && '' !== $user_err && 'INVALID' !== $user_err ) {
-			return MP_Result::ok(
-				array(
-					'vat_valid'   => null,
-					'vat_checked' => false,
-					'vat_error'   => $user_err,
-				)
-			);
-		}
-
-		$valid = $is_valid;
-		set_transient( $cache_key, $valid ? 1 : 0, DAY_IN_SECONDS );
-
-		return MP_Result::ok(
-			array(
-				'vat_valid'   => $valid,
-				'vat_checked' => true,
-				'vat_source'  => 'vies',
-				'vat_name'    => isset( $body['name'] ) ? $body['name'] : null,
-			)
-		);
+		// Tryb synchroniczny (opt-out): pełne rozstrzygnięcie tu i teraz.
+		return MP_Result::ok( self::resolve_vies( $country, $nip ) );
 	}
 }
 
@@ -183,6 +245,83 @@ class MP_D3_Agent_Company_Status extends MP_Abstract_Agent {
 
 	public function __construct() {
 		parent::__construct( '3.3', 'Sprawdza status firmy', 'Oficjalna Biała lista VAT (statusVat), cache + timeout + fallback' );
+	}
+
+	/**
+	 * Klucz cache (transient) statusu firmy z Białej listy dla NIP na dany dzień.
+	 *
+	 * @param string $nip  NIP (same cyfry).
+	 * @param string $date Data 'Y-m-d' (domyślnie dziś, UTC).
+	 * @return string
+	 */
+	public static function wl_cache_key( $nip, $date = '' ) {
+		if ( '' === $date ) {
+			$date = gmdate( 'Y-m-d' );
+		}
+		return 'mp_wl_' . $nip . '_' . $date;
+	}
+
+	/**
+	 * PEŁNE rozstrzygnięcie statusu firmy w Białej liście VAT: cache-albo-HTTP.
+	 * Jedyne miejsce z kosztownym wywołaniem sieciowym MF — wołane synchronicznie
+	 * tylko przy async OFF, a w trybie async wyłącznie przez weryfikator w tle.
+	 *
+	 * @param string $nip NIP.
+	 * @return array Kształt: company_status (string|null), company_status_checked (bool), [source].
+	 */
+	public static function resolve_wl( $nip ) {
+		$nip = preg_replace( '/\D+/', '', (string) $nip );
+		if ( '' === $nip ) {
+			return array(
+				'company_status'         => null,
+				'company_status_checked' => false,
+			);
+		}
+
+		$date      = gmdate( 'Y-m-d' );
+		$cache_key = self::wl_cache_key( $nip, $date );
+		$cached    = get_transient( $cache_key );
+		if ( false !== $cached ) {
+			return array(
+				'company_status'         => $cached,
+				'company_status_checked' => true,
+				'company_status_source'  => 'cache',
+			);
+		}
+
+		$url  = sprintf( 'https://wl-api.mf.gov.pl/api/search/nip/%s?date=%s', rawurlencode( $nip ), rawurlencode( $date ) );
+		$resp = wp_remote_get(
+			$url,
+			array(
+				'timeout' => 8,
+				'headers' => array( 'Accept' => 'application/json' ),
+			)
+		);
+
+		if ( is_wp_error( $resp ) ) {
+			return array(
+				'company_status'         => null,
+				'company_status_checked' => false,
+			);
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $resp );
+		$body = json_decode( wp_remote_retrieve_body( $resp ), true );
+		if ( 200 !== $code || ! is_array( $body ) ) {
+			return array(
+				'company_status'         => null,
+				'company_status_checked' => false,
+			);
+		}
+
+		$status = isset( $body['result']['subject']['statusVat'] ) ? $body['result']['subject']['statusVat'] : null;
+		set_transient( $cache_key, $status, 12 * HOUR_IN_SECONDS );
+
+		return array(
+			'company_status'         => $status,
+			'company_status_checked' => true,
+			'company_status_source'  => 'wl',
+		);
 	}
 
 	/**
@@ -200,58 +339,29 @@ class MP_D3_Agent_Company_Status extends MP_Abstract_Agent {
 			);
 		}
 
-		$date      = gmdate( 'Y-m-d' );
-		$cache_key = 'mp_wl_' . $nip . '_' . $date;
-		$cached    = get_transient( $cache_key );
-		if ( false !== $cached ) {
-			return MP_Result::ok(
-				array(
-					'company_status'         => $cached,
-					'company_status_checked' => true,
-					'company_status_source'  => 'cache',
-				)
-			);
-		}
-
-		$url  = sprintf( 'https://wl-api.mf.gov.pl/api/search/nip/%s?date=%s', rawurlencode( $nip ), rawurlencode( $date ) );
-		$resp = wp_remote_get(
-			$url,
-			array(
-				'timeout' => 8,
-				'headers' => array( 'Accept' => 'application/json' ),
-			)
-		);
-
-		if ( is_wp_error( $resp ) ) {
+		// Tryb async (domyślny): cache-hit wykorzystujemy, miss ODKŁADAMY do tła.
+		if ( MP_D3_Agent_Vat::async_enabled() ) {
+			$cached = get_transient( self::wl_cache_key( $nip ) );
+			if ( false !== $cached ) {
+				return MP_Result::ok(
+					array(
+						'company_status'         => $cached,
+						'company_status_checked' => true,
+						'company_status_source'  => 'cache',
+					)
+				);
+			}
 			return MP_Result::ok(
 				array(
 					'company_status'         => null,
 					'company_status_checked' => false,
+					'company_status_pending' => true,
 				)
 			);
 		}
 
-		$code = (int) wp_remote_retrieve_response_code( $resp );
-		$body = json_decode( wp_remote_retrieve_body( $resp ), true );
-		if ( 200 !== $code || ! is_array( $body ) ) {
-			return MP_Result::ok(
-				array(
-					'company_status'         => null,
-					'company_status_checked' => false,
-				)
-			);
-		}
-
-		$status = isset( $body['result']['subject']['statusVat'] ) ? $body['result']['subject']['statusVat'] : null;
-		set_transient( $cache_key, $status, 12 * HOUR_IN_SECONDS );
-
-		return MP_Result::ok(
-			array(
-				'company_status'         => $status,
-				'company_status_checked' => true,
-				'company_status_source'  => 'wl',
-			)
-		);
+		// Tryb synchroniczny (opt-out): pełne rozstrzygnięcie tu i teraz.
+		return MP_Result::ok( self::resolve_wl( $nip ) );
 	}
 }
 

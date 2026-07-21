@@ -3,7 +3,7 @@
  * Plugin Name:       MP Lead Intake
  * Plugin URI:        https://github.com/krzysiek2115op/egzamin-koncowy
  * Description:       Przyjęcie i kwalifikacja lead-a z formularza ofertowego WordPress. Pierwszy element procesu formularz → oferta.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            krzysiek2115op
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // --- Stałe wtyczki ---
-define( 'MP_LEAD_INTAKE_VERSION', '1.0.0' );
+define( 'MP_LEAD_INTAKE_VERSION', '1.1.0' );
 define( 'MP_LEAD_INTAKE_FILE', __FILE__ );
 define( 'MP_LEAD_INTAKE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MP_LEAD_INTAKE_URL', plugin_dir_url( __FILE__ ) );
@@ -35,6 +35,9 @@ require_once MP_LEAD_INTAKE_DIR . 'includes/pipeline/bootstrap.php';
 require_once MP_LEAD_INTAKE_DIR . 'includes/class-mp-roles.php';
 require_once MP_LEAD_INTAKE_DIR . 'includes/class-mp-page.php';
 require_once MP_LEAD_INTAKE_DIR . 'includes/class-mp-security.php';
+
+// --- Weryfikacja VAT w tle (async dział 3, poza ścieżką żądania) ---
+require_once MP_LEAD_INTAKE_DIR . 'includes/class-mp-vat-verifier.php';
 
 // --- Front: endpoint AJAX ("1 AJAX") i formularz ---
 require_once MP_LEAD_INTAKE_DIR . 'includes/class-mp-ajax.php';
@@ -53,6 +56,12 @@ function mp_lead_intake_activate() {
 		wp_schedule_event( time() + DAY_IN_SECONDS, 'daily', 'mp_lead_intake_ip_retention' );
 	}
 
+	// Async dział 3: godzinny reconcile weryfikacji VAT (siatka bezpieczeństwa —
+	// odblokowuje zawieszone i dokolejkowuje zaległe 'pending', gdy WP-Cron zawiedzie).
+	if ( ! wp_next_scheduled( 'mp_lead_intake_vat_reconcile' ) ) {
+		wp_schedule_event( time() + HOUR_IN_SECONDS, 'hourly', 'mp_lead_intake_vat_reconcile' );
+	}
+
 	flush_rewrite_rules();
 }
 register_activation_hook( __FILE__, 'mp_lead_intake_activate' );
@@ -67,8 +76,9 @@ add_action( 'mp_lead_intake_ip_retention', array( 'MP_Lead_Intake_DB', 'purge_ol
  * Deaktywacja wtyczki (bez usuwania danych — to robi uninstall.php).
  */
 function mp_lead_intake_deactivate() {
-	// Sprzątanie zaplanowanych zadań (retencja RODO).
+	// Sprzątanie zaplanowanych zadań (retencja RODO + reconcile weryfikacji VAT).
 	wp_clear_scheduled_hook( 'mp_lead_intake_ip_retention' );
+	wp_clear_scheduled_hook( 'mp_lead_intake_vat_reconcile' );
 }
 register_deactivation_hook( __FILE__, 'mp_lead_intake_deactivate' );
 
@@ -80,6 +90,8 @@ function mp_lead_intake_bootstrap() {
 
 	// Hardening: opt-in globalne nagłówki bezpieczeństwa (domyślnie OFF).
 	MP_Lead_Intake_Security::register();
+	// Async weryfikacja VAT w tle (kolejkowanie po utworzeniu leada + reconcile).
+	MP_Lead_Intake_Vat_Verifier::register();
 	// "1 AJAX" — endpoint (drzwi we wtyczce), który uruchamia cały pipeline.
 	MP_Lead_Intake_Ajax::register();
 	// Formularz B2B (shortcode [mp_lead_intake_form]) + assety.

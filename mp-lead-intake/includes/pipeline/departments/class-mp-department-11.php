@@ -93,6 +93,7 @@ class MP_D11_Agent_Report extends MP_Abstract_Agent {
 				'client_category' => $context->get( 'client_category' ),
 				'score'           => (int) $context->get( 'score', 0 ),
 				'status'          => (string) $context->get( 'status', 'new' ),
+				'vat_status'      => (string) $context->get( 'vat_status', 'checked' ),
 				'salesman_id'     => $context->get( 'salesman_id' ),
 			);
 			do_action( 'mp_lead_created', $lead_id, $payload );
