@@ -82,6 +82,52 @@ class MP_Lead_Intake_DB {
 	}
 
 	/**
+	 * Zwraca zarchiwizowanego (soft-deleted) leada o danym NIP, jeśli istnieje.
+	 *
+	 * Potrzebne, bo UNIQUE KEY uq_nip obejmuje też zarchiwizowane wiersze — bez tego
+	 * firma raz zarchiwizowana nie mogłaby zgłosić się ponownie (INSERT biłby w UNIQUE).
+	 *
+	 * @param string $nip NIP firmy.
+	 * @return array|null Wiersz (ARRAY_A) lub null, gdy brak.
+	 */
+	public static function get_archived_lead_by_nip( $nip ) {
+		global $wpdb;
+		$table = self::leads_table();
+
+		$row = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->prepare( "SELECT * FROM $table WHERE nip = %s AND deleted_at IS NOT NULL ORDER BY id DESC LIMIT 1", $nip ),
+			ARRAY_A
+		);
+
+		return is_array( $row ) ? $row : null;
+	}
+
+	/**
+	 * Reaktywuje zarchiwizowanego leada: czyści deleted_at i nadpisuje dane
+	 * bieżącym zgłoszeniem (nowe zapytanie od powracającej firmy).
+	 *
+	 * @param int   $id   Identyfikator istniejącego leada.
+	 * @param array $data Nowe dane (kolumny wp_mp_leads).
+	 * @return int|false ID leada lub false przy błędzie.
+	 */
+	public static function reactivate_lead( $id, array $data ) {
+		global $wpdb;
+		$id = absint( $id );
+		if ( $id <= 0 ) {
+			return false;
+		}
+		$data['deleted_at'] = null;
+		$data['updated_at'] = current_time( 'mysql' );
+		if ( ! isset( $data['status'] ) || '' === $data['status'] ) {
+			$data['status'] = 'new';
+		}
+
+		$ok = $wpdb->update( self::leads_table(), $data, array( 'id' => $id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+		return ( false !== $ok ) ? $id : false;
+	}
+
+	/**
 	 * Zwraca oferty powiązane z podanymi lead_id.
 	 *
 	 * @param array $lead_ids Lista identyfikatorów leadów.

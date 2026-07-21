@@ -89,6 +89,17 @@ class MP_D2_Agent_Validate_Formats extends MP_Abstract_Agent {
 	}
 
 	/**
+	 * Długość w znakach z bezpiecznym fallbackiem, gdy brak rozszerzenia mbstring
+	 * (WordPress go zaleca, ale nie gwarantuje — bez guardu byłby fatal).
+	 *
+	 * @param string $s Tekst.
+	 * @return int
+	 */
+	private static function str_len( $s ) {
+		return function_exists( 'mb_strlen' ) ? mb_strlen( (string) $s ) : strlen( (string) $s );
+	}
+
+	/**
 	 * @param MP_Context $context Kontekst.
 	 * @return MP_Result
 	 */
@@ -98,12 +109,27 @@ class MP_D2_Agent_Validate_Formats extends MP_Abstract_Agent {
 		$email = (string) $context->get( 'email', '' );
 		if ( '' === $email || ! is_email( $email ) ) {
 			$errors['email'] = 'Niepoprawny adres e-mail';
+		} elseif ( self::str_len( $email ) > 190 ) {
+			$errors['email'] = 'Adres e-mail jest za długi (maks. 190 znaków)';
 		}
 
-		// Wstępny format NIP — 10 cyfr. Pełna suma kontrolna: dział 3.
+		// NIP jest wymagany. Po normalizacji (2.2) puste pole oznacza wejście bez
+		// cyfr (np. same myślniki) — nie wolno go przepuścić do działu 3.
 		$nip = (string) $context->get( 'nip', '' );
-		if ( '' !== $nip && 10 !== strlen( $nip ) ) {
+		if ( '' === $nip ) {
+			$errors['nip'] = 'NIP jest wymagany';
+		} elseif ( 10 !== strlen( $nip ) ) {
 			$errors['nip'] = 'NIP powinien mieć 10 cyfr';
+		}
+
+		// Limity długości zgodne z kolumnami BD-3 (unikamy „Data too long"/obcięcia w dziale 7).
+		$company = (string) $context->get( 'company_name', '' );
+		if ( self::str_len( $company ) > 255 ) {
+			$errors['company_name'] = 'Nazwa firmy jest za długa (maks. 255 znaków)';
+		}
+		$phone = (string) $context->get( 'phone', '' );
+		if ( self::str_len( $phone ) > 30 ) {
+			$errors['phone'] = 'Numer telefonu jest za długi (maks. 30 znaków)';
 		}
 
 		return MP_Result::ok(

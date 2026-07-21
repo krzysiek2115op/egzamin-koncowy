@@ -53,6 +53,9 @@ class MP_D9_Agent_Stage extends MP_Abstract_Agent {
 			array(
 				'stage'      => 'lead_intake',
 				'started_at' => current_time( 'mysql' ),
+				// Monotoniczny znacznik do liczenia czasu trwania (dział 11) — spójny
+				// z time()/microtime() serwera, w przeciwieństwie do „mysql" (strefa WP).
+				'started_ts' => microtime( true ),
 			)
 		);
 	}

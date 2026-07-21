@@ -36,7 +36,13 @@ class MP_D3_Agent_Nip extends MP_Abstract_Agent {
 	 * @return bool
 	 */
 	public static function checksum_valid( $nip ) {
-		if ( ! preg_match( '/^\d{10}$/', $nip ) ) {
+		// \A..\z (nie ^..$) — inaczej PCRE dopuściłoby końcowy \n po 10 cyfrach.
+		if ( ! preg_match( '/\A\d{10}\z/', (string) $nip ) ) {
+			return false;
+		}
+		// Odrzucamy oczywiste placeholdery (wszystkie cyfry jednakowe, np. 0000000000),
+		// które formalnie przechodzą sumę kontrolną, a nie są realnym NIP-em.
+		if ( preg_match( '/\A(\d)\1{9}\z/', (string) $nip ) ) {
 			return false;
 		}
 		$weights = array( 6, 5, 7, 2, 3, 4, 5, 6, 7 );
@@ -139,7 +145,24 @@ class MP_D3_Agent_Vat extends MP_Abstract_Agent {
 			);
 		}
 
-		$valid = ! empty( $body['isValid'] );
+		$is_valid = ! empty( $body['isValid'] );
+		$user_err = isset( $body['userError'] ) ? strtoupper( (string) $body['userError'] ) : '';
+
+		// VIES zwraca isValid=false także gdy państwo członkowskie chwilowo nie
+		// odpowiada (np. MS_UNAVAILABLE/SERVICE_UNAVAILABLE/TIMEOUT). Tylko jawne
+		// „INVALID" (lub brak userError) traktujemy jako realnie błędny VAT — inaczej
+		// odrzucalibyśmy (i cache'owali na 24h) legalne leady w czasie awarii VIES.
+		if ( ! $is_valid && '' !== $user_err && 'INVALID' !== $user_err ) {
+			return MP_Result::ok(
+				array(
+					'vat_valid'   => null,
+					'vat_checked' => false,
+					'vat_error'   => $user_err,
+				)
+			);
+		}
+
+		$valid = $is_valid;
 		set_transient( $cache_key, $valid ? 1 : 0, DAY_IN_SECONDS );
 
 		return MP_Result::ok(

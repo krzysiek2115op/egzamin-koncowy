@@ -130,10 +130,18 @@ class MP_Context {
 	 * @return MP_Context
 	 */
 	public static function from_json( $json ) {
-		$arr = json_decode( $json, true );
+		$arr = json_decode( (string) $json, true );
+		if ( ! is_array( $arr ) ) {
+			// Uszkodzony/niepełny JSON — zwracamy pusty, spójny kontekst zamiast błędu.
+			$arr = array();
+		}
 		$ctx = new self( isset( $arr['data'] ) && is_array( $arr['data'] ) ? $arr['data'] : array() );
 		if ( isset( $arr['department'] ) ) {
 			$ctx->set_current_department( $arr['department'] );
+		}
+		// Round-trip musi odtworzyć także błędy (to_json je serializuje).
+		if ( isset( $arr['errors'] ) && is_array( $arr['errors'] ) ) {
+			$ctx->errors = $arr['errors'];
 		}
 		return $ctx;
 	}

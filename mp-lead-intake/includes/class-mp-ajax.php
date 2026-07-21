@@ -65,6 +65,21 @@ class MP_Lead_Intake_Ajax {
 			'mp_nonce'          => isset( $_POST['mp_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['mp_nonce'] ) ) : '',
 		);
 
+		// Fail-fast antyspam + rate-limit PRZED pipeline. Dział 3 wykonuje kosztowne
+		// zapytania zewnętrzne (VIES, Biała lista); bez tej bramki atakujący z jednym
+		// ważnym nonce mógłby je wymuszać bez limitu (DoS/amplifikacja, banowanie IP
+		// serwera). Dział 5 zostaje jako druga warstwa (defense-in-depth) w pipeline.
+		$ip = MP_D5_Agent_Rate_Limit::client_ip();
+		if ( '' !== trim( (string) $input['mp_hp'] ) || MP_D5_Agent_Rate_Limit::over_limit( $ip ) ) {
+			wp_send_json_error(
+				array(
+					'code'    => 'request_rejected',
+					'message' => 'Nie udało się przetworzyć zgłoszenia. Spróbuj ponownie za chwilę.',
+				),
+				429
+			);
+		}
+
 		$context  = new MP_Context( $input );
 		$pipeline = MP_Pipeline_Factory::make();
 		$result   = $pipeline->run( $context );

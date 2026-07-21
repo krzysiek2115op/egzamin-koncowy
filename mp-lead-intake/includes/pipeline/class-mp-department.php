@@ -68,15 +68,33 @@ class MP_Department {
 			$critic = $pair['critic'];
 
 			$agent_result = $agent->run( $context );
-			$review       = $critic->review( $agent_result, $context );
+
+			// Defense-in-depth: twardy błąd agenta = STOP jeszcze przed krytykiem
+			// (analogicznie do bramki jakości), nie polegamy wyłącznie na krytyku.
+			if ( ! $agent_result->is_ok() ) {
+				$agent_data = $agent_result->get_data();
+				return MP_Result::fail(
+					$agent_result->get_errors(),
+					array(
+						'agent'  => $agent->get_id(),
+						'errors' => isset( $agent_data['errors'] ) ? $agent_data['errors'] : array(),
+					),
+					$agent_result->get_code() ? $agent_result->get_code() : 'agent_failed'
+				);
+			}
+
+			$review = $critic->review( $agent_result, $context );
 
 			if ( ! $review->is_ok() ) {
-				// Krytyk wykrył błąd -> STOP (zasada procesu).
+				// Krytyk wykrył błąd -> STOP (zasada procesu). Przenosimy szczegóły
+				// błędów pól (z danych krytyka) do logu diagnostycznego.
+				$review_data = $review->get_data();
 				return MP_Result::fail(
 					$review->get_errors(),
 					array(
 						'agent'  => $agent->get_id(),
 						'critic' => $critic->get_id(),
+						'errors' => isset( $review_data['errors'] ) ? $review_data['errors'] : array(),
 					),
 					'critic_failed'
 				);
@@ -89,7 +107,15 @@ class MP_Department {
 		// Bramka jakości PO dziale.
 		$gate_result = $this->gate->evaluate( $context );
 		if ( ! $gate_result->is_ok() ) {
-			return MP_Result::fail( $gate_result->get_errors(), array( 'gate' => $this->key ), 'gate_failed' );
+			$gate_data = $gate_result->get_data();
+			return MP_Result::fail(
+				$gate_result->get_errors(),
+				array(
+					'gate'   => $this->key,
+					'errors' => isset( $gate_data['errors'] ) ? $gate_data['errors'] : array(),
+				),
+				'gate_failed'
+			);
 		}
 
 		return MP_Result::ok( $context->all() );

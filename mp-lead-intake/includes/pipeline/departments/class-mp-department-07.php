@@ -34,11 +34,23 @@ class MP_D7_Agent_Dedup extends MP_Abstract_Agent {
 		$existing = ( '' !== $nip ) ? MP_Lead_Intake_DB::get_leads_by_nip( $nip ) : array();
 		$dup      = ! empty( $existing );
 
+		// Aktywny lead o tym NIP = twardy duplikat (STOP przez K7.1). Zarchiwizowany
+		// (soft-delete) = kandydat do REAKTYWACJI w 7.3 — inaczej UNIQUE(nip) zablokowałby
+		// ponowne zgłoszenie powracającej firmy generycznym „insert_failed".
+		$reactivate_id = null;
+		if ( ! $dup && '' !== $nip ) {
+			$archived = MP_Lead_Intake_DB::get_archived_lead_by_nip( $nip );
+			if ( $archived && isset( $archived['id'] ) ) {
+				$reactivate_id = (int) $archived['id'];
+			}
+		}
+
 		return MP_Result::ok(
 			array(
-				'is_duplicate'     => $dup,
-				'unique_ok'        => ! $dup,
-				'existing_lead_id' => $dup ? (int) $existing[0]['id'] : null,
+				'is_duplicate'       => $dup,
+				'unique_ok'          => ! $dup,
+				'existing_lead_id'   => $dup ? (int) $existing[0]['id'] : null,
+				'reactivate_lead_id' => $reactivate_id,
 			)
 		);
 	}
@@ -161,16 +173,24 @@ class MP_D7_Agent_Create extends MP_Abstract_Agent {
 			return MP_Result::fail( 'Brak danych leada', array(), 'no_lead_data' );
 		}
 
-		$lead_id = MP_Lead_Intake_DB::insert_lead( $lead_data );
+		$reactivate_id = (int) $context->get( 'reactivate_lead_id', 0 );
+		if ( $reactivate_id > 0 ) {
+			// Powracająca firma (zarchiwizowany NIP) — reaktywacja zamiast INSERT.
+			$lead_id = MP_Lead_Intake_DB::reactivate_lead( $reactivate_id, $lead_data );
+		} else {
+			$lead_id = MP_Lead_Intake_DB::insert_lead( $lead_data );
+		}
+
 		if ( ! $lead_id ) {
 			return MP_Result::fail( 'Nie udało się utworzyć leada', array(), 'insert_failed' );
 		}
 
 		return MP_Result::ok(
 			array(
-				'lead_id'    => $lead_id,
-				'status'     => 'new',
-				'created_at' => current_time( 'mysql' ),
+				'lead_id'          => $lead_id,
+				'status'           => 'new',
+				'created_at'       => current_time( 'mysql' ),
+				'lead_reactivated' => ( $reactivate_id > 0 ),
 			)
 		);
 	}

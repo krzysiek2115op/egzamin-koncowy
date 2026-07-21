@@ -40,7 +40,10 @@ class MP_D1_Agent_Fetch_Leads extends MP_Abstract_Agent {
 	 * @return MP_Result
 	 */
 	public function run( MP_Context $context ) {
-		$nip   = trim( (string) $context->get( 'nip', '' ) );
+		// Normalizacja NIP do samych cyfr (jak w działach 2/3), bo w BD-3 NIP jest
+		// zapisany kanonicznie (10 cyfr). Bez tego zapis typu "123-456-32-18" nie
+		// trafiłby w istniejącego klienta i dział 1 „ślepłby" na jego historię.
+		$nip   = preg_replace( '/\D+/', '', (string) $context->get( 'nip', '' ) );
 		$leads = ( '' === $nip ) ? array() : MP_Lead_Intake_DB::get_leads_by_nip( $nip );
 
 		return MP_Result::ok( array( 'leads' => $leads ) );

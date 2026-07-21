@@ -73,7 +73,10 @@ class MP_D4_Agent_Segment extends MP_Abstract_Agent {
 		$segment = trim( (string) $context->get( 'segment', '' ) );
 
 		if ( '' === $segment ) {
-			$haystack = strtolower( (string) $context->get( 'company_name', '' ) );
+			// mb_strtolower — inaczej polskie znaki (np. Ł) nie zostałyby zmniejszone
+			// i needle „usług" nie trafiłby w „USŁUGI..." → błędna segmentacja.
+			$company  = (string) $context->get( 'company_name', '' );
+			$haystack = function_exists( 'mb_strtolower' ) ? mb_strtolower( $company, 'UTF-8' ) : strtolower( $company );
 			$segment  = 'Inne';
 			foreach ( self::MAP as $needle => $value ) {
 				if ( false !== strpos( $haystack, $needle ) ) {

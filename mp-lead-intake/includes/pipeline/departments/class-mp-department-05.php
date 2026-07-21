@@ -83,14 +83,47 @@ class MP_D5_Agent_Rate_Limit extends MP_Abstract_Agent {
 	}
 
 	/**
+	 * Klucz transientu rate-limit dla danego IP.
+	 *
+	 * @param string $ip Adres IP.
+	 * @return string
+	 */
+	public static function rate_key( $ip ) {
+		return 'mp_rl_' . md5( (string) $ip );
+	}
+
+	/**
+	 * Bieżące IP klienta. Świadomie z REMOTE_ADDR (nie X-Forwarded-For — spoofing).
+	 *
+	 * @return string
+	 */
+	public static function client_ip() {
+		return isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : 'unknown';
+	}
+
+	/**
+	 * Czy dane IP osiągnęło już limit — odczyt BEZ inkrementu.
+	 *
+	 * Używane przez pre-gate w handlerze AJAX, by odrzucić flood ZANIM pipeline
+	 * odpali kosztowne zapytania zewnętrzne (dział 3). Inkrement pozostaje wyłącznie
+	 * w agencie 5.3 (jedyne źródło zliczania — brak podwójnego liczenia).
+	 *
+	 * @param string $ip Adres IP.
+	 * @return bool
+	 */
+	public static function over_limit( $ip ) {
+		return (int) get_transient( self::rate_key( $ip ) ) >= self::LIMIT;
+	}
+
+	/**
 	 * @param MP_Context $context Kontekst.
 	 * @return MP_Result
 	 */
 	public function run( MP_Context $context ) {
 		unset( $context );
 
-		$ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : 'unknown';
-		$key = 'mp_rl_' . md5( $ip );
+		$ip  = self::client_ip();
+		$key = self::rate_key( $ip );
 
 		$count = (int) get_transient( $key );
 		$ok    = ( $count < self::LIMIT );

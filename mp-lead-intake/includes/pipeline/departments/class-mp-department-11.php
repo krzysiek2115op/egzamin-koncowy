@@ -70,8 +70,33 @@ class MP_D11_Agent_Report extends MP_Abstract_Agent {
 	 * @return MP_Result
 	 */
 	public function run( MP_Context $context ) {
-		$started     = strtotime( (string) $context->get( 'started_at', '' ) );
-		$duration_ms = $started ? max( 0, (int) round( ( time() - $started ) * 1000 ) ) : null;
+		// Czas trwania z monotonicznego started_ts (dział 9), nie ze stringa „mysql":
+		// rozjazd stref WP vs serwera dawał duration_ms zawsze 0 (lub zawyżone).
+		$started_ts  = (float) $context->get( 'started_ts', 0 );
+		$duration_ms = $started_ts > 0 ? (int) round( ( microtime( true ) - $started_ts ) * 1000 ) : null;
+
+		// Sygnał integracyjny dla pluginów 2/3 (proces formularz → oferta): lead
+		// utworzony i pipeline domknięty. Bez tego hooka dalsze moduły nie mają się
+		// do czego podpiąć bez modyfikacji pluginu 1.
+		$lead_id = (int) $context->get( 'lead_id', 0 );
+		if ( $lead_id > 0 ) {
+			// Wąski, świadomy payload — bez nonce/honeypota i bez danych CUDZYCH leadów
+			// (leads/offers/activity_log z działu 1). Subskrybent doczyta resztę z BD-3.
+			$payload = array(
+				'lead_id'         => $lead_id,
+				'company_name'    => $context->get( 'company_name' ),
+				'nip'             => $context->get( 'nip' ),
+				'email'           => $context->get( 'email' ),
+				'phone'           => $context->get( 'phone' ),
+				'country'         => $context->get( 'country' ),
+				'segment'         => $context->get( 'segment' ),
+				'client_category' => $context->get( 'client_category' ),
+				'score'           => (int) $context->get( 'score', 0 ),
+				'status'          => (string) $context->get( 'status', 'new' ),
+				'salesman_id'     => $context->get( 'salesman_id' ),
+			);
+			do_action( 'mp_lead_created', $lead_id, $payload );
+		}
 
 		return MP_Result::ok(
 			array(
