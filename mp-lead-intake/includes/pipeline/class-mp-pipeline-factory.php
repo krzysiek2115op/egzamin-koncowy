@@ -4,10 +4,8 @@
  * i bramkami jakości.
  *
  * TO JEST MAPA CAŁEGO PIPELINE w jednym miejscu (do przeglądu spójności).
- * Na etapie kroku 2 agenci/krytycy to zaślepki (MP_Stub_*). W kroku 3
- * podmienimy je na konkretne klasy z realnymi zadaniami oraz dopiszemy
- * dokumentację (1 dokument na dział). Nazwy zadań tutaj to wstępna propozycja
- * — dostroimy je w kroku 3, żeby były spójne z dokumentacją.
+ * Wszystkie 11 działów ma realną logikę (klasy MP_Department_01..11), każdy z
+ * własnym plikiem kodu i dokumentacją źródeł w docs/dzial-NN/.
  *
  * Reguły odwzorowane w strukturze:
  *  - każdy dział ma wielu Agentów, każdy Agent ma 1 Krytyka (para budowana niżej),
@@ -44,61 +42,8 @@ class MP_Pipeline_Factory {
 		$pipeline->add_department( MP_Department_08::build() );
 		$pipeline->add_department( MP_Department_09::build() );
 		$pipeline->add_department( MP_Department_10::build() );
-
-		// Dział 11 — na razie zaślepka (kolejny krok 3).
-		foreach ( self::definitions() as $def ) {
-			$pairs = array();
-
-			foreach ( $def['agents'] as $agent ) {
-				// Każdemu Agentowi automatycznie towarzyszy 1 Krytyk.
-				$pairs[] = array(
-					'agent'  => new MP_Stub_Agent( $agent['id'], $agent['label'], $agent['purpose'] ),
-					'critic' => new MP_Stub_Critic(
-						'K' . $agent['id'],
-						sprintf( 'Krytyk %s — weryfikuje: %s', $agent['id'], $agent['label'] )
-					),
-				);
-			}
-
-			// Bramka jakości po dziale: 1 QA Agent + 1 QA Krytyk.
-			$gate = new MP_Quality_Gate(
-				new MP_Stub_Agent(
-					'QA' . $def['number'],
-					sprintf( 'QA Agent %d — kontrola jakości działu', $def['number'] ),
-					'Sprawdza kompletność i poprawność wyniku całego działu'
-				),
-				new MP_Stub_Critic(
-					'QAK' . $def['number'],
-					sprintf( 'QA Krytyk %d — akceptuje lub odrzuca', $def['number'] )
-				)
-			);
-
-			$pipeline->add_department(
-				new MP_Department( $def['number'], $def['key'], $def['label'], $def['description'], $pairs, $gate )
-			);
-		}
+		$pipeline->add_department( MP_Department_11::build() );
 
 		return $pipeline;
-	}
-
-	/**
-	 * Definicje 11 działów LP.1 (numer, klucz, nazwa, opis, agenci).
-	 *
-	 * @return array
-	 */
-	private static function definitions() {
-		return array(
-			array(
-				'number'      => 11,
-				'key'         => 'finish',
-				'label'       => 'Zakończenie pipeline',
-				'description' => 'Zamknięcie pipeline i raport końcowy.',
-				'agents'      => array(
-					array( 'id' => '11.1', 'label' => 'Zamyka transakcję', 'purpose' => 'Commit/rollback transakcji BD-3' ),
-					array( 'id' => '11.2', 'label' => 'Czyści stan tymczasowy', 'purpose' => 'Sprzątanie danych roboczych' ),
-					array( 'id' => '11.3', 'label' => 'Generuje raport końcowy', 'purpose' => 'Status pipeline, czas trwania' ),
-				),
-			),
-		);
 	}
 }

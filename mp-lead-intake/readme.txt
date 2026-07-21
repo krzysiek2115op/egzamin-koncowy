@@ -4,7 +4,7 @@ Tags: leads, woocommerce, oferty, formularz
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 0.5.0
+Stable tag: 0.9.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,13 @@ Pierwsza z trzech wtyczek procesu "formularz → oferta". Odpowiada za odbiór
 zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej bazy.
 
 == Changelog ==
+
+= 0.9.0 =
+* Krok 3 UKOŃCZONY — działy 7-11 z realną logiką:
+  7 utworzenie leada (dedup+scoring+handlowiec+INSERT), 8 log aktywności,
+  9 rozpoczęcie procesu, 10 zwrócenie wyniku, 11 zakończenie pipeline.
+* Fabryka: wszystkie 11 działów realne (usunięto zaślepki z rejestru).
+* docs/dzial-07..11/ = oficjalne źródła (wpdb::insert, current_time, wp_json_encode).
 
 = 0.5.0 =
 * Krok 3 — Dział 2 (Walidacja wstępna): agenci 2.1/2.2/2.3 (wymagane pola,
