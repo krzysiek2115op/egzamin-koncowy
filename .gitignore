@@ -19,6 +19,11 @@ wp-config.php
 /build/
 *.cache
 
+# --- Paczka klienta: kod pluginu zduplikowany celowo lokalnie (ZIP do wysyłki);
+#     wersjonujemy tylko paczka-klienta/materialy/ (schematy + instrukcje) ---
+/paczka-klienta/mp-lead-intake/
+/paczka-klienta/mp-lead-intake.zip
+
 # --- IDE / OS ---
 .idea/
 .vscode/
