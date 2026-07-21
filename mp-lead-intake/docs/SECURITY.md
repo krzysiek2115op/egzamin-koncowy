@@ -133,6 +133,21 @@ CSP i zestaw nagłówków są filtrowalne (`mp_lead_intake_csp`, `mp_lead_intake
 
 ---
 
+## 6.1. Aktywne utwardzenie WordPressa (wybór właściciela)
+
+Domyślnie **włączone**, każde **filtrowalne** (można wyłączyć pojedynczo):
+
+- **Wyłączenie XML-RPC** — `xmlrpc_enabled=false` + usunięcie metod pingback i nagłówka `X-Pingback`.
+  Chroni przed brute-force amplification (`system.multicall`) i pingback DDoS/SSRF.
+  Wyłącz (gdy używasz apki mobilnej WP / Jetpack): `add_filter('mp_lead_intake_disable_xmlrpc','__return_false')`.
+- **`DISALLOW_FILE_EDIT`** — brak edytora plików w kokpicie (admin nie wgra PHP przez panel).
+  Wyłącz: `mp_lead_intake_disallow_file_edit`.
+- **Ukrycie wersji WP** (`wp_generator`, `the_generator`) — mniej fingerprintingu.
+  Wyłącz: `mp_lead_intake_hide_wp_version`.
+
+*Heartbeat i twardy blok REST świadomie pominięto (Heartbeat = wydajność nie bezpieczeństwo;
+blok REST psuje edytor bloków/oEmbed — celniejsza byłaby blokada samej enumeracji userów).*
+
 ## 7. Zgłaszanie podatności
 
 Patrz `docs/security.txt` (skopiuj do `/.well-known/security.txt` na serwerze).

@@ -31,6 +31,59 @@ class MP_Lead_Intake_Security {
 		if ( self::global_headers_enabled() ) {
 			add_action( 'send_headers', array( __CLASS__, 'send_global_headers' ) );
 		}
+		self::harden_wp();
+	}
+
+	/**
+	 * Wybrane przez właściciela utwardzenie WordPressa. Każde zachowanie jest
+	 * FILTROWALNE (domyślnie włączone) — można wyłączyć pojedynczo, np.
+	 * add_filter( 'mp_lead_intake_disable_xmlrpc', '__return_false' ).
+	 *
+	 * @return void
+	 */
+	public static function harden_wp() {
+		// 1) Brak edytora plików w panelu — admin nie wgra PHP przez kokpit (CWE-94).
+		if ( apply_filters( 'mp_lead_intake_disallow_file_edit', true ) && ! defined( 'DISALLOW_FILE_EDIT' ) ) {
+			define( 'DISALLOW_FILE_EDIT', true );
+		}
+
+		// 2) Ukrycie wersji WordPressa (mniej fingerprintingu pod exploity).
+		if ( apply_filters( 'mp_lead_intake_hide_wp_version', true ) ) {
+			remove_action( 'wp_head', 'wp_generator' );
+			add_filter( 'the_generator', '__return_empty_string' );
+		}
+
+		// 3) Wyłączenie XML-RPC (brute-force amplification przez system.multicall,
+		// pingback DDoS/SSRF). Uwaga: może kolidować z apką mobilną WP / Jetpack.
+		if ( apply_filters( 'mp_lead_intake_disable_xmlrpc', true ) ) {
+			add_filter( 'xmlrpc_enabled', '__return_false' );
+			add_filter( 'xmlrpc_methods', array( __CLASS__, 'strip_pingback_methods' ) );
+			add_filter( 'wp_headers', array( __CLASS__, 'remove_pingback_header' ) );
+		}
+	}
+
+	/**
+	 * Usuwa metody pingback z XML-RPC.
+	 *
+	 * @param array $methods Metody XML-RPC.
+	 * @return array
+	 */
+	public static function strip_pingback_methods( $methods ) {
+		unset( $methods['pingback.ping'], $methods['pingback.extensions.getPingbacks'] );
+		return (array) $methods;
+	}
+
+	/**
+	 * Usuwa nagłówek X-Pingback.
+	 *
+	 * @param array $headers Nagłówki odpowiedzi.
+	 * @return array
+	 */
+	public static function remove_pingback_header( $headers ) {
+		if ( is_array( $headers ) ) {
+			unset( $headers['X-Pingback'] );
+		}
+		return (array) $headers;
 	}
 
 	/**
