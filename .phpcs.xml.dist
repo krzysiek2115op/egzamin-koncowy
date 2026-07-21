@@ -12,6 +12,14 @@
 	<arg name="basepath" value="."/>
 	<arg value="ps"/><!-- p = progress, s = pokaz kody sniffow -->
 
+	<!--
+		Harness testowy (tests/process-harness/) świadomie łamie reguły WPCS:
+		podmienia funkcje WordPressa na stuby, używa ini_set/error_reporting i $GLOBALS,
+		fałszuje $wpdb. To narzędzie deweloperskie (runtime-weryfikacja pipeline poza WP),
+		nie kod produkcyjny wtyczki — wykluczamy je ze skanu.
+	-->
+	<exclude-pattern>*/tests/*</exclude-pattern>
+
 	<!-- Standard bazowy: pełny WordPress (Core + Docs + Extra) -->
 	<rule ref="WordPress"/>
 
