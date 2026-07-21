@@ -18,5 +18,9 @@ require_once __DIR__ . '/includes/class-mp-roles.php';
 require_once __DIR__ . '/includes/class-mp-page.php';
 
 MP_Lead_Intake_DB::uninstall();
+MP_Lead_Intake_DB::delete_transients();
 MP_Lead_Intake_Roles::remove();
 MP_Lead_Intake_Page::remove();
+
+// Sprzątanie zaplanowanych zadań (retencja RODO).
+wp_clear_scheduled_hook( 'mp_lead_intake_ip_retention' );

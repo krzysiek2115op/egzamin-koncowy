@@ -31,9 +31,10 @@ require_once MP_LEAD_INTAKE_DIR . 'includes/db/class-mp-db.php';
 // --- Warstwa pipeline (11 działów: agenci, krytycy, bramki jakości) ---
 require_once MP_LEAD_INTAKE_DIR . 'includes/pipeline/bootstrap.php';
 
-// --- Infrastruktura: role i pod-strona ---
+// --- Infrastruktura: role, pod-strona, hardening ---
 require_once MP_LEAD_INTAKE_DIR . 'includes/class-mp-roles.php';
 require_once MP_LEAD_INTAKE_DIR . 'includes/class-mp-page.php';
+require_once MP_LEAD_INTAKE_DIR . 'includes/class-mp-security.php';
 
 // --- Front: endpoint AJAX ("1 AJAX") i formularz ---
 require_once MP_LEAD_INTAKE_DIR . 'includes/class-mp-ajax.php';
@@ -77,6 +78,8 @@ register_deactivation_hook( __FILE__, 'mp_lead_intake_deactivate' );
 function mp_lead_intake_bootstrap() {
 	load_plugin_textdomain( 'mp-lead-intake', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
 
+	// Hardening: opt-in globalne nagłówki bezpieczeństwa (domyślnie OFF).
+	MP_Lead_Intake_Security::register();
 	// "1 AJAX" — endpoint (drzwi we wtyczce), który uruchamia cały pipeline.
 	MP_Lead_Intake_Ajax::register();
 	// Formularz B2B (shortcode [mp_lead_intake_form]) + assety.

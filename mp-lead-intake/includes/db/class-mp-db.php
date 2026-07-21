@@ -285,6 +285,22 @@ class MP_Lead_Intake_DB {
 	}
 
 	/**
+	 * Usuwa wszystkie transienty wtyczki (rate-limit, cache VIES/Biała lista,
+	 * throttling powiadomień). Wywoływane przy deinstalacji — czyste sprzątanie.
+	 *
+	 * @return void
+	 */
+	public static function delete_transients() {
+		global $wpdb;
+		$like_val = $wpdb->esc_like( '_transient_mp_' ) . '%';
+		$like_to  = $wpdb->esc_like( '_transient_timeout_mp_' ) . '%';
+
+		$wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", $like_val, $like_to )
+		);
+	}
+
+	/**
 	 * Tworzy lub aktualizuje wszystkie tabele BD-3.
 	 *
 	 * Uruchamiane przy aktywacji wtyczki (oraz przez maybe_upgrade() po

@@ -45,6 +45,7 @@ class MP_Pipeline_Logger {
 				'ip_address'  => isset( $_SERVER['REMOTE_ADDR'] ) ? MP_Lead_Intake_DB::anonymize_ip( sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) ) : null,
 				'meta_json'   => wp_json_encode(
 					array(
+						'request_id' => $context->get( 'request_id' ),
 						'department' => $department->get_number(),
 						'code'       => $result->get_code(),
 						'errors'     => $result->get_errors(),
