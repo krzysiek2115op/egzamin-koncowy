@@ -42,8 +42,9 @@ class MP_Pipeline_Factory {
 		$pipeline->add_department( MP_Department_06::build() );
 		$pipeline->add_department( MP_Department_07::build() );
 		$pipeline->add_department( MP_Department_08::build() );
+		$pipeline->add_department( MP_Department_09::build() );
 
-		// Działy 9–11 — na razie zaślepki (kolejne kroki 3).
+		// Działy 10–11 — na razie zaślepki (kolejne kroki 3).
 		foreach ( self::definitions() as $def ) {
 			$pairs = array();
 
@@ -86,17 +87,6 @@ class MP_Pipeline_Factory {
 	 */
 	private static function definitions() {
 		return array(
-			array(
-				'number'      => 9,
-				'key'         => 'start-process',
-				'label'       => 'Rozpoczęcie procesu',
-				'description' => 'Rozpoczęcie procesu obsługi leada (etap początkowy).',
-				'agents'      => array(
-					array( 'id' => '9.1', 'label' => 'Inicjuje proces', 'purpose' => 'Nadanie identyfikatora procesu' ),
-					array( 'id' => '9.2', 'label' => 'Ustala etap początkowy', 'purpose' => 'Stage = lead_intake' ),
-					array( 'id' => '9.3', 'label' => 'Zapisuje stan procesu', 'purpose' => 'Zapis znacznika startu' ),
-				),
-			),
 			array(
 				'number'      => 10,
 				'key'         => 'return-result',
