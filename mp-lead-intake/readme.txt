@@ -4,7 +4,7 @@ Tags: leads, woocommerce, oferty, formularz
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 0.4.1
+Stable tag: 0.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,12 @@ Pierwsza z trzech wtyczek procesu "formularz → oferta". Odpowiada za odbiór
 zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej bazy.
 
 == Changelog ==
+
+= 0.5.0 =
+* Krok 3 — Dział 2 (Walidacja wstępna): agenci 2.1/2.2/2.3 (wymagane pola,
+  normalizacja sanitize_*, formaty is_email) + krytycy + QA.
+* Uniwersalny MP_Flag_Critic (weryfikacja flag typu required_ok/form_valid).
+* docs/dzial-02/ = oficjalna dokumentacja WordPress (is_email, sanitize_text_field, sanitize_email).
 
 = 0.4.1 =
 * docs/ przebudowane wg zasady: docs = FAKTYCZNA oficjalna dokumentacja źródeł działu

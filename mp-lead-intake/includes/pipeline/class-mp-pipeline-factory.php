@@ -33,10 +33,11 @@ class MP_Pipeline_Factory {
 	public static function make() {
 		$pipeline = new MP_Pipeline( new MP_Pipeline_Logger() );
 
-		// Dział 1 — realna logika (krok 3).
+		// Działy z realną logiką (krok 3).
 		$pipeline->add_department( MP_Department_01::build() );
+		$pipeline->add_department( MP_Department_02::build() );
 
-		// Działy 2–11 — na razie zaślepki (kolejne kroki 3).
+		// Działy 3–11 — na razie zaślepki (kolejne kroki 3).
 		foreach ( self::definitions() as $def ) {
 			$pairs = array();
 
@@ -79,17 +80,6 @@ class MP_Pipeline_Factory {
 	 */
 	private static function definitions() {
 		return array(
-			array(
-				'number'      => 2,
-				'key'         => 'validate-form',
-				'label'       => 'Walidacja formularza (wstępna)',
-				'description' => 'Sprawdzenie struktury, wymaganych pól i formatów danych.',
-				'agents'      => array(
-					array( 'id' => '2.1', 'label' => 'Sprawdza wymagane pola', 'purpose' => 'Weryfikacja obecności pól obowiązkowych' ),
-					array( 'id' => '2.2', 'label' => 'Normalizuje dane', 'purpose' => 'Trim, ujednolicenie formatu (telefon, NIP)' ),
-					array( 'id' => '2.3', 'label' => 'Waliduje formaty', 'purpose' => 'Poprawność e-maila i innych formatów' ),
-				),
-			),
 			array(
 				'number'      => 3,
 				'key'         => 'nip-vat',
