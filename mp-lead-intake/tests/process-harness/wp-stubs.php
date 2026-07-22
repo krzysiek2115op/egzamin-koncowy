@@ -26,6 +26,12 @@ define( 'WEEK_IN_SECONDS', 604800 );
 define( 'DB_NAME', 'wp_test_db' );
 define( 'ARRAY_A', 'ARRAY_A' );
 define( 'OBJECT', 'OBJECT' );
+// Symulowana strefa lokalna WP (np. Europe/Warsaw, UTC+2) — current_time('mysql') (bez
+// $gmt) musi się realnie różnić od current_time('mysql', true), inaczej harness nie może
+// odróżnić poprawnego zapisu GMT od regresji do lokalnego czasu (audyt 2026-07-23: fix
+// GMT dla vat_checked_at/deleted_at w 7f6cd2b nie miał żadnego niezmiennika, bo stary
+// stub ignorował parametr $gmt i zawsze zwracał to samo).
+define( 'MP_TEST_LOCAL_OFFSET_SECONDS', 2 * 3600 );
 
 // --- Magazyny stanu (in-memory) ---
 $GLOBALS['__mp_transients'] = array();
@@ -292,7 +298,15 @@ function wp_list_pluck( $list, $field ) {
 	return $out;
 }
 function current_time( $type, $gmt = 0 ) {
-	return 'mysql' === $type ? gmdate( 'Y-m-d H:i:s' ) : time();
+	if ( 'mysql' !== $type ) {
+		return time(); // Epoka — niezależna od strefy, $gmt bez znaczenia (jak w WP).
+	}
+	// $gmt truthy → GMT (jak prawdziwy WP). $gmt falsy → symulowana strefa lokalna
+	// WP (patrz MP_TEST_LOCAL_OFFSET_SECONDS) — MUSI się różnić od GMT, inaczej testy
+	// nie mogłyby wykryć regresji "GMT → lokalny czas" w kolumnach datetime.
+	return $gmt
+		? gmdate( 'Y-m-d H:i:s' )
+		: gmdate( 'Y-m-d H:i:s', time() + MP_TEST_LOCAL_OFFSET_SECONDS );
 }
 function wp_generate_password( $len = 12, $special = true ) {
 	return substr( str_shuffle( str_repeat( 'abcdef0123456789', 4 ) ), 0, $len );

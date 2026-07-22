@@ -615,13 +615,103 @@ printf(
 	count( $GLOBALS['__mp_cron'] )
 );
 
+// 26) GMT: worker zapisuje vat_checked_at w GMT, nie w symulowanej lokalnej strefie WP
+//     (MP_TEST_LOCAL_OFFSET_SECONDS w wp-stubs.php — 2h). Dotąd current_time() w stubie
+//     ignorował parametr $gmt (zawsze zwracał to samo), więc regresja fixu z 7f6cd2b
+//     (current_time('mysql', true) → z powrotem 'mysql' bez GMT) przeszłaby niezauważona
+//     mimo 25/25 PASS (audyt 2026-07-23, patrz komentarz przy current_time() w wp-stubs.php).
+$reset_async();
+$prov26 = run_pipeline( base_input( $VALID_NIP ) );
+$lid26  = (int) ( isset( $prov26['final_data']['lead_id'] ) ? $prov26['final_data']['lead_id'] : 0 );
+$GLOBALS['__mp_cfg']['http_responses'] = array(
+	'ec.europa.eu'     => array( 'response' => array( 'code' => 200 ), 'body' => json_encode( array( 'isValid' => true, 'name' => 'ACME' ) ) ),
+	'wl-api.mf.gov.pl' => array( 'response' => array( 'code' => 200 ), 'body' => json_encode( array( 'result' => array( 'subject' => array( 'statusVat' => 'Czynny' ) ) ) ) ),
+);
+MP_Lead_Intake_Vat_Verifier::run( $lid26 );
+$row26        = $find_lead( $lid26 );
+$checked_at26 = $row26 && isset( $row26['vat_checked_at'] ) ? $row26['vat_checked_at'] : '';
+$drift26      = $checked_at26 ? abs( strtotime( $checked_at26 ) - time() ) : PHP_INT_MAX;
+$inv26        = '' !== $checked_at26 && $drift26 <= 5;
+printf(
+	"[%-4s] GMT: worker zapisuje vat_checked_at w GMT, nie w lokalnej strefie WP (wartość=%s, odchylenie=%ss)\n",
+	$inv26 ? 'PASS' : 'FAIL',
+	'' !== $checked_at26 ? $checked_at26 : '-',
+	PHP_INT_MAX === $drift26 ? '-' : $drift26
+);
+
+// 27) Segmentacja dz.4: needle "it" dopasowywany na granicy słowa — nazwy firm zawierające
+//     "it" jako CZĘŚĆ innego słowa (np. "Architektura", "Kapitałowa") NIE trafiają fałszywie
+//     w segment IT; nazwy z "it" jako OSOBNYM słowem nadal trafiają poprawnie (audyt
+//     2026-07-22, [NIS] fix w class-mp-department-04.php, dotąd zweryfikowany tylko
+//     jednorazowym, nietrwałym skryptem poza harnessem — brak stałego niezmiennika).
+$seg_cases = array(
+	array( 'Architektura Nowak Sp. z o.o.', 'Inne' ),
+	array( 'Kapitałowa Grupa Inwestycyjna', 'Inne' ),
+	array( 'IT Solutions Sp. z o.o.', 'IT' ),
+	array( 'Global IT Partners', 'IT' ),
+	array( 'it-Consulting', 'IT' ),
+);
+$seg_agent  = new MP_D4_Agent_Segment();
+$seg_failed = array();
+foreach ( $seg_cases as $case ) {
+	list( $company, $expected ) = $case;
+	$seg_ctx = new MP_Context( array( 'company_name' => $company ) );
+	$got     = $seg_agent->run( $seg_ctx )->get_data();
+	$actual  = isset( $got['segment'] ) ? $got['segment'] : '-';
+	if ( $actual !== $expected ) {
+		$seg_failed[] = "$company (oczekiwano=$expected, otrzymano=$actual)";
+	}
+}
+$inv27 = empty( $seg_failed );
+printf(
+	"[%-4s] Segmentacja: granica słowa \"it\" poprawna na %d/%d przypadkach%s\n",
+	$inv27 ? 'PASS' : 'FAIL',
+	count( $seg_cases ) - count( $seg_failed ),
+	count( $seg_cases ),
+	$seg_failed ? ' (' . implode( '; ', $seg_failed ) . ')' : ''
+);
+
+// 28) Reconcile odblokowuje "zawieszony" rekord: lead w vat_status='verifying' (worker
+//     padł po claim_vat_verification(), przed dokończeniem run()) → reset_stuck_vat()
+//     cofa go do 'pending', a get_leads_needing_vat() w TYM SAMYM przebiegu reconcile()
+//     od razu dokolejkowuje ponowną próbę — inaczej lead zostałby trwale zawieszony bez
+//     żadnej siatki bezpieczeństwa (edge case z brief-u: "zawieszony rekord verifying
+//     starszy niż próg"). Fake $wpdb celowo pomija warunek czasu (patrz wp-stubs.php) —
+//     tu weryfikujemy sam mechanizm odblokowania+dokolejkowania, nie próg 15 minut.
+$reset_async();
+$GLOBALS['wpdb']->rows_leads = array(
+	array(
+		'id'         => 960,
+		'nip'        => $VALID_NIP,
+		'country'    => 'PL',
+		'vat_status' => 'verifying',
+		'updated_at' => '2020-01-01 00:00:00',
+	),
+);
+$GLOBALS['__mp_cron'] = array();
+MP_Lead_Intake_Vat_Verifier::reconcile();
+$row960         = $find_lead( 960 );
+$cron_arg960    = isset( $GLOBALS['__mp_cron'][0]['args'][0] ) ? (int) $GLOBALS['__mp_cron'][0]['args'][0] : 0;
+$inv28          = $row960 && 'pending' === ( isset( $row960['vat_status'] ) ? $row960['vat_status'] : '' )
+	&& count( $GLOBALS['__mp_cron'] ) >= 1
+	&& MP_Lead_Intake_Vat_Verifier::VERIFY_HOOK === ( isset( $GLOBALS['__mp_cron'][0]['hook'] ) ? $GLOBALS['__mp_cron'][0]['hook'] : '' )
+	&& 960 === $cron_arg960;
+printf(
+	"[%-4s] Reconcile odblokowuje zawieszony 'verifying': reset→pending (status=%s), dokolejkowany (zdarzeń=%d, dla lead_id=%d)\n",
+	$inv28 ? 'PASS' : 'FAIL',
+	$row960 && isset( $row960['vat_status'] ) ? $row960['vat_status'] : '-',
+	count( $GLOBALS['__mp_cron'] ),
+	$cron_arg960
+);
+
 /* ---------- Podsumowanie ---------- */
 
 echo "\n=== PODSUMOWANIE ===\n";
 printf( "Scenariusze: PASS=%d FAIL=%d (z %d ocenianych)\n", $pass, $fail, $pass + $fail );
 $hard_fail = $fail + ( $inv1 ? 0 : 1 ) + ( $inv2 ? 0 : 1 ) + ( $inv3 ? 0 : 1 ) + ( $inv5 ? 0 : 1 ) + ( $inv6 ? 0 : 1 ) + ( $inv7 ? 0 : 1 ) + ( $inv8 ? 0 : 1 ) + ( $inv9 ? 0 : 1 ) + ( $inv10 ? 0 : 1 ) + ( $inv11 ? 0 : 1 )
 	+ ( $inv12 ? 0 : 1 ) + ( $inv13 ? 0 : 1 ) + ( $inv14 ? 0 : 1 ) + ( $inv15 ? 0 : 1 ) + ( $inv16 ? 0 : 1 ) + ( $inv17 ? 0 : 1 ) + ( $inv18 ? 0 : 1 ) + ( $inv19 ? 0 : 1 ) + ( $inv20 ? 0 : 1 )
-	+ ( $inv21 ? 0 : 1 ) + ( $inv22 ? 0 : 1 ) + ( $inv23 ? 0 : 1 ) + ( $inv24 ? 0 : 1 ) + ( $inv25 ? 0 : 1 );
+	+ ( $inv21 ? 0 : 1 ) + ( $inv22 ? 0 : 1 ) + ( $inv23 ? 0 : 1 ) + ( $inv24 ? 0 : 1 ) + ( $inv25 ? 0 : 1 )
+	+ ( $inv26 ? 0 : 1 ) + ( $inv27 ? 0 : 1 ) + ( $inv28 ? 0 : 1 );
 echo $hard_fail === 0
 	? "WYNIK: proces spójny wg niezmienników.\n"
 	: "WYNIK: wykryto {$hard_fail} naruszeń — patrz FAIL powyżej.\n";
