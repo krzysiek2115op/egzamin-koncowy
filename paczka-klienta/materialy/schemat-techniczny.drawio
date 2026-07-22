@@ -4,7 +4,7 @@
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
-        <mxCell id="t1" value="MP Lead Intake — schemat techniczny (v1.1.0)" style="text;html=1;fontSize=18;fontStyle=1;fontColor=#1f2a44;" vertex="1" parent="1"><mxGeometry x="40" y="16" width="600" height="30" as="geometry"/></mxCell>
+        <mxCell id="t1" value="MP Lead Intake — schemat techniczny (v1.2.3)" style="text;html=1;fontSize=18;fontStyle=1;fontColor=#1f2a44;" vertex="1" parent="1"><mxGeometry x="40" y="16" width="600" height="30" as="geometry"/></mxCell>
 
         <mxCell id="klient" value="Klient&#10;(przeglądarka)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2563eb;strokeColor=#1d4ed8;fontColor=#ffffff;fontStyle=1" vertex="1" parent="1"><mxGeometry x="40" y="70" width="130" height="56" as="geometry"/></mxCell>
         <mxCell id="form" value="Formularz B2B&#10;[mp_lead_intake_form]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#2563eb;fontColor=#1f2a44" vertex="1" parent="1"><mxGeometry x="200" y="70" width="170" height="56" as="geometry"/></mxCell>

@@ -234,6 +234,56 @@ produkcyjnego, którego dotyczyłoby to ryzyko; implementacja "na zapas" byłaby
 Wersja wtyczki BEZ ZMIAN (1.2.3) — CI to infrastruktura repo, rate-limit to komentarz
 dokumentujący założenie, żadna z dwóch zmian nie modyfikuje zachowania w runtime.
 
+## 10. Runda 7 — re-audyt: git hygiene, kompletność deinstalacji, spójność diagramów (2026-07-23)
+
+Na życzenie użytkownika: (1) sprawdzenie czy git/`.gitignore` nie ukrywa/gubi plików w
+sposób mylący, (2) czy `uninstall.php` faktycznie usuwa WSZYSTKO bez śladu, (3) czy
+diagramy klienckie (`paczka-klienta/materialy/`) opisują AKTUALNY kod, nie stare wersje/
+zakresy.
+
+**(1) Git hygiene — CZYSTE.** `git status`/`git ls-files` bez rozjazdów; żaden plik
+`.php` wtyczki nie jest przypadkiem w `.gitignore`; treść `docs/AUDYT.md` (np. "agenty
+1.2/1.3 usunięte", "uq_country_nip w schemacie") zweryfikowana wprost przeciw kodowi —
+zgodna.
+
+**(2) `uninstall.php` — znaleziona i naprawiona luka.** Tabele BD-3, opcje (`DB_VERSION`,
+ID pod-strony, flaga menu), transienty (jeden LIKE po prefiksie `mp_` — łapie rate-limit/
+VIES/Białą listę/throttling maili razem), role i uprawnienia — wszystko usuwane
+symetrycznie do tworzenia. **Luka:** czyszczone były tylko 2 z 3 hooków crona
+(`mp_lead_intake_ip_retention`, `mp_lead_intake_vat_reconcile`) — brakowało
+`mp_lead_intake_verify_vat` (per-lead zdarzenie weryfikacji VAT). Lead ze statusem
+`pending` w momencie deinstalacji zostawiał wpis w opcji `cron` aż do przypadkowego
+odpalenia WP-Cron w przyszłości. Fix: dodane brakujące `wp_clear_scheduled_hook()`.
+
+**(3) Diagramy klienckie — potwierdzony realny dryf, nie tylko numer wersji.**
+Wizualna inspekcja (render PDF→PNG, nie tylko `pdftotext`) wykazała:
+- `schemat-bazy-danych.pdf` (obie strony): kolumna `nip` oznaczona jako `UNIQUE`, legenda
+  "Indeksy: uq_nip (UNIQUE)..." — **błąd treści**, nieaktualny od rundy 3 (fix
+  cross-country NIP, commit 6b27e96), gdzie klucz zmieniono na `uq_country_nip
+  (country, nip)`. Sam `nip` przestał być unikalny — diagram aktywnie wprowadzał w
+  błąd co do realnego działania bazy. Naprawione: usunięty błędny znacznik przy `nip`,
+  linia „Indeksy" poprawiona na `uq_country_nip (UNIQUE)`.
+- Numery wersji: `schemat-bazy-danych.pdf` (obie strony, było 1.2.1), `schemat-techniczny.pdf`
+  (badge, było 1.2.1), `instrukcja-instalacji-techniczna.pdf` (nagłówek, było v1.2.1) —
+  wszystkie zbite do **1.2.3**. `schemat-nietechniczny.pdf` i
+  `instrukcja-instalacji-nietechniczna.pdf` bez numerów wersji w treści — bez zmian.
+- Źródła `.drawio`: `schemat-bazy-danych.drawio` (`nip (UNIQUE)` → `nip`),
+  `schemat-techniczny.drawio` (tytuł strony `v1.1.0` → `v1.2.3`, był NIGDY wcześniej nie
+  zaktualizowany mimo poprzednich rund poprawek PDF). `schemat-nietechniczny.drawio` bez
+  zmian (bez numeru wersji, potwierdzone).
+- Kopia na Pulpicie (`~/Pulpit/mp-lead-intake-materialy/`) zsynchronizowana (`diff -rq`
+  czysty).
+
+Metoda: ten sam toolchain z wcześniejszych rund tej sesji (Node + pdf-lib, współrzędne z
+`pdftotext -bbox`, nowy box/tekst nałożony na stare miejsce) — każda poprawka renderowana
+do PNG i wizualnie zweryfikowana przed zapisem finalnym (2 iteracje na stronie 2
+`schemat-bazy-danych.pdf` — pierwsza wersja przepełniała ramkę tabeli i miała
+niedopasowaną wielkość czcionki, poprawione).
+
+`php -l` czyste na `uninstall.php`. Wersja wtyczki BEZ ZMIAN (1.2.3) — `uninstall.php`
+to jedna dodatkowa linia sprzątająca, reszta to wyłącznie materiały klienckie (PDF/drawio),
+nie kod wtyczki.
+
 ---
 
 *Uruchomienie weryfikacji procesu:* `tests/process-harness/README.md`.

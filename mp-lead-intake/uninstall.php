@@ -25,3 +25,7 @@ MP_Lead_Intake_Page::remove();
 // Sprzątanie zaplanowanych zadań (retencja RODO + reconcile weryfikacji VAT).
 wp_clear_scheduled_hook( 'mp_lead_intake_ip_retention' );
 wp_clear_scheduled_hook( 'mp_lead_intake_vat_reconcile' );
+// Pojedyncze, per-lead zdarzenia weryfikacji VAT (leady 'pending' w momencie
+// deinstalacji) — bez tego zostałyby w opcji `cron` aż do przypadkowego
+// odpalenia WP-Cron w przyszłości (audyt 2026-07-23).
+wp_clear_scheduled_hook( 'mp_lead_intake_verify_vat' );
