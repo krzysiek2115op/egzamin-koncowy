@@ -2,12 +2,11 @@
 /**
  * Dział 1 — Pobranie danych z bazy (BD-3).
  *
- * Jednym przebiegiem pobiera z BD-3 dane potrzebne dalej w pipeline:
- * istniejące leady pasujące do zgłaszającej firmy (po NIP), ich oferty
- * oraz historię aktywności. Dział tylko CZYTA (żadnych zapisów).
+ * Pobiera z BD-3 dane potrzebne dalej w pipeline: istniejące leady pasujące
+ * do zgłaszającej firmy (po NIP). Dział tylko CZYTA (żadnych zapisów).
  *
  * Zawartość pliku (1 plik = 1 dział):
- *  - Agent 1.1 / 1.2 / 1.3  (pobranie leadów / ofert / historii)
+ *  - Agent 1.1              (pobranie leadów)
  *  - Krytyk działu 1        (weryfikacja struktury wyniku agenta)
  *  - QA Agent 1             (kontrola kompletności działu)
  *  - MP_Department_01       (budowniczy działu)
@@ -15,9 +14,9 @@
  * Źródła (oficjalne) — Golden Rule #2. Dokumentacja, którą "czytają" agenci/krytycy:
  *  - docs/dzial-01/wordpress-wpdb-get_results.md
  *  - docs/dzial-01/wordpress-wpdb-prepare.md
- * Dane wyłącznie z BD-3 (wp_mp_leads / wp_mp_offers / wp_mp_activity_log) przez wpdb —
- * bez danych zmyślonych/wtórnych. ZADANIE każdego agenta/krytyka jest przypisane do
- * niego (patrz label/opis i metoda run() w klasach niżej), nie w dokumentacji.
+ * Dane wyłącznie z BD-3 (wp_mp_leads) przez wpdb — bez danych zmyślonych/wtórnych.
+ * ZADANIE każdego agenta/krytyka jest przypisane do niego (patrz label/opis i metoda
+ * run() w klasach niżej), nie w dokumentacji.
  *
  * @package MP_Lead_Intake
  */
@@ -58,55 +57,11 @@ class MP_D1_Agent_Fetch_Leads extends MP_Abstract_Agent {
 }
 
 /**
- * Agent 1.2 — pobiera oferty powiązane ze znalezionymi leadami.
- */
-class MP_D1_Agent_Fetch_Offers extends MP_Abstract_Agent {
-
-	public function __construct() {
-		parent::__construct( '1.2', 'Pobiera oferty', 'Odczyt ofert z wp_mp_offers dla znalezionych lead_id' );
-	}
-
-	/**
-	 * @param MP_Context $context Kontekst.
-	 * @return MP_Result
-	 */
-	public function run( MP_Context $context ) {
-		$leads  = (array) $context->get( 'leads', array() );
-		$ids    = $leads ? wp_list_pluck( $leads, 'id' ) : array();
-		$offers = $ids ? MP_Lead_Intake_DB::get_offers_by_lead_ids( $ids ) : array();
-
-		return MP_Result::ok( array( 'offers' => $offers ) );
-	}
-}
-
-/**
- * Agent 1.3 — pobiera historię aktywności powiązanych leadów.
- */
-class MP_D1_Agent_Fetch_Activity extends MP_Abstract_Agent {
-
-	public function __construct() {
-		parent::__construct( '1.3', 'Pobiera historię aktywności', 'Odczyt ostatnich wpisów z wp_mp_activity_log dla lead_id' );
-	}
-
-	/**
-	 * @param MP_Context $context Kontekst.
-	 * @return MP_Result
-	 */
-	public function run( MP_Context $context ) {
-		$leads    = (array) $context->get( 'leads', array() );
-		$ids      = $leads ? wp_list_pluck( $leads, 'id' ) : array();
-		$activity = $ids ? MP_Lead_Intake_DB::get_activity_by_lead_ids( $ids ) : array();
-
-		return MP_Result::ok( array( 'activity_log' => $activity ) );
-	}
-}
-
-/**
  * Krytyk działu 1 — sprawdza, że agent zwrócił oczekiwany klucz jako tablicę.
  */
 class MP_D1_Fetch_Critic extends MP_Abstract_Critic {
 
-	/** @var string Oczekiwany klucz w danych agenta (leads/offers/activity_log). */
+	/** @var string Oczekiwany klucz w danych agenta (leads). */
 	protected $key;
 
 	/**
@@ -145,12 +100,12 @@ class MP_D1_Fetch_Critic extends MP_Abstract_Critic {
 }
 
 /**
- * QA Agent 1 — sprawdza kompletność działu (leads, offers, activity_log).
+ * QA Agent 1 — sprawdza kompletność działu (leads).
  */
 class MP_D1_QA_Agent extends MP_Abstract_Agent {
 
 	public function __construct() {
-		parent::__construct( 'QA1', 'QA Agent 1 — kontrola kompletności', 'Sprawdza, że pobrano leady, oferty i historię aktywności' );
+		parent::__construct( 'QA1', 'QA Agent 1 — kontrola kompletności', 'Sprawdza, że pobrano leady' );
 	}
 
 	/**
@@ -158,7 +113,7 @@ class MP_D1_QA_Agent extends MP_Abstract_Agent {
 	 * @return MP_Result
 	 */
 	public function run( MP_Context $context ) {
-		$required = array( 'leads', 'offers', 'activity_log' );
+		$required = array( 'leads' );
 		$missing  = array();
 
 		foreach ( $required as $key ) {
@@ -192,14 +147,6 @@ class MP_Department_01 {
 			array(
 				'agent'  => new MP_D1_Agent_Fetch_Leads(),
 				'critic' => new MP_D1_Fetch_Critic( 'K1.1', 'Krytyk 1.1 — weryfikuje leady', 'leads' ),
-			),
-			array(
-				'agent'  => new MP_D1_Agent_Fetch_Offers(),
-				'critic' => new MP_D1_Fetch_Critic( 'K1.2', 'Krytyk 1.2 — weryfikuje oferty', 'offers' ),
-			),
-			array(
-				'agent'  => new MP_D1_Agent_Fetch_Activity(),
-				'critic' => new MP_D1_Fetch_Critic( 'K1.3', 'Krytyk 1.3 — weryfikuje historię', 'activity_log' ),
 			),
 		);
 

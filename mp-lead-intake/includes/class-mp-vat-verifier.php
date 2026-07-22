@@ -170,18 +170,21 @@ class MP_Lead_Intake_Vat_Verifier {
 			$new_status = ( $attempts >= self::MAX_ATTEMPTS ) ? 'unknown' : 'pending';
 		}
 
+		// GMT (nie lokalny czas WP) — spójne z updated_at (class-mp-db.php) w tej samej
+		// tabeli; mieszanie stref w kolumnach datetime tej samej tabeli jest myłące przy
+		// przyszłych porównaniach/raportach (audyt 2026-07-22, częściowy nawrót błędu GMT).
 		$fields = array(
 			'vat_valid'      => is_null( $vat_valid ) ? null : ( $vat_valid ? 1 : 0 ),
 			'company_status' => $company_status,
 			'score'          => (int) $score,
 			'vat_status'     => $new_status,
-			'vat_checked_at' => $vat_checked ? current_time( 'mysql' ) : null,
+			'vat_checked_at' => $vat_checked ? current_time( 'mysql', true ) : null,
 		);
 
 		// Zły VAT: domyślnie ZOSTAWIAMY leada + flaga 'invalid' (handlowiec decyduje).
 		// Filtr może przełączyć na twarde odrzucenie (soft-delete).
 		if ( 'invalid' === $new_status && apply_filters( 'mp_lead_intake_reject_invalid_vat', false, $lead_id, $lead ) ) {
-			$fields['deleted_at'] = current_time( 'mysql' );
+			$fields['deleted_at'] = current_time( 'mysql', true );
 		}
 
 		MP_Lead_Intake_DB::update_vat_result( $lead_id, $fields );

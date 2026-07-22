@@ -1,9 +1,15 @@
 <?php
 /**
- * Dział 9 — Rozpoczęcie procesu.
+ * Dział 9 — Telemetria i log startu obsługi procesu.
  *
- * 9.1 inicjacja procesu (process_id), 9.2 etap początkowy (stage=lead_intake),
- * 9.3 zapis stanu procesu do wp_mp_activity_log (action=process_started).
+ * Uwaga do nazwy: to NIE jest miejsce utworzenia leada (to już się stało w dziale 7) —
+ * dział 9 nadaje znacznik czasu początku DALSZEJ obsługi (etap "lead_intake" zakończony,
+ * przekazanie do kolejnych etapów) i zapisuje o tym uzupełniający wpis w logu aktywności,
+ * osobny od wpisu tworzącego leada (dział 8).
+ *
+ * 9.1 identyfikator procesu (process_id = lead_id), 9.2 etap i znaczniki czasu
+ * (stage=lead_intake, started_at/started_ts — do pomiaru czasu trwania w dziale 11),
+ * 9.3 zapis wpisu do wp_mp_activity_log (action=process_started).
  *
  * Źródła (oficjalne) — Golden Rule #2. Dokumentacja czytana przez agentów:
  *  - docs/dzial-09/zrodla-wordpress.md (wpdb::insert, current_time)
@@ -159,9 +165,9 @@ class MP_Department_09 {
 
 		return new MP_Department(
 			9,
-			'start-process',
-			'Rozpoczęcie procesu',
-			'Inicjacja procesu obsługi leada (etap początkowy) i zapis do BD-3.',
+			'process-telemetry',
+			'Telemetria startu obsługi',
+			'Znacznik czasu początku dalszej obsługi leada (już utworzonego w dziale 7) i uzupełniający wpis w BD-3.',
 			$pairs,
 			$gate
 		);

@@ -60,6 +60,13 @@ class MP_D4_Agent_Segment extends MP_Abstract_Agent {
 		'tech'      => 'IT',
 	);
 
+	/**
+	 * Needle z self::MAP zbyt krótkie na bezpieczne dopasowanie podciągiem —
+	 * bez granicy słowa "it" trafiało fałszywie w środek słów typu "Architektura"
+	 * czy "Kapitałowa" (audyt 2026-07-22, [NIS] Segmentacja — fałszywe trafienie "it").
+	 */
+	const WORD_BOUNDARY_NEEDLES = array( 'it' );
+
 	public function __construct() {
 		parent::__construct( '4.2', 'Przypisuje segment', 'Segment wg słownika branż (konfiguracja), domyślnie "Inne"' );
 	}
@@ -79,7 +86,10 @@ class MP_D4_Agent_Segment extends MP_Abstract_Agent {
 			$haystack = function_exists( 'mb_strtolower' ) ? mb_strtolower( $company, 'UTF-8' ) : strtolower( $company );
 			$segment  = 'Inne';
 			foreach ( self::MAP as $needle => $value ) {
-				if ( false !== strpos( $haystack, $needle ) ) {
+				$matched = in_array( $needle, self::WORD_BOUNDARY_NEEDLES, true )
+					? (bool) preg_match( '/\b' . preg_quote( $needle, '/' ) . '\b/u', $haystack )
+					: ( false !== strpos( $haystack, $needle ) );
+				if ( $matched ) {
 					$segment = $value;
 					break;
 				}

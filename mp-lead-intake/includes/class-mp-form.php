@@ -158,8 +158,10 @@ class MP_Lead_Intake_Form {
 				<span><?php esc_html_e( 'Zgoda marketingowa (opcjonalnie)', 'mp-lead-intake' ); ?></span>
 			</label>
 
-			<!-- Honeypot antyspamowy: pole ukryte, człowiek go nie wypełnia. -->
-			<input type="text" name="mp_hp" class="mp-hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+			<!-- Honeypot antyspamowy: pole ukryte, człowiek go nie wypełnia. Ukrycie inline
+			(nie tylko przez assets/css/mp-form.css) — bot renderujący HTML bez arkusza
+			stylów (np. proste narzędzie do wypełniania formularzy) nadal nie zobaczy pola. -->
+			<input type="text" name="mp_hp" class="mp-hp" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;">
 			<input type="hidden" name="mp_nonce" value="<?php echo esc_attr( $nonce ); ?>">
 
 			<button type="submit"><?php esc_html_e( 'Wyślij zapytanie', 'mp-lead-intake' ); ?></button>

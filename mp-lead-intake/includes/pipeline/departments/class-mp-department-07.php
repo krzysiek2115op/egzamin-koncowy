@@ -157,7 +157,8 @@ class MP_D7_Agent_Prepare extends MP_Abstract_Agent {
 			// firmy) — inaczej stare vat_attempts z zarchiwizowanego leada wypchnęłyby status
 			// od razu do 'unknown', pomijając weryfikację w tle.
 			'vat_attempts'         => 0,
-			'vat_checked_at'       => $vat_pending ? null : current_time( 'mysql' ),
+			// GMT — spójne z tą samą kolumną zapisywaną w class-mp-vat-verifier.php.
+			'vat_checked_at'       => $vat_pending ? null : current_time( 'mysql', true ),
 			'consent_marketing'    => (int) $context->get( 'consent_marketing', 0 ),
 			'consent_rodo'         => (int) $context->get( 'consent_rodo', 0 ),
 			'consent_marketing_at' => $context->get( 'consent_marketing_at' ),

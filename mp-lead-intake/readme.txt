@@ -4,7 +4,7 @@ Tags: leads, formularz, b2b, nip, vat
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.2.2
+Stable tag: 1.2.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,22 @@ Pierwsza z trzech wtyczek procesu "formularz → oferta". Odpowiada za odbiór
 zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej bazy.
 
 == Changelog ==
+
+= 1.2.3 =
+* Dział 2: dodana walidacja formatu telefonu i kraju (ISO 3166-1 alpha-2) — wcześniej
+  błędny kraj był po cichu nadpisywany na PL dopiero w dziale 4, po tym jak dział 1/3
+  już zdążyły zobaczyć surową wartość.
+* Dział 4: naprawiony fałszywy trafienie segmentacji — needle "it" (2 znaki, bez
+  granicy słowa) błędnie klasyfikował np. "Architektura"/"Kapitałowa" jako segment IT.
+* Worker VAT: `vat_checked_at`/`deleted_at` zapisywane teraz w GMT (spójnie z
+  `updated_at`) — poprzednio lokalny czas WP, częściowy nawrót wcześniej naprawionego
+  błędu stref czasowych.
+* Dział 1: usunięte martwe odczyty ofert/historii aktywności (nigdzie niekonsumowane
+  w pipeline) — dział 1 czyta teraz wyłącznie leady, zgodnie z rzeczywistym użyciem.
+* Formularz: honeypot ukrywany teraz też inline (obok arkusza stylów) — defense in
+  depth na wypadek niezaładowania CSS.
+* Dział 9: poprawiona myląca nazwa "Rozpoczęcie procesu" (sugerowała start całego
+  procesu, a to czysta telemetria czasu wykonywana PO utworzeniu leada w dziale 7).
 
 = 1.2.2 =
 * Finalny audyt (10 równoległych sub-agentów, 2026-07-22): naprawiono race condition

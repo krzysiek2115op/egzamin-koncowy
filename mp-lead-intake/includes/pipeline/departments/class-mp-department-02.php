@@ -127,9 +127,24 @@ class MP_D2_Agent_Validate_Formats extends MP_Abstract_Agent {
 		if ( self::str_len( $company ) > 255 ) {
 			$errors['company_name'] = 'Nazwa firmy jest za długa (maks. 255 znaków)';
 		}
+
+		// Telefon jest opcjonalny — walidujemy tylko, gdy podany. Format: cyfry,
+		// spacje, +, -, nawiasy (dopuszcza zapis międzynarodowy, np. "+48 12 345-67-89").
 		$phone = (string) $context->get( 'phone', '' );
-		if ( self::str_len( $phone ) > 30 ) {
-			$errors['phone'] = 'Numer telefonu jest za długi (maks. 30 znaków)';
+		if ( '' !== $phone ) {
+			if ( self::str_len( $phone ) > 30 ) {
+				$errors['phone'] = 'Numer telefonu jest za długi (maks. 30 znaków)';
+			} elseif ( ! preg_match( '/^[0-9+()\-\s]{6,}$/u', $phone ) ) {
+				$errors['phone'] = 'Numer telefonu ma nieprawidłowy format (dozwolone: cyfry, spacje, +, -, nawiasy)';
+			}
+		}
+
+		// Kraj jest opcjonalny (pusty → dział 4.1 domyślnie ustawi PL), ale gdy podany,
+		// musi mieć format ISO 3166-1 alpha-2 — inaczej surowa, błędna wartość trafiłaby
+		// nieprzechwycona do wywołania VIES w dziale 3 (audyt 2026-07-22, [ŚR] Walidacja pól).
+		$country = strtoupper( trim( (string) $context->get( 'country', '' ) ) );
+		if ( '' !== $country && ! preg_match( '/^[A-Z]{2}$/', $country ) ) {
+			$errors['country'] = 'Kod kraju musi być dwuliterowym kodem ISO 3166-1 (np. PL)';
 		}
 
 		return MP_Result::ok(
