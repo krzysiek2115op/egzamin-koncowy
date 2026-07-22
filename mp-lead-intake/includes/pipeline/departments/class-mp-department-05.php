@@ -72,6 +72,14 @@ class MP_D5_Agent_Csrf extends MP_Abstract_Agent {
 
 /**
  * Agent 5.3 — rate limit (transient per adres IP).
+ *
+ * Inkrement licznika następuje w pre-gate handlera AJAX (class-mp-ajax.php),
+ * PRZED uruchomieniem pipeline — inaczej zgłoszenia odrzucone wcześniej w
+ * pipeline (np. zła suma kontrolna NIP w dziale 3, PRZED działem 5) nigdy nie
+ * trafiałyby do licznika, co pozwalałoby ominąć limit floodem błędnych danych
+ * (wykryte w testach manualnych na żywym WP — scenariusz 8/10, docs/TESTY.md).
+ * Ten agent w pipeline jest już tylko odczytem (defense-in-depth, gdyby pipeline
+ * kiedyś odpalił inny wpis niż ten handler AJAX).
  */
 class MP_D5_Agent_Rate_Limit extends MP_Abstract_Agent {
 
@@ -105,8 +113,8 @@ class MP_D5_Agent_Rate_Limit extends MP_Abstract_Agent {
 	 * Czy dane IP osiągnęło już limit — odczyt BEZ inkrementu.
 	 *
 	 * Używane przez pre-gate w handlerze AJAX, by odrzucić flood ZANIM pipeline
-	 * odpali kosztowne zapytania zewnętrzne (dział 3). Inkrement pozostaje wyłącznie
-	 * w agencie 5.3 (jedyne źródło zliczania — brak podwójnego liczenia).
+	 * odpali kosztowne zapytania zewnętrzne (dział 3), oraz przez agenta 5.3
+	 * poniżej (defense-in-depth).
 	 *
 	 * @param string $ip Adres IP.
 	 * @return bool
@@ -116,21 +124,32 @@ class MP_D5_Agent_Rate_Limit extends MP_Abstract_Agent {
 	}
 
 	/**
+	 * Zlicza JEDNĄ próbę zgłoszenia dla danego IP (no-op, gdy już nad limitem).
+	 *
+	 * JEDYNE źródło inkrementu (brak podwójnego liczenia) — wywoływane raz na
+	 * żądanie z pre-gate w class-mp-ajax.php, PRZED uruchomieniem pipeline. Dzięki
+	 * temu liczy się KAŻDA próba, niezależnie od tego, na którym dziale pipeline
+	 * później odpadnie (patrz komentarz klasy powyżej).
+	 *
+	 * @param string $ip Adres IP.
+	 * @return void
+	 */
+	public static function increment( $ip ) {
+		$key   = self::rate_key( $ip );
+		$count = (int) get_transient( $key );
+		if ( $count < self::LIMIT ) {
+			set_transient( $key, $count + 1, MINUTE_IN_SECONDS );
+		}
+	}
+
+	/**
 	 * @param MP_Context $context Kontekst.
 	 * @return MP_Result
 	 */
 	public function run( MP_Context $context ) {
 		unset( $context );
 
-		$ip  = self::client_ip();
-		$key = self::rate_key( $ip );
-
-		$count = (int) get_transient( $key );
-		$ok    = ( $count < self::LIMIT );
-
-		if ( $ok ) {
-			set_transient( $key, $count + 1, MINUTE_IN_SECONDS );
-		}
+		$ok = ! self::over_limit( self::client_ip() );
 
 		return MP_Result::ok(
 			array(

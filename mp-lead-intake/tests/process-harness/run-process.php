@@ -190,6 +190,9 @@ printf(
 );
 
 // 4) Rate-limit: wielokrotne szybkie zgłoszenia z jednego IP powinny w końcu → STOP (dział 5).
+//    increment() woła się tu jawnie PRZED każdym run_pipeline(), bo w prawdziwym
+//    życiu robi to pre-gate w class-mp-ajax.php (poza pipeline) — sam run_pipeline()
+//    (z pominięciem ajax.php) niczego już nie inkrementuje, patrz niezmiennik 20.
 $_SERVER['REMOTE_ADDR']              = '203.0.113.9';
 $GLOBALS['__mp_transients']          = array();
 $GLOBALS['__mp_cfg']['leads_by_nip'] = array();
@@ -198,6 +201,7 @@ $blocked_at = 0;
 $i          = 0;
 while ( $i < 12 ) {
 	++$i;
+	MP_D5_Agent_Rate_Limit::increment( '203.0.113.9' );
 	$r = run_pipeline( base_input( $VALID_NIP ) );
 	if ( ! $r['ok'] && (int) $r['stop_dept'] === 5 ) {
 		$blocked_at = $i;
@@ -458,12 +462,37 @@ printf(
 	$row19b && isset( $row19b['score'] ) ? (int) $row19b['score'] : -1
 );
 
+// 20) Fix (znaleziony w testach manualnych na żywym WP, scenariusz 8/10): licznik
+//     rate-limit ma teraz JEDYNE źródło inkrementu w increment() (wołane z pre-gate
+//     w class-mp-ajax.php, symulowane tu wprost), więc rośnie NAWET gdy pipeline
+//     odpada wcześnie (dz.3, zła suma kontrolna NIP — PRZED dz.5). Wcześniej
+//     inkrement siedział tylko w agencie 5.3 (dz.5, nigdy nieosiągniętym przy
+//     złym NIP) — flood błędnych zgłoszeń całkowicie omijał limit.
+$reset_async();
+$rl_ip                      = '203.0.113.20';
+$GLOBALS['__mp_transients'] = array();
+$_SERVER['REMOTE_ADDR']     = $rl_ip;
+$BAD_NIP                    = '1234567890'; // suma kontrolna reszta=10 -> zawsze niepoprawny (STOP w dz.3).
+$inv20                      = ! MP_D5_Agent_Rate_Limit::over_limit( $rl_ip );
+for ( $i = 0; $i < MP_D5_Agent_Rate_Limit::LIMIT; $i++ ) {
+	MP_D5_Agent_Rate_Limit::increment( $rl_ip ); // to samo, co teraz robi pre-gate w ajax.php.
+	$bad20  = run_pipeline( base_input( $BAD_NIP ) );
+	$inv20 = $inv20 && ! $bad20['ok'] && 3 === (int) $bad20['stop_dept'];
+}
+$inv20 = $inv20 && MP_D5_Agent_Rate_Limit::over_limit( $rl_ip );
+printf(
+	"[%-4s] Fix rate-limit: %d prób z błędnym NIP (STOP w dz.3, przed dz.5) i tak dobija limit (over_limit=%s)\n",
+	$inv20 ? 'PASS' : 'FAIL',
+	MP_D5_Agent_Rate_Limit::LIMIT,
+	var_export( MP_D5_Agent_Rate_Limit::over_limit( $rl_ip ), true )
+);
+
 /* ---------- Podsumowanie ---------- */
 
 echo "\n=== PODSUMOWANIE ===\n";
 printf( "Scenariusze: PASS=%d FAIL=%d (z %d ocenianych)\n", $pass, $fail, $pass + $fail );
 $hard_fail = $fail + ( $inv1 ? 0 : 1 ) + ( $inv2 ? 0 : 1 ) + ( $inv3 ? 0 : 1 ) + ( $inv5 ? 0 : 1 ) + ( $inv6 ? 0 : 1 ) + ( $inv7 ? 0 : 1 ) + ( $inv8 ? 0 : 1 ) + ( $inv9 ? 0 : 1 ) + ( $inv10 ? 0 : 1 ) + ( $inv11 ? 0 : 1 )
-	+ ( $inv12 ? 0 : 1 ) + ( $inv13 ? 0 : 1 ) + ( $inv14 ? 0 : 1 ) + ( $inv15 ? 0 : 1 ) + ( $inv16 ? 0 : 1 ) + ( $inv17 ? 0 : 1 ) + ( $inv18 ? 0 : 1 );
+	+ ( $inv12 ? 0 : 1 ) + ( $inv13 ? 0 : 1 ) + ( $inv14 ? 0 : 1 ) + ( $inv15 ? 0 : 1 ) + ( $inv16 ? 0 : 1 ) + ( $inv17 ? 0 : 1 ) + ( $inv18 ? 0 : 1 ) + ( $inv19 ? 0 : 1 ) + ( $inv20 ? 0 : 1 );
 echo $hard_fail === 0
 	? "WYNIK: proces spójny wg niezmienników.\n"
 	: "WYNIK: wykryto {$hard_fail} naruszeń — patrz FAIL powyżej.\n";

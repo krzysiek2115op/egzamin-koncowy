@@ -3,8 +3,12 @@
  * Endpoint AJAX wtyczki MP Lead Intake — realizacja zasady "1 AJAX".
  *
  * Jedno wywołanie: zbiera dane z formularza, buduje kontekst i uruchamia CAŁY
- * pipeline (11 działów) przez MP_Pipeline_Factory. Walidacja, CSRF (nonce),
- * antyspam i rate limit dzieją się WEWNĄTRZ pipeline (działy 2 i 5).
+ * pipeline (11 działów) przez MP_Pipeline_Factory. Pełna walidacja pól i CSRF
+ * (nonce) dzieją się WEWNĄTRZ pipeline (dział 2), z fail-fast powtórką nonce'a
+ * i originu TU, w pre-gate. Antyspam (honeypot) i rate-limit również mają
+ * fail-fast odpowiednik w pre-gate (dział 5 zostaje jako defense-in-depth) —
+ * TU też jest jedyne miejsce inkrementu licznika rate-limit, żeby liczyła się
+ * KAŻDA próba, nawet ta odrzucona później w pipeline.
  *
  * Oficjalne API: add_action wp_ajax_* / wp_ajax_nopriv_*
  *   https://developer.wordpress.org/reference/hooks/wp_ajax_action/
@@ -117,6 +121,12 @@ class MP_Lead_Intake_Ajax {
 				429
 			);
 		}
+
+		// Inkrement TU (nie w dziale 5) — inaczej zgłoszenia odrzucone wcześniej w
+		// pipeline (np. zła suma kontrolna NIP w dziale 3, PRZED działem 5) nigdy by
+		// się nie liczyły do limitu, co pozwalałoby ominąć rate-limit floodem błędnych
+		// danych (wykryte w testach manualnych na żywym WP — scenariusz 8/10).
+		MP_D5_Agent_Rate_Limit::increment( $ip );
 
 		$context  = new MP_Context( $input );
 		$pipeline = MP_Pipeline_Factory::make();
