@@ -123,11 +123,10 @@ PASS** (dodano #21 i #22 pod nowe fixy; poprawiono też fixture niezmiennika #7,
 
 Reszta z ~110 znalezisk to Low/Medium bez natychmiastowego ryzyka bezpieczeństwa/integralności
 danych — świadomie udokumentowane jako rekomendacje na kolejną fazę, nie zaimplementowane teraz
-(6 z nich naprawione w rundzie 4, patrz sekcja 7 niżej):
+(6 z nich naprawione w rundzie 4, wiring WP-Cron domknięty w rundzie 5 — patrz sekcje 7-8 niżej):
 
 - **[ŚR] Brak CI/CD** — harness i `.phpcs.xml.dist` gotowe pod bramkę, nic nie uruchamia ich automatycznie przy push/PR; regresja może wejść bez wymuszenia testów.
-- **[ŚR] Wiring workera VAT (WP-Cron) nietestowany end-to-end** — stuby `add_action`/`do_action` w harnessie to no-op; błąd w `MP_Lead_Intake_Vat_Verifier::register()` przeszedłby niezauważony mimo 22/22 "PASS".
-- **[ŚR] Walidacja pól formularza — NIP zakłada wyłącznie Polskę** (10 cyfr, suma kontrolna PL) mimo parametryzacji VIES per-kraj (format telefonu i kraju już naprawione — patrz sekcja 7).
+- **[ŚR] Walidacja pól formularza — NIP zakłada wyłącznie Polskę** (10 cyfr, suma kontrolna PL) mimo parametryzacji VIES per-kraj (format telefonu i kraju już naprawione — patrz sekcja 7). **Decyzja 2026-07-22:** świadomie zaakceptowane jako trwały zakres, uzgodniony z klientem — nie planowane do rozszerzenia, chyba że klient zmieni zdanie.
 - **[ŚR] `consent_version`** nie jest mechanicznie powiązane z realną wersją `docs/POLITYKA-PRYWATNOSCI-WZOR.md` — osłabia wartość dowodową zgody RODO przy sporze.
 - **[NIS]** Rate-limit: nieatomowy read-modify-write transientu (realne ryzyko rośnie tylko, gdy ktoś wyłączy domyślny tryb async filtrem `mp_lead_intake_async_verification`); regex wstrzykiwania linku do menu motywu może "osierocić" link przy niektórych strukturach zagnieżdżonych `<nav>`; i18n niekompletne (komunikaty AJAX nieopakowane w `__()`); dz.10 buduje odpowiedź, której `class-mp-ajax.php` nie konsumuje.
 
@@ -169,9 +168,38 @@ PHPCS/WPCS 0 błędów na 45/45, harness **7/7 scenariuszy + 22/22 niezmiennikó
 zmian w samych niezmiennikach — te fixy nie wymagały nowych, tylko potwierdzenia braku
 regresji na istniejących).
 
-**Nadal świadomie NIE naprawione** (patrz zaktualizowana sekcja 6): CI/CD, pełny wiring
-WP-Cron w harnessie, regex menu, NIP-tylko-PL, `consent_version` niepowiązane z polityką
+**Nadal świadomie NIE naprawione** (patrz zaktualizowana sekcja 6): CI/CD, regex menu,
+NIP-tylko-PL (świadoma decyzja, nie luka), `consent_version` niepowiązane z polityką
 prywatności, rate-limit nieatomowy, i18n AJAX niekompletne, martwe wyjście dz.10.
+
+## 8. Runda 5 — wiring WP-Cron w harnessie (2026-07-22)
+
+**Problem:** `add_action`/`do_action` w `tests/process-harness/wp-stubs.php` były no-opem
+(`do_action` tylko zliczał wywołania). Wszystkie niezmienniki ASYNC (12-22) wołały metody
+`MP_Lead_Intake_Vat_Verifier` (`run()`, `on_lead_created()`, `reconcile()`) WPROST, z
+pominięciem systemu hooków WP — więc `register()` (jedyne miejsce łączące `add_action` z
+tymi metodami) nigdy nie był faktycznie przetestowany. Literówka w nazwie hooka albo złym
+kształcie callbacku w `register()` przeszłaby niezauważona mimo 22/22 "PASS" — realny
+landmine pod pluginy 2/3, które planują użyć tego samego wzorca WP-Cron.
+
+**Fix (tylko `tests/`, zero zmian w kodzie produkcyjnym):**
+- `wp-stubs.php`: `add_action`/`do_action` przepisane na realny mini pub/sub (rejestr
+  `$GLOBALS['__mp_hooks']`, kolejność wg priorytetu, obcinanie argumentów wg
+  `$accepted_args` — jak prawdziwy WP).
+- `run-process.php`: nowa `fire_all_cron()` (symuluje dyspozytora WP-Cron — odpala
+  zaplanowane zdarzenia przez PRAWDZIWY `do_action()`).
+- 3 nowe niezmienniki **#23-25** — `register()` wołany PIERWSZY (i jedyny) raz, PO
+  wszystkich niezmiennikach 1-22 (zero wpływu na ich wynik): #23 `do_action('mp_lead_created')`
+  → realnie kolejkuje przez `on_lead_created()`; #24 `fire_all_cron()` → realnie wykonuje
+  `run()`; #25 `do_action(RECONCILE_HOOK)` → realnie wykonuje `reconcile()`.
+
+**Weryfikacja skuteczności:** celowo wstrzyknięta literówka w nazwie hooka w `register()`
+(`mp_lead_created` → `mp_lead_created_TYPO`) — niezmienniki #23/#24 poprawnie FAILują (a
+wcześniej, przed tym fixem, przeszłyby niezauważone). Zmiana cofnięta po weryfikacji.
+
+Harness: 7/7 scenariuszy + **25/25** niezmienników PASS (bez regresji na 1-22). PHPCS
+bez zmian (45/45 — `tests/` poza zakresem `.phpcs.xml.dist`). Wersja wtyczki BEZ ZMIAN
+(1.2.3) — to wyłącznie poprawa pokrycia testowego, nie zmiana zachowania produkcyjnego.
 
 ---
 

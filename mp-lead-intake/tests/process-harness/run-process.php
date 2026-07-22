@@ -51,6 +51,19 @@ function run_pipeline( array $input ) {
 	);
 }
 
+// Symuluje dyspozytora WP-Cron: odpala WSZYSTKIE zaplanowane zdarzenia przez
+// PRAWDZIWY do_action() (realny WP robi to przy okazji requestu, przez
+// spawn_cron()/wp-cron.php — tu bez czekania na czas, testujemy wiring, nie zegar).
+// Zwraca liczbę odpalonych zdarzeń.
+function fire_all_cron() {
+	$due                  = $GLOBALS['__mp_cron'];
+	$GLOBALS['__mp_cron'] = array();
+	foreach ( $due as $e ) {
+		do_action( $e['hook'], ...$e['args'] );
+	}
+	return count( $due );
+}
+
 function base_input( $nip ) {
 	return array(
 		'company_name'      => 'Testowa Firma Sp. z o.o.',
@@ -552,13 +565,63 @@ printf(
 	var_export( $insert_de, true )
 );
 
+// 23) WIRING: register() faktycznie łączy hook 'mp_lead_created' z on_lead_created().
+//     Wszystkie invarianty ASYNC powyżej wołały metody Vat_Verifier WPROST, z pominięciem
+//     add_action/do_action (dotąd no-op) — literówka w nazwie hooka albo złym kształcie
+//     callbacku w register() przeszłaby niezauważona mimo 22/22 PASS (audyt 2026-07-22,
+//     [ŚR] "wiring workera VAT nietestowany end-to-end"). register() woła się TU, raz,
+//     na czystym rejestrze hooków — PO wszystkich invariantach 1-22, by nie wpłynąć na ich
+//     wyniki (dept 11 w każdym run_pipeline() od tego miejsca realnie odpali do_action).
+$reset_async();
+$GLOBALS['__mp_hooks'] = array();
+MP_Lead_Intake_Vat_Verifier::register();
+$prov23 = run_pipeline( base_input( $VALID_NIP ) ); // dept 11 → PRAWDZIWY do_action('mp_lead_created', ...)
+$lid23  = (int) ( isset( $prov23['final_data']['lead_id'] ) ? $prov23['final_data']['lead_id'] : 0 );
+$inv23  = $prov23['ok'] && $lid23 > 0 && false !== wp_next_scheduled( MP_Lead_Intake_Vat_Verifier::VERIFY_HOOK, array( $lid23 ) );
+printf(
+	"[%-4s] Wiring: do_action('mp_lead_created') przez register() → enqueue() (scheduled=%s)\n",
+	$inv23 ? 'PASS' : 'FAIL',
+	var_export( $lid23 > 0 && false !== wp_next_scheduled( MP_Lead_Intake_Vat_Verifier::VERIFY_HOOK, array( $lid23 ) ), true )
+);
+
+// 24) WIRING: zaplanowane zdarzenie z #23, odpalone PRZEZ do_action() (symulacja
+//     dyspozytora WP-Cron, fire_all_cron()), faktycznie wykonuje Vat_Verifier::run() —
+//     dowód, że add_action(VERIFY_HOOK, ...) w register() wskazuje właściwą metodę.
+$GLOBALS['__mp_cfg']['http_responses'] = array(
+	'ec.europa.eu'     => array( 'response' => array( 'code' => 200 ), 'body' => json_encode( array( 'isValid' => true, 'name' => 'ACME' ) ) ),
+	'wl-api.mf.gov.pl' => array( 'response' => array( 'code' => 200 ), 'body' => json_encode( array( 'result' => array( 'subject' => array( 'statusVat' => 'Czynny' ) ) ) ) ),
+);
+$fired24 = fire_all_cron();
+$row24   = $find_lead( $lid23 );
+$inv24   = $fired24 >= 1 && $row24 && 'checked' === ( isset( $row24['vat_status'] ) ? $row24['vat_status'] : '' );
+printf(
+	"[%-4s] Wiring: do_action(VERIFY_HOOK) uruchamia run() przez register() (odpalone=%d, vat_status=%s)\n",
+	$inv24 ? 'PASS' : 'FAIL',
+	$fired24,
+	$row24 && isset( $row24['vat_status'] ) ? $row24['vat_status'] : '-'
+);
+
+// 25) WIRING: RECONCILE_HOOK odpalony przez do_action() faktycznie woła reconcile() —
+//     trzeci i ostatni hook rejestrowany w register(). Ta sama sytuacja co niezmiennik
+//     #17 (zaległy 'pending' w bazie), ale wywołanie TYLKO przez do_action(), nie wprost.
+$reset_async();
+run_pipeline( base_input( $VALID_NIP ) ); // zostawia leada 'pending' w rows_leads
+$GLOBALS['__mp_cron'] = array();
+do_action( MP_Lead_Intake_Vat_Verifier::RECONCILE_HOOK );
+$inv25 = count( $GLOBALS['__mp_cron'] ) >= 1 && MP_Lead_Intake_Vat_Verifier::VERIFY_HOOK === ( isset( $GLOBALS['__mp_cron'][0]['hook'] ) ? $GLOBALS['__mp_cron'][0]['hook'] : '' );
+printf(
+	"[%-4s] Wiring: do_action(RECONCILE_HOOK) uruchamia reconcile() przez register() (zdarzeń=%d)\n",
+	$inv25 ? 'PASS' : 'FAIL',
+	count( $GLOBALS['__mp_cron'] )
+);
+
 /* ---------- Podsumowanie ---------- */
 
 echo "\n=== PODSUMOWANIE ===\n";
 printf( "Scenariusze: PASS=%d FAIL=%d (z %d ocenianych)\n", $pass, $fail, $pass + $fail );
 $hard_fail = $fail + ( $inv1 ? 0 : 1 ) + ( $inv2 ? 0 : 1 ) + ( $inv3 ? 0 : 1 ) + ( $inv5 ? 0 : 1 ) + ( $inv6 ? 0 : 1 ) + ( $inv7 ? 0 : 1 ) + ( $inv8 ? 0 : 1 ) + ( $inv9 ? 0 : 1 ) + ( $inv10 ? 0 : 1 ) + ( $inv11 ? 0 : 1 )
 	+ ( $inv12 ? 0 : 1 ) + ( $inv13 ? 0 : 1 ) + ( $inv14 ? 0 : 1 ) + ( $inv15 ? 0 : 1 ) + ( $inv16 ? 0 : 1 ) + ( $inv17 ? 0 : 1 ) + ( $inv18 ? 0 : 1 ) + ( $inv19 ? 0 : 1 ) + ( $inv20 ? 0 : 1 )
-	+ ( $inv21 ? 0 : 1 ) + ( $inv22 ? 0 : 1 );
+	+ ( $inv21 ? 0 : 1 ) + ( $inv22 ? 0 : 1 ) + ( $inv23 ? 0 : 1 ) + ( $inv24 ? 0 : 1 ) + ( $inv25 ? 0 : 1 );
 echo $hard_fail === 0
 	? "WYNIK: proces spójny wg niezmienników.\n"
 	: "WYNIK: wykryto {$hard_fail} naruszeń — patrz FAIL powyżej.\n";

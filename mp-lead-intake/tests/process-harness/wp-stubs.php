@@ -33,6 +33,7 @@ $GLOBALS['__mp_options']    = array( 'admin_email' => 'admin@example.test' );
 $GLOBALS['__mp_mails']      = array();
 $GLOBALS['__mp_posts']      = array();
 $GLOBALS['__mp_actions']    = array(); // do_action zliczone
+$GLOBALS['__mp_hooks']      = array(); // add_action: tag => [{cb, priority, args}, ...] (realny pub/sub)
 $GLOBALS['__mp_cron']       = array(); // zaplanowane zdarzenia (wp_schedule_single_event)
 $GLOBALS['__mp_http_calls'] = 0;       // licznik wywołań wp_remote_get (weryfikacja: 0 w ścieżce żądania)
 // Sterowanie testami: co zwraca get_leads_by_nip; czy insert leada ma udać.
@@ -200,13 +201,34 @@ function check_ajax_referer( $action = -1, $q = false, $die = true ) {
 	return wp_verify_nonce( $nonce, $action );
 }
 
-// --- Hooki (no-op z liczeniem) ---
-function add_action( ...$a ) {
-	return true; }
+// --- Hooki (realny mini pub/sub dla add_action/do_action — patrz audyt 2026-07-22,
+//     [ŚR] "wiring workera VAT nietestowany end-to-end": no-op ukrywał literówki w
+//     nazwie hooka/kształcie callbacku w MP_Lead_Intake_Vat_Verifier::register()) ---
+function add_action( $tag, $callback, $priority = 10, $accepted_args = 1 ) {
+	$GLOBALS['__mp_hooks'][ $tag ][] = array(
+		'cb'       => $callback,
+		'priority' => $priority,
+		'args'     => $accepted_args,
+	);
+	return true;
+}
 function add_filter( ...$a ) {
 	return true; }
 function do_action( $tag, ...$a ) {
 	$GLOBALS['__mp_actions'][ $tag ] = ( $GLOBALS['__mp_actions'][ $tag ] ?? 0 ) + 1;
+	if ( empty( $GLOBALS['__mp_hooks'][ $tag ] ) ) {
+		return;
+	}
+	$hooks = $GLOBALS['__mp_hooks'][ $tag ];
+	usort(
+		$hooks,
+		function ( $x, $y ) {
+			return $x['priority'] <=> $y['priority'];
+		}
+	);
+	foreach ( $hooks as $h ) {
+		call_user_func_array( $h['cb'], array_slice( $a, 0, max( 1, (int) $h['args'] ) ) );
+	}
 }
 function apply_filters( $tag, $value, ...$a ) {
 	return $value; }
