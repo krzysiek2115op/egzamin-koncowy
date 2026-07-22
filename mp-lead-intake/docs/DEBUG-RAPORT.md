@@ -314,3 +314,33 @@ Po wdrożeniu P-1 (async dział 3, poprzednia sesja) i zmian menu/SEO/responsywn
 nowy niezmiennik #19 chroniący przed regresją pkt. 1 powyżej); zero zmian w strukturze pipeline
 (11 działów, pary agent-krytyk, bramki jakości — nienaruszone, potwierdzone niezależnie przez agenta
 architektury).
+
+## 17. Bug znaleziony w testach manualnych na żywym WP (2026-07-22) — rate-limit nieskuteczny
+
+Scenariusz 8/10 (Golden Rule #3, testy końcowe na WordPress Playground) wykazał, że rate-limit
+formularza **nigdy nie blokował** — wielokrotne szybkie zgłoszenia zawsze kończyły się komunikatem
+walidacji pipeline'u ("Sprawdź dane..."), nigdy komunikatem pre-gate ("Spróbuj ponownie za chwilę").
+
+**Przyczyna:** inkrement licznika (`set_transient`) siedział wyłącznie w agencie `5.3` (dział 5).
+Zgłoszenia z syntaktycznie błędnym NIP-em odpadają wcześniej — w dziale 3 (suma kontrolna, krytyk
+K3.1) — więc dział 5 nigdy nie jest osiągany i licznik nigdy nie rośnie. Pre-gate w `class-mp-ajax.php`
+(który ma chronić przed floodem PRZED pipeline'em) tylko *odczytywał* ten sam, nigdy-nieinkrementowany
+licznik. Efekt: atakujący mógł nieograniczenie zalewać endpoint zgłoszeniami z błędnymi danymi
+(zła suma kontrolna NIP, brak pól) bez ryzyka zablokowania — rate-limit realnie chronił tylko przed
+floodem *poprawnie wyglądających* zgłoszeń, węższy zakres niż zamierzony.
+
+**Fix (`121cda0`):** inkrement przeniesiony do pre-gate w `class-mp-ajax.php`, obok istniejącego
+sprawdzenia honeypota — liczy się KAŻDA próba, niezależnie od tego, gdzie później odpadnie w
+pipeline. Dział 5.3 zostaje jako defense-in-depth, ale teraz jest już tylko odczytem (`over_limit()`),
+bez podwójnego liczenia. Zero zmian w strukturze pipeline (nadal 3 pary agent-krytyk w dziale 5).
+
+Przy okazji naprawiony drobny, niezwiązany błąd w harnessie: `$inv19` nie był liczony do `$hard_fail`
+(cichy brak pokrycia w sumie końcowej — sam test i tak PASS-ował, ale regresja przeszłaby niezauważona).
+Dodany niezmiennik `#20` (jednostkowy test nowego `MP_D5_Agent_Rate_Limit::increment()`), zaktualizowany
+istniejący test rate-limitu pod nową architekturę (wcześniej wołał pipeline z pominięciem `ajax.php`,
+gdzie teraz mieszka inkrement).
+
+**Zweryfikowano:** `php -l` + PHPCS czyste; harness 7/7 scenariuszy + wszystkie niezmienniki PASS
+(łącznie z nowym `#20`); wersja pluginu podbita **1.2.0 → 1.2.1**, paczka klienta przebudowana.
+Znaczenie: to jedyny bug w tej sesji odkryty WYŁĄCZNIE przez ręczne testowanie na żywym WP, nie przez
+żaden z 6 agentów audytu ani przez harness — dowód wartości Golden Rule #3 jako niezależnej warstwy.
