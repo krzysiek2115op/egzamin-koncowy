@@ -68,36 +68,52 @@ class MP_Pipeline {
 	 *
 	 * @param MP_Context $context Kontekst startowy (dane z 1 AJAX).
 	 * @return MP_Result Wynik końcowy lub pierwszy błąd (STOP).
+	 * @throws \Throwable Ponownie po ROLLBACK+logu, gdy dział/subskrybent hooka rzuci wyjątek.
 	 */
 	public function run( MP_Context $context ) {
 		global $wpdb;
 		$in_transaction = false;
 
-		foreach ( $this->departments as $department ) {
-			// Transakcję otwieramy LENIWIE — dopiero przy pierwszym dziale zapisującym
-			// (próg), by nie trzymać jej otwartej podczas kosztownych calli HTTP działu 3.
-			if ( $this->transactional_from > 0 && ! $in_transaction
-				&& $department->get_number() >= $this->transactional_from ) {
-				$wpdb->query( 'START TRANSACTION' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-				$in_transaction = true;
-			}
-
-			$context->set_current_department( $department->get_number() );
-
-			$result = $department->process( $context );
-
-			if ( ! $result->is_ok() ) {
-				// STOP: najpierw ROLLBACK częściowych zapisów działów 7-9 (atomowość),
-				// DOPIERO potem log błędu — log musi przetrwać mimo wycofania transakcji.
-				if ( $in_transaction ) {
-					$wpdb->query( 'ROLLBACK' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-					$in_transaction = false;
+		try {
+			foreach ( $this->departments as $department ) {
+				// Transakcję otwieramy LENIWIE — dopiero przy pierwszym dziale zapisującym
+				// (próg), by nie trzymać jej otwartej podczas kosztownych calli HTTP działu 3.
+				if ( $this->transactional_from > 0 && ! $in_transaction
+					&& $department->get_number() >= $this->transactional_from ) {
+					$wpdb->query( 'START TRANSACTION' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+					$in_transaction = true;
 				}
-				if ( $this->logger ) {
-					$this->logger->log_failure( $department, $result, $context );
+
+				$context->set_current_department( $department->get_number() );
+
+				$result = $department->process( $context );
+
+				if ( ! $result->is_ok() ) {
+					// STOP: najpierw ROLLBACK częściowych zapisów działów 7-9 (atomowość),
+					// DOPIERO potem log błędu — log musi przetrwać mimo wycofania transakcji.
+					if ( $in_transaction ) {
+						$wpdb->query( 'ROLLBACK' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+						$in_transaction = false;
+					}
+					if ( $this->logger ) {
+						$this->logger->log_failure( $department, $result, $context );
+					}
+					return $result;
 				}
-				return $result;
 			}
+		} catch ( \Throwable $e ) {
+			// Nieoczekiwany wyjątek/fatal (np. w subskrybencie do_action('mp_lead_created')
+			// z przyszłej integracji plugin 2/3, albo błąd we własnym kodzie) — bez tego
+			// ROLLBACK i log nigdy by się nie wykonały (audyt 2026-07-22, PIPE-02), a
+			// wywołujący (class-mp-ajax.php) dostałby nieprzechwycony fatal zamiast JSON-a.
+			if ( $in_transaction ) {
+				$wpdb->query( 'ROLLBACK' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+				$in_transaction = false;
+			}
+			if ( $this->logger ) {
+				$this->logger->log_exception( $e, $context, $context->get_current_department() );
+			}
+			throw $e;
 		}
 
 		if ( $in_transaction ) {

@@ -43,8 +43,15 @@ class MP_D1_Agent_Fetch_Leads extends MP_Abstract_Agent {
 		// Normalizacja NIP do samych cyfr (jak w działach 2/3), bo w BD-3 NIP jest
 		// zapisany kanonicznie (10 cyfr). Bez tego zapis typu "123-456-32-18" nie
 		// trafiłby w istniejącego klienta i dział 1 „ślepłby" na jego historię.
-		$nip   = preg_replace( '/\D+/', '', (string) $context->get( 'nip', '' ) );
-		$leads = ( '' === $nip ) ? array() : MP_Lead_Intake_DB::get_leads_by_nip( $nip );
+		$nip = preg_replace( '/\D+/', '', (string) $context->get( 'nip', '' ) );
+		// Ta sama normalizacja kraju co dział 4.1 (dział 1 działa PRZED nim, więc nie
+		// może reużyć jego wyniku) — klucz unikalności w BD-3 to (country, nip), nie
+		// sam nip (lokalne numery firmowe różnych krajów UE mogą się cyfrowo pokrywać).
+		$country = strtoupper( trim( (string) $context->get( 'country', '' ) ) );
+		if ( ! preg_match( '/^[A-Z]{2}$/', $country ) ) {
+			$country = 'PL';
+		}
+		$leads = ( '' === $nip ) ? array() : MP_Lead_Intake_DB::get_leads_by_nip( $nip, $country );
 
 		return MP_Result::ok( array( 'leads' => $leads ) );
 	}

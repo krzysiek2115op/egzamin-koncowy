@@ -321,11 +321,14 @@ class MP_Fake_WPDB {
 			return false;
 		}
 		if ( strpos( $table, 'mp_leads' ) !== false ) {
-			$nip = isset( $data['nip'] ) ? (string) $data['nip'] : '';
+			$nip     = isset( $data['nip'] ) ? (string) $data['nip'] : '';
+			$country = isset( $data['country'] ) ? (string) $data['country'] : '';
 			foreach ( $this->rows_leads as $r ) {
-				if ( (string) $r['nip'] === $nip && $nip !== '' ) {
-					$this->last_error = 'Duplicate entry for key uq_nip';
-					return false; // UNIQUE(nip) naruszony
+				// UNIQUE(country, nip), nie sam nip — ten sam numer w różnych krajach UE
+				// nie koliduje (fix DB-01, audyt 2026-07-22).
+				if ( (string) $r['nip'] === $nip && (string) ( $r['country'] ?? '' ) === $country && $nip !== '' ) {
+					$this->last_error = 'Duplicate entry for key uq_country_nip';
+					return false; // UNIQUE(country, nip) naruszony
 				}
 			}
 			++$this->insert_id;
@@ -422,6 +425,18 @@ class MP_Fake_WPDB {
 				}
 			}
 			return $n;
+		} elseif ( false !== strpos( (string) $query, 'mp_leads' ) && false !== strpos( (string) $query, 'SET deleted_at = NULL' ) ) {
+			// reactivate_lead: atomowy claim (deleted_at IS NOT NULL -> NULL), idempotencja.
+			if ( preg_match( '/id\s*=\s*(\d+)/i', (string) $query, $m ) ) {
+				$id = (int) $m[1];
+				foreach ( $this->rows_leads as &$r ) {
+					if ( (int) ( $r['id'] ?? 0 ) === $id && ! empty( $r['deleted_at'] ) ) {
+						$r['deleted_at'] = null;
+						return 1;
+					}
+				}
+			}
+			return 0;
 		}
 		return true;
 	}

@@ -3,7 +3,7 @@
  * Plugin Name:       MP Lead Intake
  * Plugin URI:        https://github.com/krzysiek2115op/egzamin-koncowy
  * Description:       Przyjęcie i kwalifikacja lead-a z formularza ofertowego WordPress. Pierwszy element procesu formularz → oferta.
- * Version:           1.2.1
+ * Version:           1.2.2
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            krzysiek2115op
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // --- Stałe wtyczki ---
-define( 'MP_LEAD_INTAKE_VERSION', '1.2.1' );
+define( 'MP_LEAD_INTAKE_VERSION', '1.2.2' );
 define( 'MP_LEAD_INTAKE_FILE', __FILE__ );
 define( 'MP_LEAD_INTAKE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MP_LEAD_INTAKE_URL', plugin_dir_url( __FILE__ ) );
@@ -48,6 +48,19 @@ require_once MP_LEAD_INTAKE_DIR . 'includes/class-mp-form.php';
  */
 function mp_lead_intake_activate() {
 	MP_Lead_Intake_DB::install();
+
+	// dbDelta() nie rzuca wyjątku przy awarii (np. brak uprawnień CREATE TABLE) —
+	// bez tej kontroli wtyczka aktywowałaby się "na sucho" (role, pod-strona, crony),
+	// a pierwszym objawem byłby nieczytelny błąd przy pierwszym zgłoszeniu formularza.
+	if ( ! MP_Lead_Intake_DB::tables_exist() ) {
+		deactivate_plugins( plugin_basename( __FILE__ ) );
+		wp_die(
+			esc_html__( 'MP Lead Intake: nie udało się utworzyć tabel bazy danych (BD-3). Sprawdź uprawnienia użytkownika bazy danych (CREATE TABLE) i spróbuj aktywować wtyczkę ponownie.', 'mp-lead-intake' ),
+			esc_html__( 'Błąd aktywacji wtyczki MP Lead Intake', 'mp-lead-intake' ),
+			array( 'back_link' => true )
+		);
+	}
+
 	MP_Lead_Intake_Roles::create();
 	MP_Lead_Intake_Page::create();
 

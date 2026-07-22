@@ -1,10 +1,10 @@
 === MP Lead Intake ===
 Contributors: krzysiek2115op
-Tags: leads, woocommerce, oferty, formularz
+Tags: leads, formularz, b2b, nip, vat
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.2.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,32 @@ Pierwsza z trzech wtyczek procesu "formularz → oferta". Odpowiada za odbiór
 zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej bazy.
 
 == Changelog ==
+
+= 1.2.2 =
+* Finalny audyt (10 równoległych sub-agentów, 2026-07-22): naprawiono race condition
+  przy reaktywacji zarchiwizowanego leada (dwa równoległe zgłoszenia tego samego NIP
+  mogły oba "wygrać" i nadpisać się nawzajem) — atomowy claim w reactivate_lead().
+* BD-3: klucz unikalności zmieniony z UNIQUE(nip) na UNIQUE(country, nip) — numer
+  firmowy różnych krajów UE mógł się cyfrowo pokrywać i kolidować (DB_VERSION 1.4.0).
+* Pipeline: try/finally wokół transakcji działów 7-11 — ROLLBACK i log gwarantowane
+  nawet przy nieoczekiwanym wyjątku (np. w przyszłej integracji plugin 2/3), nie tylko
+  przy kontrolowanym STOP krytyka/bramki.
+* Aktywacja: weryfikacja, że tabele BD-3 faktycznie powstały (dbDelta nie sygnalizuje
+  awarii samodzielnie) — zamiast cichej, trwałej porażki instalacji.
+* Dokumentacja: usunięto mylący tag "woocommerce" (wtyczka nie ma integracji WooCommerce).
+
+= 1.2.1 =
+* Fix znaleziony w testach manualnych na żywym WP: architektura licznika rate-limit —
+  inkrement przeniesiony z działu 5 do pre-gate w class-mp-ajax.php, żeby liczyła się
+  KAŻDA próba (wcześniej flood błędnych danych całkowicie omijał limit).
+
+= 1.2.0 =
+* P-1: asynchroniczna weryfikacja VIES/Biała lista (dział 3) poza ścieżką żądania —
+  WP-Cron worker (class-mp-vat-verifier.php) + reconcile, re-scoring w tle.
+* BD-3: kolumny vat_valid/company_status/vat_status/vat_checked_at/vat_attempts
+  (DB_VERSION 1.3.0), country/products/est_volume/salesman_assigned_at, consent_*_at.
+* RODO: transakcyjność zapisów działów 7-9 (koniec osieroconych leadów), anonimizacja
+  i retencja adresów IP (90 dni).
 
 = 1.0.0 =
 * Krok 4 (sprawy techniczne): endpoint "1 AJAX" -> pipeline, formularz B2B (shortcode),

@@ -219,7 +219,17 @@ $GLOBALS['__mp_cfg']['archived_lead'] = array(
 	'nip'        => $VALID_NIP,
 	'deleted_at' => '2026-01-01 00:00:00',
 );
-$GLOBALS['wpdb']->rows_leads = array();
+// rows_leads musi mieć odpowiadający wiersz (nie tylko __mp_cfg['archived_lead']) —
+// reactivate_lead() od fixu race-condition (2026-07-22) atomowo "claimuje" wiersz
+// w rows_leads (UPDATE...WHERE deleted_at IS NOT NULL) PRZED nadpisaniem reszty danych.
+$GLOBALS['wpdb']->rows_leads = array(
+	array(
+		'id'         => 777,
+		'nip'        => $VALID_NIP,
+		'country'    => 'PL',
+		'deleted_at' => '2026-01-01 00:00:00',
+	),
+);
 $react = run_pipeline( base_input( $VALID_NIP ) );
 $inv7  = $react['ok'] && 777 === (int) ( $react['final_data']['lead_id'] ?? 0 ) && ! empty( $react['final_data']['lead_reactivated'] );
 printf(
@@ -487,12 +497,68 @@ printf(
 	var_export( MP_D5_Agent_Rate_Limit::over_limit( $rl_ip ), true )
 );
 
+// 21) Race reaktywacji: drugie wywołanie reactivate_lead() na już zreaktywowanym leadzie
+//     (deleted_at już NULL po pierwszym) musi przegrać (affected=0), nie cicho nadpisać
+//     danych "zwycięzcy" — ochrona przed wyścigiem dwóch równoległych zgłoszeń tego samego,
+//     zarchiwizowanego NIP (audyt 2026-07-22, znaleziony niezależnie przez 2 sub-agentów;
+//     przed fixem oba wywołania kończyły się sukcesem, drugie cicho nadpisywało pierwsze).
+$reset_async();
+$GLOBALS['wpdb']->rows_leads = array(
+	array(
+		'id'         => 950,
+		'nip'        => $VALID_NIP,
+		'country'    => 'PL',
+		'deleted_at' => '2026-01-01 00:00:00',
+	),
+);
+$first_claim  = MP_Lead_Intake_DB::reactivate_lead( 950, array( 'company_name' => 'Pierwszy (wygrany)' ) );
+$second_claim = MP_Lead_Intake_DB::reactivate_lead( 950, array( 'company_name' => 'Drugi (przegrany wyścigu)' ) );
+$row950       = $find_lead( 950 );
+$inv21        = 950 === $first_claim && false === $second_claim
+	&& $row950 && 'Pierwszy (wygrany)' === ( isset( $row950['company_name'] ) ? $row950['company_name'] : '' );
+printf(
+	"[%-4s] Race reaktywacji: 2. równoległe wywołanie przegrywa (1.=%s, 2.=%s, dane=%s)\n",
+	$inv21 ? 'PASS' : 'FAIL',
+	var_export( $first_claim, true ),
+	var_export( $second_claim, true ),
+	$row950 && isset( $row950['company_name'] ) ? $row950['company_name'] : '-'
+);
+
+// 22) Cross-country: ten sam NIP (cyfrowo), różny kraj → NIE koliduje. Klucz unikalności
+//     w BD-3 jest (country, nip), nie sam nip (fix DB-01, audyt 2026-07-22) — lokalne numery
+//     firmowe różnych krajów UE mogą się cyfrowo pokrywać.
+$reset_async();
+$insert_pl = MP_Lead_Intake_DB::insert_lead(
+	array(
+		'company_name' => 'Firma PL',
+		'nip'           => $VALID_NIP,
+		'email'         => 'a@example.test',
+		'country'       => 'PL',
+	)
+);
+$insert_de = MP_Lead_Intake_DB::insert_lead(
+	array(
+		'company_name' => 'Firma DE',
+		'nip'           => $VALID_NIP,
+		'email'         => 'b@example.test',
+		'country'       => 'DE',
+	)
+);
+$inv22 = false !== $insert_pl && false !== $insert_de && $insert_pl !== $insert_de;
+printf(
+	"[%-4s] Cross-country: ten sam NIP, różne kraje (PL,DE) → oba INSERT-y ok (id=%s,%s)\n",
+	$inv22 ? 'PASS' : 'FAIL',
+	var_export( $insert_pl, true ),
+	var_export( $insert_de, true )
+);
+
 /* ---------- Podsumowanie ---------- */
 
 echo "\n=== PODSUMOWANIE ===\n";
 printf( "Scenariusze: PASS=%d FAIL=%d (z %d ocenianych)\n", $pass, $fail, $pass + $fail );
 $hard_fail = $fail + ( $inv1 ? 0 : 1 ) + ( $inv2 ? 0 : 1 ) + ( $inv3 ? 0 : 1 ) + ( $inv5 ? 0 : 1 ) + ( $inv6 ? 0 : 1 ) + ( $inv7 ? 0 : 1 ) + ( $inv8 ? 0 : 1 ) + ( $inv9 ? 0 : 1 ) + ( $inv10 ? 0 : 1 ) + ( $inv11 ? 0 : 1 )
-	+ ( $inv12 ? 0 : 1 ) + ( $inv13 ? 0 : 1 ) + ( $inv14 ? 0 : 1 ) + ( $inv15 ? 0 : 1 ) + ( $inv16 ? 0 : 1 ) + ( $inv17 ? 0 : 1 ) + ( $inv18 ? 0 : 1 ) + ( $inv19 ? 0 : 1 ) + ( $inv20 ? 0 : 1 );
+	+ ( $inv12 ? 0 : 1 ) + ( $inv13 ? 0 : 1 ) + ( $inv14 ? 0 : 1 ) + ( $inv15 ? 0 : 1 ) + ( $inv16 ? 0 : 1 ) + ( $inv17 ? 0 : 1 ) + ( $inv18 ? 0 : 1 ) + ( $inv19 ? 0 : 1 ) + ( $inv20 ? 0 : 1 )
+	+ ( $inv21 ? 0 : 1 ) + ( $inv22 ? 0 : 1 );
 echo $hard_fail === 0
 	? "WYNIK: proces spójny wg niezmienników.\n"
 	: "WYNIK: wykryto {$hard_fail} naruszeń — patrz FAIL powyżej.\n";

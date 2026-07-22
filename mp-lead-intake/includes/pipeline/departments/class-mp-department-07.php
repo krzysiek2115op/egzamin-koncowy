@@ -45,7 +45,10 @@ class MP_D7_Agent_Dedup extends MP_Abstract_Agent {
 		// ponowne zgłoszenie powracającej firmy generycznym „insert_failed".
 		$reactivate_id = null;
 		if ( ! $dup && '' !== $nip ) {
-			$archived = MP_Lead_Intake_DB::get_archived_lead_by_nip( $nip );
+			// Dział 4 już znormalizował/zwalidował 'country' w kontekście (działa przed
+			// działem 7) — klucz unikalności w BD-3 to (country, nip), patrz dział 1.1.
+			$country  = (string) $context->get( 'country', 'PL' );
+			$archived = MP_Lead_Intake_DB::get_archived_lead_by_nip( $nip, $country );
 			if ( $archived && isset( $archived['id'] ) ) {
 				$reactivate_id = (int) $archived['id'];
 			}

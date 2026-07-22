@@ -26,7 +26,7 @@ class MP_Lead_Intake_DB {
 	 * Wersja schematu bazy. Podbijamy przy KAŻDEJ zmianie struktury tabel,
 	 * żeby mechanizm migracji wiedział, że trzeba zaktualizować bazę.
 	 */
-	const DB_VERSION = '1.3.0';
+	const DB_VERSION = '1.4.0';
 
 	/** Nazwa opcji WordPress przechowującej aktualną wersję bazy. */
 	const DB_VERSION_OPTION = 'mp_lead_intake_db_version';
@@ -67,17 +67,21 @@ class MP_Lead_Intake_DB {
 	// --- Odczyt danych (używane m.in. przez Dział 1 pipeline). ---
 
 	/**
-	 * Zwraca aktywne (niezarchiwizowane) leady o podanym NIP.
+	 * Zwraca aktywne (niezarchiwizowane) leady o podanym NIP + kraju.
 	 *
-	 * @param string $nip NIP firmy.
+	 * Klucz unikalności to (country, nip), nie sam nip — lokalne numery firmowe
+	 * różnych krajów UE mogą się cyfrowo pokrywać (od 1.4.0, patrz DB_VERSION).
+	 *
+	 * @param string $nip     NIP firmy.
+	 * @param string $country Kod kraju ISO 3166-1 alpha-2 (np. 'PL').
 	 * @return array Lista wierszy (ARRAY_A); pusta, gdy brak.
 	 */
-	public static function get_leads_by_nip( $nip ) {
+	public static function get_leads_by_nip( $nip, $country ) {
 		global $wpdb;
 		$table = self::leads_table();
 
 		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$wpdb->prepare( "SELECT * FROM $table WHERE nip = %s AND deleted_at IS NULL", $nip ),
+			$wpdb->prepare( "SELECT * FROM $table WHERE nip = %s AND country = %s AND deleted_at IS NULL", $nip, $country ),
 			ARRAY_A
 		);
 
@@ -85,20 +89,21 @@ class MP_Lead_Intake_DB {
 	}
 
 	/**
-	 * Zwraca zarchiwizowanego (soft-deleted) leada o danym NIP, jeśli istnieje.
+	 * Zwraca zarchiwizowanego (soft-deleted) leada o danym NIP + kraju, jeśli istnieje.
 	 *
-	 * Potrzebne, bo UNIQUE KEY uq_nip obejmuje też zarchiwizowane wiersze — bez tego
-	 * firma raz zarchiwizowana nie mogłaby zgłosić się ponownie (INSERT biłby w UNIQUE).
+	 * Potrzebne, bo UNIQUE KEY uq_country_nip obejmuje też zarchiwizowane wiersze — bez
+	 * tego firma raz zarchiwizowana nie mogłaby zgłosić się ponownie (INSERT biłby w UNIQUE).
 	 *
-	 * @param string $nip NIP firmy.
+	 * @param string $nip     NIP firmy.
+	 * @param string $country Kod kraju ISO 3166-1 alpha-2 (np. 'PL').
 	 * @return array|null Wiersz (ARRAY_A) lub null, gdy brak.
 	 */
-	public static function get_archived_lead_by_nip( $nip ) {
+	public static function get_archived_lead_by_nip( $nip, $country ) {
 		global $wpdb;
 		$table = self::leads_table();
 
 		$row = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$wpdb->prepare( "SELECT * FROM $table WHERE nip = %s AND deleted_at IS NOT NULL ORDER BY id DESC LIMIT 1", $nip ),
+			$wpdb->prepare( "SELECT * FROM $table WHERE nip = %s AND country = %s AND deleted_at IS NOT NULL ORDER BY id DESC LIMIT 1", $nip, $country ),
 			ARRAY_A
 		);
 
@@ -119,7 +124,25 @@ class MP_Lead_Intake_DB {
 		if ( $id <= 0 ) {
 			return false;
 		}
-		$data['deleted_at'] = null;
+		$table = self::leads_table();
+
+		// Atomowy "claim": zeruje deleted_at TYLKO jeśli wiersz nadal jest zarchiwizowany.
+		// Chroni przed wyścigiem dwóch równoległych zgłoszeń dla tego samego, zarchiwizowanego
+		// NIP (np. podwójne kliknięcie "wyślij") — bez tego oba żądania widziałyby ten sam
+		// wiersz jako "do reaktywacji" i oba zakończyłyby się sukcesem, drugie cicho nadpisując
+		// dane pierwszego (i podwójnie odpalając hook mp_lead_created w dziale 11). Świeży
+		// INSERT ma analogiczną ochronę przez UNIQUE KEY(nip) — patrz insert_lead(); reaktywacja
+		// (UPDATE, nie INSERT) potrzebowała własnej. Przegrany wyścigu dostaje affected_rows=0,
+		// MP_D7_Agent_Create::run() to zwraca jako 'insert_failed' — ten sam STOP co przy
+		// świeżym duplikacie NIP.
+		$claimed = $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->prepare( "UPDATE $table SET deleted_at = NULL WHERE id = %d AND deleted_at IS NOT NULL", $id )
+		);
+		if ( 1 !== (int) $claimed ) {
+			return false;
+		}
+
+		unset( $data['deleted_at'] ); // Już wyzerowane atomowym claimem powyżej.
 		// GMT (nie lokalny czas WP) — updated_at jest porównywane w SQL w reset_stuck_vat()
 		// z UTC_TIMESTAMP(); mieszanie stref dawało do ~2h błędnego okna bezczynności.
 		$data['updated_at'] = current_time( 'mysql', true );
@@ -127,7 +150,7 @@ class MP_Lead_Intake_DB {
 			$data['status'] = 'new';
 		}
 
-		$ok = $wpdb->update( self::leads_table(), $data, array( 'id' => $id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$ok = $wpdb->update( $table, $data, array( 'id' => $id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 
 		return ( false !== $ok ) ? $id : false;
 	}
@@ -465,7 +488,7 @@ class MP_Lead_Intake_DB {
 			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			deleted_at datetime DEFAULT NULL,
 			PRIMARY KEY  (id),
-			UNIQUE KEY uq_nip (nip),
+			UNIQUE KEY uq_country_nip (country, nip),
 			KEY email (email),
 			KEY status (status),
 			KEY vat_status (vat_status),
@@ -508,9 +531,64 @@ class MP_Lead_Intake_DB {
 		dbDelta( $sql_offers );
 		dbDelta( $sql_log );
 
+		self::upgrade_nip_unique_key();
 		self::add_foreign_keys();
 
-		update_option( self::DB_VERSION_OPTION, self::DB_VERSION );
+		// Zapisujemy wersję bazy TYLKO gdy tabele faktycznie istnieją. dbDelta() nie
+		// rzuca wyjątku przy awarii (np. brak uprawnień CREATE TABLE) — bez tej
+		// weryfikacji cicha porażka zostałaby trwale oznaczona jako "zainstalowane
+		// poprawnie" i maybe_upgrade() nigdy więcej by nie spróbowała ponownie.
+		if ( self::tables_exist() ) {
+			update_option( self::DB_VERSION_OPTION, self::DB_VERSION );
+		}
+	}
+
+	/**
+	 * Sprawdza, czy wszystkie 3 tabele BD-3 faktycznie istnieją w bazie.
+	 *
+	 * @return bool
+	 */
+	public static function tables_exist() {
+		global $wpdb;
+		foreach ( array( self::leads_table(), self::offers_table(), self::activity_log_table() ) as $table ) {
+			$found = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+			if ( $found !== $table ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Migruje UNIQUE KEY(nip) → UNIQUE KEY(country, nip) (od 1.4.0).
+	 *
+	 * DbDelta() jest wyłącznie addytywne — nie usuwa indeksów nieobecnych w nowym SQL.
+	 * Samo dopisanie `uq_country_nip` w CREATE TABLE zostawiłoby stary `uq_nip` aktywny
+	 * na już zainstalowanych bazach, cicho utrzymując pierwotny błąd (numer firmowy
+	 * różnych krajów UE może się cyfrowo pokrywać — UNIQUE(nip) blokowałby drugą,
+	 * niepowiązaną firmę). Usuwamy go jawnie, jeśli nadal istnieje; no-op na świeżej
+	 * instalacji (indeks nigdy nie powstał).
+	 *
+	 * @return void
+	 */
+	private static function upgrade_nip_unique_key() {
+		global $wpdb;
+		$table = self::leads_table();
+
+		$exists = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT COUNT(1) FROM information_schema.STATISTICS
+				 WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND INDEX_NAME = %s',
+				DB_NAME,
+				$table,
+				'uq_nip'
+			)
+		);
+
+		if ( $exists > 0 ) {
+			// Nazwa tabeli/indeksu pochodzi z kodu (nie z danych użytkownika) — bezpieczne.
+			$wpdb->query( "ALTER TABLE $table DROP INDEX uq_nip" ); // phpcs:ignore WordPress.DB.PreparedSQL
+		}
 	}
 
 	/**

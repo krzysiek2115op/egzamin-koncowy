@@ -130,7 +130,23 @@ class MP_Lead_Intake_Ajax {
 
 		$context  = new MP_Context( $input );
 		$pipeline = MP_Pipeline_Factory::make();
-		$result   = $pipeline->run( $context );
+
+		try {
+			$result = $pipeline->run( $context );
+		} catch ( \Throwable $e ) {
+			// Pipeline już zrobił ROLLBACK/log (patrz MP_Pipeline::run()) — TU tylko
+			// gwarantujemy kontrakt "zawsze JSON" wobec klienta, niezależnie od tego,
+			// co poszło nie tak (w tym w kodzie spoza tej wtyczki — subskrybenci
+			// do_action('mp_lead_created') z przyszłej integracji plugin 2/3).
+			wp_send_json_error(
+				array(
+					'code'       => 'processing_failed',
+					'message'    => 'Nie udało się przetworzyć zgłoszenia. Sprawdź dane i spróbuj ponownie.',
+					'request_id' => $request_id,
+				),
+				500
+			);
+		}
 
 		if ( $result->is_ok() ) {
 			$data = $result->get_data();
