@@ -1,7 +1,7 @@
 <!--
-ŹRÓDŁO OFICJALNE (skopiowane wiernie, bez zmian merytorycznych)
+ŹRÓDŁO OFICJALNE (skopiowane wiernie, cytaty z developer.wordpress.org)
 URL:    https://developer.wordpress.org/reference/classes/wpdb/get_results/
-Pobrano: 2026-07-21
+Pobrano: 2026-07-21, ponownie zweryfikowano 2026-07-22
 Dotyczy: Dział 1 — agenci 1.1/1.2/1.3 (odczyt z BD-3) i ich krytycy.
 -->
 
@@ -13,28 +13,25 @@ Dotyczy: Dział 1 — agenci 1.1/1.2/1.3 (odczyt z BD-3) i ich krytycy.
 public function get_results( $query = null, $output = OBJECT ): array|object|null
 ```
 
-## Opis
+## Opis (cytat)
 
-"Executes a SQL query and returns the entire SQL result" — wykonuje zapytanie SQL
-i zwraca cały zbiór wyników (może zawierać wiele wierszy).
+"Executes a SQL query and returns the entire SQL result."
 
-## Parametry
+## Parametry (cytaty z tabeli parametrów)
 
-**`$query`** (string, opcjonalny)
-- Zapytanie SQL do wykonania.
-- Domyślnie: `null`.
+- `$query` (string, opcjonalny) — "SQL query." Domyślnie: `null`.
+- `$output` (string, opcjonalny) — "Any of ARRAY_A | ARRAY_N | OBJECT | OBJECT_K constants."
+  Domyślnie: `OBJECT`. Znaczenie poszczególnych stałych (cytaty):
+  - `ARRAY_A` — "an associative array (column => value, …)"
+  - `ARRAY_N` — "a numerically indexed array (0 => value,…)"
+  - `OBJECT` — "an object ( ->column = value )"
+  - `OBJECT_K` — "return an associative array of row objects keyed by the value of
+    each row's first column's value. Duplicate keys are discarded."
 
-**`$output`** (string, opcjonalny) — format zwracanych danych, jedna ze stałych:
-- `ARRAY_A` — tablica tablic asocjacyjnych (kolumna => wartość),
-- `ARRAY_N` — tablica tablic indeksowanych numerycznie (0 => wartość),
-- `OBJECT` — tablica obiektów z właściwościami dla każdej kolumny,
-- `OBJECT_K` — tablica asocjacyjna obiektów-wierszy, kluczowana wartością pierwszej
-  kolumny; duplikaty kluczy są odrzucane.
-- Domyślnie: `OBJECT`.
+## Zwraca (cytat)
 
-## Zwraca
-
-`array|object|null` — wyniki zapytania, lub `null`, gdy nie podano zapytania.
+"Database query results." Typ zwracany: `array|object|null`, zależnie od `$output` i wyniku
+zapytania.
 
 ## Przykład
 

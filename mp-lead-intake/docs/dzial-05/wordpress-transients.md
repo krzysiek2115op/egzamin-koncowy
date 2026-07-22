@@ -1,45 +1,66 @@
 <!--
-ŹRÓDŁO OFICJALNE (skopiowane wiernie)
+ŹRÓDŁO OFICJALNE (skopiowane wiernie, cytaty z developer.wordpress.org)
 URL:    https://developer.wordpress.org/reference/functions/set_transient/
-Pobrano: 2026-07-21
+        https://developer.wordpress.org/reference/functions/get_transient/
+Pobrano: 2026-07-21, ponownie zweryfikowano 2026-07-22
 Dotyczy: Dział 5 — agent 5.3 (rate limit); także cache w dziale 3.
 -->
 
 # set_transient() / get_transient() — dokumentacja oficjalna
 
-## Sygnatura
+## set_transient()
+
+### Sygnatura
 
 ```php
-set_transient( string $transient, mixed $value, int $expiration ): bool
+set_transient( string $transient, mixed $value, int $expiration = 0 ): bool
 ```
 
-## Opis
+### Opis (cytat)
 
-Ustawia lub aktualizuje wartość transientu (z automatyczną serializacją). Wartości nieskalarne
-muszą być serializowalne.
+"Sets/updates the value of a transient."
 
-## Parametry
+### Parametry (cytaty)
 
-- `$transient` (string, wymagany) — nazwa transientu; maks. 172 znaki.
-- `$value` (mixed, wymagany) — wartość (serializowalna, jeśli nieskalarna).
-- `$expiration` (int, opcjonalny) — czas do wygaśnięcia w sekundach; domyślnie 0 (bez wygaśnięcia).
+- `$transient` (string, wymagany) — "Transient name. Expected to not be SQL-escaped.
+  Must be 172 characters or fewer in length."
+- `$value` (mixed, wymagany) — "Transient value. Must be serializable if non-scalar.
+  Expected to not be SQL-escaped."
+- `$expiration` (int, opcjonalny) — "Time until expiration in seconds. Default 0
+  (no expiration)."
 
-## Zwraca
+### Zwraca (cytat)
 
-`true` przy powodzeniu, `false` w przeciwnym razie.
+"True if the value was set, false otherwise."
 
-## Uwagi
+### Uwagi (cytaty)
 
-- Transienty z wygaśnięciem nie są autoloadowane; bez wygaśnięcia — są.
-- Jeśli transient istnieje, funkcja aktualizuje czas wygaśnięcia.
-- Stałe czasu WordPress (`MINUTE_IN_SECONDS`, `HOUR_IN_SECONDS`, `DAY_IN_SECONDS`) upraszczają zapis.
+"Transients that never expire are autoloaded, whereas transients with an expiration time
+are not autoloaded." Dodatkowo: "If a transient exists, this function will update the
+transient's expiration time."
 
-## Przykład
+### Przykład
 
 ```php
 set_transient( 'latest_posts', $posts_array, DAY_IN_SECONDS );
 ```
 
-## Powiązana funkcja
+## get_transient()
 
-`get_transient()` — pobiera wcześniej zapisaną wartość transientu (lub `false`, gdy brak/wygasł).
+### Sygnatura
+
+```php
+get_transient( string $transient ): mixed
+```
+
+### Opis (cytat)
+
+"Retrieves the value of a transient."
+
+### Parametry (cytat)
+
+- `$transient` (string, wymagany) — "Transient name. Expected to not be SQL-escaped."
+
+### Zwraca (cytat)
+
+"Value of transient."

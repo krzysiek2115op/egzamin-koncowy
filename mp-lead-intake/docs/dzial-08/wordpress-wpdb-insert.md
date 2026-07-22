@@ -1,7 +1,7 @@
 <!--
-ŹRÓDŁO OFICJALNE (skopiowane wiernie)
+ŹRÓDŁO OFICJALNE (skopiowane wiernie, cytaty z developer.wordpress.org)
 URL:    https://developer.wordpress.org/reference/classes/wpdb/insert/
-Pobrano: 2026-07-21
+Pobrano: 2026-07-21, ponownie zweryfikowano 2026-07-22
 Dotyczy: Dział 8 — agent 8.3 (zapis wpisu do wp_mp_activity_log).
 -->
 
@@ -13,23 +13,35 @@ Dotyczy: Dział 8 — agent 8.3 (zapis wpisu do wp_mp_activity_log).
 wpdb::insert( string $table, array $data, string[]|string $format = null ): int|false
 ```
 
-## Opis
+## Opis (cytat)
 
-Wstawia wiersz do tabeli; automatycznie sanityzuje dane.
+"Inserts a row into the table."
 
-## Parametry
+## Parametry (cytaty)
 
-- `$table` (string, wymagany) — nazwa tabeli.
-- `$data` (array, wymagany) — pary „kolumna => wartość" (surowe). `null` → NULL.
-- `$format` (string[]|string, opcjonalny) — `'%d'`, `'%f'`, `'%s'`.
+- `$table` (string, wymagany) — "Table name."
+- `$data` (array, wymagany) — "Data to insert (in column => value pairs). Both `$data`
+  columns and `$data` values should be "raw" (neither should be SQL escaped). Sending a
+  null value will cause the column to be set to NULL – the corresponding format is ignored
+  in this case."
+- `$format` (string[]|string, opcjonalny) — "An array of formats to be mapped to each of
+  the value in `$data`. If string, that format will be used for all of the values in
+  `$data`. A format is one of `'%d'`,`'%f'`, `'%s'` (integer, float, string). If omitted,
+  all values in `$data` will be treated as strings unless otherwise specified in
+  wpdb::$field_types."
 
-## Zwraca
+## Zwraca (cytat)
 
-Liczba wstawionych wierszy lub `false`. ID: `$wpdb->insert_id`.
+"The number of rows inserted, or false on error."
 
 ## Przykład
 
 ```php
-$wpdb->insert( 'my_table', array( 'name' => 'John', 'age' => 30 ), array( '%s', '%d' ) );
+global $wpdb;
+$wpdb->insert(
+    'my_table',
+    array( 'name' => 'John', 'age' => 30 ),
+    array( '%s', '%d' )
+);
 $id = $wpdb->insert_id;
 ```

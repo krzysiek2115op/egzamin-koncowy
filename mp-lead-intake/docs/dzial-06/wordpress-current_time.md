@@ -1,7 +1,7 @@
 <!--
-ŹRÓDŁO OFICJALNE (skopiowane wiernie)
+ŹRÓDŁO OFICJALNE (skopiowane wiernie, cytaty z developer.wordpress.org)
 URL:    https://developer.wordpress.org/reference/functions/current_time/
-Pobrano: 2026-07-21
+Pobrano: 2026-07-21, ponownie zweryfikowano 2026-07-22
 Dotyczy: Dział 6 — agent 6.3 (znacznik czasu zgody).
 -->
 
@@ -13,23 +13,25 @@ Dotyczy: Dział 6 — agent 6.3 (znacznik czasu zgody).
 current_time( string $type, bool $gmt = false ): int|string
 ```
 
-## Opis
+## Opis (cytat)
 
-"Retrieves the current time based on specified type." — zwraca bieżący czas wg typu:
-- `'mysql'` — czas w formacie MySQL DATETIME,
-- `'timestamp'` / `'U'` — znacznik uniksowy (z uwzględnieniem offsetu GMT strony, chyba że `$gmt=true`),
-- łańcuch formatu PHP (np. `'Y-m-d'`).
+"Retrieves the current time based on specified type."
+- "The 'mysql' type will return the time in the format for MySQL DATETIME field."
+- "The 'timestamp' or 'U' types will return the current timestamp or a sum of timestamp and
+  timezone offset, depending on $gmt."
+- "Other strings will be interpreted as PHP date formats (e.g. 'Y-m-d')."
+- "If $gmt is a truthy value then both types will use GMT time, otherwise the output is
+  adjusted with the GMT offset for the site."
 
-Gdy `$gmt` jest prawdziwe — czas w GMT; inaczej wg offsetu strony.
+## Parametry (cytaty z tabeli parametrów)
 
-## Parametry
+- `$type` (string, wymagany) — "Type of time to retrieve. Accepts 'mysql', 'timestamp', 'U',
+  or PHP date format string (e.g. 'Y-m-d')."
+- `$gmt` (bool, opcjonalny, domyślnie `false`) — "Whether to use GMT timezone."
 
-- `$type` (string, wymagany) — `'mysql'`, `'timestamp'`, `'U'` lub format daty PHP.
-- `$gmt` (bool, opcjonalny) — czy GMT. Domyślnie `false`.
+## Zwraca (cytat)
 
-## Zwraca
-
-Integer dla `'timestamp'`/`'U'`; string w pozostałych przypadkach.
+"Integer if $type is 'timestamp' or 'U', string otherwise."
 
 ## Przykład
 

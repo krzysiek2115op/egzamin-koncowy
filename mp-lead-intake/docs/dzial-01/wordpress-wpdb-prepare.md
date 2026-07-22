@@ -1,7 +1,7 @@
 <!--
-ŹRÓDŁO OFICJALNE (skopiowane wiernie, bez zmian merytorycznych)
+ŹRÓDŁO OFICJALNE (skopiowane wiernie, cytaty z developer.wordpress.org)
 URL:    https://developer.wordpress.org/reference/classes/wpdb/prepare/
-Pobrano: 2026-07-21
+Pobrano: 2026-07-21, ponownie zweryfikowano 2026-07-22
 Dotyczy: Dział 1 — bezpieczne budowanie zapytań (agenci 1.1/1.2/1.3 i krytycy).
 -->
 
@@ -13,34 +13,28 @@ Dotyczy: Dział 1 — bezpieczne budowanie zapytań (agenci 1.1/1.2/1.3 i krytyc
 wpdb::prepare( string $query, mixed $args ): string|void
 ```
 
-## Opis
+## Opis (cytat)
 
-"Prepares a SQL query for safe execution" — przygotowuje zapytanie SQL do bezpiecznego
-wykonania. Metoda używa składni w stylu `sprintf()` z następującymi placeholderami:
+"Prepares a SQL query for safe execution. Uses `sprintf()`-like syntax. The following
+placeholders can be used in the query string:
 
-- `%d` — liczba całkowita (integer),
-- `%f` — liczba zmiennoprzecinkowa (float),
-- `%s` — łańcuch znaków (string),
-- `%i` — identyfikator (np. nazwa tabeli/pola).
+* `%d` (integer)
+* `%f` (float)
+* `%s` (string)
+* `%i` (identifier, e.g. table/field names)
 
-"All placeholders MUST be left unquoted in the query string. A corresponding argument
-MUST be passed for each placeholder." — placeholdery muszą pozostać bez cudzysłowów,
-a dla każdego trzeba przekazać odpowiadający argument.
+All placeholders MUST be left unquoted in the query string. A corresponding argument MUST
+be passed for each placeholder."
 
-"Literal percentage signs (`%`) in the query string must be written as `%%`." — dosłowne
-znaki procentu zapisujemy jako `%%`. Dla operacji `LIKE` znaki wieloznaczne (`%`) przekazuje
-się przez argumenty podstawienia, a nie wpisuje wprost w zapytaniu.
+## Parametry (cytaty)
 
-## Parametry
+- `$query` (string, wymagany) — "Query statement with `sprintf()`-like placeholders."
+- `$args` (mixed, wymagany) — "Further variables to substitute into the query's placeholders
+  if being called with individual arguments."
 
-| Parametr | Typ | Opis |
-|----------|-----|------|
-| `$query` | string | Zapytanie z placeholderami w stylu `sprintf()` |
-| `$args`  | mixed | Zmienne podstawiane w miejsce placeholderów |
+## Zwraca (cytat)
 
-## Zwraca
-
-Zsanityzowane zapytanie (string), lub `void`, gdy nie ma czego przygotować.
+"Sanitized query string, if there is a query to prepare."
 
 ## Przykład
 

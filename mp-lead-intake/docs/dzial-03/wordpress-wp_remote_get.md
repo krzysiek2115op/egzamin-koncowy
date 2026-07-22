@@ -1,7 +1,7 @@
 <!--
-ŹRÓDŁO OFICJALNE (skopiowane wiernie)
+ŹRÓDŁO OFICJALNE (skopiowane wiernie, cytaty z developer.wordpress.org)
 URL:    https://developer.wordpress.org/reference/functions/wp_remote_get/
-Pobrano: 2026-07-21
+Pobrano: 2026-07-21, ponownie zweryfikowano 2026-07-22
 Dotyczy: Dział 3 — agenci 3.2 i 3.3 (wywołania HTTP do VIES / Białej listy).
 -->
 
@@ -13,32 +13,27 @@ Dotyczy: Dział 3 — agenci 3.2 i 3.3 (wywołania HTTP do VIES / Białej listy)
 wp_remote_get( string $url, array $args = array() ): array|WP_Error
 ```
 
-## Opis
+## Opis (cytat)
 
-"Performs an HTTP request using the GET method and returns its response." — wykonuje
-żądanie HTTP metodą GET i zwraca odpowiedź.
+"Performs an HTTP request using the GET method and returns its response."
 
-**Uwaga bezpieczeństwa:** jeśli URL pochodzi od użytkownika, użyj `wp_safe_remote_get()`.
+## Parametry (cytaty)
 
-## Parametry
+- `$url` (string, wymagany) — "URL to retrieve."
+- `$args` (array, opcjonalny) — "Request arguments. See WP_Http::request() for information
+  on accepted arguments." Domyślnie: `array()`.
 
-- `$url` (string, wymagany) — adres do pobrania.
-- `$args` (array, opcjonalny) — argumenty żądania (`WP_Http::request()`), m.in.:
-  - `timeout` — czas otwarcia połączenia w sekundach (domyślnie: 5),
-  - `headers` — tablica nagłówków,
-  - `sslverify` — weryfikacja SSL (domyślnie: true).
+## Zwraca (cytat)
 
-## Zwraca
-
-Odpowiedź (tablica z `body`, `headers`, statusem) lub `WP_Error` przy błędzie.
+"The response or WP_Error on failure. See WP_Http::request() for information on return value."
 
 ## Przykład
 
 ```php
-$response = wp_remote_get( 'http://www.example.com/index.html' );
-
-if ( is_array( $response ) && ! is_wp_error( $response ) ) {
-    $body = wp_remote_retrieve_body( $response );
-    // użyj treści
+$response = wp_remote_get( 'https://example.com/api' );
+if ( is_wp_error( $response ) ) {
+	$error_message = $response->get_error_message();
+} else {
+	$body = wp_remote_retrieve_body( $response );
 }
 ```

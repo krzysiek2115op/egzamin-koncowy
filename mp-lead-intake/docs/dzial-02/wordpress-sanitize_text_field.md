@@ -1,7 +1,7 @@
 <!--
-ŹRÓDŁO OFICJALNE (skopiowane wiernie)
+ŹRÓDŁO OFICJALNE (skopiowane wiernie, cytaty z developer.wordpress.org)
 URL:    https://developer.wordpress.org/reference/functions/sanitize_text_field/
-Pobrano: 2026-07-21
+Pobrano: 2026-07-21, ponownie zweryfikowano 2026-07-22
 Dotyczy: Dział 2 — agent 2.2 (normalizacja pól tekstowych) i krytyk K2.2.
 -->
 
@@ -13,25 +13,24 @@ Dotyczy: Dział 2 — agent 2.2 (normalizacja pól tekstowych) i krytyk K2.2.
 sanitize_text_field( string $str ): string
 ```
 
-## Opis
+## Opis (cytat)
 
-"Sanitizes a string from user input or from the database." — sanityzuje łańcuch
-pochodzący od użytkownika lub z bazy. Funkcja wykonuje:
+"Sanitizes a string from user input or from the database."
 
-- "Checks for invalid UTF-8" — sprawdza niepoprawny UTF-8,
-- "Converts single `<` characters to entities" — zamienia pojedyncze `<` na encje,
-- "Strips all tags" — usuwa wszystkie tagi,
-- "Removes line breaks, tabs, and extra whitespace" — usuwa złamania linii, tabulatory
-  i nadmiarowe białe znaki,
-- "Strips percent-encoded characters" — usuwa znaki zakodowane procentowo.
+Funkcja wykonuje (cytaty):
+- "Checks for invalid UTF-8"
+- "Converts single `<` characters to entities"
+- "Strips all tags"
+- "Removes line breaks, tabs, and extra whitespace"
+- "Strips percent-encoded characters"
 
-## Parametry
+## Parametry (cytat)
 
-- `$str` (string, wymagany) — łańcuch do sanityzacji.
+- `$str` (string, wymagany) — "String to sanitize."
 
-## Zwraca
+## Zwraca (cytat)
 
-Zsanityzowany łańcuch (string).
+"Sanitized string."
 
 ## Przykład
 

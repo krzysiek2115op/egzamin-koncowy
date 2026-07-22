@@ -1,7 +1,7 @@
 <!--
-ŹRÓDŁO OFICJALNE (skopiowane wiernie)
+ŹRÓDŁO OFICJALNE (skopiowane wiernie, cytaty z developer.wordpress.org)
 URL:    https://developer.wordpress.org/reference/functions/wp_verify_nonce/
-Pobrano: 2026-07-21
+Pobrano: 2026-07-21, ponownie zweryfikowano 2026-07-22
 Dotyczy: Dział 5 — agent 5.2 (ochrona CSRF).
 -->
 
@@ -13,24 +13,21 @@ Dotyczy: Dział 5 — agent 5.2 (ochrona CSRF).
 wp_verify_nonce( string $nonce, string|int $action = -1 ): int|false
 ```
 
-## Opis
+## Opis (cytat)
 
-"Verifies that a correct security nonce was used with time limit." — weryfikuje poprawny
-nonce (token bezpieczeństwa, ochrona CSRF) z limitem czasu. Nonce jest ważny domyślnie
-12–24 godziny. Dokumentacja ostrzega: "nonces should never be relied on for authentication
-or authorization, access control" — do autoryzacji używaj `current_user_can()`.
+"Verifies that a correct security nonce was used with time limit."
 
-## Parametry
+## Parametry (cytaty)
 
-- `$nonce` (string, wymagany) — weryfikowana wartość nonce (zwykle z pola formularza).
-- `$action` (string|int, opcjonalny) — kontekst akcji; musi zgadzać się z użytym przy
-  tworzeniu nonce (domyślnie: -1).
+- `$nonce` (string, wymagany) — "Nonce value that was used for verification, usually via
+  a form field."
+- `$action` (string|int, opcjonalny) — "Should give context to what is taking place and be
+  the same when nonce was created." Domyślnie: `-1`.
 
-## Zwraca
+## Zwraca (cytat)
 
-- **1** — nonce poprawny, utworzony 0–12 h temu,
-- **2** — nonce poprawny, utworzony 12–24 h temu,
-- **false** — nonce niepoprawny.
+"1 if the nonce is valid and generated between 0-12 hours ago, 2 if the nonce is valid and
+generated between 12-24 hours ago. False if the nonce is invalid."
 
 ## Przykład
 

@@ -1,7 +1,7 @@
 <!--
-ŹRÓDŁO OFICJALNE (skopiowane wiernie)
+ŹRÓDŁO OFICJALNE (skopiowane wiernie, cytaty z developer.wordpress.org)
 URL:    https://developer.wordpress.org/reference/functions/sanitize_email/
-Pobrano: 2026-07-21
+Pobrano: 2026-07-21, ponownie zweryfikowano 2026-07-22
 Dotyczy: Dział 2 — agent 2.2 (normalizacja adresu e-mail).
 -->
 
@@ -13,25 +13,23 @@ Dotyczy: Dział 2 — agent 2.2 (normalizacja adresu e-mail).
 sanitize_email( string $email ): string
 ```
 
-## Opis
+## Opis (cytat)
 
-"Strips out all characters that are not allowable in an email." — usuwa wszystkie znaki
-niedozwolone w adresie e-mail.
+"Strips out all characters that are not allowable in an email."
 
-## Parametry
+## Parametry (cytaty)
 
-- `$email` (string, wymagany) — adres e-mail do przefiltrowania.
+- `$email` (string, wymagany) — "Email address to filter."
 
-## Zwraca
+## Zwraca (cytat)
 
-Przefiltrowany adres e-mail (string).
+"Filtered email address."
 
-## Uwagi (z dokumentacji)
+## Uwagi (cytaty)
 
-- Funkcja używa zestawu znaków bardziej restrykcyjnego niż RFC 5322 — może zmienić
-  niektóre technicznie poprawne adresy.
-- Dozwolone znaki wg wzorca: `/[^a-z0-9+_.@-]/i`.
-- Dla niepoprawnego adresu zwraca pusty łańcuch (nie `false`).
+"This function uses a smaller allowable character set than the set defined by RFC 5322.
+Some legal email addresses may be changed." Dozwolone znaki (wyrażenie regularne, cytat):
+"Allowed character regular expression: `/[^a-z0-9+_.@-]/i`."
 
 ## Przykład
 
