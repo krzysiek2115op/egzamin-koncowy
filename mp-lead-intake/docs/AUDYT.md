@@ -125,10 +125,12 @@ Reszta z ~110 znalezisk to Low/Medium bez natychmiastowego ryzyka bezpieczeństw
 danych — świadomie udokumentowane jako rekomendacje na kolejną fazę, nie zaimplementowane teraz
 (6 z nich naprawione w rundzie 4, wiring WP-Cron domknięty w rundzie 5 — patrz sekcje 7-8 niżej):
 
-- **[ŚR] Brak CI/CD** — harness i `.phpcs.xml.dist` gotowe pod bramkę, nic nie uruchamia ich automatycznie przy push/PR; regresja może wejść bez wymuszenia testów.
 - **[ŚR] Walidacja pól formularza — NIP zakłada wyłącznie Polskę** (10 cyfr, suma kontrolna PL) mimo parametryzacji VIES per-kraj (format telefonu i kraju już naprawione — patrz sekcja 7). **Decyzja 2026-07-22:** świadomie zaakceptowane jako trwały zakres, uzgodniony z klientem — nie planowane do rozszerzenia, chyba że klient zmieni zdanie.
 - **[ŚR] `consent_version`** nie jest mechanicznie powiązane z realną wersją `docs/POLITYKA-PRYWATNOSCI-WZOR.md` — osłabia wartość dowodową zgody RODO przy sporze.
 - **[NIS]** Rate-limit: nieatomowy read-modify-write transientu (realne ryzyko rośnie tylko, gdy ktoś wyłączy domyślny tryb async filtrem `mp_lead_intake_async_verification`); regex wstrzykiwania linku do menu motywu może "osierocić" link przy niektórych strukturach zagnieżdżonych `<nav>`; i18n niekompletne (komunikaty AJAX nieopakowane w `__()`); dz.10 buduje odpowiedź, której `class-mp-ajax.php` nie konsumuje.
+
+**Naprawione w rundzie 6** (patrz sekcja 9): brak CI/CD; rate-limit za proxy/CDN
+(świadoma decyzja + udokumentowany fallback, nie kod — patrz sekcja 9).
 
 Pełna lista wszystkich ~110 znalezisk (ID, lokalizacja, przyczyna, ryzyko, rekomendacja z
 przykładem kodu, poziom pewności) — w transkrypcie audytu tej sesji; powyżej synteza tego,
@@ -200,6 +202,37 @@ wcześniej, przed tym fixem, przeszłyby niezauważone). Zmiana cofnięta po wer
 Harness: 7/7 scenariuszy + **25/25** niezmienników PASS (bez regresji na 1-22). PHPCS
 bez zmian (45/45 — `tests/` poza zakresem `.phpcs.xml.dist`). Wersja wtyczki BEZ ZMIAN
 (1.2.3) — to wyłącznie poprawa pokrycia testowego, nie zmiana zachowania produkcyjnego.
+
+## 9. Runda 6 — CI/CD i przegląd rate-limitu (2026-07-22)
+
+**CI/CD (GitHub Actions).** Dotąd `.phpcs.xml.dist` i harness istniały, ale nic nie
+uruchamiało ich automatycznie — regresja mogła wejść na branch bez wymuszenia testów.
+Nowy `.github/workflows/mp-lead-intake-ci.yml` (korzeń repo) na każdy push/PR do
+brancha `mp-lead-intake` uruchamia na **PHP 7.4 i 8.3** (matrix — 7.4 to deklarowane
+minimum w `readme.txt`, 8.3 to wersja deweloperska; obie muszą przejść, inaczej
+deklaracja zgodności jest gołosłowna): `php -l` na całej wtyczce, PHPCS/WPCS, i
+`tests/process-harness/run-process.php` (7 scenariuszy + 25 niezmienników). Nowy
+`composer.json`/`composer.lock` w korzeniu repo (zależności PHPCS/WPCS — wspólne dla
+przyszłych pluginów 2/3, nie duplikowane per branch); `composer.lock` świadomie
+odblokowany w `.gitignore` (był wcześniej ślepo wykluczony, zanim istniał jakikolwiek
+`composer.json`) — bez niego każdy przebieg CI mógłby ciągnąć inną wersję WPCS i zgłosić
+nowe błędy bez żadnej zmiany w kodzie wtyczki. Wszystkie 3 kroki zweryfikowane lokalnie
+przed pushem (świeży `composer install` + PHPCS + harness z repo root — identycznie jak
+zrobi to CI).
+
+**Rate-limit za proxy/CDN.** User potwierdził: produkcja na razie NIE stoi za
+CDN/reverse proxy — `REMOTE_ADDR` w `class-mp-department-05.php::client_ip()` jest więc
+dziś poprawnym źródłem IP klienta, kod bez zmian. Dopisany komentarz przy tej metodzie
+wyjaśniający WARUNEK, przy którym trzeba to zrewidować (produkcja za Cloudflare/load
+balancerem → `REMOTE_ADDR` stałby się adresem proxy, wspólnym dla całego ruchu, licznik
+zacząłby traktować wszystkich odwiedzających jako jednego klienta) oraz dlaczego zwykłe
+`X-Forwarded-For` NIE jest bezpiecznym zamiennikiem bez zweryfikowanego zaufanego proxy
+(klient może ten nagłówek dowolnie sfałszować). Świadomie NIE zaimplementowano kodu
+obsługi konkretnego dostawcy (Cloudflare itp.) — brak dziś realnego środowiska
+produkcyjnego, którego dotyczyłoby to ryzyko; implementacja "na zapas" byłaby zgadywaniem.
+
+Wersja wtyczki BEZ ZMIAN (1.2.3) — CI to infrastruktura repo, rate-limit to komentarz
+dokumentujący założenie, żadna z dwóch zmian nie modyfikuje zachowania w runtime.
 
 ---
 

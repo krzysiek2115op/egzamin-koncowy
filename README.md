@@ -33,3 +33,17 @@ wtyczek WordPress). Prace nad każdą wtyczką prowadzimy na dedykowanym branchu
 
 - Praca nad wtyczką 1 toczy się na branchu `mp-lead-intake`.
 - Commity powstają automatycznie przy każdym większym kroku.
+
+## CI
+
+![MP Lead Intake CI](https://github.com/krzysiek2115op/egzamin-koncowy/actions/workflows/mp-lead-intake-ci.yml/badge.svg?branch=mp-lead-intake)
+
+Przy każdym push/PR na branch `mp-lead-intake` GitHub Actions
+(`.github/workflows/mp-lead-intake-ci.yml`) uruchamia na PHP 7.4 i 8.3:
+
+1. `php -l` — składnia wszystkich plików wtyczki,
+2. PHPCS/WPCS wg reguł z korzenia repo (`.phpcs.xml.dist`),
+3. `tests/process-harness/run-process.php` — 7 scenariuszy + niezmienniki procesu.
+
+Zależności narzędzi dev (PHPCS/WPCS) są w `composer.json`/`composer.lock` w korzeniu
+repo — wspólne dla wszystkich 3 wtyczek/branchy, nie duplikowane per plugin.

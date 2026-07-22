@@ -1,9 +1,13 @@
 # --- Zależności / build ---
 /vendor/
 /node_modules/
-composer.lock
 package-lock.json
 *.log
+
+# composer.lock w korzeniu JEST wersjonowany świadomie (od CI 2026-07-22) —
+# to zależności narzędzia dev (PHPCS/WPCS), nie frameworka aplikacji; bez
+# zacommitowanego locka każdy przebieg CI ciągnąłby inną wersję WPCS, co
+# mogłoby zgłosić nowe błędy bez żadnej zmiany w kodzie wtyczki.
 
 # --- Środowisko / sekrety ---
 .env

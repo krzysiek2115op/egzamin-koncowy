@@ -1,0 +1,40 @@
+name: MP Lead Intake CI
+
+on:
+  push:
+    branches: [ mp-lead-intake ]
+  pull_request:
+    branches: [ mp-lead-intake ]
+
+jobs:
+  test:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 7.4 = deklarowane minimum wtyczki (readme.txt "Requires PHP"), 8.3 = wersja
+        # deweloperska. Obie muszą przejść — inaczej deklaracja zgodności jest gołosłowna.
+        php: [ '7.4', '8.3' ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer:v2
+          coverage: none
+
+      - name: Install PHPCS / WPCS (composer.json w korzeniu repo)
+        run: composer install --no-progress --prefer-dist
+
+      - name: PHP syntax check (php -l)
+        run: find mp-lead-intake -name '*.php' -print0 | xargs -0 -n1 -- php -l
+
+      - name: PHPCS / WPCS (.phpcs.xml.dist w korzeniu repo)
+        run: vendor/bin/phpcs
+
+      - name: Weryfikacja procesu (7 scenariuszy + 25 niezmienników)
+        run: php mp-lead-intake/tests/process-harness/run-process.php

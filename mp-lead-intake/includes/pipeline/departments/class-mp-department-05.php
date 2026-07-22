@@ -103,6 +103,16 @@ class MP_D5_Agent_Rate_Limit extends MP_Abstract_Agent {
 	/**
 	 * Bieżące IP klienta. Świadomie z REMOTE_ADDR (nie X-Forwarded-For — spoofing).
 	 *
+	 * UWAGA WDROŻENIOWA (audyt 2026-07-22, SHOULD FIX — przegląd rate-limitu za
+	 * proxy/CDN): jeśli produkcja stanie kiedyś ZA reverse proxy/CDN (Cloudflare,
+	 * load balancer), REMOTE_ADDR przestanie być realnym IP klienta — będzie to
+	 * adres proxy, WSPÓLNY dla wszystkich odwiedzających, więc limit "na IP" zacznie
+	 * liczyć CAŁY ruch strony jako jednego klienta. Na dziś (zwykły hosting bez
+	 * CDN) to poprawne zachowanie. Gdy to się zmieni, trzeba świadomie przełączyć
+	 * się na zaufany nagłówek proxy (np. CF-Connecting-IP za Cloudflare) — NIE na
+	 * gołe X-Forwarded-For, bo bez zweryfikowania, że żądanie faktycznie przeszło
+	 * przez zaufany proxy, ten nagłówek klient może dowolnie sfałszować.
+	 *
 	 * @return string
 	 */
 	public static function client_ip() {
