@@ -356,6 +356,45 @@ record(
 $GLOBALS['wpdb']->offers = array();
 seed_woocommerce_fixtures();
 
+/* ---------- Dział 3: realna logika (Krok 3) ---------- */
+
+echo "\n=== DZIAŁ 3: REALNA LOGIKA ===\n";
+
+// 21) Happy path: items_valid trafia do final_data (kontrakt JSON diagramu Działu 3).
+$inv21 = true === ( $hp['final_data']['items_valid'] ?? null );
+record( 'inv21_happy_path_items_valid_true', $inv21 ? 'PASS' : 'FAIL', 'items_valid=' . var_export( $hp['final_data']['items_valid'] ?? null, true ) );
+
+// 22) Ilość ponad limit (10 000) → STOP 'invalid_quantities'.
+$over_qty                     = base_input();
+$over_qty['items'][0]['qty']  = 10001;
+$r22                          = run_pipeline( $over_qty );
+$inv22                        = ! $r22['ok'] && 'invalid_quantities' === $r22['code'];
+record( 'inv22_ilosc_ponad_limit_stop', $inv22 ? 'PASS' : 'FAIL', 'code=' . $r22['code'] );
+
+// 23) Ilość niecałkowita (5.5) → STOP 'invalid_quantities'.
+$frac_qty                    = base_input();
+$frac_qty['items'][0]['qty'] = 5.5;
+$r23                          = run_pipeline( $frac_qty );
+$inv23                        = ! $r23['ok'] && 'invalid_quantities' === $r23['code'];
+record( 'inv23_ilosc_niecalkowita_stop', $inv23 ? 'PASS' : 'FAIL', 'code=' . $r23['code'] );
+
+// 24) Więcej niż 50 pozycji → STOP 'invalid_quantities'.
+seed_woocommerce_fixtures();
+$GLOBALS['__mp_ob_wc_products'][9101] = array(
+	'status'        => 'publish',
+	'name'          => 'Testowy wariant',
+	'tax_class'     => '',
+	'purchasable'   => true,
+	'regular_price' => '129.99',
+	'sale_price'    => '',
+);
+$too_many_items = base_input();
+$one_item       = $too_many_items['items'][0];
+$too_many_items['items'] = array_fill( 0, 51, $one_item );
+$r24                     = run_pipeline( $too_many_items );
+$inv24                   = ! $r24['ok'] && 'invalid_quantities' === $r24['code'];
+record( 'inv24_zbyt_wiele_pozycji_stop', $inv24 ? 'PASS' : 'FAIL', 'code=' . $r24['code'] );
+
 /* ---------- Krok 2.5: integracja z pluginem 1 (mp_lead_created → draft) ---------- */
 
 echo "\n=== KROK 2.5: AUTOMATYCZNY DRAFT Z LEADA ===\n";
