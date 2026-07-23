@@ -41,7 +41,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class MP_OB_D1_Agent_Contract extends MP_OB_Abstract_Agent {
 
 	/** Dozwolone klucze obiektu 'client' — additionalProperties:false ręcznie (patrz docs). */
-	const ALLOWED_CLIENT_KEYS = array( 'name', 'email', 'nip', 'country' );
+	const ALLOWED_CLIENT_KEYS = array( 'name', 'email', 'nip', 'country', 'vat_status' );
 
 	/** Dozwolone klucze pojedynczej pozycji. */
 	const ALLOWED_ITEM_KEYS = array( 'product_id', 'variation_id', 'qty' );

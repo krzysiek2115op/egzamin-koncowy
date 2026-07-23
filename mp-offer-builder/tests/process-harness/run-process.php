@@ -472,6 +472,58 @@ $over_limit_result = $over_limit_agent->run( $over_limit_ctx );
 $inv30              = ! $over_limit_result->is_ok() && 'discount_over_limit' === $over_limit_result->get_code();
 record( 'inv30_rabat_ponad_limit_stop_bez_przyciecia', $inv30 ? 'PASS' : 'FAIL', 'code=' . $over_limit_result->get_code() );
 
+/* ---------- Dział 6: realna logika (Krok 3) ---------- */
+
+echo "\n=== DZIAŁ 6: REALNA LOGIKA (podatki, VAT) ===\n";
+
+// 31) Happy path (client.country='PL') → mechanizm 'domestic', stawka 23%,
+//     net = subtotal - rabat = 519960 - 25998 = 493962 (zgadza się z przykładem
+//     JSON w blueprint/LP2_diagram_wizualny.html — "net": 493962), netto+VAT=brutto.
+$inv31 = $hp['ok']
+	&& 'domestic' === ( $hp['final_data']['tax_mechanism'] ?? null )
+	&& 23.0 === ( $hp['final_data']['tax_rate'] ?? null )
+	&& 493962 === ( $hp['final_data']['net_grosze'] ?? null )
+	&& ( $hp['final_data']['net_grosze'] ?? 0 ) + ( $hp['final_data']['vat_grosze'] ?? 0 ) === ( $hp['final_data']['gross_grosze'] ?? null );
+record(
+	'inv31_happy_path_mechanizm_domestic_spojnosc_sumy',
+	$inv31 ? 'PASS' : 'FAIL',
+	'mechanism=' . ( $hp['final_data']['tax_mechanism'] ?? '-' ) . ' net=' . ( $hp['final_data']['net_grosze'] ?? '-' ) . ' vat=' . ( $hp['final_data']['vat_grosze'] ?? '-' ) . ' gross=' . ( $hp['final_data']['gross_grosze'] ?? '-' )
+);
+
+// 32) Klient UE (nie-PL) z POTWIERDZONYM ważnym VAT → reverse_charge, VAT=0,
+//     gross=net (art. 196 dyrektywy VAT).
+$eu_valid                       = base_input();
+$eu_valid['client']['country']  = 'DE';
+$eu_valid['client']['vat_status'] = 'valid';
+$r32                             = run_pipeline( $eu_valid );
+$inv32                           = $r32['ok']
+	&& 'reverse_charge' === ( $r32['final_data']['tax_mechanism'] ?? null )
+	&& 0 === ( $r32['final_data']['vat_grosze'] ?? null )
+	&& ( $r32['final_data']['net_grosze'] ?? null ) === ( $r32['final_data']['gross_grosze'] ?? null );
+record( 'inv32_ue_vat_wazny_reverse_charge', $inv32 ? 'PASS' : 'FAIL', 'mechanism=' . ( $r32['final_data']['tax_mechanism'] ?? '-' ) . ' vat=' . ( $r32['final_data']['vat_grosze'] ?? '-' ) );
+
+// 33) Klient UE BEZ potwierdzonego VAT (pole nieobecne) → BEZPIECZNY DOMYŚLNY
+//     wybór: mechanizm 'domestic' (naliczona stawka), NIGDY ciche 0%.
+$eu_unchecked                      = base_input();
+$eu_unchecked['client']['country'] = 'DE';
+$r33                                = run_pipeline( $eu_unchecked );
+$inv33                              = $r33['ok'] && 'domestic' === ( $r33['final_data']['tax_mechanism'] ?? null ) && ( $r33['final_data']['vat_grosze'] ?? 0 ) > 0;
+record( 'inv33_ue_bez_potwierdzenia_vat_bezpieczny_domyslny', $inv33 ? 'PASS' : 'FAIL', 'mechanism=' . ( $r33['final_data']['tax_mechanism'] ?? '-' ) . ' vat=' . ( $r33['final_data']['vat_grosze'] ?? '-' ) );
+
+// 34) Klient spoza UE → out_of_scope, VAT=0, inna podstawa prawna niż reverse_charge.
+$non_eu                      = base_input();
+$non_eu['client']['country'] = 'US';
+$r34                          = run_pipeline( $non_eu );
+$inv34                        = $r34['ok'] && 'out_of_scope' === ( $r34['final_data']['tax_mechanism'] ?? null ) && 0 === ( $r34['final_data']['vat_grosze'] ?? null );
+record( 'inv34_poza_ue_out_of_scope', $inv34 ? 'PASS' : 'FAIL', 'mechanism=' . ( $r34['final_data']['tax_mechanism'] ?? '-' ) );
+
+// 35) Zaokrąglenie metodą półówkową (bez float) — granica dokładnie .5: 1×50/100=0.5→1,
+//     3×50/100=1.5→2 (round half up), sprawdzone bezpośrednio na metodzie statycznej.
+$inv35 = 1 === MP_OB_D6_Agent_Rounding::vat_grosze( 1, 50 )
+	&& 2 === MP_OB_D6_Agent_Rounding::vat_grosze( 3, 50 )
+	&& 2300 === MP_OB_D6_Agent_Rounding::vat_grosze( 10000, 23 );
+record( 'inv35_zaokraglenie_polowkowe_bez_float', $inv35 ? 'PASS' : 'FAIL', 'vat(1,50)=' . MP_OB_D6_Agent_Rounding::vat_grosze( 1, 50 ) . ' vat(3,50)=' . MP_OB_D6_Agent_Rounding::vat_grosze( 3, 50 ) );
+
 /* ---------- Krok 2.5: integracja z pluginem 1 (mp_lead_created → draft) ---------- */
 
 echo "\n=== KROK 2.5: AUTOMATYCZNY DRAFT Z LEADA ===\n";
