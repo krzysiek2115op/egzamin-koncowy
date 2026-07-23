@@ -76,8 +76,31 @@ class MP_Offer_Builder_Ajax {
 			? sanitize_text_field( wp_unslash( $decoded['request_id'] ) )
 			: wp_generate_uuid4();
 
+		// Pre-gate idempotencji (analogicznie do rate-limitu w pluginie 1, fail-fast
+		// PRZED pipeline): "ten sam request_id nigdy nie tworzy drugiej oferty" — jeśli
+		// oferta z tym request_id już istnieje, zwracamy JEJ dane zamiast ponownie
+		// uruchamiać cały pipeline (podwójny klik = ta sama odpowiedź).
+		$existing = MP_Offer_Builder_DB::get_offer_by_request_id( $request_id );
+		if ( $existing ) {
+			wp_send_json_success(
+				array(
+					'offer_id'     => (int) $existing['id'],
+					'offer_number' => $existing['offer_number'],
+					'version'      => (int) $existing['version'],
+					'pdf_url'      => null,
+					'status'       => $existing['status'],
+					'trace_id'     => $request_id,
+				)
+			);
+		}
+
+		// offer_id (opcjonalny): dokończenie istniejącego draftu z Kroku 2.5
+		// (MP_Offer_Builder_Lead_Listener) zamiast nowej oferty od zera.
+		$offer_id = isset( $decoded['offer_id'] ) ? absint( $decoded['offer_id'] ) : 0;
+
 		$context = new MP_OB_Context(
 			array(
+				'offer_id'   => $offer_id > 0 ? $offer_id : null,
 				'client'     => isset( $input['client'] ) && is_array( $input['client'] ) ? $input['client'] : array(),
 				'items'      => isset( $input['items'] ) && is_array( $input['items'] ) ? $input['items'] : array(),
 				'wariant'    => isset( $input['wariant'] ) ? sanitize_text_field( wp_unslash( (string) $input['wariant'] ) ) : '',
@@ -126,7 +149,31 @@ class MP_Offer_Builder_Ajax {
 				'message'  => 'Nie udało się zbudować oferty. Sprawdź dane i spróbuj ponownie.',
 				'trace_id' => $request_id,
 			),
-			400
+			self::http_status_for_code( $result->get_code() )
 		);
+	}
+
+	/**
+	 * Mapuje kod błędu wyniku pipeline'u na kod HTTP odpowiedzi.
+	 *
+	 * Ziarnistość ograniczona przez MP_OB_Department::process(): kod agenta
+	 * przetrwa tylko gdy to AGENT zwrócił fail (np. 'invalid_contract',
+	 * 'forbidden', 'incomplete' z Działu 1); odrzucenie przez krytyka/bramkę
+	 * zawsze daje generyczne 'critic_failed'/'gate_failed' (400).
+	 *
+	 * @param string $code Kod z MP_OB_Result::get_code().
+	 * @return int
+	 */
+	private static function http_status_for_code( $code ) {
+		switch ( $code ) {
+			case 'invalid_contract':
+			case 'incomplete':
+			case 'invalid_request_id':
+				return 422;
+			case 'forbidden':
+				return 403;
+			default:
+				return 400;
+		}
 	}
 }

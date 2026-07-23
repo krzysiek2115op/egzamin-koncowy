@@ -59,6 +59,15 @@ add_action( 'plugins_loaded', 'mp_offer_builder_bootstrap' );
 function mp_offer_builder_activate() {
 	MP_Offer_Builder_DB::install();
 
+	// Dział 1, Agent 1.2 "uprawnienie" wymaga tej capability. Przypisana adminowi
+	// jako bezpieczny domyślny właściciel — inne role dostają ją ręcznie (wp-admin
+	// → Użytkownicy → Role, albo pluginem do zarządzania rolami), gdy klient
+	// zdecyduje, kto konkretnie ma być "handlowcem" (poza zakresem BD-2/pipeline'u).
+	$admin = get_role( 'administrator' );
+	if ( $admin && ! $admin->has_cap( 'mp_offer_builder_manage_offers' ) ) {
+		$admin->add_cap( 'mp_offer_builder_manage_offers' );
+	}
+
 	// dbDelta() nie rzuca wyjątku przy awarii (np. brak uprawnień CREATE TABLE) —
 	// bez tej kontroli wtyczka aktywowałaby się "na sucho", a pierwszym objawem
 	// byłby nieczytelny błąd przy pierwszej próbie utworzenia oferty.

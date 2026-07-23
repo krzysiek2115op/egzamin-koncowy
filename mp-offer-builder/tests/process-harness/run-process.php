@@ -191,6 +191,72 @@ record(
 	'tx_log=' . implode( '>', $GLOBALS['wpdb']->tx_log ) . ' activity_log_rows=' . count( $GLOBALS['wpdb']->activity_log )
 );
 
+/* ---------- Dział 1: realna logika (Krok 3) ---------- */
+
+echo "\n=== DZIAŁ 1: REALNA LOGIKA ===\n";
+
+// 10) Brak pozycji → STOP z kodem 'invalid_contract' (Agent 1.1, komplet błędów naraz).
+$GLOBALS['__mp_ob_cfg']['denied_caps'] = array();
+$no_items                              = base_input();
+unset( $no_items['items'] );
+$r10   = run_pipeline( $no_items );
+$inv10 = ! $r10['ok'] && 1 === $r10['stop_dept'] && 'invalid_contract' === $r10['code'];
+record( 'inv10_brak_pozycji_stop_invalid_contract', $inv10 ? 'PASS' : 'FAIL', 'stop_dept=' . $r10['stop_dept'] . ' code=' . $r10['code'] );
+
+// 11) Zły lang (nie pl/en) → STOP z kodem 'invalid_contract'.
+$bad_lang = base_input();
+$bad_lang['lang'] = 'de';
+$r11      = run_pipeline( $bad_lang );
+$inv11    = ! $r11['ok'] && 'invalid_contract' === $r11['code'];
+record( 'inv11_zly_lang_stop_invalid_contract', $inv11 ? 'PASS' : 'FAIL', 'code=' . $r11['code'] );
+
+// 12) Zły request_id (nie UUID) → STOP z kodem 'invalid_request_id' (Agent 1.3).
+$bad_rid              = base_input();
+$bad_rid['request_id'] = 'nie-jest-uuid';
+$r12                   = run_pipeline( $bad_rid );
+$inv12                 = ! $r12['ok'] && 'invalid_request_id' === $r12['code'];
+record( 'inv12_zly_request_id_stop', $inv12 ? 'PASS' : 'FAIL', 'code=' . $r12['code'] );
+
+// 13) Brak capability → STOP z kodem 'forbidden' (Agent 1.2), niezależnie od
+//     poprawności reszty żądania.
+$GLOBALS['__mp_ob_cfg']['denied_caps'] = array( 'mp_offer_builder_manage_offers' => true );
+$r13   = run_pipeline( base_input() );
+$GLOBALS['__mp_ob_cfg']['denied_caps'] = array();
+$inv13 = ! $r13['ok'] && 'forbidden' === $r13['code'];
+record( 'inv13_brak_uprawnien_stop_forbidden', $inv13 ? 'PASS' : 'FAIL', 'code=' . $r13['code'] );
+
+// 14) Dokończenie draftu: offer_id wskazuje istniejący wiersz status=draft →
+//     client dociągnięty ZE SNAPSHOTU draftu, nie z (pustego) wejścia JSON.
+$GLOBALS['wpdb']->offers = array(
+	77 => array(
+		'id'             => 77,
+		'status'         => 'draft',
+		'lead_id'        => 501,
+		'client_name'    => 'Klient Z Draftu Sp. z o.o.',
+		'client_email'   => 'klient@z-draftu.pl',
+		'client_nip'     => '1234563218',
+		'client_country' => 'PL',
+	),
+);
+$draft_input             = base_input();
+$draft_input['offer_id'] = 77;
+unset( $draft_input['client'] ); // klient NIE podany w żądaniu — musi przyjść z draftu.
+$r14   = run_pipeline( $draft_input );
+$inv14 = $r14['ok'] && 'Klient Z Draftu Sp. z o.o.' === ( $r14['final_data']['client']['name'] ?? '' )
+	&& 'draft' === ( $r14['final_data']['offer_mode'] ?? '' );
+record(
+	'inv14_dokonczenie_draftu_client_ze_snapshotu',
+	$inv14 ? 'PASS' : 'FAIL',
+	'ok=' . ( $r14['ok'] ? 'true' : 'false' ) . ' client.name=' . ( $r14['final_data']['client']['name'] ?? '-' )
+);
+
+// 15) offer_id wskazujący NIEISTNIEJĄCY/nie-draft wiersz → STOP 'invalid_contract'.
+$bad_offer_id             = base_input();
+$bad_offer_id['offer_id'] = 999999;
+$r15                      = run_pipeline( $bad_offer_id );
+$inv15                    = ! $r15['ok'] && 'invalid_contract' === $r15['code'];
+record( 'inv15_offer_id_nieistniejacy_stop', $inv15 ? 'PASS' : 'FAIL', 'code=' . $r15['code'] );
+
 /* ---------- Krok 2.5: integracja z pluginem 1 (mp_lead_created → draft) ---------- */
 
 echo "\n=== KROK 2.5: AUTOMATYCZNY DRAFT Z LEADA ===\n";

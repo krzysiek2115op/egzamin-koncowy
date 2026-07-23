@@ -236,6 +236,37 @@ class MP_Offer_Builder_DB {
 	}
 
 	/**
+	 * Pobiera ofertę po ID (Dział 1: dokończenie istniejącego draftu z Kroku 2.5).
+	 *
+	 * @param int $offer_id ID oferty.
+	 * @return array|null
+	 */
+	public static function get_offer( $offer_id ) {
+		global $wpdb;
+		$table = self::offers_table();
+		$row   = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", (int) $offer_id ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+		return $row ? $row : null;
+	}
+
+	/**
+	 * Pobiera ofertę po request_id (Dział 1: idempotencja — "ten sam request_id
+	 * nigdy nie tworzy drugiej oferty", sprawdzane pre-gate w AJAX przed pipeline).
+	 *
+	 * @param string $request_id UUID żądania.
+	 * @return array|null
+	 */
+	public static function get_offer_by_request_id( $request_id ) {
+		global $wpdb;
+		$request_id = trim( (string) $request_id );
+		if ( '' === $request_id ) {
+			return null;
+		}
+		$table = self::offers_table();
+		$row   = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE request_id = %s", $request_id ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+		return $row ? $row : null;
+	}
+
+	/**
 	 * Usuwa wszystkie tabele BD-2 i opcję wersji (deinstalacja wtyczki).
 	 *
 	 * @return void

@@ -123,8 +123,31 @@ function wp_mail( $to, $subject, $body, $headers = '', $att = array() ) {
 // --- Użytkownik / uprawnienia ---
 function get_current_user_id() {
 	return 0; }
+// Sterowalne przez test: $GLOBALS['__mp_ob_cfg']['denied_caps'] = array('cap' => true).
 function current_user_can( $cap ) {
-	return true; }
+	return empty( $GLOBALS['__mp_ob_cfg']['denied_caps'][ $cap ] );
+}
+function absint( $n ) {
+	return abs( (int) $n );
+}
+
+// --- Role/capabilities (minimalny magazyn w pamięci — używany przez
+//     mp_offer_builder_activate()/uninstall.php, nie przez harness bezpośrednio) ---
+class MP_OB_Fake_Role {
+	public $caps = array();
+	public function has_cap( $cap ) {
+		return ! empty( $this->caps[ $cap ] ); }
+	public function add_cap( $cap ) {
+		$this->caps[ $cap ] = true; }
+	public function remove_cap( $cap ) {
+		unset( $this->caps[ $cap ] ); }
+}
+function get_role( $role ) {
+	if ( ! isset( $GLOBALS['__mp_ob_roles'][ $role ] ) ) {
+		$GLOBALS['__mp_ob_roles'][ $role ] = new MP_OB_Fake_Role();
+	}
+	return $GLOBALS['__mp_ob_roles'][ $role ];
+}
 
 // --- Nonce ---
 function wp_create_nonce( $action = -1 ) {
@@ -214,6 +237,24 @@ class MP_OB_Fake_WPDB {
 			foreach ( $this->offers as $row ) {
 				if ( (int) ( $row['lead_id'] ?? 0 ) === $lead_id && 'draft' === ( $row['status'] ?? '' ) ) {
 					return $row['id'];
+				}
+			}
+			return null;
+		}
+		return null;
+	}
+	public function get_row( $query = null, $output = ARRAY_A, $y = 0 ) {
+		$q = (string) $query;
+		// MP_Offer_Builder_DB::get_offer(): SELECT * FROM wp_mp_ob_offers WHERE id = N
+		if ( strpos( $q, 'mp_ob_offers' ) !== false && preg_match( '/id\s*=\s*(\d+)/', $q, $m ) ) {
+			$id = (int) $m[1];
+			return isset( $this->offers[ $id ] ) ? $this->offers[ $id ] : null;
+		}
+		// MP_Offer_Builder_DB::get_offer_by_request_id(): WHERE request_id = '...'
+		if ( strpos( $q, 'mp_ob_offers' ) !== false && preg_match( "/request_id\s*=\s*'([^']*)'/", $q, $m ) ) {
+			foreach ( $this->offers as $row ) {
+				if ( ( $row['request_id'] ?? null ) === $m[1] ) {
+					return $row;
 				}
 			}
 			return null;
