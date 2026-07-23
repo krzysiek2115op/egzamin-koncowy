@@ -30,11 +30,38 @@
 	</rule>
 
 	<!--
-		Prefiks globalny: klasy MP_*, funkcje mp_offer_builder_*. WPCS wymaga prefiksu
-		>= 3 znaki; nasz MP_ ma 2. Ta sama swiadoma decyzja co w mp-lead-intake —
-		prefiks MP_ jest spojny i unikalny w projekcie.
+		Prefiks globalny: funkcje mp_offer_builder_*, klasy produktowe MP_Offer_Builder_*.
+		WPCS wymaga prefiksu >= 3 znaki. Ta sama swiadoma decyzja co w mp-lead-intake.
+		UWAGA: goly prefiks "MP_" NIE jest unikalny miedzy wtyczkami projektu (plugin 1
+		go tez uzywa dla generycznego frameworku pipeline'u) — dlatego framework
+		pipeline'u tej wtyczki uzywa wlasnego prefiksu MP_OB_*, zeby uniknac kolizji
+		nazw klas przy wspolnej instalacji obu wtyczek (patrz plan P-2).
 	-->
 	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
 		<severity>0</severity>
+	</rule>
+
+	<!--
+		=== Zapytania do bazy — tylko w warstwie DB/pipeline ===
+		Wtyczka z WLASNYMI tabelami (BD-2). Zapytania bezposrednie sa zamierzone;
+		wartosci uzytkownika ida przez $wpdb->prepare()/placeholdery, a interpolowane
+		sa wylacznie nazwy tabel pochodzace z kodu. Ta sama swiadoma decyzja co w
+		mp-lead-intake.
+	-->
+	<rule ref="WordPress.DB.DirectDatabaseQuery">
+		<exclude-pattern>*/includes/db/*</exclude-pattern>
+		<exclude-pattern>*/includes/pipeline/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.DB.PreparedSQL">
+		<exclude-pattern>*/includes/db/*</exclude-pattern>
+		<exclude-pattern>*/includes/pipeline/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.DB.PreparedSQLPlaceholders">
+		<exclude-pattern>*/includes/db/*</exclude-pattern>
+		<exclude-pattern>*/includes/pipeline/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.DB.SlowDBQuery">
+		<exclude-pattern>*/includes/db/*</exclude-pattern>
+		<exclude-pattern>*/includes/pipeline/*</exclude-pattern>
 	</rule>
 </ruleset>
