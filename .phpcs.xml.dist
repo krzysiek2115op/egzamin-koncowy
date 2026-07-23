@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<ruleset name="Egzamin koncowy - MP Offer Builder">
+	<description>
+		Standardy kodowania wtyczki MP Offer Builder (baza: WordPress Coding Standards).
+		Ten branch jest w pelni odizolowany od mp-lead-intake — wlasna konfiguracja,
+		nie dziedziczona.
+	</description>
+
+	<!-- Co skanujemy -->
+	<file>mp-offer-builder</file>
+	<arg name="extensions" value="php"/>
+	<arg name="basepath" value="."/>
+	<arg value="ps"/><!-- p = progress, s = pokaz kody sniffow -->
+
+	<exclude-pattern>*/tests/*</exclude-pattern>
+
+	<!-- Standard bazowy: pełny WordPress (Core + Docs + Extra) -->
+	<rule ref="WordPress"/>
+
+	<!-- Minimalna wersja WP i PHP dla kontroli zgodności -->
+	<config name="minimum_wp_version" value="6.0"/>
+
+	<!-- Text domain wtyczki (i18n) -->
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="mp-offer-builder"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!--
+		Prefiks globalny: klasy MP_*, funkcje mp_offer_builder_*. WPCS wymaga prefiksu
+		>= 3 znaki; nasz MP_ ma 2. Ta sama swiadoma decyzja co w mp-lead-intake —
+		prefiks MP_ jest spojny i unikalny w projekcie.
+	-->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<severity>0</severity>
+	</rule>
+</ruleset>

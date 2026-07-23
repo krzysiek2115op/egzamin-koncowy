@@ -1,0 +1,13 @@
+{
+    "name": "krzysiek2115op/mp-offer-builder",
+    "description": "Dev tooling (PHPCS/WPCS) dla wtyczki MP Offer Builder — branch mp-offer-builder, niezalezny od pozostalych branchy.",
+    "type": "project",
+    "require-dev": {
+        "wp-coding-standards/wpcs": "^3.1"
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    }
+}

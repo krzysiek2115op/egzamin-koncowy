@@ -1,9 +1,11 @@
 # --- Zależności / build ---
 /vendor/
 /node_modules/
-composer.lock
 package-lock.json
 *.log
+
+# composer.lock w korzeniu repo JEST wersjonowany celowo — narzędzia dev (PHPCS/WPCS)
+# tego brancha, potrzebne do odtwarzalnego CI.
 
 # --- Środowisko / sekrety ---
 .env
