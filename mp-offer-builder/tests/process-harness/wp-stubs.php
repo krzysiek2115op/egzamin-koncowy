@@ -189,6 +189,44 @@ function do_action( $tag, ...$a ) {
 function apply_filters( $tag, $value, ...$a ) {
 	return $value; }
 
+// --- WooCommerce (fałszywe minimum: tylko to, czego dotyka Dział 2) ---
+$GLOBALS['__mp_ob_wc_products']  = array(); // id => array(status,name,tax_class,purchasable,regular_price,sale_price)
+$GLOBALS['__mp_ob_wc_tax_rates'] = array(); // tax_class => array(array('rate'=>23.0,'label'=>'VAT'))
+$GLOBALS['__mp_ob_wc_currency']  = 'PLN';
+
+class WC_Product {
+	protected $data;
+	public function __construct( array $data ) {
+		$this->data = $data;
+	}
+	public function get_status() {
+		return isset( $this->data['status'] ) ? $this->data['status'] : 'publish'; }
+	public function is_purchasable() {
+		return isset( $this->data['purchasable'] ) ? (bool) $this->data['purchasable'] : true; }
+	public function get_name() {
+		return isset( $this->data['name'] ) ? $this->data['name'] : ''; }
+	public function get_tax_class() {
+		return isset( $this->data['tax_class'] ) ? $this->data['tax_class'] : ''; }
+	public function get_regular_price() {
+		return isset( $this->data['regular_price'] ) ? $this->data['regular_price'] : ''; }
+	public function get_sale_price() {
+		return isset( $this->data['sale_price'] ) ? $this->data['sale_price'] : ''; }
+}
+function wc_get_product( $id ) {
+	if ( ! isset( $GLOBALS['__mp_ob_wc_products'][ $id ] ) ) {
+		return false;
+	}
+	return new WC_Product( $GLOBALS['__mp_ob_wc_products'][ $id ] );
+}
+class WC_Tax {
+	public static function get_rates( $tax_class = '', $customer = null ) {
+		return isset( $GLOBALS['__mp_ob_wc_tax_rates'][ $tax_class ] ) ? $GLOBALS['__mp_ob_wc_tax_rates'][ $tax_class ] : array();
+	}
+}
+function get_woocommerce_currency() {
+	return $GLOBALS['__mp_ob_wc_currency'];
+}
+
 // --- Fałszywy $wpdb ---
 class MP_OB_Fake_WPDB {
 	public $prefix        = 'wp_';
@@ -196,6 +234,7 @@ class MP_OB_Fake_WPDB {
 	public $last_error    = '';
 	public $activity_log  = array(); // wiersze wstawione do wp_mp_ob_offer_activity_log
 	public $offers        = array(); // wiersze wstawione do wp_mp_ob_offers (id => dane)
+	public $templates     = array(); // wiersze wp_mp_ob_offer_templates (id => dane)
 	public $tx_log        = array(); // kolejność START/COMMIT/ROLLBACK (weryfikacja transakcyjności)
 	public $in_transaction = false;
 
@@ -241,10 +280,57 @@ class MP_OB_Fake_WPDB {
 			}
 			return null;
 		}
+		// MP_Offer_Builder_DB::get_last_offer_number_for_year(): SELECT offer_number ...
+		// WHERE offer_number LIKE 'OF/2026/%' ORDER BY offer_number DESC LIMIT 1
+		if ( strpos( $q, 'mp_ob_offers' ) !== false && preg_match( "/offer_number LIKE '([^']*)'/", $q, $m ) ) {
+			$prefix   = rtrim( $m[1], '%' );
+			$matching = array();
+			foreach ( $this->offers as $row ) {
+				if ( 0 === strpos( (string) ( $row['offer_number'] ?? '' ), $prefix ) ) {
+					$matching[] = $row['offer_number'];
+				}
+			}
+			if ( ! $matching ) {
+				return null;
+			}
+			rsort( $matching );
+			return $matching[0];
+		}
+		// MP_Offer_Builder_DB::get_max_version_for_offer_number(): SELECT MAX(version) ...
+		// WHERE offer_number = '...'
+		if ( strpos( $q, 'mp_ob_offers' ) !== false && strpos( $q, 'MAX(version)' ) !== false && preg_match( "/offer_number\s*=\s*'([^']*)'/", $q, $m ) ) {
+			$max = null;
+			foreach ( $this->offers as $row ) {
+				if ( ( $row['offer_number'] ?? null ) === $m[1] ) {
+					$max = null === $max ? (int) $row['version'] : max( $max, (int) $row['version'] );
+				}
+			}
+			return $max;
+		}
 		return null;
 	}
 	public function get_row( $query = null, $output = ARRAY_A, $y = 0 ) {
 		$q = (string) $query;
+		// MP_OB_D2_Agent_Templates: SELECT * FROM wp_mp_ob_offer_templates WHERE lang = '..' AND status = 'active' ORDER BY version DESC LIMIT 1
+		if ( strpos( $q, 'mp_ob_offer_templates' ) !== false && preg_match( "/lang\s*=\s*'([^']*)'/", $q, $m ) ) {
+			$lang    = $m[1];
+			$matches = array_filter(
+				$this->templates,
+				function ( $row ) use ( $lang ) {
+					return ( $row['lang'] ?? '' ) === $lang && 'active' === ( $row['status'] ?? '' );
+				}
+			);
+			if ( ! $matches ) {
+				return null;
+			}
+			usort(
+				$matches,
+				function ( $a, $b ) {
+					return $b['version'] <=> $a['version'];
+				}
+			);
+			return reset( $matches );
+		}
 		// MP_Offer_Builder_DB::get_offer(): SELECT * FROM wp_mp_ob_offers WHERE id = N
 		if ( strpos( $q, 'mp_ob_offers' ) !== false && preg_match( '/id\s*=\s*(\d+)/', $q, $m ) ) {
 			$id = (int) $m[1];

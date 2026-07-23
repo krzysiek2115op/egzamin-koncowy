@@ -24,6 +24,45 @@ require $PLUGIN . '/includes/db/class-mp-offer-builder-db.php';
 require $PLUGIN . '/includes/pipeline/bootstrap.php';
 require $PLUGIN . '/includes/class-mp-offer-builder-lead-listener.php';
 
+// Fixture WooCommerce/BD-2 zgodne z base_input() poniżej (item wskazuje variation_id
+// 9101 — Agent 2.1 zawsze woli variation_id nad product_id, więc TO wariant musi
+// istnieć w fałszywym katalogu, nie sam product_id 812).
+function seed_woocommerce_fixtures() {
+	$GLOBALS['__mp_ob_wc_products']  = array(
+		9101 => array(
+			'status'        => 'publish',
+			'name'          => 'Testowy wariant',
+			'tax_class'     => '',
+			'purchasable'   => true,
+			'regular_price' => '129.99',
+			'sale_price'    => '',
+		),
+	);
+	$GLOBALS['__mp_ob_wc_tax_rates'] = array(
+		'' => array( array( 'rate' => 23.0, 'label' => 'VAT' ) ),
+	);
+	$GLOBALS['__mp_ob_wc_currency']  = 'PLN';
+	$GLOBALS['wpdb']->templates      = array(
+		1 => array(
+			'id'      => 1,
+			'name'    => 'Domyślny PL',
+			'lang'    => 'pl',
+			'content' => '<html>{{client_name}}</html>',
+			'version' => '1.0',
+			'status'  => 'active',
+		),
+		2 => array(
+			'id'      => 2,
+			'name'    => 'Default EN',
+			'lang'    => 'en',
+			'content' => '<html>{{client_name}}</html>',
+			'version' => '1.0',
+			'status'  => 'active',
+		),
+	);
+}
+seed_woocommerce_fixtures();
+
 /* ---------- Narzędzia ---------- */
 
 // Przykładowe żądanie zgodne z kontraktem Działu 1 (blueprint: json wejścia).
@@ -256,6 +295,66 @@ $bad_offer_id['offer_id'] = 999999;
 $r15                      = run_pipeline( $bad_offer_id );
 $inv15                    = ! $r15['ok'] && 'invalid_contract' === $r15['code'];
 record( 'inv15_offer_id_nieistniejacy_stop', $inv15 ? 'PASS' : 'FAIL', 'code=' . $r15['code'] );
+
+/* ---------- Dział 2: realna logika (Krok 3) ---------- */
+
+echo "\n=== DZIAŁ 2: REALNA LOGIKA (WooCommerce/BD-2) ===\n";
+
+// 16) Pozycja spoza katalogu (variation_id nieistniejący w WC) → STOP 'invalid_products'.
+$bad_item                       = base_input();
+$bad_item['items'][0]['variation_id'] = 999999;
+$r16                             = run_pipeline( $bad_item );
+$inv16                           = ! $r16['ok'] && 'invalid_products' === $r16['code'];
+record( 'inv16_produkt_spoza_katalogu_stop', $inv16 ? 'PASS' : 'FAIL', 'code=' . $r16['code'] );
+
+// 17) Produkt bez ceny regularnej → STOP 'incomplete_prices'.
+seed_woocommerce_fixtures();
+$GLOBALS['__mp_ob_wc_products'][9101]['regular_price'] = '';
+$r17   = run_pipeline( base_input() );
+$inv17 = ! $r17['ok'] && 'incomplete_prices' === $r17['code'];
+record( 'inv17_brak_ceny_regularnej_stop', $inv17 ? 'PASS' : 'FAIL', 'code=' . $r17['code'] );
+
+// 18) Brak skonfigurowanej stawki VAT dla klasy podatkowej → STOP 'missing_tax_rate'
+//     (NIGDY domyślne 23% podstawiane po cichu — kryt. "stawka-istnieje").
+seed_woocommerce_fixtures();
+$GLOBALS['__mp_ob_wc_tax_rates'] = array();
+$r18   = run_pipeline( base_input() );
+$inv18 = ! $r18['ok'] && 'missing_tax_rate' === $r18['code'];
+record( 'inv18_brak_stawki_vat_stop', $inv18 ? 'PASS' : 'FAIL', 'code=' . $r18['code'] );
+
+// 19) Brak aktywnego szablonu w żądanym języku → STOP 'missing_template'
+//     (NIE ciche przejście na polski — kryt. "wersja-szablonu").
+seed_woocommerce_fixtures();
+unset( $GLOBALS['wpdb']->templates[2] ); // usuwa jedyny szablon 'en'
+$en_request         = base_input();
+$en_request['lang'] = 'en';
+$r19                = run_pipeline( $en_request );
+$inv19               = ! $r19['ok'] && 'missing_template' === $r19['code'];
+record( 'inv19_brak_szablonu_w_jezyku_stop', $inv19 ? 'PASS' : 'FAIL', 'code=' . $r19['code'] );
+
+// 20) Numeracja: ostatni numer w BIEŻĄCYM roku ze snapshotu trafia niezmieniony
+//     do final_data (Dział 8 użyje go jako "punkt startu", bez własnego odczytu BD-2).
+seed_woocommerce_fixtures();
+$this_year               = (int) gmdate( 'Y' );
+$GLOBALS['wpdb']->offers = array(
+	1 => array(
+		'id'           => 1,
+		'offer_number' => sprintf( 'OF/%d/000050', $this_year ),
+		'version'      => 1,
+		'status'       => 'sent',
+	),
+);
+$r20   = run_pipeline( base_input() );
+$inv20 = $r20['ok']
+	&& sprintf( 'OF/%d/000050', $this_year ) === ( $r20['final_data']['numbering']['last_number'] ?? '' )
+	&& 1 === ( $r20['final_data']['db_reads'] ?? null );
+record(
+	'inv20_numeracja_punkt_startu_i_db_reads',
+	$inv20 ? 'PASS' : 'FAIL',
+	'last_number=' . ( $r20['final_data']['numbering']['last_number'] ?? '-' ) . ' db_reads=' . ( $r20['final_data']['db_reads'] ?? '-' )
+);
+$GLOBALS['wpdb']->offers = array();
+seed_woocommerce_fixtures();
 
 /* ---------- Krok 2.5: integracja z pluginem 1 (mp_lead_created → draft) ---------- */
 

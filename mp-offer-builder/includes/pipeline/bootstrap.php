@@ -20,6 +20,7 @@ require_once $mp_ob_pipeline_dir . 'abstract-mp-ob-critic.php';
 require_once $mp_ob_pipeline_dir . 'class-mp-ob-accept-critic.php';
 require_once $mp_ob_pipeline_dir . 'class-mp-ob-flag-critic.php';
 require_once $mp_ob_pipeline_dir . 'class-mp-ob-field-critic.php';
+require_once $mp_ob_pipeline_dir . 'class-mp-ob-array-critic.php';
 require_once $mp_ob_pipeline_dir . 'class-mp-ob-quality-gate.php';
 require_once $mp_ob_pipeline_dir . 'class-mp-ob-department.php';
 require_once $mp_ob_pipeline_dir . 'class-mp-ob-pipeline-logger.php';

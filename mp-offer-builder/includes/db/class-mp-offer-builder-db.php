@@ -267,6 +267,36 @@ class MP_Offer_Builder_DB {
 	}
 
 	/**
+	 * Ostatni numer oferty użyty w danym roku (Dział 2, Agent 2.5 "numeracja") —
+	 * "punkt startu" dla Działu 8, żeby ten nie musiał sam czytać BD-2 (zasada
+	 * "jeden odczyt", działy 3-9 to czyste funkcje na zamrożonym snapshocie).
+	 *
+	 * @param int $year Rok (np. 2026).
+	 * @return string|null Pełny numer (np. "OF/2026/000123"), albo null gdy brak.
+	 */
+	public static function get_last_offer_number_for_year( $year ) {
+		global $wpdb;
+		$table = self::offers_table();
+		$like  = 'OF/' . (int) $year . '/%';
+		$row   = $wpdb->get_var( $wpdb->prepare( "SELECT offer_number FROM {$table} WHERE offer_number LIKE %s ORDER BY offer_number DESC LIMIT 1", $like ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+		return $row ? (string) $row : null;
+	}
+
+	/**
+	 * Najwyższa istniejąca wersja dla danego numeru oferty (korekta — Dział 8,
+	 * Agent 8.2 "wersja": "ten sam numer, wersja + 1").
+	 *
+	 * @param string $offer_number Numer oferty.
+	 * @return int|null
+	 */
+	public static function get_max_version_for_offer_number( $offer_number ) {
+		global $wpdb;
+		$table = self::offers_table();
+		$max   = $wpdb->get_var( $wpdb->prepare( "SELECT MAX(version) FROM {$table} WHERE offer_number = %s", (string) $offer_number ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+		return null !== $max ? (int) $max : null;
+	}
+
+	/**
 	 * Usuwa wszystkie tabele BD-2 i opcję wersji (deinstalacja wtyczki).
 	 *
 	 * @return void
