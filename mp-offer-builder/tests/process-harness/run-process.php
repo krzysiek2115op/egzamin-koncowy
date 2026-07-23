@@ -427,6 +427,51 @@ record(
 );
 seed_woocommerce_fixtures();
 
+/* ---------- Dział 5: realna logika (Krok 3) ---------- */
+
+echo "\n=== DZIAŁ 5: REALNA LOGIKA (rabaty) ===\n";
+
+// 27) Happy path: wariant 'partner', 40 szt. → próg R-01 (>=1 szt., 5%) spełniony,
+//     R-02 (>=50 szt., 10%) NIE — 5% z 519960 = 25998 gr, rules_version='v1'.
+$inv27 = $hp['ok']
+	&& 'R-01' === ( $hp['final_data']['discounts'][0]['rule_id'] ?? null )
+	&& 25998 === ( $hp['final_data']['discount_total'] ?? null )
+	&& 'v1' === ( $hp['final_data']['rules_version'] ?? null );
+record(
+	'inv27_happy_path_rabat_5_procent',
+	$inv27 ? 'PASS' : 'FAIL',
+	'rule=' . ( $hp['final_data']['discounts'][0]['rule_id'] ?? '-' ) . ' discount_total=' . ( $hp['final_data']['discount_total'] ?? '-' )
+);
+
+// 28) 50 szt. (próg R-02) → 10% rabatu zamiast 5%.
+$high_qty                    = base_input();
+$high_qty['items'][0]['qty'] = 50;
+$r28                          = run_pipeline( $high_qty );
+$inv28                        = $r28['ok'] && 'R-02' === ( $r28['final_data']['discounts'][0]['rule_id'] ?? null );
+record( 'inv28_wolumen_wyzszy_prog_R02', $inv28 ? 'PASS' : 'FAIL', 'rule=' . ( $r28['final_data']['discounts'][0]['rule_id'] ?? '-' ) );
+
+// 29) Nieznany wariant → catch-all R-00 (0%), NIE błąd — nowy/nieznany wariant
+//     nie blokuje budowy oferty.
+$unknown_wariant             = base_input();
+$unknown_wariant['wariant']  = 'enterprise-niezdefiniowany';
+$r29                          = run_pipeline( $unknown_wariant );
+$inv29                        = $r29['ok'] && 'R-00' === ( $r29['final_data']['discounts'][0]['rule_id'] ?? null ) && 0 === ( $r29['final_data']['discount_total'] ?? null );
+record( 'inv29_nieznany_wariant_catchall_R00', $inv29 ? 'PASS' : 'FAIL', 'rule=' . ( $r29['final_data']['discounts'][0]['rule_id'] ?? '-' ) );
+
+// 30) Mechanika limitu (bezpośrednio na Agent 5.2 — reguły v1 max 10%, nie da się
+//     naturalnie przekroczyć limitu 30% przez dobór reguły, więc testujemy STOP
+//     "flaga do akceptacji, nie ciche przycięcie" na sfabrykowanym kontekście).
+$over_limit_ctx = new MP_OB_Context(
+	array(
+		'subtotal_grosze' => 100000,
+		'discount_total'  => 50000, // 50% > limit 30%
+	)
+);
+$over_limit_agent  = new MP_OB_D5_Agent_Apply_Discount();
+$over_limit_result = $over_limit_agent->run( $over_limit_ctx );
+$inv30              = ! $over_limit_result->is_ok() && 'discount_over_limit' === $over_limit_result->get_code();
+record( 'inv30_rabat_ponad_limit_stop_bez_przyciecia', $inv30 ? 'PASS' : 'FAIL', 'code=' . $over_limit_result->get_code() );
+
 /* ---------- Krok 2.5: integracja z pluginem 1 (mp_lead_created → draft) ---------- */
 
 echo "\n=== KROK 2.5: AUTOMATYCZNY DRAFT Z LEADA ===\n";
