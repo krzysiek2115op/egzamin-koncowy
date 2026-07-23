@@ -95,6 +95,13 @@ function wp_upload_dir() {
 function wp_mkdir_p( $dir ) {
 	return is_dir( $dir ) || mkdir( $dir, 0777, true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_mkdir
 }
+function admin_url( $path = '' ) {
+	return 'http://harness.test/wp-admin/' . ltrim( (string) $path, '/' );
+}
+function add_query_arg( $args, $url ) {
+	$sep = ( false === strpos( (string) $url, '?' ) ) ? '?' : '&';
+	return $url . $sep . http_build_query( $args );
+}
 
 // --- Opcje ---
 function get_option( $k, $default = false ) {
@@ -188,6 +195,9 @@ function add_action( $tag, $callback, $priority = 10, $accepted_args = 1 ) {
 		'args'     => $accepted_args,
 	);
 	return true;
+}
+function did_action( $tag ) {
+	return isset( $GLOBALS['__mp_ob_actions'][ $tag ] ) ? $GLOBALS['__mp_ob_actions'][ $tag ] : 0;
 }
 function do_action( $tag, ...$a ) {
 	$GLOBALS['__mp_ob_actions'][ $tag ] = ( $GLOBALS['__mp_ob_actions'][ $tag ] ?? 0 ) + 1;

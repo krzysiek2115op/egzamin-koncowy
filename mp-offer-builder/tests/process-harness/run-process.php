@@ -117,6 +117,32 @@ function run_pipeline( array $input ) {
 	);
 }
 
+// Pipeline OBCIĘTY do działów 1-9 (bez 10/11) — Dział 11 realnie FINALIZUJE
+// plik PDF (rename tmp→docelowy) i zapis jest COMMITowany, więc testy
+// STRUKTURY samego renderu (Dział 9) potrzebują pliku, który NIE zostanie
+// przeniesiony/skasowany przez dalsze działy — stąd osobny, krótszy pipeline
+// zamiast pełnego run_pipeline()/MP_OB_Pipeline_Factory::make().
+function run_pipeline_through_department_9( array $input ) {
+	$context  = new MP_OB_Context( $input );
+	$pipeline = new MP_OB_Pipeline( new MP_OB_Pipeline_Logger() );
+	$pipeline->add_department( MP_OB_Department_01::build() );
+	$pipeline->add_department( MP_OB_Department_02::build() );
+	$pipeline->add_department( MP_OB_Department_03::build() );
+	$pipeline->add_department( MP_OB_Department_04::build() );
+	$pipeline->add_department( MP_OB_Department_05::build() );
+	$pipeline->add_department( MP_OB_Department_06::build() );
+	$pipeline->add_department( MP_OB_Department_07::build() );
+	$pipeline->add_department( MP_OB_Department_08::build() );
+	$pipeline->add_department( MP_OB_Department_09::build() );
+	$result   = $pipeline->run( $context );
+	return array(
+		'ok'         => $result->is_ok(),
+		'code'       => $result->get_code(),
+		'errors'     => $result->get_errors(),
+		'final_data' => $result->get_data(),
+	);
+}
+
 // Krytyk, który zawsze odrzuca — do testu mechaniki STOP/ROLLBACK (nie jest
 // używany przez żaden z 11 prawdziwych działów, tylko w tym harnessie).
 function make_failing_critic( $id, $label ) {
@@ -732,8 +758,12 @@ echo "\n=== DZIAŁ 9: REALNA LOGIKA (render PDF) ===\n";
 
 // 47) Happy path: prawdziwy plik PDF na dysku, w katalogu prywatnym-tymczasowym,
 //     strony/rozmiar/skrót spójne, plik-to-nie-dowód (QA9) potwierdza.
-$pdf47 = $hp['final_data']['pdf'] ?? array();
-$inv47 = $hp['ok']
+// Pipeline OBCIĘTY do działów 1-9 (nie pełny $hp!) — Dział 11 realnie
+// finalizuje (rename) ten sam plik, więc pełny przebieg zostawiłby tu plik
+// już przeniesiony i inv47 nie miałby czego sprawdzić.
+$r9    = run_pipeline_through_department_9( base_input() );
+$pdf47 = $r9['final_data']['pdf'] ?? array();
+$inv47 = $r9['ok']
 	&& ! empty( $pdf47['tmp_path'] ) && file_exists( $pdf47['tmp_path'] )
 	&& 0 === strpos( $pdf47['tmp_path'], MP_Offer_Builder_Storage::tmp_dir() )
 	&& ( $pdf47['pages'] ?? 0 ) >= 1
@@ -741,7 +771,7 @@ $inv47 = $hp['ok']
 	&& 1 === preg_match( '/^[a-f0-9]{64}$/', $pdf47['sha256'] ?? '' );
 // Uwaga: "pdf_verified" istnieje tylko w wyniku WEWNĄTRZ bramki jakości (QA9) —
 // MP_OB_Department::process() NIE scala danych bramki z kontekstem (tylko jej
-// werdykt PASS/FAIL), więc happy-path $hp['ok']===true już DOWODZI, że QA9
+// werdykt PASS/FAIL), więc $r9['ok']===true już DOWODZI, że QA9
 // zaakceptował (inaczej pipeline zatrzymałby się na dziale 9) — bez potrzeby
 // odczytywania tej flagi z final_data (ten sam wzorzec co w Działach 2/3).
 record(
@@ -961,6 +991,90 @@ $atomicity_ctx    = new MP_OB_Context(
 $atomicity_result = ( new MP_OB_D10_QA_Agent() )->run( $atomicity_ctx );
 $inv61              = ! $atomicity_result->is_ok() && 'atomicity_mismatch' === $atomicity_result->get_code();
 record( 'inv61_atomowosc_niezgodna_liczba_wierszy_stop', $inv61 ? 'PASS' : 'FAIL', 'code=' . $atomicity_result->get_code() );
+
+/* ---------- Dział 11: realna logika (Krok 3) ---------- */
+
+echo "\n=== DZIAŁ 11: REALNA LOGIKA (odpowiedź i przekazanie) ===\n";
+
+// 62) Happy path ($hp — pełny przebieg, WŁĄCZNIE z Działem 11): odpowiedź ma
+//     dokładnie biały zestaw pól, pdf_url wskazuje na chroniony endpoint
+//     (nie bezpośredni plik), a plik PDF jest już pod nazwą DOCELOWĄ (nie tmp).
+$response62   = $hp['final_data']['response'] ?? array();
+$final_path62 = MP_Offer_Builder_Storage::final_pdf_path( $hp['final_data']['offer_number'] ?? '', $hp['final_data']['version'] ?? 0 );
+$inv62        = $hp['ok']
+	&& array( 'success', 'offer_id', 'offer_number', 'version', 'pdf_url', 'status', 'trace_id' ) === array_keys( $response62 )
+	&& true === ( $response62['success'] ?? null )
+	&& 'draft' === ( $response62['status'] ?? '' )
+	&& false !== strpos( (string) ( $response62['pdf_url'] ?? '' ), MP_OB_D11_Agent_Response::DOWNLOAD_ACTION )
+	&& false !== strpos( (string) ( $response62['pdf_url'] ?? '' ), '_wpnonce=' )
+	&& file_exists( $final_path62 )
+	&& ! file_exists( $hp['final_data']['pdf']['tmp_path'] ?? '' );
+record(
+	'inv62_happy_path_odpowiedz_i_finalizacja_pdf',
+	$inv62 ? 'PASS' : 'FAIL',
+	'klucze=' . implode( ',', array_keys( $response62 ) ) . ' plik_docelowy_istnieje=' . ( file_exists( $final_path62 ) ? 'tak' : 'nie' )
+);
+
+// 63) Zdarzenie mp_offer_created RZECZYWIŚCIE wystawione (did_action > 0 po
+//     happy-path) — nie tylko "zwrócony kod bez efektu".
+$inv63 = did_action( 'mp_offer_created' ) > 0;
+record( 'inv63_zdarzenie_mp_offer_created_realnie_wystawione', $inv63 ? 'PASS' : 'FAIL', 'did_action=' . did_action( 'mp_offer_created' ) );
+
+// 64) Agent 11.1: brak potwierdzonej oferty (Dział 10 nie przebiegł/zawiódł) →
+//     STOP, NIGDY zdarzenie dla oferty-widma.
+$no_offer_result = ( new MP_OB_D11_Agent_Event() )->run( new MP_OB_Context( array() ) );
+$inv64             = ! $no_offer_result->is_ok() && 'missing_committed_offer' === $no_offer_result->get_code();
+record( 'inv64_zdarzenie_brak_potwierdzonej_oferty_stop', $inv64 ? 'PASS' : 'FAIL', 'code=' . $no_offer_result->get_code() );
+
+// 65) Krytyk 11.1 "jednokrotność": zdarzenie wystawione WIĘCEJ niż raz
+//     (fabrykowany wynik — np. bug podwójnego wywołania do_action) → STOP.
+$twice_critic = new MP_OB_D11_Critic_Once( 'K11.1', 'test' );
+$twice_result = $twice_critic->review( MP_OB_Result::ok( array( 'event_fire_count' => 2 ) ), new MP_OB_Context( array() ) );
+$inv65          = ! $twice_result->is_ok() && 'event_not_fired_once' === $twice_result->get_code();
+record( 'inv65_jednokrotnosc_wiecej_niz_raz_stop', $inv65 ? 'PASS' : 'FAIL', 'code=' . $twice_result->get_code() );
+
+// 66) Agent 11.2: brak danych z Agenta 11.1 (nie przebiegł wcześniej) → STOP.
+$no_data_result = ( new MP_OB_D11_Agent_Response() )->run( new MP_OB_Context( array( 'offer_id' => 1 ) ) );
+$inv66            = ! $no_data_result->is_ok() && 'missing_response_data' === $no_data_result->get_code();
+record( 'inv66_odpowiedz_brak_danych_z_11_1_stop', $inv66 ? 'PASS' : 'FAIL', 'code=' . $no_data_result->get_code() );
+
+// 67) Krytyk 11.2 "zakres-odpowiedzi": odpowiedź z WYCIEKIEM pola spoza
+//     schematu (np. ścieżka serwera) → STOP, "bez ścieżek serwera".
+$leak_critic = new MP_OB_D11_Critic_Response_Scope( 'K11.2', 'test' );
+$leak_result = $leak_critic->review(
+	MP_OB_Result::ok(
+		array(
+			'response' => array(
+				'success'      => true,
+				'offer_id'     => 1,
+				'offer_number' => 'OF/2026/000001',
+				'version'      => 1,
+				'pdf_url'      => 'http://x/y',
+				'status'       => 'draft',
+				'trace_id'     => 'x',
+				'server_path'  => '/var/www/wp-content/uploads/mp-offer-builder-private/x.pdf', // WYCIEK.
+			),
+		)
+	),
+	new MP_OB_Context( array() )
+);
+$inv67 = ! $leak_result->is_ok() && 'response_out_of_scope' === $leak_result->get_code();
+record( 'inv67_zakres_odpowiedzi_wyciek_pola_stop', $inv67 ? 'PASS' : 'FAIL', 'code=' . $leak_result->get_code() );
+
+// 68) QA Agent 11 "tylko-json": plik PDF WCIĄŻ pod nazwą tymczasową (finalizacja
+//     się nie powiodła/nie zaszła) → STOP, "nic nie wisi w tle po odpowiedzi".
+$not_finalized_tmp = MP_Offer_Builder_Storage::tmp_dir() . '/of-still-tmp-' . uniqid() . '.pdf';
+file_put_contents( $not_finalized_tmp, 'x' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+$not_finalized_ctx    = new MP_OB_Context(
+	array(
+		'response' => array( 'success' => true, 'trace_id' => 'x' ),
+		'pdf'      => array( 'tmp_path' => $not_finalized_tmp ),
+	)
+);
+$not_finalized_result = ( new MP_OB_D11_QA_Agent() )->run( $not_finalized_ctx );
+$inv68                  = ! $not_finalized_result->is_ok() && 'pdf_not_finalized' === $not_finalized_result->get_code();
+record( 'inv68_tylko_json_plik_nadal_tymczasowy_stop', $inv68 ? 'PASS' : 'FAIL', 'code=' . $not_finalized_result->get_code() );
+unlink( $not_finalized_tmp ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_unlink
 
 /* ---------- Krok 2.5: integracja z pluginem 1 (mp_lead_created → draft) ---------- */
 
