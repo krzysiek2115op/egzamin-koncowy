@@ -253,9 +253,19 @@ class MP_OB_Fake_WPDB {
 	public $last_error    = '';
 	public $activity_log  = array(); // wiersze wstawione do wp_mp_ob_offer_activity_log
 	public $offers        = array(); // wiersze wstawione do wp_mp_ob_offers (id => dane)
+	public $items         = array(); // wiersze wstawione do wp_mp_ob_offer_items
+	public $versions      = array(); // wiersze wstawione do wp_mp_ob_offer_versions
 	public $templates     = array(); // wiersze wp_mp_ob_offer_templates (id => dane)
 	public $tx_log        = array(); // kolejność START/COMMIT/ROLLBACK (weryfikacja transakcyjności)
 	public $in_transaction = false;
+	// Sterowanie testem Działu 10 (Agent 10.2, retry lokalny przy kolizji UNIQUE):
+	// gdy true, NASTĘPNY insert()/update() na wp_mp_ob_offers "koliduje" (jak
+	// realny błąd UNIQUE(offer_number, version)) i flaga sama się kasuje —
+	// symuluje DOKŁADNIE JEDNĄ kolizję, którą retry musi rozwiązać.
+	public $force_unique_collision_once = false;
+	// Jak wyżej, ale NIE kasuje się samo — symuluje TRWAŁĄ kolizję (retry
+	// wyczerpuje maks. 2 podejścia i musi się poddać z jawnym FAIL).
+	public $force_unique_collision_always = false;
 
 	public function get_charset_collate() {
 		return 'DEFAULT CHARSET=utf8mb4';
@@ -278,13 +288,57 @@ class MP_OB_Fake_WPDB {
 	public function insert( $table, $data, $format = null ) {
 		if ( strpos( $table, 'mp_ob_offer_activity_log' ) !== false ) {
 			$this->activity_log[] = $data;
+			++$this->insert_id;
+			return 1;
 		}
-		++$this->insert_id;
+		if ( strpos( $table, 'mp_ob_offer_items' ) !== false ) {
+			++$this->insert_id;
+			$data['id']     = $this->insert_id;
+			$this->items[] = $data;
+			return 1;
+		}
+		if ( strpos( $table, 'mp_ob_offer_versions' ) !== false ) {
+			++$this->insert_id;
+			$data['id']        = $this->insert_id;
+			$this->versions[] = $data;
+			return 1;
+		}
 		if ( strpos( $table, 'mp_ob_offers' ) !== false ) {
+			if ( $this->force_unique_collision_always ) {
+				$this->last_error = "Duplicate entry for key 'uq_offer_number_version'";
+				return false;
+			}
+			if ( $this->force_unique_collision_once ) {
+				$this->force_unique_collision_once = false;
+				$this->last_error                   = "Duplicate entry for key 'uq_offer_number_version'";
+				return false;
+			}
+			++$this->insert_id;
 			$data['id']                       = $this->insert_id;
 			$this->offers[ $this->insert_id ] = $data;
+			return 1;
 		}
-		return 1;
+		return false;
+	}
+	public function update( $table, $data, $where ) {
+		if ( strpos( $table, 'mp_ob_offers' ) !== false && isset( $where['id'] ) ) {
+			$id = (int) $where['id'];
+			if ( ! isset( $this->offers[ $id ] ) ) {
+				return false;
+			}
+			if ( $this->force_unique_collision_always ) {
+				$this->last_error = "Duplicate entry for key 'uq_offer_number_version'";
+				return false;
+			}
+			if ( $this->force_unique_collision_once ) {
+				$this->force_unique_collision_once = false;
+				$this->last_error                   = "Duplicate entry for key 'uq_offer_number_version'";
+				return false;
+			}
+			$this->offers[ $id ] = array_merge( $this->offers[ $id ], $data );
+			return 1;
+		}
+		return false;
 	}
 	public function get_var( $query = null, $x = 0, $y = 0 ) {
 		$q = (string) $query;

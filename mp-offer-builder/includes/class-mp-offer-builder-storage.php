@@ -87,7 +87,25 @@ class MP_Offer_Builder_Storage {
 	}
 
 	/**
-	 * Przenosi plik tymczasowy do nazwy DOCELOWEJ — TYLKO po COMMIT (Dział 10).
+	 * Wylicza ścieżkę DOCELOWĄ pliku PDF — WYŁĄCZNIE string, zero operacji na
+	 * dysku. Dział 10 (Agent 10.1 "plan") może więc zapisać `pdf_path` w tej
+	 * samej transakcji, ZANIM plik zostanie fizycznie przeniesiony (to dopiero
+	 * po COMMIT — patrz finalize_pdf()) — bez tego rozdziału albo transakcja
+	 * czekałaby na I/O na dysku, albo `pdf_path` w bazie byłby nieznany do
+	 * czasu po zapisie, co nie da się pogodzić z "jedna transakcja = komplet".
+	 *
+	 * @param string $offer_number Numer oferty (do nazwy pliku).
+	 * @param int    $version      Wersja oferty.
+	 * @return string Bezwzględna ścieżka pliku docelowego.
+	 */
+	public static function final_pdf_path( $offer_number, $version ) {
+		$safe_number = trim( preg_replace( '/[^A-Za-z0-9]+/', '-', (string) $offer_number ), '-' );
+		return self::private_dir() . '/' . $safe_number . '-v' . (int) $version . '.pdf';
+	}
+
+	/**
+	 * Przenosi plik tymczasowy do nazwy DOCELOWEJ — TYLKO po COMMIT (Dział 10,
+	 * gate Działu 9: "plik tymczasowy; nazwa docelowa po COMMIT").
 	 *
 	 * @param string $tmp_path     Ścieżka pliku tymczasowego.
 	 * @param string $offer_number Numer oferty (do nazwy pliku).
@@ -95,8 +113,7 @@ class MP_Offer_Builder_Storage {
 	 * @return string Bezwzględna ścieżka pliku docelowego.
 	 */
 	public static function finalize_pdf( $tmp_path, $offer_number, $version ) {
-		$safe_number = trim( preg_replace( '/[^A-Za-z0-9]+/', '-', (string) $offer_number ), '-' );
-		$final_path  = self::private_dir() . '/' . $safe_number . '-v' . (int) $version . '.pdf';
+		$final_path = self::final_pdf_path( $offer_number, $version );
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename
 		rename( $tmp_path, $final_path );
 		return $final_path;

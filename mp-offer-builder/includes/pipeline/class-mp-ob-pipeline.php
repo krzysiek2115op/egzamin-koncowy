@@ -26,6 +26,9 @@ class MP_OB_Pipeline {
 	/** @var int Od którego numeru działu obejmować zapisy jedną transakcją DB (0 = wyłączone). */
 	protected $transactional_from = 0;
 
+	/** @var int Do którego numeru działu (włącznie) trwa transakcja — domyślnie "do końca". */
+	protected $transactional_until = PHP_INT_MAX;
+
 	/**
 	 * @param MP_OB_Pipeline_Logger|null $logger Logger błędów.
 	 */
@@ -45,6 +48,24 @@ class MP_OB_Pipeline {
 	 */
 	public function set_transactional_from( $n ) {
 		$this->transactional_from = (int) $n;
+		return $this;
+	}
+
+	/**
+	 * Ustawia próg KOŃCA transakcji (włącznie) — domyślnie "do końca pipeline'u".
+	 * Bez tego ustawienia transakcja trwałaby przez WSZYSTKIE działy od progu
+	 * startowego aż po ostatni, łącznie z Działem 11 ("odpowiedź i przekazanie")
+	 * — a jego zdarzenie `mp_offer_created` MUSI wystawić się DOPIERO PO COMMIT
+	 * (blueprint Działu 11: "zdarzenie nigdy przed COMMIT — inaczej dalszy etap
+	 * dostaje ofertę-widmo"). `MP_OB_Pipeline_Factory::make()` zamyka więc
+	 * transakcję dokładnie na Dziale 10 (`set_transactional_until(10)`), żeby
+	 * COMMIT zdążył się wykonać PRZED uruchomieniem Działu 11.
+	 *
+	 * @param int $n Numer działu kończącego transakcję.
+	 * @return MP_OB_Pipeline
+	 */
+	public function set_transactional_until( $n ) {
+		$this->transactional_until = (int) $n;
 		return $this;
 	}
 
@@ -77,10 +98,19 @@ class MP_OB_Pipeline {
 
 		try {
 			foreach ( $this->departments as $department ) {
+				// Transakcję ZAMYKAMY, zanim przetworzymy pierwszy dział PO progu końcowym —
+				// COMMIT musi zdążyć się wykonać przed Działem 11 (zdarzenie/odpowiedź),
+				// patrz docblock set_transactional_until().
+				if ( $in_transaction && $department->get_number() > $this->transactional_until ) {
+					$wpdb->query( 'COMMIT' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+					$in_transaction = false;
+				}
+
 				// Transakcję otwieramy LENIWIE — dopiero przy pierwszym dziale zapisującym
 				// (próg), by nie trzymać jej otwartej podczas działów 2-9 (odczyt/kalkulacje/render PDF).
 				if ( $this->transactional_from > 0 && ! $in_transaction
-					&& $department->get_number() >= $this->transactional_from ) {
+					&& $department->get_number() >= $this->transactional_from
+					&& $department->get_number() <= $this->transactional_until ) {
 					$wpdb->query( 'START TRANSACTION' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 					$in_transaction = true;
 				}
@@ -95,6 +125,7 @@ class MP_OB_Pipeline {
 					if ( $in_transaction ) {
 						$wpdb->query( 'ROLLBACK' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 						$in_transaction = false;
+						self::cleanup_orphaned_tmp_pdf( $context );
 					}
 					if ( $this->logger ) {
 						$this->logger->log_failure( $department, $result, $context );
@@ -110,6 +141,7 @@ class MP_OB_Pipeline {
 			if ( $in_transaction ) {
 				$wpdb->query( 'ROLLBACK' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 				$in_transaction = false;
+				self::cleanup_orphaned_tmp_pdf( $context );
 			}
 			if ( $this->logger ) {
 				$this->logger->log_exception( $e, $context, $context->get_current_department() );
@@ -122,5 +154,28 @@ class MP_OB_Pipeline {
 		}
 
 		return MP_OB_Result::ok( $context->all() );
+	}
+
+	/**
+	 * Kasuje plik PDF tymczasowy (Dział 9) po ROLLBACK — gate Działu 10:
+	 * "Po ROLLBACK: tymczasowy PDF kasowany". Świadomie w pipeline, nie w
+	 * samym Dziale 10: TYLKO pipeline wie z pewnością, że ROLLBACK faktycznie
+	 * zaszedł (transakcja może się cofnąć z powodu błędu w KTÓRYMKOLWIEK
+	 * dziale objętym progiem transakcyjności, nie tylko w Dziale 10 samym).
+	 * `class_exists()` — framework pipeline'u nie zakłada twardo, że warstwa
+	 * przechowywania plików jest zawsze załadowana.
+	 *
+	 * @param MP_OB_Context $context Kontekst.
+	 * @return void
+	 */
+	private static function cleanup_orphaned_tmp_pdf( MP_OB_Context $context ) {
+		if ( ! class_exists( 'MP_Offer_Builder_Storage' ) ) {
+			return;
+		}
+		$pdf      = is_array( $context->get( 'pdf' ) ) ? $context->get( 'pdf' ) : array();
+		$tmp_path = isset( $pdf['tmp_path'] ) ? (string) $pdf['tmp_path'] : '';
+		if ( '' !== $tmp_path ) {
+			MP_Offer_Builder_Storage::delete_tmp( $tmp_path );
+		}
 	}
 }

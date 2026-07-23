@@ -34,7 +34,11 @@ class MP_OB_Pipeline_Factory {
 
 		// Zapis (nagłówek + pozycje + wersja + dziennik) dzieje się w dziale 10,
 		// jedną transakcją (diagram: "ZAPIS — JEDNA TRANSAKCJA", kryt. 5.1/5.5).
+		// set_transactional_until(10): transakcja zamyka się DOKŁADNIE na Dziale 10 —
+		// Dział 11 (zdarzenie + odpowiedź) musi widzieć już ZATWIERDZONE dane
+		// (patrz docblock MP_OB_Pipeline::set_transactional_until()).
 		$pipeline->set_transactional_from( 10 );
+		$pipeline->set_transactional_until( 10 );
 
 		$pipeline->add_department( MP_OB_Department_01::build() );
 		$pipeline->add_department( MP_OB_Department_02::build() );

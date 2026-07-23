@@ -807,6 +807,161 @@ $inv54            = ! $no_font_result->is_ok() && 'font_not_embedded' === $no_fo
 record( 'inv54_diakrytyka_brak_osadzonego_fontu_stop', $inv54 ? 'PASS' : 'FAIL', 'code=' . $no_font_result->get_code() );
 unlink( $fake_pdf_path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_unlink
 
+/* ---------- Dział 10: realna logika (Krok 3) ---------- */
+
+echo "\n=== DZIAŁ 10: REALNA LOGIKA (zapis — jedna transakcja) ===\n";
+
+// 55) Happy path (świeży przebieg, czyste tabele): nagłówek+pozycje+wersja+dziennik
+//     naprawdę zapisane w BD-2 (fake wpdb), affected_rows=4, db_writes=1.
+$GLOBALS['wpdb']->offers       = array();
+$GLOBALS['wpdb']->items        = array();
+$GLOBALS['wpdb']->versions     = array();
+$GLOBALS['wpdb']->activity_log = array();
+$r55                            = run_pipeline( base_input() );
+$offer_id_55                    = $r55['final_data']['offer_id'] ?? 0;
+$stored_offer_55                = $GLOBALS['wpdb']->offers[ $offer_id_55 ] ?? array();
+$inv55                          = $r55['ok']
+	&& 4 === ( $r55['final_data']['affected_rows'] ?? null )
+	&& 1 === ( $r55['final_data']['db_writes'] ?? null )
+	&& 'draft' === ( $stored_offer_55['status'] ?? '' )
+	&& 607573 === (int) ( $stored_offer_55['gross_grosze'] ?? 0 )
+	&& 1 === preg_match( '/^[a-f0-9]{64}$/', $stored_offer_55['pdf_sha256'] ?? '' )
+	&& 1 === count( $GLOBALS['wpdb']->items )
+	&& 1 === count( $GLOBALS['wpdb']->versions )
+	&& 1 === count( $GLOBALS['wpdb']->activity_log )
+	&& 'offer.created' === ( $GLOBALS['wpdb']->activity_log[0]['action'] ?? '' );
+record(
+	'inv55_happy_path_zapis_kompletny_w_bd2',
+	$inv55 ? 'PASS' : 'FAIL',
+	'offer_id=' . $offer_id_55 . ' status=' . ( $stored_offer_55['status'] ?? '-' ) . ' items=' . count( $GLOBALS['wpdb']->items ) . ' versions=' . count( $GLOBALS['wpdb']->versions ) . ' log=' . count( $GLOBALS['wpdb']->activity_log )
+);
+
+// 56) Dokończenie draftu z Kroku 2.5 (offer_id istnieje, ale BEZ numeru) →
+//     UPDATE istniejącego wiersza, NIE nowy INSERT (offers ma nadal 1 wiersz).
+$GLOBALS['wpdb']->offers       = array(
+	8 => array(
+		'id'             => 8,
+		'status'         => 'draft',
+		'lead_id'        => 900,
+		'client_name'    => 'Klient Draft Sp. z o.o.',
+		'client_email'   => 'draft@testowa-firma.pl',
+		'client_nip'     => '1234563218',
+		'client_country' => 'PL',
+	),
+);
+$GLOBALS['wpdb']->items        = array();
+$GLOBALS['wpdb']->versions     = array();
+$GLOBALS['wpdb']->activity_log = array();
+$draft_finish_input             = base_input();
+$draft_finish_input['offer_id'] = 8;
+unset( $draft_finish_input['client'] );
+$r56           = run_pipeline( $draft_finish_input );
+$inv56         = $r56['ok']
+	&& 1 === count( $GLOBALS['wpdb']->offers )
+	&& isset( $GLOBALS['wpdb']->offers[8] )
+	&& ! empty( $GLOBALS['wpdb']->offers[8]['offer_number'] )
+	&& 'Klient Draft Sp. z o.o.' === ( $GLOBALS['wpdb']->offers[8]['client_name'] ?? '' );
+record(
+	'inv56_dokonczenie_draftu_update_nie_insert',
+	$inv56 ? 'PASS' : 'FAIL',
+	'offers_count=' . count( $GLOBALS['wpdb']->offers ) . ' offer_number=' . ( $GLOBALS['wpdb']->offers[8]['offer_number'] ?? '-' )
+);
+
+// 57) Korekta (offer_id ma JUŻ numer) → TEN SAM numer, wersja+1 W ZAPISANYM
+//     wierszu, log z action='offer.versioned'.
+$d10_year                       = (int) gmdate( 'Y' );
+$GLOBALS['wpdb']->offers        = array(
+	9 => array(
+		'id'             => 9,
+		'status'         => 'draft',
+		'offer_number'   => sprintf( 'OF/%d/000020', $d10_year ),
+		'version'        => 1,
+		'client_name'    => 'Klient Korekta 10 Sp. z o.o.',
+		'client_email'   => 'korekta10@testowa-firma.pl',
+		'client_nip'     => '1234563218',
+		'client_country' => 'PL',
+	),
+);
+$GLOBALS['wpdb']->items        = array();
+$GLOBALS['wpdb']->versions     = array();
+$GLOBALS['wpdb']->activity_log = array();
+$correction10_input             = base_input();
+$correction10_input['offer_id'] = 9;
+unset( $correction10_input['client'] );
+$r57   = run_pipeline( $correction10_input );
+$inv57 = $r57['ok']
+	&& sprintf( 'OF/%d/000020', $d10_year ) === ( $GLOBALS['wpdb']->offers[9]['offer_number'] ?? '' )
+	&& 2 === (int) ( $GLOBALS['wpdb']->offers[9]['version'] ?? 0 )
+	&& 'offer.versioned' === ( $GLOBALS['wpdb']->activity_log[0]['action'] ?? '' );
+record(
+	'inv57_korekta_ten_sam_numer_wersja_w_zapisie',
+	$inv57 ? 'PASS' : 'FAIL',
+	'offer_number=' . ( $GLOBALS['wpdb']->offers[9]['offer_number'] ?? '-' ) . ' version=' . ( $GLOBALS['wpdb']->offers[9]['version'] ?? '-' ) . ' log_action=' . ( $GLOBALS['wpdb']->activity_log[0]['action'] ?? '-' )
+);
+$GLOBALS['wpdb']->offers = array();
+
+// 58) Agent 10.1 "plan": pole spoza limitu DDL (client_country > 2 znaki, np.
+//     błąd w innym dziale) → STOP jawny, PRZED jakimkolwiek zapisem.
+$ddl_ctx    = new MP_OB_Context(
+	array(
+		'client'       => array( 'name' => 'X', 'email' => 'x@x.pl', 'nip' => '123', 'country' => 'ZBYT-DLUGI-KOD' ),
+		'items'        => array( array( 'product_id' => 1, 'qty' => 1 ) ),
+		'lines'        => array( array( 'unit_grosze' => 100, 'line_grosze' => 100 ) ),
+		'offer_number' => 'OF/2026/000001',
+		'version'      => 1,
+		'lang'         => 'pl',
+	)
+);
+$ddl_result = ( new MP_OB_D10_Agent_Plan() )->run( $ddl_ctx );
+$inv58       = ! $ddl_result->is_ok() && 'ddl_violation' === $ddl_result->get_code();
+record( 'inv58_plan_pole_ponad_limit_ddl_stop', $inv58 ? 'PASS' : 'FAIL', 'code=' . $ddl_result->get_code() );
+
+// 59) Kolizja UNIQUE — DOKŁADNIE JEDNA, retry lokalny (Agent 10.2) ją
+//     rozwiązuje bez interwencji pipeline'u: pipeline i tak kończy sukcesem.
+$GLOBALS['wpdb']->offers                    = array();
+$GLOBALS['wpdb']->items                     = array();
+$GLOBALS['wpdb']->versions                  = array();
+$GLOBALS['wpdb']->activity_log              = array();
+$GLOBALS['wpdb']->force_unique_collision_once = true;
+$r59                                          = run_pipeline( base_input() );
+$inv59                                        = $r59['ok'] && 1 === count( $GLOBALS['wpdb']->offers ) && 1 === count( $GLOBALS['wpdb']->items );
+record( 'inv59_kolizja_unique_pojedyncza_retry_odzyskuje', $inv59 ? 'PASS' : 'FAIL', 'ok=' . ( $r59['ok'] ? 'true' : 'false' ) . ' offers=' . count( $GLOBALS['wpdb']->offers ) );
+$GLOBALS['wpdb']->force_unique_collision_once = false;
+
+// 60) Kolizja UNIQUE TRWAŁA (np. realna równoległa oferta z tym samym numerem
+//     nieustannie) → retry wyczerpuje maks. 2 podejścia, jawny FAIL, pipeline
+//     robi ROLLBACK (bez połowicznych wierszy).
+$GLOBALS['wpdb']->offers                      = array();
+$GLOBALS['wpdb']->items                       = array();
+$GLOBALS['wpdb']->versions                    = array();
+$GLOBALS['wpdb']->activity_log                = array();
+$GLOBALS['wpdb']->tx_log                      = array();
+$GLOBALS['wpdb']->force_unique_collision_always = true;
+$r60                                            = run_pipeline( base_input() );
+$inv60                                          = ! $r60['ok']
+	&& 'numbering_collision_unresolved' === $r60['code']
+	&& array( 'START', 'ROLLBACK' ) === $GLOBALS['wpdb']->tx_log
+	&& 0 === count( $GLOBALS['wpdb']->offers );
+record(
+	'inv60_kolizja_unique_trwala_wyczerpuje_proby_rollback',
+	$inv60 ? 'PASS' : 'FAIL',
+	'code=' . $r60['code'] . ' tx_log=' . implode( '>', $GLOBALS['wpdb']->tx_log ) . ' offers=' . count( $GLOBALS['wpdb']->offers )
+);
+$GLOBALS['wpdb']->force_unique_collision_always = false;
+
+// 61) QA Agent 10 "atomowość": affected_rows niezgodne z planem (np. bug w
+//     Agencie 10.2/10.3) → STOP, mimo że każdy pojedynczy INSERT się udał.
+$atomicity_ctx    = new MP_OB_Context(
+	array(
+		'write_plan'    => array( 'items' => array( array( 'qty' => 1 ) ) ), // oczekiwane: 1+1+1+1=4
+		'affected_rows' => 3, // "zgubiony" jeden wiersz.
+		'pdf'           => array( 'tmp_path' => $pdf47['tmp_path'] ?? '' ),
+	)
+);
+$atomicity_result = ( new MP_OB_D10_QA_Agent() )->run( $atomicity_ctx );
+$inv61              = ! $atomicity_result->is_ok() && 'atomicity_mismatch' === $atomicity_result->get_code();
+record( 'inv61_atomowosc_niezgodna_liczba_wierszy_stop', $inv61 ? 'PASS' : 'FAIL', 'code=' . $atomicity_result->get_code() );
+
 /* ---------- Krok 2.5: integracja z pluginem 1 (mp_lead_created → draft) ---------- */
 
 echo "\n=== KROK 2.5: AUTOMATYCZNY DRAFT Z LEADA ===\n";
