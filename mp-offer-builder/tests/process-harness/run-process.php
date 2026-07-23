@@ -42,12 +42,24 @@ function seed_woocommerce_fixtures() {
 		'' => array( array( 'rate' => 23.0, 'label' => 'VAT' ) ),
 	);
 	$GLOBALS['__mp_ob_wc_currency']  = 'PLN';
+	// Treść z kompletem znaczników używanych przez Dział 7 (Agent 7.2 "scalenie") —
+	// pozwala harnessowi realnie sprawdzić podstawienie, nie tylko obecność wiersza.
+	$body_pl                         = '<html><body><h1>{{client_name}}</h1>'
+		. '<p>{{client_email}} | {{client_nip}} | {{client_country}}</p>'
+		. '{{items_table}}<p>Suma: {{subtotal}} Rabat: {{discount_total}}</p>'
+		. '<p>Netto: {{net_total}} VAT: {{vat_total}} Brutto: {{gross_total}}</p>'
+		. '<p>{{tax_mechanism_note}}</p><p>{{offer_date}}</p></body></html>';
+	$body_en                         = '<html><body><h1>{{client_name}}</h1>'
+		. '<p>{{client_email}} | {{client_nip}} | {{client_country}}</p>'
+		. '{{items_table}}<p>Subtotal: {{subtotal}} Discount: {{discount_total}}</p>'
+		. '<p>Net: {{net_total}} VAT: {{vat_total}} Gross: {{gross_total}}</p>'
+		. '<p>{{tax_mechanism_note}}</p><p>{{offer_date}}</p></body></html>';
 	$GLOBALS['wpdb']->templates      = array(
 		1 => array(
 			'id'      => 1,
 			'name'    => 'Domyślny PL',
 			'lang'    => 'pl',
-			'content' => '<html>{{client_name}}</html>',
+			'content' => $body_pl,
 			'version' => '1.0',
 			'status'  => 'active',
 		),
@@ -55,7 +67,7 @@ function seed_woocommerce_fixtures() {
 			'id'      => 2,
 			'name'    => 'Default EN',
 			'lang'    => 'en',
-			'content' => '<html>{{client_name}}</html>',
+			'content' => $body_en,
 			'version' => '1.0',
 			'status'  => 'active',
 		),
@@ -523,6 +535,82 @@ $inv35 = 1 === MP_OB_D6_Agent_Rounding::vat_grosze( 1, 50 )
 	&& 2 === MP_OB_D6_Agent_Rounding::vat_grosze( 3, 50 )
 	&& 2300 === MP_OB_D6_Agent_Rounding::vat_grosze( 10000, 23 );
 record( 'inv35_zaokraglenie_polowkowe_bez_float', $inv35 ? 'PASS' : 'FAIL', 'vat(1,50)=' . MP_OB_D6_Agent_Rounding::vat_grosze( 1, 50 ) . ' vat(3,50)=' . MP_OB_D6_Agent_Rounding::vat_grosze( 3, 50 ) );
+
+/* ---------- Dział 7: realna logika (Krok 3) ---------- */
+
+echo "\n=== DZIAŁ 7: REALNA LOGIKA (szablon i treść) ===\n";
+
+// 36) Happy path (pl, domestic): dokument bez niepodstawionych znaczników, dane
+//     klienta i sumy (w formacie pl: przecinek dziesiętny, spacja tysięczna)
+//     realnie trafiają do HTML; tabela pozycji zawiera nazwę produktu i ilość.
+$html36 = $hp['final_data']['document']['html'] ?? '';
+$inv36  = $hp['ok']
+	&& 'pl' === ( $hp['final_data']['document']['lang'] ?? null )
+	&& false === strpos( $html36, '{{' )
+	&& false !== strpos( $html36, 'Testowa Firma Sp. z o.o.' )
+	&& false !== strpos( $html36, '6 075,73 zł' ) // gross_grosze=607573 -> "6 075,73 zł"
+	&& false !== strpos( $html36, 'Testowy wariant' )
+	&& false !== strpos( $html36, '<td>40</td>' );
+record( 'inv36_happy_path_scalenie_pl_bez_znacznikow', $inv36 ? 'PASS' : 'FAIL', 'lang=' . ( $hp['final_data']['document']['lang'] ?? '-' ) . ' zawiera_gross=' . ( false !== strpos( $html36, '6 075,73 zł' ) ? 'tak' : 'nie' ) );
+
+// 37) UE + ważny VAT (en, reverse_charge): adnotacja odwrotnego obciążenia po
+//     angielsku w dokumencie, kwoty w formacie en (kropka dziesiętna, przecinek
+//     tysięczny) — gross=net (VAT=0), 493962 gr -> "4,939.62 PLN".
+$eu_en_input                  = base_input();
+$eu_en_input['client']['country']   = 'DE';
+$eu_en_input['client']['vat_status'] = 'valid';
+$eu_en_input['lang']                 = 'en';
+$r37                           = run_pipeline( $eu_en_input );
+$html37                        = $r37['final_data']['document']['html'] ?? '';
+$inv37                         = $r37['ok']
+	&& 'en' === ( $r37['final_data']['document']['lang'] ?? null )
+	&& false === strpos( $html37, '{{' )
+	&& false !== strpos( $html37, 'Reverse charge — Article 196' )
+	&& false !== strpos( $html37, '4,939.62 PLN' );
+record( 'inv37_reverse_charge_adnotacja_en_format_kwot', $inv37 ? 'PASS' : 'FAIL', 'zawiera_adnotacje=' . ( false !== strpos( $html37, 'Reverse charge' ) ? 'tak' : 'nie' ) . ' zawiera_kwote=' . ( false !== strpos( $html37, '4,939.62 PLN' ) ? 'tak' : 'nie' ) );
+
+// 38) Agent 7.1 "dobór": brak szablonu w żądanym języku w zamrożonym snapshocie
+//     (defense-in-depth — niezależnie od tego, że Dział 2 już to blokuje wcześniej)
+//     -> FAIL 'missing_template_selection', NIE ciche przejście na inny język.
+$missing_tpl_ctx    = new MP_OB_Context(
+	array(
+		'lang'      => 'en',
+		'templates' => array( 'pl' => array( 'lang' => 'pl' ) ), // tylko pl w snapshocie
+	)
+);
+$missing_tpl_result = ( new MP_OB_D7_Agent_Selection() )->run( $missing_tpl_ctx );
+$inv38               = ! $missing_tpl_result->is_ok() && 'missing_template_selection' === $missing_tpl_result->get_code();
+record( 'inv38_dobor_brak_szablonu_w_jezyku_stop', $inv38 ? 'PASS' : 'FAIL', 'code=' . $missing_tpl_result->get_code() );
+
+// 39) Agent 7.2 "scalenie": znacznik spoza słownika podstawień -> STOP jawny
+//     ('unfilled_placeholder'), zamiast wysłać dokument z widocznym "{{...}}".
+$unfilled_ctx    = new MP_OB_Context(
+	array(
+		'lang'             => 'pl',
+		'currency'         => 'PLN',
+		'client'           => array( 'name' => 'X' ),
+		'items'            => array(),
+		'products'         => array(),
+		'lines'            => array(),
+		'template_content' => '<html>{{client_name}} {{nieznany_znacznik}}</html>',
+	)
+);
+$unfilled_result = ( new MP_OB_D7_Agent_Merge() )->run( $unfilled_ctx );
+$inv39            = ! $unfilled_result->is_ok() && 'unfilled_placeholder' === $unfilled_result->get_code();
+record( 'inv39_scalenie_nieznany_znacznik_stop', $inv39 ? 'PASS' : 'FAIL', 'code=' . $unfilled_result->get_code() );
+
+// 40) QA Agent 7 "jednojęzyczność dokumentu": niespójność lang/template_lang/
+//     document.lang (np. bug w innym dziale podmieniający lang w locie) -> STOP.
+$mismatch_ctx    = new MP_OB_Context(
+	array(
+		'lang'          => 'pl',
+		'template_lang' => 'pl',
+		'document'      => array( 'lang' => 'en' ),
+	)
+);
+$mismatch_result = ( new MP_OB_D7_QA_Agent() )->run( $mismatch_ctx );
+$inv40            = ! $mismatch_result->is_ok() && 'document_language_mismatch' === $mismatch_result->get_code();
+record( 'inv40_jednojezycznosc_niespojnosc_stop', $inv40 ? 'PASS' : 'FAIL', 'code=' . $mismatch_result->get_code() );
 
 /* ---------- Krok 2.5: integracja z pluginem 1 (mp_lead_created → draft) ---------- */
 
