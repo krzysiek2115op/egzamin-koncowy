@@ -20,7 +20,11 @@ if ( ! $PLUGIN || ! is_dir( $PLUGIN ) ) {
 	$guess  = dirname( __DIR__, 2 );
 	$PLUGIN = is_file( $guess . '/mp-offer-builder.php' ) ? $guess : '/home/krzysiek/3 pluginy 3 bazy danych /mp-offer-builder';
 }
+if ( file_exists( $PLUGIN . '/vendor/autoload.php' ) ) {
+	require $PLUGIN . '/vendor/autoload.php';
+}
 require $PLUGIN . '/includes/db/class-mp-offer-builder-db.php';
+require $PLUGIN . '/includes/class-mp-offer-builder-storage.php';
 require $PLUGIN . '/includes/pipeline/bootstrap.php';
 require $PLUGIN . '/includes/class-mp-offer-builder-lead-listener.php';
 
@@ -231,7 +235,18 @@ $pipeline_rollback->add_department( MP_OB_Department_09::build() ); // ostatni d
 $pipeline_rollback->add_department( $dep_forced_fail );             // symuluje awarię W TRAKCIE zapisu (dział 10)
 $GLOBALS['wpdb']->tx_log       = array();
 $GLOBALS['wpdb']->activity_log = array();
-$rb_result                     = $pipeline_rollback->run( new MP_OB_Context( array() ) );
+// Dział 9 jest teraz REALNY (Krok 3) — potrzebuje minimalnego wejścia zgodnego
+// z jego kontraktem (dokument z Działu 7, numer z Działu 8), inaczej sam by
+// odrzucił na Agencie 9.1 zanim test w ogóle dotarłby do symulowanej awarii
+// w dziale 10.
+$rb_context = new MP_OB_Context(
+	array(
+		'document'     => array( 'html' => '<html><body>Test ROLLBACK</body></html>' ),
+		'offer_number' => 'OF/2026/000001',
+		'gross_grosze' => 10000,
+	)
+);
+$rb_result  = $pipeline_rollback->run( $rb_context );
 $inv6                          = ! $rb_result->is_ok()
 	&& $GLOBALS['wpdb']->tx_log === array( 'START', 'ROLLBACK' )
 	&& count( $GLOBALS['wpdb']->activity_log ) === 1
@@ -710,6 +725,87 @@ $ambiguous_ctx    = new MP_OB_Context(
 $ambiguous_result = ( new MP_OB_D8_QA_Agent() )->run( $ambiguous_ctx );
 $inv46             = ! $ambiguous_result->is_ok() && 'numbering_mode_ambiguous' === $ambiguous_result->get_code();
 record( 'inv46_jedno_albo_drugie_stan_niespojny_stop', $inv46 ? 'PASS' : 'FAIL', 'code=' . $ambiguous_result->get_code() );
+
+/* ---------- Dział 9: realna logika (Krok 3) ---------- */
+
+echo "\n=== DZIAŁ 9: REALNA LOGIKA (render PDF) ===\n";
+
+// 47) Happy path: prawdziwy plik PDF na dysku, w katalogu prywatnym-tymczasowym,
+//     strony/rozmiar/skrót spójne, plik-to-nie-dowód (QA9) potwierdza.
+$pdf47 = $hp['final_data']['pdf'] ?? array();
+$inv47 = $hp['ok']
+	&& ! empty( $pdf47['tmp_path'] ) && file_exists( $pdf47['tmp_path'] )
+	&& 0 === strpos( $pdf47['tmp_path'], MP_Offer_Builder_Storage::tmp_dir() )
+	&& ( $pdf47['pages'] ?? 0 ) >= 1
+	&& ( $pdf47['bytes'] ?? 0 ) > 0
+	&& 1 === preg_match( '/^[a-f0-9]{64}$/', $pdf47['sha256'] ?? '' );
+// Uwaga: "pdf_verified" istnieje tylko w wyniku WEWNĄTRZ bramki jakości (QA9) —
+// MP_OB_Department::process() NIE scala danych bramki z kontekstem (tylko jej
+// werdykt PASS/FAIL), więc happy-path $hp['ok']===true już DOWODZI, że QA9
+// zaakceptował (inaczej pipeline zatrzymałby się na dziale 9) — bez potrzeby
+// odczytywania tej flagi z final_data (ten sam wzorzec co w Działach 2/3).
+record(
+	'inv47_happy_path_plik_pdf_realny_w_katalogu_prywatnym',
+	$inv47 ? 'PASS' : 'FAIL',
+	'tmp_path_istnieje=' . ( ! empty( $pdf47['tmp_path'] ) && file_exists( $pdf47['tmp_path'] ) ? 'tak' : 'nie' ) . ' pages=' . ( $pdf47['pages'] ?? '-' ) . ' bytes=' . ( $pdf47['bytes'] ?? '-' )
+);
+
+// 48) Agent 9.1: brak dokumentu (Dział 7 nie przebiegł) → STOP jawny, nie próba
+//     renderu pustej treści.
+$missing_doc_result = ( new MP_OB_D9_Agent_Render() )->run( new MP_OB_Context( array( 'offer_number' => 'OF/2026/000001' ) ) );
+$inv48                = ! $missing_doc_result->is_ok() && 'missing_document' === $missing_doc_result->get_code();
+record( 'inv48_render_brak_dokumentu_stop', $inv48 ? 'PASS' : 'FAIL', 'code=' . $missing_doc_result->get_code() );
+
+// 49) Agent 9.2: treść PDF (metadane) niezgodna z "kopertą" — realny plik z
+//     happy-path, ale porównywany z NIEPRAWDZIWYM numerem oferty.
+$mismatch_ctx    = new MP_OB_Context(
+	array(
+		'pdf'          => $pdf47,
+		'offer_number' => 'OF/2026/999999', // celowo INNY niż w metadanych realnego pliku.
+		'gross_grosze' => $hp['final_data']['gross_grosze'] ?? 0,
+	)
+);
+$mismatch_result = ( new MP_OB_D9_Agent_Control() )->run( $mismatch_ctx );
+$inv49             = ! $mismatch_result->is_ok() && 'pdf_content_mismatch' === $mismatch_result->get_code();
+record( 'inv49_kontrola_tresc_niezgodna_z_koperta_stop', $inv49 ? 'PASS' : 'FAIL', 'code=' . $mismatch_result->get_code() );
+
+// 50) Agent 9.2: rozmiar ponad limit → STOP (fabrykowane dane, bez realnego renderu).
+$too_large_ctx    = new MP_OB_Context( array( 'pdf' => array( 'tmp_path' => $pdf47['tmp_path'] ?? '', 'pages' => 1, 'bytes' => MP_OB_D9_Agent_Control::MAX_PDF_BYTES + 1 ) ) );
+$too_large_result = ( new MP_OB_D9_Agent_Control() )->run( $too_large_ctx );
+$inv50             = ! $too_large_result->is_ok() && 'pdf_too_large' === $too_large_result->get_code();
+record( 'inv50_kontrola_rozmiar_ponad_limit_stop', $inv50 ? 'PASS' : 'FAIL', 'code=' . $too_large_result->get_code() );
+
+// 51) Agent 9.2: zero stron → STOP.
+$empty_pdf_result = ( new MP_OB_D9_Agent_Control() )->run( new MP_OB_Context( array( 'pdf' => array( 'tmp_path' => $pdf47['tmp_path'] ?? '', 'pages' => 0, 'bytes' => 100 ) ) ) );
+$inv51              = ! $empty_pdf_result->is_ok() && 'empty_pdf' === $empty_pdf_result->get_code();
+record( 'inv51_kontrola_zero_stron_stop', $inv51 ? 'PASS' : 'FAIL', 'code=' . $empty_pdf_result->get_code() );
+
+// 52) QA Agent 9 "plik-to-nie-dowód": skrót w kontekście NIE zgadza się z realnym
+//     plikiem na dysku (np. bug między agentami) → STOP, mimo że plik istnieje.
+$hash_mismatch_ctx    = new MP_OB_Context( array( 'pdf' => array( 'tmp_path' => $pdf47['tmp_path'] ?? '', 'sha256' => str_repeat( '0', 64 ) ) ) );
+$hash_mismatch_result = ( new MP_OB_D9_QA_Agent() )->run( $hash_mismatch_ctx );
+$inv52                  = ! $hash_mismatch_result->is_ok() && 'pdf_hash_mismatch' === $hash_mismatch_result->get_code();
+record( 'inv52_plik_to_nie_dowod_skrot_niezgodny_stop', $inv52 ? 'PASS' : 'FAIL', 'code=' . $hash_mismatch_result->get_code() );
+
+// 53) QA Agent 9: plik POZA katalogiem prywatnym-tymczasowym (np. pomyłka innej
+//     ścieżki) → STOP, nawet jeśli plik istnieje i skrót się zgadza.
+$outside_dir      = sys_get_temp_dir() . '/mp-ob-outside-' . uniqid() . '.pdf';
+file_put_contents( $outside_dir, 'not-a-real-pdf' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+$outside_ctx      = new MP_OB_Context( array( 'pdf' => array( 'tmp_path' => $outside_dir, 'sha256' => hash_file( 'sha256', $outside_dir ) ) ) );
+$outside_result   = ( new MP_OB_D9_QA_Agent() )->run( $outside_ctx );
+$inv53              = ! $outside_result->is_ok() && 'pdf_outside_protected_dir' === $outside_result->get_code();
+record( 'inv53_plik_poza_katalogiem_prywatnym_stop', $inv53 ? 'PASS' : 'FAIL', 'code=' . $outside_result->get_code() );
+unlink( $outside_dir ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_unlink
+
+// 54) Krytyk 9.1 "diakrytyka": plik BEZ osadzonego fontu DejaVu (np. inny
+//     silnik renderujący w przyszłości) → STOP, "krzaki" nigdy nie przechodzą.
+$fake_pdf_path = MP_Offer_Builder_Storage::tmp_dir() . '/of-fake-no-font-' . uniqid() . '.pdf';
+file_put_contents( $fake_pdf_path, '%PDF-1.4 obsah bez osadzonego fontu' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+$no_font_critic = new MP_OB_D9_Critic_Diacritics( 'K9.1', 'test' );
+$no_font_result = $no_font_critic->review( MP_OB_Result::ok( array( 'pdf' => array( 'tmp_path' => $fake_pdf_path ) ) ), new MP_OB_Context( array() ) );
+$inv54            = ! $no_font_result->is_ok() && 'font_not_embedded' === $no_font_result->get_code();
+record( 'inv54_diakrytyka_brak_osadzonego_fontu_stop', $inv54 ? 'PASS' : 'FAIL', 'code=' . $no_font_result->get_code() );
+unlink( $fake_pdf_path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_unlink
 
 /* ---------- Krok 2.5: integracja z pluginem 1 (mp_lead_created → draft) ---------- */
 

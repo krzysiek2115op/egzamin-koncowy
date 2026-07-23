@@ -76,6 +76,25 @@ function wp_generate_uuid4() {
 	$data[8] = chr( ( ord( $data[8] ) & 0x3f ) | 0x80 );
 	return vsprintf( '%s%s-%s-%s-%s-%s%s%s', str_split( bin2hex( $data ), 4 ) );
 }
+function trailingslashit( $s ) {
+	return rtrim( (string) $s, '/\\' ) . '/';
+}
+// Prawdziwy, tymczasowy katalog systemowy — Dział 9 (Storage) realnie zapisuje
+// pliki PDF na dysk (świadomy wyjątek od "działy 3-9 to czyste funkcje": render
+// PDF Z NATURY jest efektem ubocznym, patrz docblock class-mp-ob-department-09.php).
+function wp_upload_dir() {
+	$base = sys_get_temp_dir() . '/mp-ob-harness-uploads';
+	if ( ! is_dir( $base ) ) {
+		mkdir( $base, 0777, true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_mkdir
+	}
+	return array(
+		'basedir' => $base,
+		'baseurl' => 'http://harness.test/wp-content/uploads',
+	);
+}
+function wp_mkdir_p( $dir ) {
+	return is_dir( $dir ) || mkdir( $dir, 0777, true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_mkdir
+}
 
 // --- Opcje ---
 function get_option( $k, $default = false ) {

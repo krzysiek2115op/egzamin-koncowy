@@ -26,8 +26,19 @@ define( 'MP_OFFER_BUILDER_FILE', __FILE__ );
 define( 'MP_OFFER_BUILDER_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MP_OFFER_BUILDER_URL', plugin_dir_url( __FILE__ ) );
 
+// --- Zależności runtime (Dompdf — Dział 9, Render PDF) ---
+// Kontrolowany brak zamiast fatal errora, gdy ktoś wdroży kod bez
+// `composer install` — Agent 9.1 i tak sprawdza class_exists() ponownie
+// (ten sam wzorzec co WooCommerce/BCMath/intl w innych działach).
+if ( file_exists( MP_OFFER_BUILDER_DIR . 'vendor/autoload.php' ) ) {
+	require_once MP_OFFER_BUILDER_DIR . 'vendor/autoload.php';
+}
+
 // --- Warstwa bazy danych (BD-2) ---
 require_once MP_OFFER_BUILDER_DIR . 'includes/db/class-mp-offer-builder-db.php';
+
+// --- Przechowywanie plików PDF (katalog prywatny — decyzja architektoniczna C) ---
+require_once MP_OFFER_BUILDER_DIR . 'includes/class-mp-offer-builder-storage.php';
 
 // --- Warstwa pipeline (11 działów: agenci, krytycy, bramki jakości) ---
 require_once MP_OFFER_BUILDER_DIR . 'includes/pipeline/bootstrap.php';
