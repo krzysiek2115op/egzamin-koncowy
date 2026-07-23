@@ -395,6 +395,38 @@ $r24                     = run_pipeline( $too_many_items );
 $inv24                   = ! $r24['ok'] && 'invalid_quantities' === $r24['code'];
 record( 'inv24_zbyt_wiele_pozycji_stop', $inv24 ? 'PASS' : 'FAIL', 'code=' . $r24['code'] );
 
+/* ---------- Dział 4: realna logika (Krok 3) ---------- */
+
+echo "\n=== DZIAŁ 4: REALNA LOGIKA (ceny bazowe, grosze) ===\n";
+
+// 25) Happy path: 129.99 PLN × 40 szt. = 519960 groszy DOKŁADNIE (BCMath, zero float;
+//     bez tego "0.1+0.2≠0.3" 19.99*100 jako float dałoby 1998 zamiast 1999 groszy).
+$inv25 = $hp['ok']
+	&& 12999 === ( $hp['final_data']['lines'][0]['unit_grosze'] ?? null )
+	&& 'regular' === ( $hp['final_data']['lines'][0]['price_source'] ?? null )
+	&& 519960 === ( $hp['final_data']['lines'][0]['line_grosze'] ?? null )
+	&& 519960 === ( $hp['final_data']['subtotal_grosze'] ?? null );
+record(
+	'inv25_ceny_bazowe_dokladna_arytmetyka_int',
+	$inv25 ? 'PASS' : 'FAIL',
+	'unit=' . ( $hp['final_data']['lines'][0]['unit_grosze'] ?? '-' ) . ' subtotal=' . ( $hp['final_data']['subtotal_grosze'] ?? '-' )
+);
+
+// 26) Cena promocyjna (sale_price < regular_price) → price_source='sale', liczona
+//     od ceny promocyjnej, nie regularnej.
+seed_woocommerce_fixtures();
+$GLOBALS['__mp_ob_wc_products'][9101]['sale_price'] = '99.50';
+$r26   = run_pipeline( base_input() );
+$inv26 = $r26['ok']
+	&& 'sale' === ( $r26['final_data']['lines'][0]['price_source'] ?? null )
+	&& 9950 === ( $r26['final_data']['lines'][0]['unit_grosze'] ?? null );
+record(
+	'inv26_cena_promocyjna_price_source_sale',
+	$inv26 ? 'PASS' : 'FAIL',
+	'price_source=' . ( $r26['final_data']['lines'][0]['price_source'] ?? '-' ) . ' unit=' . ( $r26['final_data']['lines'][0]['unit_grosze'] ?? '-' )
+);
+seed_woocommerce_fixtures();
+
 /* ---------- Krok 2.5: integracja z pluginem 1 (mp_lead_created → draft) ---------- */
 
 echo "\n=== KROK 2.5: AUTOMATYCZNY DRAFT Z LEADA ===\n";

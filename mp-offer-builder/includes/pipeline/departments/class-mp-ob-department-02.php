@@ -287,46 +287,6 @@ class MP_OB_D2_Agent_Numbering extends MP_OB_Abstract_Agent {
 }
 
 /**
- * Krytyk parzystości — sekcja musi mieć dokładnie tyle wpisów, ile jest pozycji
- * (Dział 2, produkty/ceny: każda pozycja MUSI zostać rozwiązana, nie "przynajmniej jedna").
- */
-class MP_OB_D2_Critic_Parity extends MP_OB_Abstract_Critic {
-
-	/** @var string */
-	protected $key;
-
-	/**
-	 * @param string $id    Identyfikator.
-	 * @param string $label Nazwa.
-	 * @param string $key   Klucz do sprawdzenia.
-	 */
-	public function __construct( $id, $label, $key ) {
-		parent::__construct( $id, $label );
-		$this->key = $key;
-	}
-
-	/**
-	 * @param MP_OB_Result  $agent_result Wynik agenta.
-	 * @param MP_OB_Context $context      Kontekst.
-	 * @return MP_OB_Result
-	 */
-	public function review( MP_OB_Result $agent_result, MP_OB_Context $context ) {
-		if ( ! $agent_result->is_ok() ) {
-			return $agent_result;
-		}
-
-		$data  = $agent_result->get_data();
-		$items = is_array( $context->get( 'items' ) ) ? $context->get( 'items' ) : array();
-
-		if ( ! isset( $data[ $this->key ] ) || ! is_array( $data[ $this->key ] ) || count( $data[ $this->key ] ) !== count( $items ) ) {
-			return MP_OB_Result::fail( sprintf( 'Sekcja %s nie odpowiada liczbie pozycji.', $this->key ), array(), 'invalid_structure' );
-		}
-
-		return MP_OB_Result::ok( $data );
-	}
-}
-
-/**
  * QA Agent 2 — kontrola kompletności snapshotu (pięć sekcji).
  */
 class MP_OB_D2_QA_Agent extends MP_OB_Abstract_Agent {
@@ -368,11 +328,11 @@ class MP_OB_Department_02 {
 		$pairs = array(
 			array(
 				'agent'  => new MP_OB_D2_Agent_Products(),
-				'critic' => new MP_OB_D2_Critic_Parity( 'K2.1', 'Krytyk 2.1 — istnienie-produktu', 'products' ),
+				'critic' => new MP_OB_Parity_Critic( 'K2.1', 'Krytyk 2.1 — istnienie-produktu', 'products' ),
 			),
 			array(
 				'agent'  => new MP_OB_D2_Agent_Prices(),
-				'critic' => new MP_OB_D2_Critic_Parity( 'K2.2', 'Krytyk 2.2 — kompletność-cen', 'prices' ),
+				'critic' => new MP_OB_Parity_Critic( 'K2.2', 'Krytyk 2.2 — kompletność-cen', 'prices' ),
 			),
 			array(
 				'agent'  => new MP_OB_D2_Agent_Tax(),
