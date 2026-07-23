@@ -612,6 +612,105 @@ $mismatch_result = ( new MP_OB_D7_QA_Agent() )->run( $mismatch_ctx );
 $inv40            = ! $mismatch_result->is_ok() && 'document_language_mismatch' === $mismatch_result->get_code();
 record( 'inv40_jednojezycznosc_niespojnosc_stop', $inv40 ? 'PASS' : 'FAIL', 'code=' . $mismatch_result->get_code() );
 
+/* ---------- Dział 8: realna logika (Krok 3) ---------- */
+
+echo "\n=== DZIAŁ 8: REALNA LOGIKA (numeracja i wersja) ===\n";
+
+$d8_year = (int) gmdate( 'Y' );
+
+// 41) Happy path ($hp policzony na starcie harnessu, offers wtedy puste): nowa
+//     oferta, brak poprzedniego numeru w roku -> kandydat 000001, wersja 1.
+$inv41 = $hp['ok']
+	&& sprintf( 'OF/%d/000001', $d8_year ) === ( $hp['final_data']['offer_number'] ?? null )
+	&& 1 === ( $hp['final_data']['version'] ?? null )
+	&& array_key_exists( 'parent_version', $hp['final_data'] ) && null === $hp['final_data']['parent_version']
+	&& 'new_number' === ( $hp['final_data']['numbering_mode'] ?? null );
+record( 'inv41_happy_path_pierwszy_numer_w_roku', $inv41 ? 'PASS' : 'FAIL', 'offer_number=' . ( $hp['final_data']['offer_number'] ?? '-' ) . ' version=' . ( $hp['final_data']['version'] ?? '-' ) );
+
+// 42) Ciągłość numeracji: ostatni numer w roku = 000050 -> kandydat 000051.
+$GLOBALS['wpdb']->offers = array(
+	1 => array(
+		'id'           => 1,
+		'offer_number' => sprintf( 'OF/%d/000050', $d8_year ),
+		'version'      => 1,
+		'status'       => 'sent',
+	),
+);
+$r42                      = run_pipeline( base_input() );
+$inv42                    = $r42['ok']
+	&& sprintf( 'OF/%d/000051', $d8_year ) === ( $r42['final_data']['offer_number'] ?? null )
+	&& 1 === ( $r42['final_data']['version'] ?? null );
+record( 'inv42_ciaglosc_numeracji_kolejny_numer', $inv42 ? 'PASS' : 'FAIL', 'offer_number=' . ( $r42['final_data']['offer_number'] ?? '-' ) );
+$GLOBALS['wpdb']->offers = array();
+
+// 43) Korekta: offer_id wskazuje draft, który JUŻ MA numer (wcześniej ukończona
+//     oferta wciąż w statusie 'draft' — status zmienia dopiero plugin 3) ->
+//     TEN SAM numer, wersja+1, parent_version = poprzednia wersja. NIGDY nadpisanie.
+$GLOBALS['wpdb']->offers = array(
+	5 => array(
+		'id'             => 5,
+		'status'         => 'draft',
+		'offer_number'   => sprintf( 'OF/%d/000010', $d8_year ),
+		'version'        => 2,
+		'client_name'    => 'Klient Korekta Sp. z o.o.',
+		'client_email'   => 'korekta@testowa-firma.pl',
+		'client_nip'     => '1234563218',
+		'client_country' => 'PL',
+	),
+);
+$correction_input             = base_input();
+$correction_input['offer_id'] = 5;
+unset( $correction_input['client'] );
+$r43   = run_pipeline( $correction_input );
+$inv43 = $r43['ok']
+	&& sprintf( 'OF/%d/000010', $d8_year ) === ( $r43['final_data']['offer_number'] ?? null )
+	&& 3 === ( $r43['final_data']['version'] ?? null )
+	&& 2 === ( $r43['final_data']['parent_version'] ?? null )
+	&& 'correction' === ( $r43['final_data']['numbering_mode'] ?? null );
+record(
+	'inv43_korekta_ten_sam_numer_wersja_plus_jeden',
+	$inv43 ? 'PASS' : 'FAIL',
+	'offer_number=' . ( $r43['final_data']['offer_number'] ?? '-' ) . ' version=' . ( $r43['final_data']['version'] ?? '-' ) . ' parent=' . ( $r43['final_data']['parent_version'] ?? '-' )
+);
+$GLOBALS['wpdb']->offers = array();
+
+// 44) Agent 8.1: format ostatniego numeru w snapshocie uszkodzony (np. bug w innym
+//     dziale/starsze dane) -> STOP jawny, NIE próba zgadywania kolejnej liczby.
+$malformed_ctx    = new MP_OB_Context( array( 'numbering' => array( 'year' => $d8_year, 'last_number' => 'GARBAGE-NOT-A-NUMBER' ) ) );
+$malformed_result = ( new MP_OB_D8_Agent_Number() )->run( $malformed_ctx );
+$inv44             = ! $malformed_result->is_ok() && 'malformed_last_number' === $malformed_result->get_code();
+record( 'inv44_numer_uszkodzony_format_stop', $inv44 ? 'PASS' : 'FAIL', 'code=' . $malformed_result->get_code() );
+
+// 45) Krytyk 8.2 "przyrost-wersji": wersja NIE zwiększona względem parent_version
+//     (np. bug próbujący powtórzyć/nadpisać wersję) -> STOP, nigdy ciche przejście.
+$no_increment_critic = new MP_OB_D8_Critic_Version_Increment( 'K8.2', 'test' );
+$no_increment_result = $no_increment_critic->review(
+	MP_OB_Result::ok(
+		array(
+			'offer_number'   => sprintf( 'OF/%d/000010', $d8_year ),
+			'version'        => 2,
+			'parent_version' => 2, // brak przyrostu — to samo co poprzednio.
+		)
+	),
+	new MP_OB_Context( array() )
+);
+$inv45 = ! $no_increment_result->is_ok() && 'version_not_incremented' === $no_increment_result->get_code();
+record( 'inv45_przyrost_wersji_bez_zmiany_stop', $inv45 ? 'PASS' : 'FAIL', 'code=' . $no_increment_result->get_code() );
+
+// 46) QA Agent 8 "jedno-albo-drugie": stan niespójny (tryb new_number, ale wersja
+//     inna niż 1 — np. wynik pomieszania danych między działami) -> STOP.
+$ambiguous_ctx    = new MP_OB_Context(
+	array(
+		'numbering_mode' => 'new_number',
+		'version'        => 2,
+		'parent_version' => null,
+		'offer_number'   => sprintf( 'OF/%d/000099', $d8_year ),
+	)
+);
+$ambiguous_result = ( new MP_OB_D8_QA_Agent() )->run( $ambiguous_ctx );
+$inv46             = ! $ambiguous_result->is_ok() && 'numbering_mode_ambiguous' === $ambiguous_result->get_code();
+record( 'inv46_jedno_albo_drugie_stan_niespojny_stop', $inv46 ? 'PASS' : 'FAIL', 'code=' . $ambiguous_result->get_code() );
+
 /* ---------- Krok 2.5: integracja z pluginem 1 (mp_lead_created → draft) ---------- */
 
 echo "\n=== KROK 2.5: AUTOMATYCZNY DRAFT Z LEADA ===\n";
