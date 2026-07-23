@@ -35,6 +35,9 @@ require_once MP_OFFER_BUILDER_DIR . 'includes/pipeline/bootstrap.php';
 // --- Front: endpoint AJAX ("1 AJAX") ---
 require_once MP_OFFER_BUILDER_DIR . 'includes/class-mp-offer-builder-ajax.php';
 
+// --- Integracja z pluginem 1: automatyczny szkic oferty po utworzeniu leada ---
+require_once MP_OFFER_BUILDER_DIR . 'includes/class-mp-offer-builder-lead-listener.php';
+
 /**
  * Bootstrap wtyczki po załadowaniu wszystkich wtyczek.
  *
@@ -45,6 +48,8 @@ function mp_offer_builder_bootstrap() {
 
 	// "1 AJAX" — endpoint (drzwi we wtyczce), który uruchamia cały pipeline.
 	MP_Offer_Builder_Ajax::register();
+	// mp_lead_created (plugin 1) → automatyczny szkic oferty (Krok 2.5).
+	MP_Offer_Builder_Lead_Listener::register();
 }
 add_action( 'plugins_loaded', 'mp_offer_builder_bootstrap' );
 

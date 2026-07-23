@@ -30,6 +30,8 @@ $GLOBALS['__mp_ob_transients'] = array();
 $GLOBALS['__mp_ob_options']    = array( 'admin_email' => 'admin@example.test' );
 $GLOBALS['__mp_ob_mails']      = array();
 $GLOBALS['__mp_ob_cfg']        = array( 'valid_nonce' => 'valid' );
+$GLOBALS['__mp_ob_hooks']      = array();
+$GLOBALS['__mp_ob_actions']    = array();
 
 // --- WP_Error ---
 if ( ! class_exists( 'WP_Error' ) ) {
@@ -50,6 +52,10 @@ function sanitize_text_field( $s ) {
 	$s = is_scalar( $s ) ? (string) $s : '';
 	$s = preg_replace( '/[\r\n\t ]+/', ' ', trim( preg_replace( '/<[^>]*>/', '', $s ) ) );
 	return trim( $s );
+}
+function sanitize_email( $s ) {
+	$s = trim( (string) $s );
+	return filter_var( $s, FILTER_VALIDATE_EMAIL ) ? $s : '';
 }
 function wp_unslash( $v ) {
 	return is_string( $v ) ? stripslashes( $v ) : $v;
@@ -143,6 +149,19 @@ function add_action( $tag, $callback, $priority = 10, $accepted_args = 1 ) {
 }
 function do_action( $tag, ...$a ) {
 	$GLOBALS['__mp_ob_actions'][ $tag ] = ( $GLOBALS['__mp_ob_actions'][ $tag ] ?? 0 ) + 1;
+	if ( empty( $GLOBALS['__mp_ob_hooks'][ $tag ] ) ) {
+		return;
+	}
+	$hooks = $GLOBALS['__mp_ob_hooks'][ $tag ];
+	usort(
+		$hooks,
+		function ( $x, $y ) {
+			return $x['priority'] <=> $y['priority'];
+		}
+	);
+	foreach ( $hooks as $h ) {
+		call_user_func_array( $h['cb'], array_slice( $a, 0, max( 1, (int) $h['args'] ) ) );
+	}
 }
 function apply_filters( $tag, $value, ...$a ) {
 	return $value; }
@@ -153,6 +172,7 @@ class MP_OB_Fake_WPDB {
 	public $insert_id     = 0;
 	public $last_error    = '';
 	public $activity_log  = array(); // wiersze wstawione do wp_mp_ob_offer_activity_log
+	public $offers        = array(); // wiersze wstawione do wp_mp_ob_offers (id => dane)
 	public $tx_log        = array(); // kolejność START/COMMIT/ROLLBACK (weryfikacja transakcyjności)
 	public $in_transaction = false;
 
@@ -179,9 +199,25 @@ class MP_OB_Fake_WPDB {
 			$this->activity_log[] = $data;
 		}
 		++$this->insert_id;
+		if ( strpos( $table, 'mp_ob_offers' ) !== false ) {
+			$data['id']                       = $this->insert_id;
+			$this->offers[ $this->insert_id ] = $data;
+		}
 		return 1;
 	}
 	public function get_var( $query = null, $x = 0, $y = 0 ) {
+		$q = (string) $query;
+		// get_var na wp_mp_ob_offers: SELECT id ... WHERE lead_id = N AND status = 'draft'
+		// (idempotencja MP_Offer_Builder_Lead_Listener::on_lead_created).
+		if ( strpos( $q, 'mp_ob_offers' ) !== false && preg_match( '/lead_id\s*=\s*(\d+)/', $q, $m ) ) {
+			$lead_id = (int) $m[1];
+			foreach ( $this->offers as $row ) {
+				if ( (int) ( $row['lead_id'] ?? 0 ) === $lead_id && 'draft' === ( $row['status'] ?? '' ) ) {
+					return $row['id'];
+				}
+			}
+			return null;
+		}
 		return null;
 	}
 	public function query( $query ) {

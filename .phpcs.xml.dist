@@ -72,26 +72,32 @@
 	</rule>
 
 	<!--
-		=== Zapytania do bazy — tylko w warstwie DB/pipeline ===
+		=== Zapytania do bazy — warstwa DB/pipeline + integracja z pluginem 1 ===
 		Wtyczka z WLASNYMI tabelami (BD-2). Zapytania bezposrednie sa zamierzone;
 		wartosci uzytkownika ida przez $wpdb->prepare()/placeholdery, a interpolowane
 		sa wylacznie nazwy tabel pochodzace z kodu. Ta sama swiadoma decyzja co w
-		mp-lead-intake.
+		mp-lead-intake. class-mp-offer-builder-lead-listener.php (subskrybent
+		mp_lead_created) tez pisze bezposrednio do BD-2 — nie jest w db/ ani
+		pipeline/, bo to integracja z pluginem 1, nie warstwa danych/orkiestracja.
 	-->
 	<rule ref="WordPress.DB.DirectDatabaseQuery">
 		<exclude-pattern>*/includes/db/*</exclude-pattern>
 		<exclude-pattern>*/includes/pipeline/*</exclude-pattern>
+		<exclude-pattern>*/includes/class-mp-offer-builder-lead-listener.php</exclude-pattern>
 	</rule>
 	<rule ref="WordPress.DB.PreparedSQL">
 		<exclude-pattern>*/includes/db/*</exclude-pattern>
 		<exclude-pattern>*/includes/pipeline/*</exclude-pattern>
+		<exclude-pattern>*/includes/class-mp-offer-builder-lead-listener.php</exclude-pattern>
 	</rule>
 	<rule ref="WordPress.DB.PreparedSQLPlaceholders">
 		<exclude-pattern>*/includes/db/*</exclude-pattern>
 		<exclude-pattern>*/includes/pipeline/*</exclude-pattern>
+		<exclude-pattern>*/includes/class-mp-offer-builder-lead-listener.php</exclude-pattern>
 	</rule>
 	<rule ref="WordPress.DB.SlowDBQuery">
 		<exclude-pattern>*/includes/db/*</exclude-pattern>
 		<exclude-pattern>*/includes/pipeline/*</exclude-pattern>
+		<exclude-pattern>*/includes/class-mp-offer-builder-lead-listener.php</exclude-pattern>
 	</rule>
 </ruleset>

@@ -22,6 +22,7 @@ if ( ! $PLUGIN || ! is_dir( $PLUGIN ) ) {
 }
 require $PLUGIN . '/includes/db/class-mp-offer-builder-db.php';
 require $PLUGIN . '/includes/pipeline/bootstrap.php';
+require $PLUGIN . '/includes/class-mp-offer-builder-lead-listener.php';
 
 /* ---------- Narzędzia ---------- */
 
@@ -189,6 +190,75 @@ record(
 	$inv6 ? 'PASS' : 'FAIL',
 	'tx_log=' . implode( '>', $GLOBALS['wpdb']->tx_log ) . ' activity_log_rows=' . count( $GLOBALS['wpdb']->activity_log )
 );
+
+/* ---------- Krok 2.5: integracja z pluginem 1 (mp_lead_created → draft) ---------- */
+
+echo "\n=== KROK 2.5: AUTOMATYCZNY DRAFT Z LEADA ===\n";
+
+// Kontrakt payloadu = dokładnie to, co realnie emituje plugin 1 w
+// class-mp-department-11.php (Agent 11.3), zweryfikowane w kodzie 2026-07-23.
+function lead_payload( $overrides = array() ) {
+	return array_merge(
+		array(
+			'lead_id'         => 501,
+			'company_name'    => 'Testowa Firma Sp. z o.o.',
+			'nip'             => '1234563218',
+			'email'           => 'kontakt@testowa-firma.pl',
+			'phone'           => '+48 600 100 200',
+			'country'         => 'PL',
+			'segment'         => 'IT',
+			'client_category' => 'standard',
+			'score'           => 80,
+			'status'          => 'new',
+			'vat_status'      => 'checked',
+			'salesman_id'     => 12,
+		),
+		$overrides
+	);
+}
+
+// 7) WIRING: register() realnie łączy hook 'mp_lead_created' z on_lead_created()
+//    (nie wołamy metody wprost — to samo ryzyko co w pluginie 1, Runda 5: literówka
+//    w nazwie hooka byłaby niewykrywalna, gdyby test omijał system hooków WP).
+$GLOBALS['wpdb']->offers       = array();
+$GLOBALS['wpdb']->activity_log = array();
+MP_Offer_Builder_Lead_Listener::register();
+do_action( 'mp_lead_created', 501, lead_payload() );
+
+$draft = null;
+foreach ( $GLOBALS['wpdb']->offers as $row ) {
+	if ( 501 === (int) ( $row['lead_id'] ?? 0 ) ) {
+		$draft = $row;
+		break;
+	}
+}
+$inv7 = null !== $draft
+	&& 'draft' === ( $draft['status'] ?? '' )
+	&& null === ( $draft['offer_number'] ?? null )
+	&& 'Testowa Firma Sp. z o.o.' === ( $draft['client_name'] ?? '' )
+	&& '1234563218' === ( $draft['client_nip'] ?? '' );
+record(
+	'inv7_wiring_mp_lead_created_tworzy_draft',
+	$inv7 ? 'PASS' : 'FAIL',
+	$draft ? ( 'status=' . $draft['status'] . ' client_name=' . $draft['client_name'] ) : 'brak wiersza draft'
+);
+
+// 8) Dziennik BD-2: draft_created_from_lead zapisany dokładnie raz.
+$inv8 = 1 === count( $GLOBALS['wpdb']->activity_log )
+	&& 'draft_created_from_lead' === ( $GLOBALS['wpdb']->activity_log[0]['action'] ?? '' );
+record( 'inv8_dziennik_draft_created_from_lead', $inv8 ? 'PASS' : 'FAIL', 'wiersze=' . count( $GLOBALS['wpdb']->activity_log ) );
+
+// 9) Idempotencja: reaktywacja tego samego leada (ten sam lead_id, hook odpalony
+//    ponownie) NIE zakłada drugiego draftu.
+do_action( 'mp_lead_created', 501, lead_payload() );
+$count_for_lead = 0;
+foreach ( $GLOBALS['wpdb']->offers as $row ) {
+	if ( 501 === (int) ( $row['lead_id'] ?? 0 ) ) {
+		++$count_for_lead;
+	}
+}
+$inv9 = 1 === $count_for_lead;
+record( 'inv9_idempotencja_bez_duplikatu_draftu', $inv9 ? 'PASS' : 'FAIL', 'draftow_dla_lead_id_501=' . $count_for_lead );
 
 /* ---------- Podsumowanie ---------- */
 
