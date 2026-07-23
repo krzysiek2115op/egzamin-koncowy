@@ -42,6 +42,36 @@
 	</rule>
 
 	<!--
+		=== Reguły świadomie rozluźnione (ta sama decyzja projektowa co w mp-lead-intake,
+		podjęta niezależnie dla tej samej konwencji architektonicznej) ===
+	-->
+
+	<!-- Konwencja projektu "1 plik = 1 dział": kilka powiązanych klas (Agent/Krytyk/budowniczy) w pliku działu -->
+	<rule ref="Generic.Files.OneObjectStructurePerFile">
+		<severity>0</severity>
+	</rule>
+	<!-- Nazwy plików nie muszą odpowiadać jednej klasie (wieloklasowe pliki działów) -->
+	<rule ref="WordPress.Files.FileName">
+		<severity>0</severity>
+	</rule>
+
+	<!-- Krótki opis w docblocku nie jest wymagany dla prostych metod (run/getterów) -->
+	<rule ref="Generic.Commenting.DocComment.MissingShort">
+		<severity>0</severity>
+	</rule>
+	<!-- Trywialne metody (np. konstruktory delegujące) nie wymagają docblocka -->
+	<rule ref="Squiz.Commenting.FunctionComment.Missing">
+		<severity>0</severity>
+	</rule>
+	<!-- Pliki-zaślepki (index.php "Silence is golden") bez pełnego docblocka pliku -->
+	<rule ref="Squiz.Commenting.FileComment.Missing">
+		<severity>0</severity>
+	</rule>
+	<rule ref="Squiz.Commenting.FileComment.WrongStyle">
+		<severity>0</severity>
+	</rule>
+
+	<!--
 		=== Zapytania do bazy — tylko w warstwie DB/pipeline ===
 		Wtyczka z WLASNYMI tabelami (BD-2). Zapytania bezposrednie sa zamierzone;
 		wartosci uzytkownika ida przez $wpdb->prepare()/placeholdery, a interpolowane

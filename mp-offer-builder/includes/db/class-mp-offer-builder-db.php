@@ -27,7 +27,7 @@ class MP_Offer_Builder_DB {
 	/**
 	 * Wersja schematu bazy. Podbijamy przy KAŻDEJ zmianie struktury tabel.
 	 */
-	const DB_VERSION = '0.1.0';
+	const DB_VERSION = '0.2.0';
 
 	/** Nazwa opcji WordPress przechowującej aktualną wersję bazy. */
 	const DB_VERSION_OPTION = 'mp_offer_builder_db_version';
@@ -119,12 +119,24 @@ class MP_Offer_Builder_DB {
 		// twardy FK złamałby izolację wtyczek (plugin 2 nie może zakładać, że
 		// plugin 1 jest zainstalowany). Dlatego dane klienta są też zdenormalizowane
 		// (client_*) na samej ofercie, żeby oferta była kompletna sama w sobie.
+		// UNIQUE(request_id): egzekwuje na poziomie DB krytyk idempotencji z Działu 1
+		// blueprintu ("ten sam request_id nigdy nie tworzy drugiej oferty") — MySQL/InnoDB
+		// pozwala na wiele wierszy z request_id=NULL (np. przyszłe wiersze zakładane spoza
+		// pipeline'u „1 AJAX"), więc kolumna zostaje nullable.
+		//
+		// offer_number/lang jako NULL (decyzja 2026-07-23, uzgodniona z klientem): hook
+		// mp_lead_created z pluginu 1 automatycznie zakłada SZKIC oferty (status='draft',
+		// lead_id + snapshot klienta, ZERO pozycji) — w tym momencie nie ma jeszcze ani
+		// numeru (ten wg Działu 8 diagramu powstaje dopiero PRZED renderem PDF), ani języka
+		// (wybiera go handlowiec przy dokańczaniu oferty). MySQL/InnoDB traktuje każdy NULL
+		// w UNIQUE(offer_number, version) jako odrębny, więc wiele draftów współistnieje bez
+		// kolizji.
 		$sql_offers = "CREATE TABLE $offers (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-			offer_number varchar(30) NOT NULL,
+			offer_number varchar(30) DEFAULT NULL,
 			version int(10) unsigned NOT NULL DEFAULT 1,
 			status varchar(20) NOT NULL DEFAULT 'draft',
-			lang varchar(5) NOT NULL,
+			lang varchar(5) DEFAULT NULL,
 			lead_id bigint(20) unsigned DEFAULT NULL,
 			client_name varchar(191) DEFAULT NULL,
 			client_email varchar(191) DEFAULT NULL,
@@ -143,8 +155,8 @@ class MP_Offer_Builder_DB {
 			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			UNIQUE KEY uq_offer_number_version (offer_number, version),
+			UNIQUE KEY uq_request_id (request_id),
 			KEY lead_id (lead_id),
-			KEY request_id (request_id),
 			KEY status (status)
 		) ENGINE=InnoDB $charset_collate;";
 

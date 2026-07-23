@@ -29,6 +29,25 @@ define( 'MP_OFFER_BUILDER_URL', plugin_dir_url( __FILE__ ) );
 // --- Warstwa bazy danych (BD-2) ---
 require_once MP_OFFER_BUILDER_DIR . 'includes/db/class-mp-offer-builder-db.php';
 
+// --- Warstwa pipeline (11 działów: agenci, krytycy, bramki jakości) ---
+require_once MP_OFFER_BUILDER_DIR . 'includes/pipeline/bootstrap.php';
+
+// --- Front: endpoint AJAX ("1 AJAX") ---
+require_once MP_OFFER_BUILDER_DIR . 'includes/class-mp-offer-builder-ajax.php';
+
+/**
+ * Bootstrap wtyczki po załadowaniu wszystkich wtyczek.
+ *
+ * @return void
+ */
+function mp_offer_builder_bootstrap() {
+	load_plugin_textdomain( 'mp-offer-builder', false, dirname( plugin_basename( MP_OFFER_BUILDER_FILE ) ) . '/languages' );
+
+	// "1 AJAX" — endpoint (drzwi we wtyczce), który uruchamia cały pipeline.
+	MP_Offer_Builder_Ajax::register();
+}
+add_action( 'plugins_loaded', 'mp_offer_builder_bootstrap' );
+
 /**
  * Aktywacja wtyczki — tabele BD-2.
  */
