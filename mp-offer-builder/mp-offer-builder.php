@@ -49,6 +49,14 @@ require_once MP_OFFER_BUILDER_DIR . 'includes/class-mp-offer-builder-ajax.php';
 // --- Integracja z pluginem 1: automatyczny szkic oferty po utworzeniu leada ---
 require_once MP_OFFER_BUILDER_DIR . 'includes/class-mp-offer-builder-lead-listener.php';
 
+// --- Chroniony endpoint pobierania PDF (Krok 4, decyzja architektoniczna C) ---
+require_once MP_OFFER_BUILDER_DIR . 'includes/class-mp-offer-builder-download.php';
+
+// --- Panel wp-admin handlowca (Krok 4, decyzja architektoniczna B) ---
+// class-mp-offer-builder-list-table.php ładowany leniwie wewnątrz Admin::render(),
+// NIE tutaj — klasa bazowa WP_List_Table żyje wyłącznie w wp-admin.
+require_once MP_OFFER_BUILDER_DIR . 'includes/admin/class-mp-offer-builder-admin.php';
+
 /**
  * Bootstrap wtyczki po załadowaniu wszystkich wtyczek.
  *
@@ -61,6 +69,10 @@ function mp_offer_builder_bootstrap() {
 	MP_Offer_Builder_Ajax::register();
 	// mp_lead_created (plugin 1) → automatyczny szkic oferty (Krok 2.5).
 	MP_Offer_Builder_Lead_Listener::register();
+	// Chroniony endpoint pobierania PDF (nonce + capability + właściciel, Krok 4.3).
+	MP_Offer_Builder_Download::register();
+	// Panel wp-admin handlowca: menu, lista, ekran budowy (Krok 4.4/4.5).
+	MP_Offer_Builder_Admin::register();
 }
 add_action( 'plugins_loaded', 'mp_offer_builder_bootstrap' );
 
