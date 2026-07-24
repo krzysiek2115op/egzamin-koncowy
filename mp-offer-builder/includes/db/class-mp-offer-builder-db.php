@@ -227,6 +227,22 @@ class MP_Offer_Builder_DB {
 	}
 
 	/**
+	 * Ponownie uruchamia install() (dbDelta jest bezpieczny dla istniejących
+	 * danych — dodaje/zmienia kolumny, nie kasuje wierszy), jeśli wersja
+	 * zapisana w opcji różni się od DB_VERSION. Bez tego instalacje AKTYWOWANE
+	 * przed zmianą schematu (np. dodaniem created_by w Kroku 4) nigdy nie
+	 * dostałyby nowych kolumn/indeksów — register_activation_hook() odpala się
+	 * tylko RAZ, przy (re)aktywacji wtyczki, nie przy zwykłej aktualizacji plików.
+	 *
+	 * @return void
+	 */
+	public static function maybe_upgrade() {
+		if ( get_option( self::DB_VERSION_OPTION ) !== self::DB_VERSION ) {
+			self::install();
+		}
+	}
+
+	/**
 	 * Sprawdza, czy wszystkie tabele BD-2 istnieją.
 	 *
 	 * @return bool

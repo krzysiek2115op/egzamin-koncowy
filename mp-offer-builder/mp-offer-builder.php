@@ -65,6 +65,11 @@ require_once MP_OFFER_BUILDER_DIR . 'includes/admin/class-mp-offer-builder-admin
 function mp_offer_builder_bootstrap() {
 	load_plugin_textdomain( 'mp-offer-builder', false, dirname( plugin_basename( MP_OFFER_BUILDER_FILE ) ) . '/languages' );
 
+	// Ścieżka aktualizacji schematu BD-2 dla instalacji aktywowanych PRZED
+	// zmianą (register_activation_hook nie odpala się przy zwykłej podmianie
+	// plików wtyczki, tylko przy jej (re)aktywacji) — patrz docblock maybe_upgrade().
+	MP_Offer_Builder_DB::maybe_upgrade();
+
 	// "1 AJAX" — endpoint (drzwi we wtyczce), który uruchamia cały pipeline.
 	MP_Offer_Builder_Ajax::register();
 	// mp_lead_created (plugin 1) → automatyczny szkic oferty (Krok 2.5).

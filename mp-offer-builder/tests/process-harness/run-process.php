@@ -573,6 +573,15 @@ $r34                          = run_pipeline( $non_eu );
 $inv34                        = $r34['ok'] && 'out_of_scope' === ( $r34['final_data']['tax_mechanism'] ?? null ) && 0 === ( $r34['final_data']['vat_grosze'] ?? null );
 record( 'inv34_poza_ue_out_of_scope', $inv34 ? 'PASS' : 'FAIL', 'mechanism=' . ( $r34['final_data']['tax_mechanism'] ?? '-' ) );
 
+// 84) Kod kraju NIEPUSTY, ale niezgodny z formatem ISO 3166-1 alpha-2 (np. literówka
+//     "PLN" zamiast "PL") → STOP z jawnym kodem, NIGDY ciche 0% VAT pod fałszywą
+//     etykietą "poza UE" (Dział 1 sprawdza tylko "niepuste", nie kształt).
+$bad_country                      = base_input();
+$bad_country['client']['country'] = 'PLN';
+$r84                               = run_pipeline( $bad_country );
+$inv84                             = ! $r84['ok'] && 'invalid_country' === $r84['code'];
+record( 'inv84_zly_format_kraju_stop_invalid_country', $inv84 ? 'PASS' : 'FAIL', 'code=' . $r84['code'] );
+
 // 35) Zaokrąglenie metodą półówkową (bez float) — granica dokładnie .5: 1×50/100=0.5→1,
 //     3×50/100=1.5→2 (round half up), sprawdzone bezpośrednio na metodzie statycznej.
 $inv35 = 1 === MP_OB_D6_Agent_Rounding::vat_grosze( 1, 50 )

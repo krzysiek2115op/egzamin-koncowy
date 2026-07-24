@@ -76,6 +76,19 @@ class MP_OB_D6_Agent_Mechanism extends MP_OB_Abstract_Agent {
 		$country    = strtoupper( trim( (string) ( isset( $client['country'] ) ? $client['country'] : '' ) ) );
 		$vat_status = isset( $client['vat_status'] ) ? (string) $client['vat_status'] : '';
 
+		// Format kodu kraju (Dział 1 sprawdza tylko "niepuste", nie kształt) —
+		// bez tej kontroli błędny/zniekształcony kod ("PLN", "12", spacje) trafiał
+		// do gałęzi "poza UE" i dostawał CICHE 0% VAT z fałszywą podstawą prawną
+		// ("kraj spoza UE"), zamiast jawnego błędu. ISO 3166-1 alpha-2 = zawsze
+		// dokładnie 2 litery.
+		if ( 1 !== preg_match( '/^[A-Z]{2}$/', $country ) ) {
+			return MP_OB_Result::fail(
+				'Kod kraju klienta jest nieprawidłowy — wymagany dwuliterowy kod ISO 3166-1 alpha-2.',
+				array(),
+				'invalid_country'
+			);
+		}
+
 		if ( 'PL' === $country ) {
 			$mechanism = 'domestic';
 			$basis     = 'Polska — stawka krajowa.';
