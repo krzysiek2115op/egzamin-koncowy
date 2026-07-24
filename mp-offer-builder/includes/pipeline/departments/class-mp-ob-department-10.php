@@ -83,6 +83,14 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 		$existing_created_by = isset( $numbering['existing_created_by'] ) ? $numbering['existing_created_by'] : null;
 		$created_by          = null !== $existing_created_by ? (int) $existing_created_by : get_current_user_id();
 
+		// Blokada optymistyczna: token CELOWO NIEZALEŻNY od `version` (numeru
+		// wersji BIZNESOWEJ, Dział 8) — patrz docblock kolumny `lock_version`
+		// w class-mp-offer-builder-db.php ("version" dla pierwszego ponumerowania
+		// draftu jest zawsze 1, więc jako token blokady nie wykrywałby zapisu
+		// konkurenta). `lock_version` rośnie bezwarunkowo przy KAŻDYM zapisie.
+		$existing_lock_version = isset( $numbering['existing_lock_version'] ) ? (int) $numbering['existing_lock_version'] : null;
+		$new_lock_version      = null !== $existing_lock_version ? $existing_lock_version + 1 : 1;
+
 		// Obrona w głąb przeciw IDOR: Dział 1 już blokuje zapis cudzej oferty PRZED
 		// uruchomieniem reszty pipeline'u, ale Dział 10 (jedyny dział z prawem zapisu)
 		// NIE POWINIEN ufać ślepo, że ta kontrola na pewno zaszła wcześniej — sprawdzamy
@@ -109,6 +117,7 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 			'pdf_sha256'     => isset( $pdf['sha256'] ) ? (string) $pdf['sha256'] : '',
 			'request_id'     => (string) $context->get( 'request_id', '' ),
 			'created_by'     => $created_by,
+			'lock_version'   => $new_lock_version,
 			// Jawnie ustawiane na KAŻDYM zapisie (schemat NIE ma ON UPDATE
 			// CURRENT_TIMESTAMP) — przy okazji gwarantuje, że UPDATE zawsze
 			// realnie zmienia przynajmniej jedną kolumnę, więc "0 wierszy
@@ -192,14 +201,14 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 		return MP_OB_Result::ok(
 			array(
 				'write_plan' => array(
-					'header'           => $header,
-					'items'            => $item_rows,
-					'version'          => $version_row,
-					'log'              => $log_row,
-					// Blokada optymistyczna (Agent 10.2): wersja wiersza ODCZYTANA
+					'header'                => $header,
+					'items'                 => $item_rows,
+					'version'               => $version_row,
+					'log'                   => $log_row,
+					// Blokada optymistyczna (Agent 10.2): lock_version ODCZYTANY
 					// w Dziale 2 (Agent 2.5, "jeden odczyt") — null tylko gdy to
 					// NOWA oferta (offer_id=0, wtedy INSERT, nic do zablokowania).
-					'expected_version' => ( $offer_id > 0 && isset( $numbering['existing_row_version'] ) ) ? $numbering['existing_row_version'] : null,
+					'expected_lock_version' => $offer_id > 0 ? $existing_lock_version : null,
 				),
 			)
 		);
@@ -270,16 +279,19 @@ class MP_OB_D10_Agent_Transaction extends MP_OB_Abstract_Agent {
 
 			if ( $offer_id > 0 ) {
 				$update_where = array( 'id' => $offer_id );
-				if ( null !== $plan['expected_version'] ) {
-					// Blokada optymistyczna: WHERE zawiera wersję ODCZYTANĄ w Dziale 2,
-					// NIE nową wersję z $header. `updated_at` w $header (patrz Agent 10.1)
-					// gwarantuje, że dopasowany wiersz ZAWSZE realnie się zmienia, więc
-					// 0 wierszy dotkniętych jednoznacznie znaczy "WHERE nie trafił" —
-					// ktoś inny zapisał tę ofertę pomiędzy odczytem (Dział 2) a tym zapisem.
-					$update_where['version'] = (int) $plan['expected_version'];
+				if ( null !== $plan['expected_lock_version'] ) {
+					// Blokada optymistyczna: WHERE zawiera lock_version ODCZYTANY w
+					// Dziale 2, NIGDY biznesowy `version` (ten dla pierwszego
+					// ponumerowania draftu jest zawsze 1 — patrz docblock Agenta 10.1
+					// i kolumny lock_version w class-mp-offer-builder-db.php).
+					// `lock_version` w $header (nowy = stary+1) gwarantuje, że
+					// dopasowany wiersz ZAWSZE realnie się zmienia, więc 0 wierszy
+					// dotkniętych jednoznacznie znaczy "WHERE nie trafił" — ktoś
+					// inny zapisał tę ofertę pomiędzy odczytem (Dział 2) a tym zapisem.
+					$update_where['lock_version'] = (int) $plan['expected_lock_version'];
 				}
 				$update_result = $wpdb->update( MP_Offer_Builder_DB::offers_table(), $header, $update_where );
-				if ( 0 === $update_result && isset( $update_where['version'] ) ) {
+				if ( 0 === $update_result && isset( $update_where['lock_version'] ) ) {
 					return MP_OB_Result::fail(
 						'Oferta została zmieniona przez innego użytkownika w międzyczasie. Odśwież i spróbuj ponownie.',
 						array(),
@@ -318,7 +330,12 @@ class MP_OB_D10_Agent_Transaction extends MP_OB_Abstract_Agent {
 				// PRZED wstawieniem nowych — inaczej każda korekta tylko DOPISYWAŁABY
 				// wiersze do wp_mp_ob_offer_items, dublując pozycje z poprzednich wersji
 				// (offer_items nie ma kolumny version — jeden komplet na offer_id).
-				$wpdb->delete( MP_Offer_Builder_DB::items_table(), array( 'offer_id' => $offer_id ) );
+				// Sprawdzone jak każdy inny zapis w tej metodzie: niesprawdzony DELETE
+				// przy awarii SQL zostawiłby stare pozycje NA MIEJSCU, a nowe i tak
+				// zostałyby dopisane obok nich — cichy powrót Critical#2 pod inną postacią.
+				if ( false === $wpdb->delete( MP_Offer_Builder_DB::items_table(), array( 'offer_id' => $offer_id ) ) ) {
+					return MP_OB_Result::fail( 'Usunięcie starych pozycji oferty nie powiodło się: ' . $wpdb->last_error, array(), 'write_failed' );
+				}
 			}
 
 			foreach ( $plan['items'] as $item_row ) {

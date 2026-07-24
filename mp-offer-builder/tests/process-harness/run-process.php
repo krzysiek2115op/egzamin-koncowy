@@ -1120,16 +1120,17 @@ $atomicity_result = ( new MP_OB_D10_QA_Agent() )->run( $atomicity_ctx );
 $inv61              = ! $atomicity_result->is_ok() && 'atomicity_mismatch' === $atomicity_result->get_code();
 record( 'inv61_atomowosc_niezgodna_liczba_wierszy_stop', $inv61 ? 'PASS' : 'FAIL', 'code=' . $atomicity_result->get_code() );
 
-// 86) Blokada optymistyczna (Agent 10.2, High — "lost update"): wersja w bazie
-//     ZMIENIŁA SIĘ między odczytem (Dział 2) a zapisem (ktoś inny wygrał wyścig
-//     na tę samą ofertę) -> STOP z 'concurrent_modification', BEZ nadpisania
-//     cudzego zapisu i BEZ wstawienia naszych pozycji (transakcja robi ROLLBACK).
+// 86) Blokada optymistyczna (Agent 10.2, High — "lost update"): lock_version w
+//     bazie ZMIENIŁ SIĘ między odczytem (Dział 2) a zapisem (ktoś inny wygrał
+//     wyścig na tę samą ofertę) -> STOP z 'concurrent_modification', BEZ
+//     nadpisania cudzego zapisu i BEZ wstawienia naszych pozycji (ROLLBACK).
 $GLOBALS['wpdb']->offers = array(
 	40 => array(
 		'id'           => 40,
 		'status'       => 'draft',
 		'offer_number' => 'OF/2026/000040',
-		'version'      => 5, // ktoś inny zapisał już wersję 5.
+		'version'      => 5,
+		'lock_version' => 5, // ktoś inny zapisał już lock_version=5.
 		'created_by'   => 1,
 		'client_name'  => 'Wersja zapisana przez kogos innego',
 	),
@@ -1138,17 +1139,18 @@ $GLOBALS['wpdb']->items = array();
 $optimistic_ctx         = new MP_OB_Context(
 	array(
 		'write_plan' => array(
-			'header'           => array(
+			'header'                => array(
 				'id'           => 40,
 				'offer_number' => 'OF/2026/000040',
 				'version'      => 5,
+				'lock_version' => 5,
 				'client_name'  => 'Moja wersja (powinna przegrac)',
 				'updated_at'   => gmdate( 'Y-m-d H:i:s' ),
 			),
-			'items'            => array( array( 'product_id' => 1, 'qty' => 1 ) ),
-			'version'          => array( 'version_number' => 5 ),
-			'log'              => array( 'action' => 'offer.versioned' ),
-			'expected_version' => 4, // STARA wersja odczytana przez NAS — już nieaktualna.
+			'items'                 => array( array( 'product_id' => 1, 'qty' => 1 ) ),
+			'version'               => array( 'version_number' => 5 ),
+			'log'                   => array( 'action' => 'offer.versioned' ),
+			'expected_lock_version' => 4, // STARY lock_version odczytany przez NAS — już nieaktualny.
 		),
 	)
 );
@@ -1161,6 +1163,81 @@ record(
 	'inv86_blokada_optymistyczna_wykrywa_lost_update',
 	$inv86 ? 'PASS' : 'FAIL',
 	'code=' . $optimistic_result->get_code() . ' offer_niezmieniony=' . ( 'Wersja zapisana przez kogos innego' === ( $GLOBALS['wpdb']->offers[40]['client_name'] ?? null ) ? 'tak' : 'nie' )
+);
+$GLOBALS['wpdb']->offers = array();
+
+// 96) Blokada optymistyczna MUSI działać też dla PIERWSZEGO ponumerowania
+//     auto-utworzonego draftu (High#4, dokładny scenariusz z re-audytu): Dział 8
+//     w trybie 'new_number' ZAWSZE nadaje business `version=1`, niezależnie od
+//     tego, ile razy draft był czytany — użycie SAMEGO `version` jako tokenu
+//     blokady NIE wykryłoby dwóch handlowców kończących TEN SAM świeży lead-draft
+//     (obaj czytają version=1, obaj piszą version=1 — WHERE version=1 pasuje
+//     OBU zapisom). `lock_version` (odrębna kolumna, rośnie bezwarunkowo) musi
+//     to złapać: drugi zapis — ze STAŁYM odczytem sprzed zapisu pierwszego — ma
+//     zostać zablokowany, NIE nadpisać cicho danych pierwszego handlowca.
+$GLOBALS['wpdb']->offers = array(
+	41 => array(
+		'id'           => 41,
+		'status'       => 'draft',
+		'offer_number' => null,
+		'version'      => 1,
+		'lock_version' => 1, // OBAJ handlowcy czytają tę samą, jeszcze niezmienioną wartość.
+		'created_by'   => null,
+		'client_name'  => null,
+	),
+);
+$GLOBALS['wpdb']->items = array();
+$plan_a                 = array(
+	'header'                => array(
+		'id'           => 41,
+		'offer_number' => 'OF/2026/000041',
+		'version'      => 1,
+		'lock_version' => 2,
+		'client_name'  => 'Dane od Handlowca A',
+		'updated_at'   => gmdate( 'Y-m-d H:i:s' ),
+	),
+	'items'                 => array( array( 'product_id' => 100, 'qty' => 1 ) ),
+	'version'               => array( 'version_number' => 1 ),
+	'log'                   => array( 'action' => 'offer.created' ),
+	'expected_lock_version' => 1, // odczyt SPRZED zapisu kogokolwiek.
+);
+$result_a                = ( new MP_OB_D10_Agent_Transaction() )->run( new MP_OB_Context( array( 'write_plan' => $plan_a ) ) );
+
+// Handlowiec B budował swój plan z TEGO SAMEGO, już nieaktualnego odczytu
+// (lock_version=1) — nie wie, że A właśnie zapisał.
+$plan_b    = array(
+	'header'                => array(
+		'id'           => 41,
+		'offer_number' => 'OF/2026/000041',
+		'version'      => 1,
+		'lock_version' => 2, // B liczy TAK SAMO: 1 (stary odczyt) + 1.
+		'client_name'  => 'Dane od Handlowca B',
+		'updated_at'   => gmdate( 'Y-m-d H:i:s' ),
+	),
+	'items'                 => array( array( 'product_id' => 200, 'qty' => 1 ) ),
+	'version'               => array( 'version_number' => 1 ),
+	'log'                   => array( 'action' => 'offer.created' ),
+	'expected_lock_version' => 1,
+);
+$result_b  = ( new MP_OB_D10_Agent_Transaction() )->run( new MP_OB_Context( array( 'write_plan' => $plan_b ) ) );
+$items_41  = array_values(
+	array_filter(
+		$GLOBALS['wpdb']->items,
+		function ( $row ) {
+			return 41 === (int) ( $row['offer_id'] ?? 0 );
+		}
+	)
+);
+$inv96 = $result_a->is_ok()
+	&& ! $result_b->is_ok()
+	&& 'concurrent_modification' === $result_b->get_code()
+	&& 'Dane od Handlowca A' === ( $GLOBALS['wpdb']->offers[41]['client_name'] ?? null )
+	&& 1 === count( $items_41 )
+	&& 100 === ( $items_41[0]['product_id'] ?? null );
+record(
+	'inv96_blokada_optymistyczna_pierwsze_ponumerowanie_draftu',
+	$inv96 ? 'PASS' : 'FAIL',
+	'a_ok=' . ( $result_a->is_ok() ? 'tak' : 'nie' ) . ' b_code=' . $result_b->get_code() . ' klient_niezmieniony=' . ( 'Dane od Handlowca A' === ( $GLOBALS['wpdb']->offers[41]['client_name'] ?? null ) ? 'tak' : 'nie' )
 );
 $GLOBALS['wpdb']->offers = array();
 
@@ -1330,6 +1407,61 @@ record(
 	'inv83_korekta_usuwa_stare_pozycje_przed_wstawieniem_nowych',
 	$inv83 ? 'PASS' : 'FAIL',
 	'pozycji_po_korekcie=' . count( $items_for_23 ) . ' stary_product_id_555_obecny=' . ( in_array( 555, $product_ids_23, true ) ? 'tak' : 'nie' )
+);
+$GLOBALS['wpdb']->offers = array();
+
+// 97) Niesprawdzony DELETE starych pozycji przy korekcie (Medium): jeśli
+//     $wpdb->delete() zawiedzie (błąd SQL), stare pozycje zostają NA MIEJSCU,
+//     a nowe i tak zostałyby dopisane obok nich, gdyby zapis kontynuował —
+//     cichy powrót Critical#2 pod inną postacią. Musi zatrzymać cały zapis.
+$GLOBALS['wpdb']->offers = array(
+	24 => array(
+		'id'             => 24,
+		'status'         => 'draft',
+		'offer_number'   => sprintf( 'OF/%d/000032', (int) gmdate( 'Y' ) ),
+		'version'        => 1,
+		'lock_version'   => 1,
+		'created_by'     => 33,
+		'client_name'    => 'Klient Awaria Delete Sp. z o.o.',
+		'client_email'   => 'awaria-delete@testowa-firma.pl',
+		'client_nip'     => '1234563218',
+		'client_country' => 'PL',
+	),
+);
+$GLOBALS['wpdb']->items = array(
+	array(
+		'id'         => 9002,
+		'offer_id'   => 24,
+		'product_id' => 666,
+		'qty'        => 1,
+	),
+);
+$GLOBALS['wpdb']->versions                    = array();
+$GLOBALS['wpdb']->activity_log                = array();
+$GLOBALS['wpdb']->force_items_delete_fail     = true;
+$GLOBALS['__mp_ob_cfg']['current_user_id']    = 33;
+$correction97_input                           = base_input();
+$correction97_input['offer_id']               = 24;
+unset( $correction97_input['client'] );
+$r97 = run_pipeline( $correction97_input );
+$GLOBALS['__mp_ob_cfg']['current_user_id'] = 0;
+$GLOBALS['wpdb']->force_items_delete_fail  = false;
+$items_for_24                              = array_values(
+	array_filter(
+		$GLOBALS['wpdb']->items,
+		function ( $row ) {
+			return 24 === (int) ( $row['offer_id'] ?? 0 );
+		}
+	)
+);
+$inv97 = ! $r97['ok']
+	&& 'write_failed' === $r97['code']
+	&& 1 === count( $items_for_24 )
+	&& 666 === ( $items_for_24[0]['product_id'] ?? null ); // stara pozycja NIE usunięta, nowa NIE dopisana obok niej.
+record(
+	'inv97_niesprawdzony_delete_starych_pozycji_stop',
+	$inv97 ? 'PASS' : 'FAIL',
+	'code=' . $r97['code'] . ' pozycji_po_probie=' . count( $items_for_24 )
 );
 $GLOBALS['wpdb']->offers = array();
 

@@ -27,7 +27,7 @@ class MP_Offer_Builder_DB {
 	/**
 	 * Wersja schematu bazy. Podbijamy przy KAŻDEJ zmianie struktury tabel.
 	 */
-	const DB_VERSION = '0.3.0';
+	const DB_VERSION = '0.4.0';
 
 	/** Nazwa opcji WordPress przechowującej aktualną wersję bazy. */
 	const DB_VERSION_OPTION = 'mp_offer_builder_db_version';
@@ -136,10 +136,19 @@ class MP_Offer_Builder_DB {
 		// wszystko. Ustawiane przez Dział 10 (Agent 10.1) PRZY PIERWSZYM zapisie i
 		// zachowywane bez zmian przy kolejnych korektach (pierwszy handlowiec zostaje
 		// właścicielem na stałe).
+		// lock_version (blokada optymistyczna, DB_VERSION 0.4.0): CELOWO ODRĘBNA od
+		// `version` (numer wersji BIZNESOWEJ oferty, część UNIQUE(offer_number,
+		// version)). `version` dla PIERWSZEGO ponumerowania draftu jest zawsze
+		// równe 1, niezależnie od tego, ile razy draft był wcześniej zapisywany
+		// bez numeru — użycie GO jako tokenu blokady dawałoby WHERE, które nadal
+		// pasuje po zapisie konkurenta (lost update niewykryty). `lock_version`
+		// rośnie bezwarunkowo przy KAŻDYM zapisie Działu 10, niezależnie od trybu
+		// numeracji.
 		$sql_offers = "CREATE TABLE $offers (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 			offer_number varchar(30) DEFAULT NULL,
 			version int(10) unsigned NOT NULL DEFAULT 1,
+			lock_version int(10) unsigned NOT NULL DEFAULT 1,
 			status varchar(20) NOT NULL DEFAULT 'draft',
 			lang varchar(5) DEFAULT NULL,
 			lead_id bigint(20) unsigned DEFAULT NULL,

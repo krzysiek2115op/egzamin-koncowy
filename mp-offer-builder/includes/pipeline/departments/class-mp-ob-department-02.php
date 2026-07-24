@@ -259,7 +259,7 @@ class MP_OB_D2_Agent_Numbering extends MP_OB_Abstract_Agent {
 		$existing_offer_number = null;
 		$existing_version      = null;
 		$existing_created_by   = null;
-		$existing_row_version  = null;
+		$existing_lock_version = null;
 
 		$offer_id = (int) $context->get( 'offer_id', 0 );
 		if ( $offer_id > 0 ) {
@@ -273,12 +273,14 @@ class MP_OB_D2_Agent_Numbering extends MP_OB_Abstract_Agent {
 					$existing_offer_number = $offer['offer_number'];
 					$existing_version      = MP_Offer_Builder_DB::get_max_version_for_offer_number( $offer['offer_number'] );
 				}
-				// Wersja FIZYCZNA wiersza (kolumna `version`, schema DEFAULT 1) —
-				// ODRĘBNA od existing_version wyżej (ten jest null dopóki oferta nie
-				// ma jeszcze offer_number, bo dotyczy numeracji, nie zamka
-				// optymistycznego). Dział 10 użyje jej w WHERE przy UPDATE, żeby
-				// wykryć "kogoś innego zapis w międzyczasie" (lost update).
-				$existing_row_version = isset( $offer['version'] ) ? (int) $offer['version'] : 1;
+				// Blokada optymistyczna (kolumna `lock_version`, DEFAULT 1) — CELOWO
+				// ODRĘBNA od `existing_version` wyżej. `version` (numer BIZNESOWY oferty)
+				// dla PIERWSZEGO ponumerowania draftu jest zawsze 1 (Dział 8, tryb
+				// 'new_number'), niezależnie od tego, ile razy draft był wcześniej
+				// zapisywany bez numeru — użycie GO jako tokenu blokady dawałoby WHERE,
+				// które nadal pasuje po zapisie konkurenta (lost update niewykryty).
+				// `lock_version` rośnie bezwarunkowo przy KAŻDYM zapisie Działu 10.
+				$existing_lock_version = isset( $offer['lock_version'] ) ? (int) $offer['lock_version'] : 1;
 			}
 		}
 
@@ -290,7 +292,7 @@ class MP_OB_D2_Agent_Numbering extends MP_OB_Abstract_Agent {
 					'existing_offer_number' => $existing_offer_number,
 					'existing_version'      => $existing_version,
 					'existing_created_by'   => $existing_created_by,
-					'existing_row_version'  => $existing_row_version,
+					'existing_lock_version' => $existing_lock_version,
 				),
 				// Znacznik "jeden odczyt" MUSI pochodzić z agenta (nie z QA gate —
 				// MP_OB_Department::process() nie scala danych bramki z kontekstem,

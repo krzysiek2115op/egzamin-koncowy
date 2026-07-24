@@ -318,6 +318,7 @@ class MP_OB_Fake_WPDB {
 	public $force_items_insert_fail    = false;
 	public $force_versions_insert_fail = false;
 	public $force_log_insert_fail      = false;
+	public $force_items_delete_fail    = false;
 
 	public function get_charset_collate() {
 		return 'DEFAULT CHARSET=utf8mb4';
@@ -393,10 +394,11 @@ class MP_OB_Fake_WPDB {
 			if ( ! isset( $this->offers[ $id ] ) ) {
 				return false;
 			}
-			// Blokada optymistyczna: WHERE z 'version' NIE dopasowuje wiersza, którego
-			// bieżąca wersja się różni — real MySQL zwraca wtedy 0 (dotkniętych wierszy),
-			// NIE false (to nie błąd zapytania, po prostu WHERE nic nie znalazł).
-			if ( isset( $where['version'] ) && (int) ( $this->offers[ $id ]['version'] ?? 1 ) !== (int) $where['version'] ) {
+			// Blokada optymistyczna: WHERE z 'lock_version' NIE dopasowuje wiersza,
+			// którego bieżący lock_version się różni — real MySQL zwraca wtedy 0
+			// (dotkniętych wierszy), NIE false (to nie błąd zapytania, po prostu
+			// WHERE nic nie znalazł).
+			if ( isset( $where['lock_version'] ) && (int) ( $this->offers[ $id ]['lock_version'] ?? 1 ) !== (int) $where['lock_version'] ) {
 				return 0;
 			}
 			if ( $this->force_unique_collision_always ) {
@@ -415,6 +417,10 @@ class MP_OB_Fake_WPDB {
 	}
 	public function delete( $table, $where, $format = null ) {
 		if ( strpos( $table, 'mp_ob_offer_items' ) !== false && isset( $where['offer_id'] ) ) {
+			if ( $this->force_items_delete_fail ) {
+				$this->last_error = 'Simulated items delete failure';
+				return false;
+			}
 			$offer_id    = (int) $where['offer_id'];
 			$before      = count( $this->items );
 			$this->items = array_values(

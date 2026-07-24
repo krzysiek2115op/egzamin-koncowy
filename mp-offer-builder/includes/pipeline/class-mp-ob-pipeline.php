@@ -169,6 +169,13 @@ class MP_OB_Pipeline {
 
 		if ( $in_transaction ) {
 			$wpdb->query( 'COMMIT' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			// Higiena/przyszłościowość: w KONFIGURACJI fabryki (transactional_until(10),
+			// zawsze Dział 11 na końcu) ta gałąź i tak nigdy nie wykonuje się z
+			// $in_transaction=true (próg zamyka się wcześniej w pętli powyżej), ale
+			// MP_OB_Pipeline to klasa OGÓLNEGO przeznaczenia — bez tego resetu twardy
+			// fatal PHP później w tym samym request (w innej konfiguracji progu)
+			// wywołałby przez shutdown-guard ROLLBACK na już zacommitowanej transakcji.
+			$in_transaction = false;
 		}
 
 		return MP_OB_Result::ok( $context->all() );
