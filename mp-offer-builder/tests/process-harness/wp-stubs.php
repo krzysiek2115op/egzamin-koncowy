@@ -280,6 +280,9 @@ class MP_OB_Fake_WPDB {
 	public function get_charset_collate() {
 		return 'DEFAULT CHARSET=utf8mb4';
 	}
+	public function esc_like( $text ) {
+		return addcslashes( (string) $text, '_%\\' );
+	}
 	public function prepare( $query, ...$args ) {
 		if ( count( $args ) === 1 && is_array( $args[0] ) ) {
 			$args = $args[0];
@@ -350,8 +353,58 @@ class MP_OB_Fake_WPDB {
 		}
 		return false;
 	}
+	// Filtr wspólny dla get_var(COUNT...)/get_results() na wp_mp_ob_offers — status/
+	// created_by/search, dopasowane do KONKRETNEGO kształtu zapytania budowanego
+	// przez MP_Offer_Builder_DB::build_offers_where() (patrz get_results() niżej).
+	private function filter_offers_rows( $q ) {
+		$rows = array_values( $this->offers );
+
+		if ( preg_match( "/\bstatus\s*=\s*'([^']*)'/", $q, $m ) ) {
+			$status = $m[1];
+			$rows   = array_values(
+				array_filter(
+					$rows,
+					function ( $r ) use ( $status ) {
+						return ( $r['status'] ?? '' ) === $status;
+					}
+				)
+			);
+		}
+		if ( preg_match( '/created_by\s*=\s*(\d+)/', $q, $m ) ) {
+			$created_by = (int) $m[1];
+			$rows       = array_values(
+				array_filter(
+					$rows,
+					function ( $r ) use ( $created_by ) {
+						return (int) ( $r['created_by'] ?? 0 ) === $created_by;
+					}
+				)
+			);
+		}
+		if ( preg_match( "/client_name LIKE '%(.*?)%'/", $q, $m ) ) {
+			$term = strtolower( stripslashes( $m[1] ) );
+			$rows = array_values(
+				array_filter(
+					$rows,
+					function ( $r ) use ( $term ) {
+						foreach ( array( 'client_name', 'client_nip', 'offer_number' ) as $field ) {
+							if ( false !== strpos( strtolower( (string) ( $r[ $field ] ?? '' ) ), $term ) ) {
+								return true;
+							}
+						}
+						return false;
+					}
+				)
+			);
+		}
+		return $rows;
+	}
 	public function get_var( $query = null, $x = 0, $y = 0 ) {
 		$q = (string) $query;
+		// MP_Offer_Builder_DB::count_offers(): SELECT COUNT(*) FROM wp_mp_ob_offers ...
+		if ( strpos( $q, 'mp_ob_offers' ) !== false && preg_match( '/SELECT\s+COUNT\(\*\)/i', $q ) ) {
+			return count( $this->filter_offers_rows( $q ) );
+		}
 		// get_var na wp_mp_ob_offers: SELECT id ... WHERE lead_id = N AND status = 'draft'
 		// (idempotencja MP_Offer_Builder_Lead_Listener::on_lead_created).
 		if ( strpos( $q, 'mp_ob_offers' ) !== false && preg_match( '/lead_id\s*=\s*(\d+)/', $q, $m ) ) {
@@ -429,6 +482,35 @@ class MP_OB_Fake_WPDB {
 			return null;
 		}
 		return null;
+	}
+	// MP_Offer_Builder_DB::list_offers(): filtruje/sortuje/pagina $this->offers wg
+	// warunków WIDOCZNYCH w gotowym (już przez prepare() podstawionym) zapytaniu —
+	// jak reszta tego fałszywego wpdb, dopasowane do KONKRETNEGO kształtu zapytania
+	// budowanego przez build_offers_where()/list_offers(), nie ogólny parser SQL.
+	public function get_results( $query = null, $output = 'ARRAY_A' ) {
+		$q = (string) $query;
+		if ( false === strpos( $q, 'mp_ob_offers' ) ) {
+			return array();
+		}
+		$rows = $this->filter_offers_rows( $q );
+
+		if ( preg_match( '/ORDER BY (\w+) (ASC|DESC)/i', $q, $m ) ) {
+			$col = $m[1];
+			$dir = strtoupper( $m[2] );
+			usort(
+				$rows,
+				function ( $a, $b ) use ( $col, $dir ) {
+					$av  = $a[ $col ] ?? null;
+					$bv  = $b[ $col ] ?? null;
+					$cmp = $av <=> $bv;
+					return 'ASC' === $dir ? $cmp : -$cmp;
+				}
+			);
+		}
+		if ( preg_match( '/LIMIT (\d+) OFFSET (\d+)/i', $q, $m ) ) {
+			$rows = array_slice( $rows, (int) $m[2], (int) $m[1] );
+		}
+		return $rows;
 	}
 	public function query( $query ) {
 		$q = strtoupper( trim( (string) $query ) );

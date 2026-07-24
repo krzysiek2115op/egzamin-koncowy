@@ -27,7 +27,7 @@ class MP_Offer_Builder_DB {
 	/**
 	 * Wersja schematu bazy. Podbijamy przy KAŻDEJ zmianie struktury tabel.
 	 */
-	const DB_VERSION = '0.2.0';
+	const DB_VERSION = '0.3.0';
 
 	/** Nazwa opcji WordPress przechowującej aktualną wersję bazy. */
 	const DB_VERSION_OPTION = 'mp_offer_builder_db_version';
@@ -131,6 +131,11 @@ class MP_Offer_Builder_DB {
 		// (wybiera go handlowiec przy dokańczaniu oferty). MySQL/InnoDB traktuje każdy NULL
 		// w UNIQUE(offer_number, version) jako odrębny, więc wiele draftów współistnieje bez
 		// kolizji.
+		// created_by (Krok 4, decyzja własności ofert uzgodniona z klientem): dostęp do
+		// listy/PDF ograniczony do TWÓRCY oferty; administrator (manage_options) widzi
+		// wszystko. Ustawiane przez Dział 10 (Agent 10.1) PRZY PIERWSZYM zapisie i
+		// zachowywane bez zmian przy kolejnych korektach (pierwszy handlowiec zostaje
+		// właścicielem na stałe).
 		$sql_offers = "CREATE TABLE $offers (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 			offer_number varchar(30) DEFAULT NULL,
@@ -151,13 +156,15 @@ class MP_Offer_Builder_DB {
 			pdf_path varchar(255) DEFAULT NULL,
 			pdf_sha256 char(64) DEFAULT NULL,
 			request_id char(36) DEFAULT NULL,
+			created_by bigint(20) unsigned DEFAULT NULL,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			UNIQUE KEY uq_offer_number_version (offer_number, version),
 			UNIQUE KEY uq_request_id (request_id),
 			KEY lead_id (lead_id),
-			KEY status (status)
+			KEY status (status),
+			KEY created_by (created_by)
 		) ENGINE=InnoDB $charset_collate;";
 
 		// --- Tabela 3: pozycje oferty ---
@@ -294,6 +301,85 @@ class MP_Offer_Builder_DB {
 		$table = self::offers_table();
 		$max   = $wpdb->get_var( $wpdb->prepare( "SELECT MAX(version) FROM {$table} WHERE offer_number = %s", (string) $offer_number ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
 		return null !== $max ? (int) $max : null;
+	}
+
+	/**
+	 * Lista ofert z filtrami — panel wp-admin handlowca (Krok 4).
+	 *
+	 * @param array $args Filtry: status, created_by, search (client_name/client_nip/
+	 *                    offer_number), per_page, offset, orderby, order.
+	 * @return array Wiersze ARRAY_A.
+	 */
+	public static function list_offers( array $args = array() ) {
+		global $wpdb;
+		$table = self::offers_table();
+
+		list( $where_sql, $where_values ) = self::build_offers_where( $args );
+
+		$allowed_orderby = array( 'id', 'offer_number', 'status', 'gross_grosze', 'version', 'updated_at', 'created_at' );
+		$orderby         = ( ! empty( $args['orderby'] ) && in_array( $args['orderby'], $allowed_orderby, true ) ) ? $args['orderby'] : 'updated_at';
+		$order           = ( ! empty( $args['order'] ) && 'asc' === strtolower( (string) $args['order'] ) ) ? 'ASC' : 'DESC';
+
+		$per_page = isset( $args['per_page'] ) ? max( 1, (int) $args['per_page'] ) : 20;
+		$offset   = isset( $args['offset'] ) ? max( 0, (int) $args['offset'] ) : 0;
+
+		$sql    = "SELECT * FROM {$table}{$where_sql} ORDER BY {$orderby} {$order} LIMIT %d OFFSET %d";
+		$values = array_merge( $where_values, array( $per_page, $offset ) );
+		$rows   = $wpdb->get_results( $wpdb->prepare( $sql, $values ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * Liczba ofert pasujących do tych samych filtrów co list_offers() (paginacja).
+	 *
+	 * @param array $args Filtry: status, created_by, search (per_page/offset/orderby/order ignorowane).
+	 * @return int
+	 */
+	public static function count_offers( array $args = array() ) {
+		global $wpdb;
+		$table = self::offers_table();
+
+		list( $where_sql, $where_values ) = self::build_offers_where( $args );
+		$sql                              = "SELECT COUNT(*) FROM {$table}{$where_sql}";
+
+		if ( $where_values ) {
+			return (int) $wpdb->get_var( $wpdb->prepare( $sql, $where_values ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+		}
+		return (int) $wpdb->get_var( $sql ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+	}
+
+	/**
+	 * Wspólne warunki WHERE dla list_offers()/count_offers() — status/created_by/search
+	 * (wydzielone, żeby paginacja i liczenie zawsze filtrowały IDENTYCZNIE).
+	 *
+	 * @param array $args Filtry (patrz list_offers()).
+	 * @return array{0: string, 1: array} [" WHERE ..." albo "", wartości do prepare()].
+	 */
+	private static function build_offers_where( array $args ) {
+		global $wpdb;
+
+		$conditions = array();
+		$values     = array();
+
+		if ( ! empty( $args['status'] ) ) {
+			$conditions[] = 'status = %s';
+			$values[]     = (string) $args['status'];
+		}
+		if ( isset( $args['created_by'] ) && '' !== $args['created_by'] ) {
+			$conditions[] = 'created_by = %d';
+			$values[]     = (int) $args['created_by'];
+		}
+		if ( ! empty( $args['search'] ) ) {
+			$like         = '%' . $wpdb->esc_like( (string) $args['search'] ) . '%';
+			$conditions[] = '(client_name LIKE %s OR client_nip LIKE %s OR offer_number LIKE %s)';
+			$values[]     = $like;
+			$values[]     = $like;
+			$values[]     = $like;
+		}
+
+		$where_sql = $conditions ? ( ' WHERE ' . implode( ' AND ', $conditions ) ) : '';
+		return array( $where_sql, $values );
 	}
 
 	/**

@@ -1145,6 +1145,94 @@ foreach ( $GLOBALS['wpdb']->offers as $row ) {
 $inv9 = 1 === $count_for_lead;
 record( 'inv9_idempotencja_bez_duplikatu_draftu', $inv9 ? 'PASS' : 'FAIL', 'draftow_dla_lead_id_501=' . $count_for_lead );
 
+/* ---------- Krok 4.1: BD-2 — lista ofert (list_offers/count_offers) ---------- */
+
+echo "\n=== KROK 4.1: LISTA OFERT (list_offers/count_offers) ===\n";
+
+$GLOBALS['wpdb']->offers = array(
+	1 => array(
+		'id'           => 1,
+		'status'       => 'draft',
+		'created_by'   => 10,
+		'client_name'  => 'Alfa Sp. z o.o.',
+		'client_nip'   => '1111111111',
+		'offer_number' => null,
+		'updated_at'   => '2026-01-01 10:00:00',
+	),
+	2 => array(
+		'id'           => 2,
+		'status'       => 'sent',
+		'created_by'   => 10,
+		'client_name'  => 'Beta Sp. z o.o.',
+		'client_nip'   => '2222222222',
+		'offer_number' => 'OF/2026/000001',
+		'updated_at'   => '2026-01-02 10:00:00',
+	),
+	3 => array(
+		'id'           => 3,
+		'status'       => 'draft',
+		'created_by'   => 20,
+		'client_name'  => 'Gamma Sp. z o.o.',
+		'client_nip'   => '3333333333',
+		'offer_number' => null,
+		'updated_at'   => '2026-01-03 10:00:00',
+	),
+	4 => array(
+		'id'           => 4,
+		'status'       => 'completed',
+		'created_by'   => 20,
+		'client_name'  => 'Delta Sp. z o.o.',
+		'client_nip'   => '4444444444',
+		'offer_number' => 'OF/2026/000002',
+		'updated_at'   => '2026-01-04 10:00:00',
+	),
+);
+
+// 69) Filtr status: 'draft' -> tylko oferty 1 i 3, count_offers() zgodny z list_offers().
+$draft_rows = MP_Offer_Builder_DB::list_offers( array( 'status' => 'draft' ) );
+$draft_ids  = array_map( function ( $r ) {
+	return (int) $r['id']; }, $draft_rows );
+sort( $draft_ids );
+$inv69 = array( 1, 3 ) === $draft_ids && 2 === MP_Offer_Builder_DB::count_offers( array( 'status' => 'draft' ) );
+record( 'inv69_lista_ofert_filtr_status', $inv69 ? 'PASS' : 'FAIL', 'ids=' . implode( ',', $draft_ids ) . ' count=' . MP_Offer_Builder_DB::count_offers( array( 'status' => 'draft' ) ) );
+
+// 70) Filtr created_by: 20 -> tylko oferty 3 i 4 (izolacja handlowca od cudzych ofert).
+$owner_rows = MP_Offer_Builder_DB::list_offers( array( 'created_by' => 20 ) );
+$owner_ids  = array_map( function ( $r ) {
+	return (int) $r['id']; }, $owner_rows );
+sort( $owner_ids );
+$inv70 = array( 3, 4 ) === $owner_ids && 2 === MP_Offer_Builder_DB::count_offers( array( 'created_by' => 20 ) );
+record( 'inv70_lista_ofert_filtr_created_by', $inv70 ? 'PASS' : 'FAIL', 'ids=' . implode( ',', $owner_ids ) );
+
+// 71) Search: po nazwie klienta ("Beta") i po NIP ("4444444444") — trafia właściwa
+//     pojedyncza oferta w obu przypadkach (kolumny client_name/client_nip/offer_number).
+$search_name = MP_Offer_Builder_DB::list_offers( array( 'search' => 'Beta' ) );
+$search_nip  = MP_Offer_Builder_DB::list_offers( array( 'search' => '4444444444' ) );
+$inv71       = 1 === count( $search_name ) && 2 === (int) $search_name[0]['id']
+	&& 1 === count( $search_nip ) && 4 === (int) $search_nip[0]['id'];
+record(
+	'inv71_lista_ofert_search_nazwa_i_nip',
+	$inv71 ? 'PASS' : 'FAIL',
+	'search_beta_id=' . ( $search_name[0]['id'] ?? '-' ) . ' search_nip_id=' . ( $search_nip[0]['id'] ?? '-' )
+);
+
+// 72) Paginacja: per_page=2 zwraca 2 strony po 2 (posortowane malejąco po updated_at,
+//     domyślnie), count_offers() bez filtrów = 4 (cała populacja, NIEZALEŻNIE od per_page).
+$page1 = MP_Offer_Builder_DB::list_offers( array( 'per_page' => 2, 'offset' => 0 ) );
+$page2 = MP_Offer_Builder_DB::list_offers( array( 'per_page' => 2, 'offset' => 2 ) );
+$page1_ids = array_map( function ( $r ) {
+	return (int) $r['id']; }, $page1 );
+$page2_ids = array_map( function ( $r ) {
+	return (int) $r['id']; }, $page2 );
+$inv72     = array( 4, 3 ) === $page1_ids && array( 2, 1 ) === $page2_ids
+	&& 4 === MP_Offer_Builder_DB::count_offers();
+record(
+	'inv72_lista_ofert_paginacja_i_count_niezalezny_od_per_page',
+	$inv72 ? 'PASS' : 'FAIL',
+	'strona1=' . implode( ',', $page1_ids ) . ' strona2=' . implode( ',', $page2_ids ) . ' count=' . MP_Offer_Builder_DB::count_offers()
+);
+$GLOBALS['wpdb']->offers = array();
+
 /* ---------- Podsumowanie ---------- */
 
 echo "\n=== PODSUMOWANIE ===\n";
