@@ -144,12 +144,15 @@ class MP_Offer_Builder_Storage {
 	 * @param string $tmp_path     Ścieżka pliku tymczasowego.
 	 * @param string $offer_number Numer oferty (do nazwy pliku).
 	 * @param int    $version      Wersja oferty.
-	 * @return string Bezwzględna ścieżka pliku docelowego.
+	 * @return string|false Bezwzględna ścieżka pliku docelowego, albo false gdy
+	 *                       rename() się nie powiódł (dysk pełny, uprawnienia).
 	 */
 	public static function finalize_pdf( $tmp_path, $offer_number, $version ) {
 		$final_path = self::final_pdf_path( $offer_number, $version );
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename
-		rename( $tmp_path, $final_path );
+		if ( ! rename( $tmp_path, $final_path ) ) {
+			return false;
+		}
 		return $final_path;
 	}
 

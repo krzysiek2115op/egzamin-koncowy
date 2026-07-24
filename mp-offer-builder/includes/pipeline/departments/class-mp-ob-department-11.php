@@ -60,7 +60,15 @@ class MP_OB_D11_Agent_Event extends MP_OB_Abstract_Agent {
 		$pdf      = is_array( $context->get( 'pdf' ) ) ? $context->get( 'pdf' ) : array();
 		$tmp_path = isset( $pdf['tmp_path'] ) ? (string) $pdf['tmp_path'] : '';
 		if ( '' !== $tmp_path && file_exists( $tmp_path ) ) {
-			MP_Offer_Builder_Storage::finalize_pdf( $tmp_path, $offer_number, $version );
+			// Sprawdzone PRZED do_action() poniżej — bez tego nieudana finalizacja
+			// (dysk pełny, uprawnienia) i tak wystawiłaby zdarzenie integracyjne dla
+			// pluginu 3 z pdf_url wskazującym na plik, który nigdy nie powstał pod
+			// nazwą docelową (oferta jest już ZAPISANA — Dział 10 skończył PRZED
+			// COMMIT — więc tego etapu nie da się wycofać transakcją; jedyna obrona
+			// to STOP tutaj, zanim zdarzenie wyjdzie na zewnątrz).
+			if ( false === MP_Offer_Builder_Storage::finalize_pdf( $tmp_path, $offer_number, $version ) ) {
+				return MP_OB_Result::fail( 'Finalizacja pliku PDF (przeniesienie z nazwy tymczasowej) nie powiodła się.', array(), 'pdf_finalize_failed' );
+			}
 		}
 
 		$client = is_array( $context->get( 'client' ) ) ? $context->get( 'client' ) : array();

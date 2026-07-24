@@ -1329,6 +1329,53 @@ record(
 	'nazwa=' . $actual_name62 . ' deterministyczna=' . ( $repeat_path62 === $final_path62 ? 'tak' : 'nie' )
 );
 
+// 90) finalize_pdf() zwraca false, gdy rename() się nie powiedzie (Medium) —
+//     wymuszone przez PRE-UTWORZENIE ścieżki docelowej JAKO KATALOGU: rename
+//     pliku na istniejący katalog zawsze zawodzi (EISDIR), niezależnie od
+//     uprawnień/roota — przenośny sposób symulacji awarii I/O w teście.
+$fp90_offer_number = 'OF/2026/000090';
+$fp90_version      = 1;
+$fp90_final_path   = MP_Offer_Builder_Storage::final_pdf_path( $fp90_offer_number, $fp90_version );
+mkdir( $fp90_final_path, 0777, true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_mkdir
+$fp90_tmp_path = MP_Offer_Builder_Storage::write_tmp_pdf( '%PDF-1.4 test finalize fail' );
+$fp90_result   = MP_Offer_Builder_Storage::finalize_pdf( $fp90_tmp_path, $fp90_offer_number, $fp90_version );
+$inv90         = false === $fp90_result && file_exists( $fp90_tmp_path );
+record( 'inv90_finalize_pdf_zwraca_false_gdy_rename_zawiedzie', $inv90 ? 'PASS' : 'FAIL', 'wynik=' . var_export( $fp90_result, true ) . ' tmp_nadal_istnieje=' . ( file_exists( $fp90_tmp_path ) ? 'tak' : 'nie' ) );
+rmdir( $fp90_final_path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
+unlink( $fp90_tmp_path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+
+// 91) Agent 11.1: gdy finalize_pdf() zawiedzie, STOP z jawnym kodem PRZED
+//     wystawieniem mp_offer_created — inaczej plugin 3 dostałby zdarzenie dla
+//     oferty, której PDF nigdy nie trafił pod nazwę docelową (oferta w bazie
+//     jest już ZAPISANA — Dział 10 skończył przed COMMIT — więc jedyna obrona
+//     to zatrzymać się TU, zanim zdarzenie wyjdzie na zewnątrz).
+$fp91_offer_number = 'OF/2026/000091';
+$fp91_version      = 1;
+$fp91_final_path   = MP_Offer_Builder_Storage::final_pdf_path( $fp91_offer_number, $fp91_version );
+mkdir( $fp91_final_path, 0777, true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_mkdir
+$fp91_tmp_path    = MP_Offer_Builder_Storage::write_tmp_pdf( '%PDF-1.4 test agent 11.1 finalize fail' );
+$fp91_before_fire = did_action( MP_OB_D11_Agent_Event::HOOK );
+$fp91_ctx                   = new MP_OB_Context(
+	array(
+		'offer_id'     => 91,
+		'offer_number' => $fp91_offer_number,
+		'version'      => $fp91_version,
+		'pdf'          => array( 'tmp_path' => $fp91_tmp_path ),
+	)
+);
+$fp91_result      = ( new MP_OB_D11_Agent_Event() )->run( $fp91_ctx );
+$fp91_after_fire  = did_action( MP_OB_D11_Agent_Event::HOOK );
+$inv91            = ! $fp91_result->is_ok()
+	&& 'pdf_finalize_failed' === $fp91_result->get_code()
+	&& $fp91_before_fire === $fp91_after_fire; // zdarzenie NIE wystawione.
+record(
+	'inv91_agent_11_1_stop_przed_zdarzeniem_gdy_finalize_zawiedzie',
+	$inv91 ? 'PASS' : 'FAIL',
+	'code=' . $fp91_result->get_code() . ' zdarzenie_wystawione=' . ( $fp91_after_fire > $fp91_before_fire ? 'tak(BLAD)' : 'nie' )
+);
+rmdir( $fp91_final_path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
+unlink( $fp91_tmp_path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+
 // 63) Zdarzenie mp_offer_created RZECZYWIŚCIE wystawione (did_action > 0 po
 //     happy-path) — nie tylko "zwrócony kod bez efektu".
 $inv63 = did_action( 'mp_offer_created' ) > 0;
