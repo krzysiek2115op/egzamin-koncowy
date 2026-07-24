@@ -1239,6 +1239,48 @@ $inv75 = $r75['ok'] && 33 === (int) ( $GLOBALS['wpdb']->offers[22]['created_by']
 record( 'inv75_korekta_wlasciciel_zachowany_bez_zmian', $inv75 ? 'PASS' : 'FAIL', 'created_by=' . ( $GLOBALS['wpdb']->offers[22]['created_by'] ?? '-' ) );
 $GLOBALS['wpdb']->offers = array();
 
+// 95) Korekta CUDZEJ oferty (created_by=33) przez INNEGO, NIE-adminowego
+//     użytkownika -> BLOKADA (IDOR). inv75 powyżej NIE testował tej granicy
+//     naprawdę: current_user_can() w harnessie domyślnie zwraca true dla
+//     KAŻDEJ capability (patrz wp-stubs.php) dopóki nie ustawimy denied_caps,
+//     więc user 99 tam był traktowany jak administrator — test PRZECHODZIŁ,
+//     ale nie dlatego, że blokada IDOR faktycznie zadziałała. Tu jawnie
+//     odbieramy manage_options, żeby naprawdę zweryfikować fix z Działu 1.
+$GLOBALS['wpdb']->offers = array(
+	22 => array(
+		'id'             => 22,
+		'status'         => 'draft',
+		'offer_number'   => sprintf( 'OF/%d/000030', $d10_2_year ),
+		'version'        => 1,
+		'created_by'     => 33,
+		'client_name'    => 'Klient Z Wlascicielem Sp. z o.o.',
+		'client_email'   => 'z-wlascicielem@testowa-firma.pl',
+		'client_nip'     => '1234563218',
+		'client_country' => 'PL',
+	),
+);
+$GLOBALS['wpdb']->items                    = array();
+$GLOBALS['wpdb']->versions                 = array();
+$GLOBALS['wpdb']->activity_log             = array();
+$GLOBALS['__mp_ob_cfg']['current_user_id'] = 99;
+$GLOBALS['__mp_ob_cfg']['denied_caps']     = array( 'manage_options' => true );
+$idor95_input                              = base_input();
+$idor95_input['offer_id']                  = 22;
+unset( $idor95_input['client'] );
+$r95                                        = run_pipeline( $idor95_input );
+$GLOBALS['__mp_ob_cfg']['current_user_id'] = 0;
+$GLOBALS['__mp_ob_cfg']['denied_caps']     = array();
+$inv95                                      = ! $r95['ok']
+	&& 'forbidden' === $r95['code']
+	&& 33 === (int) ( $GLOBALS['wpdb']->offers[22]['created_by'] ?? 0 ) // właściciel niezmieniony.
+	&& 'Klient Z Wlascicielem Sp. z o.o.' === ( $GLOBALS['wpdb']->offers[22]['client_name'] ?? '' ); // dane NIE nadpisane.
+record(
+	'inv95_korekta_cudzej_oferty_bez_manage_options_blokada_idor',
+	$inv95 ? 'PASS' : 'FAIL',
+	'ok=' . ( $r95['ok'] ? 'tak(BLAD)' : 'nie' ) . ' code=' . $r95['code']
+);
+$GLOBALS['wpdb']->offers = array();
+
 // 83) Korekta oferty: STARE pozycje (z poprzedniej wersji tej samej oferty)
 //     muszą zniknąć z wp_mp_ob_offer_items, a nie zostać OBOK nowych — inaczej
 //     każda kolejna korekta tylko dopisywałaby wiersze, dublując pozycje.
