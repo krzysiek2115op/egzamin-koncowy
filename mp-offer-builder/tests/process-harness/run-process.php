@@ -286,6 +286,58 @@ record(
 	'tx_log=' . implode( '>', $GLOBALS['wpdb']->tx_log ) . ' activity_log_rows=' . count( $GLOBALS['wpdb']->activity_log )
 );
 
+// 88) Sprzątanie tmp PDF NIEZALEŻNE od transakcji (Medium): dział PRZED progiem
+//     transakcyjności (realny Dział 9 — render — jest numerem 9, próg to 10)
+//     może zostawić plik tymczasowy na dysku, jeśli WŁASNA bramka QA tego
+//     działu go odrzuci — w tym momencie żadna transakcja SQL jeszcze się nie
+//     otworzyła, więc sprzątanie MUSI działać niezależnie od $in_transaction.
+$pretend_render_agent = new class() implements MP_OB_Agent_Interface {
+	public function get_id() {
+		return '9.1-test';
+	}
+	public function get_label() {
+		return 'Test — udany render';
+	}
+	public function run( MP_OB_Context $context ) {
+		unset( $context );
+		$tmp = MP_Offer_Builder_Storage::write_tmp_pdf( '%PDF-1.4 test render' );
+		return MP_OB_Result::ok( array( 'pdf' => array( 'tmp_path' => $tmp ) ) );
+	}
+};
+$dep_pretend_9 = new MP_OB_Department(
+	9,
+	'harness-pretend-render',
+	'Dział testowy — udany render, odrzucona bramka QA',
+	'Symuluje Dział 9: agent renderuje PLIK NAPRAWDĘ, ale bramka QA odrzuca — PRZED progiem transakcyjności.',
+	array(
+		array(
+			'agent'  => $pretend_render_agent,
+			'critic' => new MP_OB_Accept_Critic( 'K9.1-test', 'Zawsze akceptuje' ),
+		),
+	),
+	new MP_OB_Quality_Gate(
+		new MP_OB_Stub_Agent( 'QA9-test', 'QA zawsze ok', '' ),
+		make_failing_critic( 'QAK9-test', 'QA Krytyk zawsze odrzuca' )
+	)
+);
+$pipeline_pretmx = new MP_OB_Pipeline( new MP_OB_Pipeline_Logger() );
+$pipeline_pretmx->set_transactional_from( 10 );
+$pipeline_pretmx->add_department( $dep_pretend_9 );
+$pretmx_context          = new MP_OB_Context( array() );
+$GLOBALS['wpdb']->tx_log = array();
+$pretmx_result           = $pipeline_pretmx->run( $pretmx_context );
+$leaked_pdf_data         = is_array( $pretmx_context->get( 'pdf' ) ) ? $pretmx_context->get( 'pdf' ) : array();
+$leaked_tmp_path         = isset( $leaked_pdf_data['tmp_path'] ) ? (string) $leaked_pdf_data['tmp_path'] : '';
+$inv88                   = ! $pretmx_result->is_ok()
+	&& array() === $GLOBALS['wpdb']->tx_log // dział 9 < próg 10 -> transakcja NIGDY się nie otworzyła.
+	&& '' !== $leaked_tmp_path
+	&& ! file_exists( $leaked_tmp_path );
+record(
+	'inv88_sprzatanie_tmp_pdf_niezaleznie_od_transakcji',
+	$inv88 ? 'PASS' : 'FAIL',
+	'plik_istnieje=' . ( file_exists( $leaked_tmp_path ) ? 'tak(BLAD)' : 'nie' ) . ' tx_log=' . ( $GLOBALS['wpdb']->tx_log ? implode( '>', $GLOBALS['wpdb']->tx_log ) : '(pusty)' )
+);
+
 /* ---------- Dział 1: realna logika (Krok 3) ---------- */
 
 echo "\n=== DZIAŁ 1: REALNA LOGIKA ===\n";

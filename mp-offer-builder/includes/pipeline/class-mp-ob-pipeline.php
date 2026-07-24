@@ -125,8 +125,13 @@ class MP_OB_Pipeline {
 					if ( $in_transaction ) {
 						$wpdb->query( 'ROLLBACK' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 						$in_transaction = false;
-						self::cleanup_orphaned_tmp_pdf( $context );
 					}
+					// Sprzątanie tmp PDF NIEZALEŻNE od transakcji: Dział 9 (render) leży
+					// PRZED progiem transakcyjności (transactional_from=10) — jeśli jego
+					// WŁASNA bramka QA odrzuci render (np. brak embedded fontu), plik
+					// tymczasowy już istnieje na dysku, mimo że żadna transakcja nigdy
+					// się nie otworzyła. Bez tego taki plik zostaje osierocony na stałe.
+					self::cleanup_orphaned_tmp_pdf( $context );
 					if ( $this->logger ) {
 						$this->logger->log_failure( $department, $result, $context );
 					}
@@ -141,8 +146,8 @@ class MP_OB_Pipeline {
 			if ( $in_transaction ) {
 				$wpdb->query( 'ROLLBACK' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 				$in_transaction = false;
-				self::cleanup_orphaned_tmp_pdf( $context );
 			}
+			self::cleanup_orphaned_tmp_pdf( $context );
 			if ( $this->logger ) {
 				$this->logger->log_exception( $e, $context, $context->get_current_department() );
 			}
