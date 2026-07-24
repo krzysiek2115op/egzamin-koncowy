@@ -1076,6 +1076,35 @@ foreach ( $insert_fail_flags as $flag => $label ) {
 }
 record( 'inv87_niesprawdzony_insert_pozycji_wersji_dziennika_stop', $inv87 ? 'PASS' : 'FAIL', implode( ' ', $inv87_details ) );
 
+// 89) retry_after_collision (Medium): gdy PONOWNY render po kolizji numeracji
+//     się nie powiedzie, wywołujący MUSI dostać jawny STOP — inaczej plan
+//     miałby NOWY offer_number/version, ale STARY (już skasowany przez
+//     delete_tmp) pdf_path/pdf_sha256: oferta z martwym wskaźnikiem na PDF.
+//     Kontekst BEZ 'document' -> re-render w retry_after_collision nieuchronnie
+//     zawiedzie (ten sam mechanizm co inv48 "Agent 9.1: brak dokumentu").
+$GLOBALS['wpdb']->offers                       = array();
+$GLOBALS['wpdb']->force_unique_collision_once  = true;
+$retry_fail_ctx                                = new MP_OB_Context(
+	array(
+		'write_plan' => array(
+			'header'  => array(
+				'offer_number' => 'OF/2026/000050',
+				'version'      => 1,
+				'pdf_path'     => '/tmp/stara-sciezka-ktora-zaraz-zniknie.pdf',
+			),
+			'items'   => array( array( 'product_id' => 1, 'qty' => 1 ) ),
+			'version' => array( 'version_number' => 1 ),
+			'log'     => array( 'action' => 'offer.created' ),
+		),
+		// Celowo BRAK 'document' — Agent 9.1 wywołany wewnątrz retry_after_collision
+		// zwróci 'missing_document' (patrz inv48), symulując nieudany re-render.
+	)
+);
+$retry_fail_result                             = ( new MP_OB_D10_Agent_Transaction() )->run( $retry_fail_ctx );
+$GLOBALS['wpdb']->force_unique_collision_once  = false;
+$inv89                                          = ! $retry_fail_result->is_ok() && 'retry_render_failed' === $retry_fail_result->get_code();
+record( 'inv89_retry_after_collision_nieudany_render_stop', $inv89 ? 'PASS' : 'FAIL', 'code=' . $retry_fail_result->get_code() );
+
 // 61) QA Agent 10 "atomowość": affected_rows niezgodne z planem (np. bug w
 //     Agencie 10.2/10.3) → STOP, mimo że każdy pojedynczy INSERT się udał.
 $atomicity_ctx    = new MP_OB_Context(

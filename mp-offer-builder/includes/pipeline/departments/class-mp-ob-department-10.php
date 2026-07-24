@@ -297,7 +297,11 @@ class MP_OB_D10_Agent_Transaction extends MP_OB_Abstract_Agent {
 			if ( ! $ok ) {
 				$is_collision = false !== strpos( (string) $wpdb->last_error, 'uq_offer_number_version' );
 				if ( $is_collision && $attempt < self::MAX_ATTEMPTS ) {
-					$plan = self::retry_after_collision( $context, $plan );
+					$retried_plan = self::retry_after_collision( $context, $plan );
+					if ( null === $retried_plan ) {
+						return MP_OB_Result::fail( 'Ponowny render PDF po kolizji numeracji nie powiódł się.', array(), 'retry_render_failed' );
+					}
+					$plan = $retried_plan;
 					continue;
 				}
 				return MP_OB_Result::fail(
@@ -361,7 +365,9 @@ class MP_OB_D10_Agent_Transaction extends MP_OB_Abstract_Agent {
 	 *
 	 * @param MP_OB_Context $context Kontekst (aktualizowany w miejscu).
 	 * @param array         $plan    Plan zapisu (poprzednia wersja).
-	 * @return array Zaktualizowany plan.
+	 * @return array|null Zaktualizowany plan, albo null gdy ponowny render się nie powiódł
+	 *                     (wywołujący MUSI wtedy przerwać — plan z NOWYM numerem/wersją,
+	 *                     ale STARYM (już skasowanym) pdf_path/pdf_sha256 byłby niespójny).
 	 */
 	private static function retry_after_collision( MP_OB_Context $context, array $plan ) {
 		$old_pdf = is_array( $context->get( 'pdf' ) ) ? $context->get( 'pdf' ) : array();
@@ -388,14 +394,20 @@ class MP_OB_D10_Agent_Transaction extends MP_OB_Abstract_Agent {
 		$context->set( 'version', $new_version );
 
 		$render_result = ( new MP_OB_D9_Agent_Render() )->run( $context );
-		if ( $render_result->is_ok() ) {
-			$render_data = $render_result->get_data();
-			$context->set( 'pdf', $render_data['pdf'] );
-			$new_pdf_path                 = MP_Offer_Builder_Storage::final_pdf_path( $plan['header']['offer_number'], $new_version );
-			$plan['header']['pdf_path']   = $new_pdf_path;
-			$plan['header']['pdf_sha256'] = file_exists( $render_data['pdf']['tmp_path'] ) ? hash_file( 'sha256', $render_data['pdf']['tmp_path'] ) : '';
-			$plan['version']['pdf_path']  = $new_pdf_path;
+		if ( ! $render_result->is_ok() ) {
+			// Bez tego STOP-u wywołujący dostałby plan z NOWYM offer_number/version
+			// (już zapisanym wyżej), ale ze STARYM pdf_path/pdf_sha256 wskazującym
+			// na plik, który dopiero co skasowaliśmy (delete_tmp powyżej) — próba
+			// zapisu takiego planu tworzyłaby ofertę z martwym wskaźnikiem na PDF.
+			return null;
 		}
+
+		$render_data = $render_result->get_data();
+		$context->set( 'pdf', $render_data['pdf'] );
+		$new_pdf_path                 = MP_Offer_Builder_Storage::final_pdf_path( $plan['header']['offer_number'], $new_version );
+		$plan['header']['pdf_path']   = $new_pdf_path;
+		$plan['header']['pdf_sha256'] = file_exists( $render_data['pdf']['tmp_path'] ) ? hash_file( 'sha256', $render_data['pdf']['tmp_path'] ) : '';
+		$plan['version']['pdf_path']  = $new_pdf_path;
 
 		return $plan;
 	}
