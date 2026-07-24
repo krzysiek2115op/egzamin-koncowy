@@ -385,6 +385,22 @@ class MP_OB_Fake_WPDB {
 		}
 		return false;
 	}
+	public function delete( $table, $where, $format = null ) {
+		if ( strpos( $table, 'mp_ob_offer_items' ) !== false && isset( $where['offer_id'] ) ) {
+			$offer_id    = (int) $where['offer_id'];
+			$before      = count( $this->items );
+			$this->items = array_values(
+				array_filter(
+					$this->items,
+					function ( $row ) use ( $offer_id ) {
+						return (int) ( $row['offer_id'] ?? 0 ) !== $offer_id;
+					}
+				)
+			);
+			return $before - count( $this->items );
+		}
+		return false;
+	}
 	// Filtr wspólny dla get_var(COUNT...)/get_results() na wp_mp_ob_offers — status/
 	// created_by/search, dopasowane do KONKRETNEGO kształtu zapytania budowanego
 	// przez MP_Offer_Builder_DB::build_offers_where() (patrz get_results() niżej).

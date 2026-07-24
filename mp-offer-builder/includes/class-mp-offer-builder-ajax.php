@@ -82,6 +82,20 @@ class MP_Offer_Builder_Ajax {
 		// uruchamiać cały pipeline (podwójny klik = ta sama odpowiedź).
 		$existing = MP_Offer_Builder_DB::get_offer_by_request_id( $request_id );
 		if ( $existing ) {
+			// Ta sama kontrola własności co reszta pipeline'u (Dział 1/10) — request_id
+			// trafia do klienta jako trace_id (Dział 11), więc BEZ tej kontroli podanie
+			// cudzego request_id ujawniłoby metadane cudzej oferty (IDOR).
+			$existing_owner = isset( $existing['created_by'] ) && null !== $existing['created_by'] ? (int) $existing['created_by'] : null;
+			if ( null !== $existing_owner && get_current_user_id() !== $existing_owner && ! current_user_can( 'manage_options' ) ) {
+				wp_send_json_error(
+					array(
+						'code'     => 'forbidden',
+						'message'  => 'Brak dostępu do wskazanego żądania.',
+						'trace_id' => $request_id,
+					),
+					403
+				);
+			}
 			wp_send_json_success(
 				array(
 					'offer_id'     => (int) $existing['id'],

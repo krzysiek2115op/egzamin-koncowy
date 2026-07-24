@@ -83,6 +83,14 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 		$existing_created_by = isset( $numbering['existing_created_by'] ) ? $numbering['existing_created_by'] : null;
 		$created_by          = null !== $existing_created_by ? (int) $existing_created_by : get_current_user_id();
 
+		// Obrona w głąb przeciw IDOR: Dział 1 już blokuje zapis cudzej oferty PRZED
+		// uruchomieniem reszty pipeline'u, ale Dział 10 (jedyny dział z prawem zapisu)
+		// NIE POWINIEN ufać ślepo, że ta kontrola na pewno zaszła wcześniej — sprawdzamy
+		// własność jeszcze raz, tuż przed zapisem, niezależnym odczytem z Działu 2.
+		if ( null !== $existing_created_by && get_current_user_id() !== (int) $existing_created_by && ! current_user_can( 'manage_options' ) ) {
+			return MP_OB_Result::fail( 'Brak uprawnień do zapisu wskazanej oferty.', array(), 'not_offer_owner' );
+		}
+
 		$header = array(
 			'offer_number'   => $offer_number,
 			'version'        => $version,
@@ -245,8 +253,9 @@ class MP_OB_D10_Agent_Transaction extends MP_OB_Abstract_Agent {
 		}
 
 		for ( $attempt = 1; $attempt <= self::MAX_ATTEMPTS; $attempt++ ) {
-			$header   = $plan['header'];
-			$offer_id = isset( $header['id'] ) ? (int) $header['id'] : 0;
+			$header    = $plan['header'];
+			$offer_id  = isset( $header['id'] ) ? (int) $header['id'] : 0;
+			$is_update = $offer_id > 0;
 			unset( $header['id'] );
 
 			if ( $offer_id > 0 ) {
@@ -272,6 +281,15 @@ class MP_OB_D10_Agent_Transaction extends MP_OB_Abstract_Agent {
 			}
 
 			$affected_rows = 1; // nagłówek.
+
+			if ( $is_update ) {
+				// Korekta: pozycje z POPRZEDNIEJ wersji tej samej oferty muszą zniknąć
+				// PRZED wstawieniem nowych — inaczej każda korekta tylko DOPISYWAŁABY
+				// wiersze do wp_mp_ob_offer_items, dublując pozycje z poprzednich wersji
+				// (offer_items nie ma kolumny version — jeden komplet na offer_id).
+				$wpdb->delete( MP_Offer_Builder_DB::items_table(), array( 'offer_id' => $offer_id ) );
+			}
+
 			foreach ( $plan['items'] as $item_row ) {
 				$item_row['offer_id'] = $offer_id;
 				$wpdb->insert( MP_Offer_Builder_DB::items_table(), $item_row );

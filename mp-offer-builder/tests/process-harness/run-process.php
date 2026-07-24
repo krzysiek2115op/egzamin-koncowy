@@ -1070,6 +1070,58 @@ $inv75 = $r75['ok'] && 33 === (int) ( $GLOBALS['wpdb']->offers[22]['created_by']
 record( 'inv75_korekta_wlasciciel_zachowany_bez_zmian', $inv75 ? 'PASS' : 'FAIL', 'created_by=' . ( $GLOBALS['wpdb']->offers[22]['created_by'] ?? '-' ) );
 $GLOBALS['wpdb']->offers = array();
 
+// 83) Korekta oferty: STARE pozycje (z poprzedniej wersji tej samej oferty)
+//     muszą zniknąć z wp_mp_ob_offer_items, a nie zostać OBOK nowych — inaczej
+//     każda kolejna korekta tylko dopisywałaby wiersze, dublując pozycje.
+$GLOBALS['wpdb']->offers = array(
+	23 => array(
+		'id'             => 23,
+		'status'         => 'draft',
+		'offer_number'   => sprintf( 'OF/%d/000031', $d10_2_year ),
+		'version'        => 1,
+		'created_by'     => 33,
+		'client_name'    => 'Klient Korekta Pozycji Sp. z o.o.',
+		'client_email'   => 'korekta-pozycji@testowa-firma.pl',
+		'client_nip'     => '1234563218',
+		'client_country' => 'PL',
+	),
+);
+$GLOBALS['wpdb']->items = array(
+	array(
+		'id'         => 9001,
+		'offer_id'   => 23,
+		'product_id' => 555,
+		'qty'        => 1,
+	),
+);
+$GLOBALS['wpdb']->versions                 = array();
+$GLOBALS['wpdb']->activity_log             = array();
+$GLOBALS['__mp_ob_cfg']['current_user_id'] = 33;
+$correction83_input                        = base_input();
+$correction83_input['offer_id']            = 23;
+unset( $correction83_input['client'] );
+$r83 = run_pipeline( $correction83_input );
+$GLOBALS['__mp_ob_cfg']['current_user_id'] = 0;
+$items_for_23  = array_values(
+	array_filter(
+		$GLOBALS['wpdb']->items,
+		function ( $row ) {
+			return 23 === (int) ( $row['offer_id'] ?? 0 );
+		}
+	)
+);
+$product_ids_23 = array_column( $items_for_23, 'product_id' );
+$inv83          = $r83['ok']
+	&& 1 === count( $items_for_23 )
+	&& ! in_array( 555, $product_ids_23, true )
+	&& in_array( 812, $product_ids_23, true );
+record(
+	'inv83_korekta_usuwa_stare_pozycje_przed_wstawieniem_nowych',
+	$inv83 ? 'PASS' : 'FAIL',
+	'pozycji_po_korekcie=' . count( $items_for_23 ) . ' stary_product_id_555_obecny=' . ( in_array( 555, $product_ids_23, true ) ? 'tak' : 'nie' )
+);
+$GLOBALS['wpdb']->offers = array();
+
 /* ---------- Dział 11: realna logika (Krok 3) ---------- */
 
 echo "\n=== DZIAŁ 11: REALNA LOGIKA (odpowiedź i przekazanie) ===\n";

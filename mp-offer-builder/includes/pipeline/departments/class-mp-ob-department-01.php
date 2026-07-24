@@ -73,6 +73,16 @@ class MP_OB_D1_Agent_Contract extends MP_OB_Abstract_Agent {
 					'message' => 'Wskazany szkic oferty nie istnieje albo nie jest w statusie draft.',
 				);
 			} else {
+				// Autoryzacja NA POZIOMIE ZASOBU (obrona przed IDOR) — capability z Agenta 1.2
+				// sprawdza tylko "czy user w ogóle może budować oferty", NIE "czy ta KONKRETNA
+				// oferta jest jego". Draft bez właściciela (Krok 2.5, jeszcze nie przejęty) jest
+				// dopuszczony; draft z JUŻ USTAWIONYM created_by wymaga zgodności z bieżącym
+				// userem albo manage_options — inaczej to próba dostępu do CUDZEGO szkicu przez
+				// podstawienie offer_id. Fail-fast, PRZED dociągnięciem danych klienta.
+				$owner = ( isset( $draft['created_by'] ) && null !== $draft['created_by'] ) ? (int) $draft['created_by'] : null;
+				if ( null !== $owner && get_current_user_id() !== $owner && ! current_user_can( 'manage_options' ) ) {
+					return MP_OB_Result::fail( 'Brak uprawnień do wskazanego szkicu oferty.', array(), 'forbidden' );
+				}
 				$client = array(
 					'name'    => $draft['client_name'],
 					'email'   => $draft['client_email'],
