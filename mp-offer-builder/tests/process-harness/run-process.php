@@ -1154,6 +1154,23 @@ record(
 	'klucze=' . implode( ',', array_keys( $response62 ) ) . ' plik_docelowy_istnieje=' . ( file_exists( $final_path62 ) ? 'tak' : 'nie' )
 );
 
+// 85) Nazwa pliku PDF NIE jest odgadywalna z samego offer_number/version —
+//     musi zawierać token HMAC (per-instalację), nie tylko "numer-vN.pdf"
+//     (High: obrona w głąb, .htaccess nie działa na nginx — patrz docblock
+//     final_pdf_path()). Ten sam offer_number/version -> ta sama nazwa
+//     (Dział 10 i Dział 11 muszą policzyć identyczną ścieżkę).
+$naive_name62  = preg_replace( '/[^A-Za-z0-9]+/', '-', trim( (string) ( $hp['final_data']['offer_number'] ?? '' ), '-' ) ) . '-v' . (int) ( $hp['final_data']['version'] ?? 0 ) . '.pdf';
+$actual_name62 = basename( $final_path62 );
+$repeat_path62 = MP_Offer_Builder_Storage::final_pdf_path( $hp['final_data']['offer_number'] ?? '', $hp['final_data']['version'] ?? 0 );
+$inv85         = $naive_name62 !== $actual_name62
+	&& 1 === preg_match( '/^.+-v\d+-[0-9a-f]{20}\.pdf$/', $actual_name62 )
+	&& $repeat_path62 === $final_path62;
+record(
+	'inv85_nazwa_pliku_pdf_nieodgadywalna_token_hmac',
+	$inv85 ? 'PASS' : 'FAIL',
+	'nazwa=' . $actual_name62 . ' deterministyczna=' . ( $repeat_path62 === $final_path62 ? 'tak' : 'nie' )
+);
+
 // 63) Zdarzenie mp_offer_created RZECZYWIŚCIE wystawione (did_action > 0 po
 //     happy-path) — nie tylko "zwrócony kod bez efektu".
 $inv63 = did_action( 'mp_offer_created' ) > 0;

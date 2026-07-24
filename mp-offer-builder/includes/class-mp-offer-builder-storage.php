@@ -26,6 +26,29 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class MP_Offer_Builder_Storage {
 
+	/** Nazwa opcji WordPress przechowującej sekret nazw plików (patrz file_secret()). */
+	const FILE_SECRET_OPTION = 'mp_offer_builder_file_secret';
+
+	/**
+	 * Sekret per-instalację wmieszany (HMAC) w nazwę pliku PDF na dysku — patrz
+	 * docblock final_pdf_path(). Generowany RAZ (wp_generate_password(), patrz
+	 * docs/dzial-09/wordpress-wp_generate_password.md) i trwale zapisany —
+	 * kolejne wywołania, w KAŻDYM procesie PHP, muszą zwrócić TĘ SAMĄ wartość,
+	 * inaczej Dział 10 (plan, przed COMMIT) i Dział 11 (finalize, po COMMIT)
+	 * policzyłyby DWIE RÓŻNE nazwy dla tej samej oferty.
+	 *
+	 * @return string
+	 */
+	private static function file_secret() {
+		$secret = get_option( self::FILE_SECRET_OPTION );
+		if ( is_string( $secret ) && '' !== $secret ) {
+			return $secret;
+		}
+		$secret = wp_generate_password( 64, false, false );
+		update_option( self::FILE_SECRET_OPTION, $secret, false );
+		return $secret;
+	}
+
 	/**
 	 * Katalog prywatny (tworzony + zabezpieczany przy pierwszym użyciu).
 	 *
@@ -88,11 +111,21 @@ class MP_Offer_Builder_Storage {
 
 	/**
 	 * Wylicza ścieżkę DOCELOWĄ pliku PDF — WYŁĄCZNIE string, zero operacji na
-	 * dysku. Dział 10 (Agent 10.1 "plan") może więc zapisać `pdf_path` w tej
-	 * samej transakcji, ZANIM plik zostanie fizycznie przeniesiony (to dopiero
-	 * po COMMIT — patrz finalize_pdf()) — bez tego rozdziału albo transakcja
-	 * czekałaby na I/O na dysku, albo `pdf_path` w bazie byłby nieznany do
-	 * czasu po zapisie, co nie da się pogodzić z "jedna transakcja = komplet".
+	 * dysku (poza get_option()/ewentualnym JEDNORAZOWYM update_option() w
+	 * file_secret()). Dział 10 (Agent 10.1 "plan") może więc zapisać `pdf_path`
+	 * w tej samej transakcji, ZANIM plik zostanie fizycznie przeniesiony (to
+	 * dopiero po COMMIT — patrz finalize_pdf()) — bez tego rozdziału albo
+	 * transakcja czekałaby na I/O na dysku, albo `pdf_path` w bazie byłby
+	 * nieznany do czasu po zapisie, co nie da się pogodzić z "jedna transakcja
+	 * = komplet".
+	 *
+	 * Nazwa NIE jest odgadywalna z samego offer_number/version: katalog jest
+	 * chroniony .htaccess-em, ale to obrona w głąb — nginx go nie honoruje
+	 * (patrz docblock klasy) — więc GŁÓWNYM zabezpieczeniem musi być sama
+	 * nazwa pliku, nie tylko brak linku do niej. Stąd token HMAC z sekretem
+	 * per-instalację (file_secret()): ktoś, kto zna/zgaduje offer_number
+	 * (sekwencyjny) i version (małe liczby), nadal nie jest w stanie policzyć
+	 * nazwy pliku bez znajomości sekretu.
 	 *
 	 * @param string $offer_number Numer oferty (do nazwy pliku).
 	 * @param int    $version      Wersja oferty.
@@ -100,7 +133,8 @@ class MP_Offer_Builder_Storage {
 	 */
 	public static function final_pdf_path( $offer_number, $version ) {
 		$safe_number = trim( preg_replace( '/[^A-Za-z0-9]+/', '-', (string) $offer_number ), '-' );
-		return self::private_dir() . '/' . $safe_number . '-v' . (int) $version . '.pdf';
+		$token       = substr( hash_hmac( 'sha256', $offer_number . '|' . (int) $version, self::file_secret() ), 0, 20 );
+		return self::private_dir() . '/' . $safe_number . '-v' . (int) $version . '-' . $token . '.pdf';
 	}
 
 	/**

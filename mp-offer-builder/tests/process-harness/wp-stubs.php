@@ -70,6 +70,10 @@ function __( $s, $d = null ) {
 function wp_json_encode( $data, $opts = 0, $depth = 512 ) {
 	return json_encode( $data, $opts, $depth );
 }
+function wp_generate_password( $length = 12, $special_chars = true, $extra_special_chars = false ) {
+	unset( $special_chars, $extra_special_chars );
+	return bin2hex( random_bytes( (int) ceil( $length / 2 ) ) );
+}
 function wp_generate_uuid4() {
 	$data    = random_bytes( 16 );
 	$data[6] = chr( ( ord( $data[6] ) & 0x0f ) | 0x40 );
