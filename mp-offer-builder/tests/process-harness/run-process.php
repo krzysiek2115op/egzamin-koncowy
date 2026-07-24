@@ -28,6 +28,8 @@ require $PLUGIN . '/includes/class-mp-offer-builder-storage.php';
 require $PLUGIN . '/includes/pipeline/bootstrap.php';
 require $PLUGIN . '/includes/class-mp-offer-builder-lead-listener.php';
 require $PLUGIN . '/includes/class-mp-offer-builder-download.php';
+require $PLUGIN . '/includes/class-mp-offer-builder-ajax.php';
+require $PLUGIN . '/includes/admin/class-mp-offer-builder-admin.php';
 
 // Fixture WooCommerce/BD-2 zgodne z base_input() poniżej (item wskazuje variation_id
 // 9101 — Agent 2.1 zawsze woli variation_id nad product_id, więc TO wariant musi
@@ -1334,6 +1336,52 @@ record( 'inv78_obcy_handlowiec_bez_dostepu', $inv78 ? 'PASS' : 'FAIL', 'can_down
 $inv79 = false === MP_Offer_Builder_Download::can_download( array( 'created_by' => null ), 6 );
 record( 'inv79_brak_wlasciciela_bez_dostepu', $inv79 ? 'PASS' : 'FAIL', 'can_download=' . var_export( MP_Offer_Builder_Download::can_download( array( 'created_by' => null ), 6 ), true ) );
 $GLOBALS['__mp_ob_cfg']['denied_caps'] = array();
+
+/* ---------- Krok 4.5: wyszukiwanie produktów (search_products) ---------- */
+
+echo "\n=== KROK 4.5: WYSZUKIWANIE PRODUKTÓW (search_products) ===\n";
+
+seed_woocommerce_fixtures();
+$GLOBALS['__mp_ob_wc_products'][9102] = array(
+	'status'        => 'publish',
+	'name'          => 'Inny produkt testowy',
+	'tax_class'     => '',
+	'purchasable'   => true,
+	'regular_price' => '49.99',
+	'sale_price'    => '',
+);
+$GLOBALS['__mp_ob_wc_products'][9103] = array(
+	'status'        => 'draft', // nieopublikowany - NIE powinien trafić do wyników.
+	'name'          => 'Testowy ukryty produkt',
+	'tax_class'     => '',
+	'purchasable'   => true,
+	'regular_price' => '19.99',
+	'sale_price'    => '',
+);
+
+// 80) Fraza "testowy" (bez rozróżniania wielkości liter) pasuje do nazw DWÓCH
+//     opublikowanych produktów (9101 "Testowy wariant", 9102 "Inny produkt
+//     testowy") - 9103 "Testowy ukryty produkt" jest 'draft', więc pominięty
+//     mimo pasującej nazwy - tylko 'publish' trafia do wyniku.
+$found_testowy = MP_Offer_Builder_Admin::search_products( 'Testowy' );
+$found_ids     = array_map( function ( $r ) {
+	return $r['id']; }, $found_testowy );
+sort( $found_ids );
+$inv80 = array( 9101, 9102 ) === $found_ids;
+record( 'inv80_wyszukiwanie_tylko_opublikowane_dopasowanie_nazwy', $inv80 ? 'PASS' : 'FAIL', 'ids=' . implode( ',', $found_ids ) );
+
+// 81) Fraza "Inny" pasuje dokładnie do jednego produktu - id/name/price w wyniku.
+$found_inny = MP_Offer_Builder_Admin::search_products( 'Inny' );
+$inv81      = 1 === count( $found_inny )
+	&& 9102 === $found_inny[0]['id']
+	&& 'Inny produkt testowy' === $found_inny[0]['name']
+	&& '49.99' === $found_inny[0]['price'];
+record( 'inv81_wyszukiwanie_pojedynczy_wynik_pola_kompletne', $inv81 ? 'PASS' : 'FAIL', 'wynik=' . wp_json_encode( $found_inny ) );
+
+// 82) Pusta fraza -> pusty wynik (bez zwracania całego katalogu).
+$inv82 = array() === MP_Offer_Builder_Admin::search_products( '' );
+record( 'inv82_wyszukiwanie_pusta_fraza_pusty_wynik', $inv82 ? 'PASS' : 'FAIL', 'count=' . count( MP_Offer_Builder_Admin::search_products( '' ) ) );
+seed_woocommerce_fixtures();
 
 /* ---------- Podsumowanie ---------- */
 

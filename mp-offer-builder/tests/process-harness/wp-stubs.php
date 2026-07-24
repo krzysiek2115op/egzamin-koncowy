@@ -244,12 +244,40 @@ class WC_Product {
 		return isset( $this->data['regular_price'] ) ? $this->data['regular_price'] : ''; }
 	public function get_sale_price() {
 		return isset( $this->data['sale_price'] ) ? $this->data['sale_price'] : ''; }
+	public function get_id() {
+		return isset( $this->data['id'] ) ? (int) $this->data['id'] : 0; }
 }
 function wc_get_product( $id ) {
 	if ( ! isset( $GLOBALS['__mp_ob_wc_products'][ $id ] ) ) {
 		return false;
 	}
-	return new WC_Product( $GLOBALS['__mp_ob_wc_products'][ $id ] );
+	$data       = $GLOBALS['__mp_ob_wc_products'][ $id ];
+	$data['id'] = $id;
+	return new WC_Product( $data );
+}
+// Krok 4.5 (MP_Offer_Builder_Admin::search_products()): wyszukiwanie po nazwie,
+// tylko produkty 'publish' (kontrakt wc_get_products( array('s','status','limit') ),
+// patrz docs/dzial-02/woocommerce-wc_get_products.md).
+function wc_get_products( $args = array() ) {
+	$term   = isset( $args['s'] ) ? strtolower( (string) $args['s'] ) : '';
+	$status = isset( $args['status'] ) ? (string) $args['status'] : '';
+	$limit  = isset( $args['limit'] ) ? (int) $args['limit'] : -1;
+
+	$results = array();
+	foreach ( $GLOBALS['__mp_ob_wc_products'] as $id => $data ) {
+		if ( '' !== $status && ( isset( $data['status'] ) ? $data['status'] : '' ) !== $status ) {
+			continue;
+		}
+		if ( '' !== $term && false === strpos( strtolower( (string) ( isset( $data['name'] ) ? $data['name'] : '' ) ), $term ) ) {
+			continue;
+		}
+		$data['id'] = $id;
+		$results[]  = new WC_Product( $data );
+		if ( $limit > 0 && count( $results ) >= $limit ) {
+			break;
+		}
+	}
+	return $results;
 }
 class WC_Tax {
 	public static function get_rates( $tax_class = '', $customer = null ) {

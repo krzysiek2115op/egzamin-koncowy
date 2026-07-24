@@ -1,0 +1,32 @@
+/* Ekran budowy oferty (Krok 4.5) — minimalny styl; reszta z rdzenia WP (.form-table/.button/.widefat). */
+
+.mp-offer-builder-items td {
+	vertical-align: top;
+}
+
+.mp-ob-item-results {
+	position: relative;
+	max-width: 260px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	box-shadow: 0 1px 2px rgba( 0, 0, 0, 0.1 );
+}
+
+.mp-ob-item-result {
+	padding: 4px 8px;
+	cursor: pointer;
+}
+
+.mp-ob-item-result:hover {
+	background: #f0f0f1;
+}
+
+#mp-ob-form-message {
+	margin-top: 12px;
+	font-weight: 600;
+	color: #b32d2e;
+}
+
+#mp-ob-form-message:empty {
+	display: none;
+}
