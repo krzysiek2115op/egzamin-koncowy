@@ -65,6 +65,14 @@ class MP_OB_D9_Agent_Render extends MP_OB_Abstract_Agent {
 
 		$options = new \Dompdf\Options();
 		$options->set( 'isRemoteEnabled', false ); // offline — bez pobierania zdalnych zasobów (SSRF).
+		// "chroot" (docs/dzial-09/dompdf.md — cytat z Options.php): "All local
+		// files opened by dompdf must be in a subdirectory of the directory or
+		// directories specified by this option." Szablon Działu 7 NIE odwołuje
+		// się dziś do żadnych plików lokalnych, ale bez jawnego ograniczenia
+		// domyślny chroot Dompdf (katalog własnego pakietu) nie odzwierciedla
+		// naszej intencji — obrona w głąb na wypadek przyszłego szablonu z
+		// lokalnym zasobem (np. logo firmy z dysku).
+		$options->set( 'chroot', MP_Offer_Builder_Storage::private_dir() );
 		// Wymuszone na poziomie Options, NIE zdane na CSS szablonu Działu 7 —
 		// diakrytyka (ą ć ę ł ń ó ś ź ż) musi renderować się poprawnie NIEZALEŻNIE
 		// od tego, czy szablon pamięta o "font-family: DejaVu Sans" (bez tego

@@ -115,8 +115,8 @@ class MP_Offer_Builder_Ajax {
 		$context = new MP_OB_Context(
 			array(
 				'offer_id'   => $offer_id > 0 ? $offer_id : null,
-				'client'     => isset( $input['client'] ) && is_array( $input['client'] ) ? $input['client'] : array(),
-				'items'      => isset( $input['items'] ) && is_array( $input['items'] ) ? $input['items'] : array(),
+				'client'     => self::sanitize_client( isset( $input['client'] ) && is_array( $input['client'] ) ? $input['client'] : array() ),
+				'items'      => self::sanitize_items( isset( $input['items'] ) && is_array( $input['items'] ) ? $input['items'] : array() ),
 				'wariant'    => isset( $input['wariant'] ) ? sanitize_text_field( wp_unslash( (string) $input['wariant'] ) ) : '',
 				'lang'       => isset( $input['lang'] ) ? sanitize_text_field( wp_unslash( (string) $input['lang'] ) ) : '',
 				'request_id' => $request_id,
@@ -165,6 +165,50 @@ class MP_Offer_Builder_Ajax {
 			),
 			self::http_status_for_code( $result->get_code() )
 		);
+	}
+
+	/**
+	 * Sanityzuje zagnieżdżone pola client.* NA GRANICY systemu — wejście to
+	 * surowy JSON (nie $_POST), więc żaden mechanizm WP nie dotyka go wcześniej.
+	 * Dział 1 i tak whitelistuje/waliduje te same klucze niezależnie (defense-
+	 * in-depth), a Dział 7 escapuje je ponownie przy renderze HTML — ale bez
+	 * sanityzacji TUTAJ surowe sterujące znaki/HTML trafiałyby niepotrzebnie
+	 * do BD-2 i dalej w głąb pipeline'u.
+	 *
+	 * @param array $raw Surowe dane client.* z żądania.
+	 * @return array
+	 */
+	public static function sanitize_client( array $raw ) {
+		$client = array();
+		foreach ( array( 'name', 'email', 'nip', 'country', 'vat_status' ) as $key ) {
+			if ( isset( $raw[ $key ] ) && is_scalar( $raw[ $key ] ) ) {
+				$client[ $key ] = sanitize_text_field( wp_unslash( (string) $raw[ $key ] ) );
+			}
+		}
+		return $client;
+	}
+
+	/**
+	 * Sanityzuje pozycje (items[]) NA GRANICY systemu — wymusza typ liczbowy
+	 * nieujemny na product_id/variation_id/qty PRZED wejściem do pipeline'u
+	 * (Dział 1 i tak rzutuje na (int) ponownie, to jest wyłącznie granica).
+	 *
+	 * @param array $raw Surowa lista pozycji z żądania.
+	 * @return array
+	 */
+	public static function sanitize_items( array $raw ) {
+		$items = array();
+		foreach ( $raw as $item ) {
+			if ( ! is_array( $item ) ) {
+				continue;
+			}
+			$items[] = array(
+				'product_id'   => isset( $item['product_id'] ) ? absint( $item['product_id'] ) : 0,
+				'variation_id' => ! empty( $item['variation_id'] ) ? absint( $item['variation_id'] ) : null,
+				'qty'          => isset( $item['qty'] ) ? absint( $item['qty'] ) : 0,
+			);
+		}
+		return $items;
 	}
 
 	/**

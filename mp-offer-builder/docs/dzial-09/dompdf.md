@@ -55,3 +55,23 @@ strony: Agent 9.1 zapisuje `Title` = numer oferty ORAZ własny klucz
 z surowych bajtów wygenerowanego pliku PDF (dekodując UTF-16BE) i porównuje
 z "kopertą" (danymi w kontekście pipeline'u) — realna, deterministyczna
 weryfikacja treści wygenerowanego pliku, bez dodatkowej zależności.
+
+## Opcja "chroot" (cytat, źródło: vendor/dompdf/dompdf/src/Options.php)
+
+Docblock właściwości `Options::$chroot` (kod źródłowy zainstalowanej wersji —
+patrz uzasadnienie u góry pliku: `vendor/` jest commitowany, więc to samo
+źródło co uruchomione w produkcji):
+
+> "dompdf's 'chroot' — Utilized by Dompdf's default file:// protocol URI
+> validation rule. All local files opened by dompdf must be in a subdirectory
+> of the directory or directories specified by this option. DO NOT set this
+> value to '/' since this could allow an attacker to use dompdf to read any
+> files on the server. This should be an absolute path."
+
+Bez jawnego ustawienia, `Options` domyślnie ustawia chroot na katalog
+instalacyjny SAMEGO Dompdf (`setChroot([$rootDir])` w konstruktorze) — co nie
+pokrywa się z intencją tej wtyczki. Agent 9.1 jawnie ustawia
+`chroot` = `MP_Offer_Builder_Storage::private_dir()`, ograniczając ewentualny
+dostęp do plików lokalnych wyłącznie do własnego katalogu przechowywania
+(obrona w głąb — szablon Działu 7 dziś nie odwołuje się do żadnych plików
+lokalnych).

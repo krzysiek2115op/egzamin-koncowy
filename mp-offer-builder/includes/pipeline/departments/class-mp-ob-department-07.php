@@ -115,8 +115,11 @@ class MP_OB_D7_Agent_Merge extends MP_OB_Abstract_Agent {
 			$formatter->setAttribute( NumberFormatter::FRACTION_DIGITS, 2 );
 			$number = $formatter->format( $amount );
 		} else {
-			// Fallback bez rozszerzenia intl — te same konwencje separatorów.
-			$number = 'pl' === $lang ? number_format( $amount, 2, ',', ' ' ) : number_format( $amount, 2, '.', ',' );
+			// Fallback bez rozszerzenia intl — te same konwencje separatorów, WŁĄCZNIE
+			// z separatorem tysięcznym: NumberFormatter dla pl_PL zwraca twardą spację
+			// (U+00A0, NBSP), nie zwykłą spację (U+0020) — bez tego serwer bez intl
+			// wypuszczałby BYTE-owo inny dokument niż serwer z intl dla tych samych danych.
+			$number = 'pl' === $lang ? number_format( $amount, 2, ',', "\xc2\xa0" ) : number_format( $amount, 2, '.', ',' );
 		}
 
 		$symbol = 'PLN' === $currency ? ( 'pl' === $lang ? 'zł' : 'PLN' ) : (string) $currency;

@@ -28,9 +28,14 @@ var_dump( $fmt->format( 1234567.891234567890000 ) );
 
 Dokumentacja pokazuje wprost, że separator dziesiętny i tysięczny zależą od
 locale — `de_DE` odwraca konwencję znaną z `en_US` (kropka/przecinek zamienione
-rolami). To samo zjawisko dotyczy `pl_PL` (przecinek dziesiętny, spacja jako
-separator tysięcy — "1 234,56") kontra `en_US`/`en_GB` (kropka dziesiętna,
+rolami). To samo zjawisko dotyczy `pl_PL` (przecinek dziesiętny, TWARDA spacja
+— U+00A0 NBSP, dane CLDR/ICU dla polskiego — jako separator tysięcy, np.
+"1 234,56" z niełamliwą spacją) kontra `en_US`/`en_GB` (kropka dziesiętna,
 przecinek tysięczny — "1,234.56"), co wprost cytuje diagram blueprintu Działu 7.
+Rozróżnienie NBSP vs zwykła spacja ma znaczenie praktyczne: fallback bez
+`intl` (niżej) musi użyć DOKŁADNIE tego samego znaku, inaczej serwer bez
+rozszerzenia `intl` wypuszczałby byte'owo inny dokument PDF niż serwer z nim,
+dla tych samych danych wejściowych.
 
 ## Zastosowanie w tym dziale
 
@@ -39,8 +44,8 @@ dla `lang=pl`, `en_US` dla `lang=en`), gdy rozszerzenie `intl` jest dostępne
 (`class_exists('NumberFormatter')`). Środowisko testowe harnessu (`tests/
 process-harness`) NIE ma rozszerzenia `intl` (potwierdzone: `php -m` bez
 wpisu `intl`) — dlatego metoda ma jawny FALLBACK bez `intl`: `number_format()`
-z ręcznie dobranymi separatorami wg tej samej konwencji (`,`+spacja dla pl,
-`.`+przecinek dla en), analogicznie do fallbacku BCMath w Dziale 4/6
+z ręcznie dobranymi separatorami wg tej samej konwencji (`,`+NBSP (`\xc2\xa0`)
+dla pl, `.`+przecinek dla en), analogicznie do fallbacku BCMath w Dziale 4/6
 (docs/dzial-04/php-bcmath.md) — ta sama zasada: brak rozszerzenia PHP nie
 może być fatalnym błędem, tylko kontrolowanym zapasowym torem tej samej
 logiki. WAŻNE zastrzeżenie: to formatowanie jest WYŁĄCZNIE prezentacyjne

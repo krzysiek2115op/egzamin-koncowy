@@ -646,17 +646,19 @@ record( 'inv35_zaokraglenie_polowkowe_bez_float', $inv35 ? 'PASS' : 'FAIL', 'vat
 echo "\n=== DZIAŁ 7: REALNA LOGIKA (szablon i treść) ===\n";
 
 // 36) Happy path (pl, domestic): dokument bez niepodstawionych znaczników, dane
-//     klienta i sumy (w formacie pl: przecinek dziesiętny, spacja tysięczna)
-//     realnie trafiają do HTML; tabela pozycji zawiera nazwę produktu i ilość.
-$html36 = $hp['final_data']['document']['html'] ?? '';
-$inv36  = $hp['ok']
+//     klienta i sumy (w formacie pl: przecinek dziesiętny, NBSP tysięczny —
+//     patrz docs/dzial-07/php-intl-numberformatter.md) realnie trafiają do
+//     HTML; tabela pozycji zawiera nazwę produktu i ilość.
+$html36              = $hp['final_data']['document']['html'] ?? '';
+$expected_gross_pl36 = "6\xc2\xa0075,73 zł"; // gross_grosze=607573, NBSP (U+00A0) nie zwykła spacja.
+$inv36               = $hp['ok']
 	&& 'pl' === ( $hp['final_data']['document']['lang'] ?? null )
 	&& false === strpos( $html36, '{{' )
 	&& false !== strpos( $html36, 'Testowa Firma Sp. z o.o.' )
-	&& false !== strpos( $html36, '6 075,73 zł' ) // gross_grosze=607573 -> "6 075,73 zł"
+	&& false !== strpos( $html36, $expected_gross_pl36 )
 	&& false !== strpos( $html36, 'Testowy wariant' )
 	&& false !== strpos( $html36, '<td>40</td>' );
-record( 'inv36_happy_path_scalenie_pl_bez_znacznikow', $inv36 ? 'PASS' : 'FAIL', 'lang=' . ( $hp['final_data']['document']['lang'] ?? '-' ) . ' zawiera_gross=' . ( false !== strpos( $html36, '6 075,73 zł' ) ? 'tak' : 'nie' ) );
+record( 'inv36_happy_path_scalenie_pl_bez_znacznikow', $inv36 ? 'PASS' : 'FAIL', 'lang=' . ( $hp['final_data']['document']['lang'] ?? '-' ) . ' zawiera_gross_nbsp=' . ( false !== strpos( $html36, $expected_gross_pl36 ) ? 'tak' : 'nie' ) );
 
 // 37) UE + ważny VAT (en, reverse_charge): adnotacja odwrotnego obciążenia po
 //     angielsku w dokumencie, kwoty w formacie en (kropka dziesiętna, przecinek
@@ -1665,6 +1667,70 @@ record( 'inv81_wyszukiwanie_pojedynczy_wynik_pola_kompletne', $inv81 ? 'PASS' : 
 $inv82 = array() === MP_Offer_Builder_Admin::search_products( '' );
 record( 'inv82_wyszukiwanie_pusta_fraza_pusty_wynik', $inv82 ? 'PASS' : 'FAIL', 'count=' . count( MP_Offer_Builder_Admin::search_products( '' ) ) );
 seed_woocommerce_fixtures();
+
+/* ---------- Granica AJAX: sanityzacja client/items (Medium) ---------- */
+
+echo "\n=== GRANICA AJAX: SANITYZACJA CLIENT/ITEMS ===\n";
+
+// 92) sanitize_client(): tagi/znaki sterujące usunięte, klucze spoza whitelisty
+//     odrzucone, pola spoza listy dozwolonych (np. "extra") zignorowane.
+$dirty_client     = array(
+	'name'    => "<script>alert(1)</script>Firma \t\n Testowa",
+	'email'   => 'kontakt@testowa-firma.pl',
+	'nip'     => '1234563218',
+	'country' => 'PL',
+	'extra'   => 'nie-powinno-przetrwac',
+);
+$clean_client     = MP_Offer_Builder_Ajax::sanitize_client( $dirty_client );
+$inv92            = false === strpos( $clean_client['name'] ?? '', '<script>' )
+	&& ! array_key_exists( 'extra', $clean_client )
+	&& 'kontakt@testowa-firma.pl' === ( $clean_client['email'] ?? '' )
+	&& 'PL' === ( $clean_client['country'] ?? '' );
+record( 'inv92_sanitize_client_usuwa_tagi_i_klucze_spoza_whitelisty', $inv92 ? 'PASS' : 'FAIL', 'name=' . ( $clean_client['name'] ?? '-' ) . ' extra_obecne=' . ( array_key_exists( 'extra', $clean_client ) ? 'tak(BLAD)' : 'nie' ) );
+
+// 93) sanitize_items(): product_id/variation_id/qty wymuszone na nieujemne
+//     liczby całkowite PRZED wejściem do pipeline'u; wpisy spoza tablicy
+//     (np. string zamiast obiektu) pominięte, nie powodują wyjątku.
+$dirty_items = array(
+	array(
+		'product_id'   => '812',
+		'variation_id' => '9101',
+		'qty'          => '5',
+	),
+	'nie-tablica-pomijana',
+	array( 'product_id' => -3, 'qty' => -1 ), // absint() -> wartość bezwzględna, NIE 0 (spójne z resztą kodu).
+);
+$clean_items = MP_Offer_Builder_Ajax::sanitize_items( $dirty_items );
+$inv93       = 2 === count( $clean_items )
+	&& 812 === $clean_items[0]['product_id']
+	&& 9101 === $clean_items[0]['variation_id']
+	&& 5 === $clean_items[0]['qty']
+	&& 3 === $clean_items[1]['product_id']
+	&& 1 === $clean_items[1]['qty'];
+record( 'inv93_sanitize_items_wymusza_typy_i_pomija_wpisy_niepoprawne', $inv93 ? 'PASS' : 'FAIL', wp_json_encode( $clean_items ) );
+
+/* ---------- Siatka bezpieczeństwa na twarde fatale PHP (Medium) ---------- */
+
+echo "\n=== SIATKA BEZPIECZEŃSTWA: SHUTDOWN ROLLBACK ===\n";
+
+// 94) maybe_rollback_on_fatal(): transakcja wciąż "otwarta" w chwili shutdown
+//     (np. twardy fatal PHP, którego \Throwable nie łapie) -> ROLLBACK. Gdy
+//     transakcja już zamknięta normalnie (false) -> żadnego zapytania.
+$GLOBALS['wpdb']->tx_log = array();
+MP_OB_Pipeline::maybe_rollback_on_fatal( true, $GLOBALS['wpdb'] );
+$inv94a                  = array( 'ROLLBACK' ) === $GLOBALS['wpdb']->tx_log;
+
+$GLOBALS['wpdb']->tx_log = array();
+MP_OB_Pipeline::maybe_rollback_on_fatal( false, $GLOBALS['wpdb'] );
+$inv94b                  = array() === $GLOBALS['wpdb']->tx_log;
+
+$inv94 = $inv94a && $inv94b;
+record(
+	'inv94_shutdown_rollback_guard_reaguje_tylko_na_otwarta_transakcje',
+	$inv94 ? 'PASS' : 'FAIL',
+	'otwarta=' . ( $inv94a ? 'ok' : 'FAIL' ) . ' zamknieta=' . ( $inv94b ? 'ok' : 'FAIL' )
+);
+$GLOBALS['wpdb']->tx_log = array();
 
 /* ---------- Podsumowanie ---------- */
 

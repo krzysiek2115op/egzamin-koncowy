@@ -12,24 +12,36 @@ Dotyczy: Krok 4.5 — MP_Offer_Builder_Admin::ajax_search_products() (panel wp-a
 
 # wc_get_products() — dokumentacja oficjalna (wybrane fragmenty)
 
-## Opis (cytat, developer.woocommerce.com)
+Poprawka Golden Rule #2 (2026-07-24): poniższe sekcje "Opis"/"Parametry"/
+"Zwracane wartości" wcześniej zawierały PARAFRAZĘ po polsku oznaczoną błędnie
+jako "cytat" — naprawione na VERBATIM angielski cytat ze strony źródłowej,
+z osobnym, jawnie oznaczonym tłumaczeniem (nie cytatem).
 
-"wc_get_products() [jest] standardem do pobierania produktów, który jest bezpieczny
-w użyciu" i "nie ulegnie awarii w przyszłych wersjach WooCommerce'a" — "najlepsza
-praktyka dla programistów wtyczek i motywów do pobierania wielu produktów".
+## Opis (cytat, verbatim, developer.woocommerce.com)
 
-## Parametry użyte w tym pliku (cytat)
+"`wc_get_products` and `WC_Product_Query` provide a standard way of
+retrieving products that is safe to use and will not break due to database
+changes in future WooCommerce versions."
 
-- `status` — "Akceptuje string lub tablicę: 'draft', 'pending', 'private', 'publish'
-  lub status niestandardowy."
-- `limit` — "Przyjmuje liczbę całkowitą: maksymalna liczba wyników do pobrania lub
-  -1 dla nieograniczonego."
+Tłumaczenie (NIE cytat): `wc_get_products` i `WC_Product_Query` dają
+standardowy, bezpieczny sposób pobierania produktów, który nie zepsuje się
+na skutek zmian w bazie danych w przyszłych wersjach WooCommerce.
 
-## Zwracane wartości (cytat)
+## Parametry użyte w tym pliku (cytat, verbatim)
 
-"Standardowo zwraca obiekty produktów [WC_Product]." (parametr `return` domyślnie
-`'objects'`; z `'return' => 'ids'` zwróciłby same ID — tu NIE używane, bo Agent
-potrzebuje `get_name()`/`get_id()` do wyniku wyszukiwania).
+- `status` — "Accepts a string or array of strings: one or more of
+  `'draft'`, `'pending'`, `'private'`, `'publish'`, or a custom status."
+- `limit` — "Accepts an integer: maximum number of results to retrieve or
+  `-1` for unlimited. Default: site `posts_per_page` setting."
+
+## Zwracane wartości (cytat, verbatim)
+
+"Return type. Accepts a string: `'ids'` or `'objects'`. Default: `'objects'`."
+
+Tłumaczenie (NIE cytat): parametr `return` domyślnie zwraca obiekty
+`WC_Product` (`'objects'`); z `'return' => 'ids'` zwróciłby same ID — tu
+NIE używane, bo Agent potrzebuje `get_name()`/`get_id()` do wyniku
+wyszukiwania.
 
 ## Parametr 's' (wyszukiwanie tekstowe) — potwierdzone w kodzie źródłowym
 

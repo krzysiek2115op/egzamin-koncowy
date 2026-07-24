@@ -96,6 +96,19 @@ class MP_OB_Pipeline {
 		global $wpdb;
 		$in_transaction = false;
 
+		// Siatka bezpieczeństwa na TWARDE fatale PHP (limit pamięci, exit() w
+		// zależności), których `catch (\Throwable $e)` NIŻEJ nie łapie — bez tego
+		// transakcja SQL mogłaby zostać formalnie otwarta na stałe po ubiciu
+		// procesu, co przy trwałych połączeniach DB (persistent connections)
+		// zaraziłoby transakcją NASTĘPNE, niepowiązane żądanie na tym samym
+		// połączeniu. Logika wydzielona do maybe_rollback_on_fatal() — testowalna
+		// wprost, bez czekania na realny shutdown skryptu (patrz docblock tamtej metody).
+		register_shutdown_function(
+			static function () use ( &$in_transaction, $wpdb ) {
+				self::maybe_rollback_on_fatal( $in_transaction, $wpdb );
+			}
+		);
+
 		try {
 			foreach ( $this->departments as $department ) {
 				// Transakcję ZAMYKAMY, zanim przetworzymy pierwszy dział PO progu końcowym —
@@ -159,6 +172,24 @@ class MP_OB_Pipeline {
 		}
 
 		return MP_OB_Result::ok( $context->all() );
+	}
+
+	/**
+	 * Wykonuje ROLLBACK, jeśli transakcja wciąż formalnie otwarta w chwili
+	 * shutdown skryptu — jedyna siatka bezpieczeństwa na twarde fatale PHP
+	 * (limit pamięci, `exit()` w zależności), które omijają `catch (\Throwable)`
+	 * w run(). Wydzielona ze samego register_shutdown_function(), żeby dało
+	 * się ją zweryfikować wprost (harness nie może czekać na realny shutdown
+	 * procesu PHP).
+	 *
+	 * @param bool  $in_transaction Czy transakcja była otwarta w chwili shutdown.
+	 * @param mixed $wpdb           Połączenie DB (realny $wpdb albo fake z harnessu).
+	 * @return void
+	 */
+	public static function maybe_rollback_on_fatal( $in_transaction, $wpdb ) {
+		if ( $in_transaction ) {
+			$wpdb->query( 'ROLLBACK' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		}
 	}
 
 	/**
