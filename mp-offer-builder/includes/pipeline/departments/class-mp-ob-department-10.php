@@ -319,13 +319,20 @@ class MP_OB_D10_Agent_Transaction extends MP_OB_Abstract_Agent {
 
 			foreach ( $plan['items'] as $item_row ) {
 				$item_row['offer_id'] = $offer_id;
-				$wpdb->insert( MP_Offer_Builder_DB::items_table(), $item_row );
+				// Niesprawdzony INSERT tutaj czyniłby kontrolę atomowości QA Agenta 10
+				// tautologiczną (affected_rows rósłby "na sucho", niezależnie od tego,
+				// czy wiersz REALNIE powstał) — patrz docblock tamtego agenta.
+				if ( false === $wpdb->insert( MP_Offer_Builder_DB::items_table(), $item_row ) ) {
+					return MP_OB_Result::fail( 'Zapis pozycji oferty nie powiódł się: ' . $wpdb->last_error, array(), 'write_failed' );
+				}
 				++$affected_rows;
 			}
 
 			$version_row             = $plan['version'];
 			$version_row['offer_id'] = $offer_id;
-			$wpdb->insert( MP_Offer_Builder_DB::versions_table(), $version_row );
+			if ( false === $wpdb->insert( MP_Offer_Builder_DB::versions_table(), $version_row ) ) {
+				return MP_OB_Result::fail( 'Zapis wersji oferty nie powiódł się: ' . $wpdb->last_error, array(), 'write_failed' );
+			}
 			++$affected_rows;
 
 			return MP_OB_Result::ok(
@@ -446,7 +453,9 @@ class MP_OB_D10_Agent_Log extends MP_OB_Abstract_Agent {
 
 		$log_row             = $plan['log'];
 		$log_row['offer_id'] = $offer_id;
-		$wpdb->insert( MP_Offer_Builder_DB::activity_log_table(), $log_row );
+		if ( false === $wpdb->insert( MP_Offer_Builder_DB::activity_log_table(), $log_row ) ) {
+			return MP_OB_Result::fail( 'Zapis wpisu dziennika nie powiódł się: ' . $wpdb->last_error, array(), 'write_failed' );
+		}
 
 		return MP_OB_Result::ok(
 			array(

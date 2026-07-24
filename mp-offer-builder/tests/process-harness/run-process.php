@@ -991,6 +991,39 @@ record(
 );
 $GLOBALS['wpdb']->force_unique_collision_always = false;
 
+// 87) Niesprawdzony INSERT pozycji/wersji/dziennika w Dziale 10 (High): jeśli
+//     wynik insert() jest ignorowany, "0 wierszy zmienionych" przechodzi
+//     przez QA Agenta 10 bez zauważenia (affected_rows rósłby "na sucho").
+//     Każdy z trzech INSERT-ów musi FAKTYCZNIE zatrzymać zapis (ROLLBACK).
+$insert_fail_flags = array(
+	'force_items_insert_fail'    => 'pozycji',
+	'force_versions_insert_fail' => 'wersji',
+	'force_log_insert_fail'      => 'dziennika',
+);
+$inv87              = true;
+$inv87_details      = array();
+foreach ( $insert_fail_flags as $flag => $label ) {
+	$GLOBALS['wpdb']->offers         = array();
+	$GLOBALS['wpdb']->items          = array();
+	$GLOBALS['wpdb']->versions       = array();
+	$GLOBALS['wpdb']->activity_log   = array();
+	$GLOBALS['wpdb']->tx_log         = array();
+	$GLOBALS['wpdb']->{$flag}        = true;
+	$r87                              = run_pipeline( base_input() );
+	$GLOBALS['wpdb']->{$flag}        = false;
+	// Uwaga: fake $wpdb NIE cofa wpisów już dodanych do swoich tablic in-memory
+	// przy ROLLBACK (modeluje tylko SEKWENCJĘ START/COMMIT/ROLLBACK, nie realne
+	// MVCC) — nagłówek oferty (wstawiony PRZED pozycjami/wersją/dziennikiem)
+	// więc zostaje widoczny w $offers nawet po zwróceniu fail(). Sprawdzamy to,
+	// co fake FAKTYCZNIE modeluje wiernie: kod błędu i sekwencję transakcji.
+	$ok87                             = ! $r87['ok']
+		&& 'write_failed' === $r87['code']
+		&& array( 'START', 'ROLLBACK' ) === $GLOBALS['wpdb']->tx_log;
+	$inv87_details[]                  = $label . '=' . ( $ok87 ? 'ok' : 'FAIL(code=' . $r87['code'] . ')' );
+	$inv87                            = $inv87 && $ok87;
+}
+record( 'inv87_niesprawdzony_insert_pozycji_wersji_dziennika_stop', $inv87 ? 'PASS' : 'FAIL', implode( ' ', $inv87_details ) );
+
 // 61) QA Agent 10 "atomowość": affected_rows niezgodne z planem (np. bug w
 //     Agencie 10.2/10.3) → STOP, mimo że każdy pojedynczy INSERT się udał.
 $atomicity_ctx    = new MP_OB_Context(

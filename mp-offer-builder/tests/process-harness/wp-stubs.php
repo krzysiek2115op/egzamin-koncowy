@@ -312,6 +312,12 @@ class MP_OB_Fake_WPDB {
 	// Jak wyżej, ale NIE kasuje się samo — symuluje TRWAŁĄ kolizję (retry
 	// wyczerpuje maks. 2 podejścia i musi się poddać z jawnym FAIL).
 	public $force_unique_collision_always = false;
+	// Symuluje awarię pojedynczego INSERT-u (np. brak miejsca na dysku, limit
+	// wiersza) na tabelach pozycji/wersji/dziennika — sprawdza, że Dział 10
+	// FAKTYCZNIE patrzy na wynik insert(), a nie tylko liczy "na sucho".
+	public $force_items_insert_fail    = false;
+	public $force_versions_insert_fail = false;
+	public $force_log_insert_fail      = false;
 
 	public function get_charset_collate() {
 		return 'DEFAULT CHARSET=utf8mb4';
@@ -336,17 +342,29 @@ class MP_OB_Fake_WPDB {
 	}
 	public function insert( $table, $data, $format = null ) {
 		if ( strpos( $table, 'mp_ob_offer_activity_log' ) !== false ) {
+			if ( $this->force_log_insert_fail ) {
+				$this->last_error = 'Simulated log insert failure';
+				return false;
+			}
 			$this->activity_log[] = $data;
 			++$this->insert_id;
 			return 1;
 		}
 		if ( strpos( $table, 'mp_ob_offer_items' ) !== false ) {
+			if ( $this->force_items_insert_fail ) {
+				$this->last_error = 'Simulated items insert failure';
+				return false;
+			}
 			++$this->insert_id;
 			$data['id']     = $this->insert_id;
 			$this->items[] = $data;
 			return 1;
 		}
 		if ( strpos( $table, 'mp_ob_offer_versions' ) !== false ) {
+			if ( $this->force_versions_insert_fail ) {
+				$this->last_error = 'Simulated versions insert failure';
+				return false;
+			}
 			++$this->insert_id;
 			$data['id']        = $this->insert_id;
 			$this->versions[] = $data;
