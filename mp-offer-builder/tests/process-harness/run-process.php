@@ -992,6 +992,81 @@ $atomicity_result = ( new MP_OB_D10_QA_Agent() )->run( $atomicity_ctx );
 $inv61              = ! $atomicity_result->is_ok() && 'atomicity_mismatch' === $atomicity_result->get_code();
 record( 'inv61_atomowosc_niezgodna_liczba_wierszy_stop', $inv61 ? 'PASS' : 'FAIL', 'code=' . $atomicity_result->get_code() );
 
+/* ---------- Krok 4.2: created_by (Agent 10.1 + Dział 2 Agent 2.5) ---------- */
+
+echo "\n=== KROK 4.2: WŁAŚCICIEL OFERTY (created_by) ===\n";
+
+// 73) Nowa oferta (bez offer_id): created_by = bieżący zalogowany użytkownik.
+$GLOBALS['wpdb']->offers                = array();
+$GLOBALS['wpdb']->items                 = array();
+$GLOBALS['wpdb']->versions              = array();
+$GLOBALS['wpdb']->activity_log          = array();
+$GLOBALS['__mp_ob_cfg']['current_user_id'] = 55;
+$r73                                     = run_pipeline( base_input() );
+$GLOBALS['__mp_ob_cfg']['current_user_id'] = 0;
+$offer_id_73                            = $r73['final_data']['offer_id'] ?? 0;
+$inv73                                  = $r73['ok'] && 55 === (int) ( $GLOBALS['wpdb']->offers[ $offer_id_73 ]['created_by'] ?? 0 );
+record(
+	'inv73_nowa_oferta_created_by_biezacy_uzytkownik',
+	$inv73 ? 'PASS' : 'FAIL',
+	'created_by=' . ( $GLOBALS['wpdb']->offers[ $offer_id_73 ]['created_by'] ?? '-' )
+);
+
+// 74) Pierwsze dokończenie draftu z Kroku 2.5 (created_by dziś NULL) -> ustawiane
+//     PRZY PIERWSZYM zapisie na bieżącego użytkownika.
+$GLOBALS['wpdb']->offers       = array(
+	21 => array(
+		'id'             => 21,
+		'status'         => 'draft',
+		'lead_id'        => 700,
+		'created_by'     => null,
+		'client_name'    => 'Klient Bez Wlasciciela Sp. z o.o.',
+		'client_email'   => 'bez-wlasciciela@testowa-firma.pl',
+		'client_nip'     => '1234563218',
+		'client_country' => 'PL',
+	),
+);
+$GLOBALS['wpdb']->items                    = array();
+$GLOBALS['wpdb']->versions                 = array();
+$GLOBALS['wpdb']->activity_log             = array();
+$GLOBALS['__mp_ob_cfg']['current_user_id'] = 77;
+$draft74_input                             = base_input();
+$draft74_input['offer_id']                 = 21;
+unset( $draft74_input['client'] );
+$r74 = run_pipeline( $draft74_input );
+$GLOBALS['__mp_ob_cfg']['current_user_id'] = 0;
+$inv74 = $r74['ok'] && 77 === (int) ( $GLOBALS['wpdb']->offers[21]['created_by'] ?? 0 );
+record( 'inv74_pierwsze_dokonczenie_draftu_ustawia_wlasciciela', $inv74 ? 'PASS' : 'FAIL', 'created_by=' . ( $GLOBALS['wpdb']->offers[21]['created_by'] ?? '-' ) );
+
+// 75) Korekta oferty z JUŻ USTAWIONYM created_by -> wartość zachowana, NAWET gdy
+//     zapisuje ją zalogowany INNY handlowiec (pierwszy właściciel zostaje na stałe).
+$d10_2_year               = (int) gmdate( 'Y' );
+$GLOBALS['wpdb']->offers  = array(
+	22 => array(
+		'id'             => 22,
+		'status'         => 'draft',
+		'offer_number'   => sprintf( 'OF/%d/000030', $d10_2_year ),
+		'version'        => 1,
+		'created_by'     => 33,
+		'client_name'    => 'Klient Z Wlascicielem Sp. z o.o.',
+		'client_email'   => 'z-wlascicielem@testowa-firma.pl',
+		'client_nip'     => '1234563218',
+		'client_country' => 'PL',
+	),
+);
+$GLOBALS['wpdb']->items                    = array();
+$GLOBALS['wpdb']->versions                 = array();
+$GLOBALS['wpdb']->activity_log             = array();
+$GLOBALS['__mp_ob_cfg']['current_user_id'] = 99;
+$correction75_input                        = base_input();
+$correction75_input['offer_id']            = 22;
+unset( $correction75_input['client'] );
+$r75 = run_pipeline( $correction75_input );
+$GLOBALS['__mp_ob_cfg']['current_user_id'] = 0;
+$inv75 = $r75['ok'] && 33 === (int) ( $GLOBALS['wpdb']->offers[22]['created_by'] ?? 0 );
+record( 'inv75_korekta_wlasciciel_zachowany_bez_zmian', $inv75 ? 'PASS' : 'FAIL', 'created_by=' . ( $GLOBALS['wpdb']->offers[22]['created_by'] ?? '-' ) );
+$GLOBALS['wpdb']->offers = array();
+
 /* ---------- Dział 11: realna logika (Krok 3) ---------- */
 
 echo "\n=== DZIAŁ 11: REALNA LOGIKA (odpowiedź i przekazanie) ===\n";

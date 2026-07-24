@@ -76,6 +76,13 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 		$version      = (int) $context->get( 'version', 0 );
 		$pdf_path     = MP_Offer_Builder_Storage::final_pdf_path( $offer_number, $version );
 
+		// Właściciel oferty (Krok 4, decyzja klienta): NOWA oferta / pierwsze dokończenie
+		// draftu bez właściciela -> bieżący użytkownik; draft z JUŻ USTAWIONYM created_by
+		// (Dział 2, Agent 2.5, TEN SAM odczyt co existing_offer_number) -> zachowany bez
+		// zmian — pierwszy handlowiec zostaje właścicielem na stałe, korekty go nie podmieniają.
+		$existing_created_by = isset( $numbering['existing_created_by'] ) ? $numbering['existing_created_by'] : null;
+		$created_by          = null !== $existing_created_by ? (int) $existing_created_by : get_current_user_id();
+
 		$header = array(
 			'offer_number'   => $offer_number,
 			'version'        => $version,
@@ -93,6 +100,7 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 			'pdf_path'       => $pdf_path,
 			'pdf_sha256'     => isset( $pdf['sha256'] ) ? (string) $pdf['sha256'] : '',
 			'request_id'     => (string) $context->get( 'request_id', '' ),
+			'created_by'     => $created_by,
 		);
 
 		$offer_id = (int) $context->get( 'offer_id', 0 );

@@ -258,13 +258,20 @@ class MP_OB_D2_Agent_Numbering extends MP_OB_Abstract_Agent {
 
 		$existing_offer_number = null;
 		$existing_version      = null;
+		$existing_created_by   = null;
 
 		$offer_id = (int) $context->get( 'offer_id', 0 );
 		if ( $offer_id > 0 ) {
 			$offer = MP_Offer_Builder_DB::get_offer( $offer_id );
-			if ( $offer && ! empty( $offer['offer_number'] ) ) {
-				$existing_offer_number = $offer['offer_number'];
-				$existing_version      = MP_Offer_Builder_DB::get_max_version_for_offer_number( $offer['offer_number'] );
+			if ( $offer ) {
+				// Niezależnie od obecności offer_number: draft z Kroku 2.5 może już mieć
+				// właściciela (np. kolejne dokończenie po nieudanej wcześniej próbie),
+				// mimo że numeru jeszcze nie ma (Krok 4, decyzja własności ofert).
+				$existing_created_by = ( isset( $offer['created_by'] ) && null !== $offer['created_by'] ) ? (int) $offer['created_by'] : null;
+				if ( ! empty( $offer['offer_number'] ) ) {
+					$existing_offer_number = $offer['offer_number'];
+					$existing_version      = MP_Offer_Builder_DB::get_max_version_for_offer_number( $offer['offer_number'] );
+				}
 			}
 		}
 
@@ -275,6 +282,7 @@ class MP_OB_D2_Agent_Numbering extends MP_OB_Abstract_Agent {
 					'last_number'           => $last_number,
 					'existing_offer_number' => $existing_offer_number,
 					'existing_version'      => $existing_version,
+					'existing_created_by'   => $existing_created_by,
 				),
 				// Znacznik "jeden odczyt" MUSI pochodzić z agenta (nie z QA gate —
 				// MP_OB_Department::process() nie scala danych bramki z kontekstem,

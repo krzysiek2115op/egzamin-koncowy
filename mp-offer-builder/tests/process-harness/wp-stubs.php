@@ -147,8 +147,12 @@ function wp_mail( $to, $subject, $body, $headers = '', $att = array() ) {
 }
 
 // --- Użytkownik / uprawnienia ---
+// Sterowalne przez test: $GLOBALS['__mp_ob_cfg']['current_user_id'] = 42 (domyślnie 0,
+// jak "niezalogowany" — Krok 4 potrzebuje symulować RÓŻNYCH zalogowanych handlowców,
+// żeby przetestować przypisanie/zachowanie created_by).
 function get_current_user_id() {
-	return 0; }
+	return isset( $GLOBALS['__mp_ob_cfg']['current_user_id'] ) ? (int) $GLOBALS['__mp_ob_cfg']['current_user_id'] : 0;
+}
 // Sterowalne przez test: $GLOBALS['__mp_ob_cfg']['denied_caps'] = array('cap' => true).
 function current_user_can( $cap ) {
 	return empty( $GLOBALS['__mp_ob_cfg']['denied_caps'][ $cap ] );
