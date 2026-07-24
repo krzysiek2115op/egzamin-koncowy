@@ -27,6 +27,7 @@ require $PLUGIN . '/includes/db/class-mp-offer-builder-db.php';
 require $PLUGIN . '/includes/class-mp-offer-builder-storage.php';
 require $PLUGIN . '/includes/pipeline/bootstrap.php';
 require $PLUGIN . '/includes/class-mp-offer-builder-lead-listener.php';
+require $PLUGIN . '/includes/class-mp-offer-builder-download.php';
 
 // Fixture WooCommerce/BD-2 zgodne z base_input() poniżej (item wskazuje variation_id
 // 9101 — Agent 2.1 zawsze woli variation_id nad product_id, więc TO wariant musi
@@ -1307,6 +1308,32 @@ record(
 	'strona1=' . implode( ',', $page1_ids ) . ' strona2=' . implode( ',', $page2_ids ) . ' count=' . MP_Offer_Builder_DB::count_offers()
 );
 $GLOBALS['wpdb']->offers = array();
+
+/* ---------- Krok 4.3: endpoint pobierania PDF — autoryzacja (can_download) ---------- */
+
+echo "\n=== KROK 4.3: AUTORYZACJA POBIERANIA PDF (can_download) ===\n";
+
+// 76) Administrator (manage_options) pobiera KAŻDĄ ofertę, niezależnie od created_by.
+$GLOBALS['__mp_ob_cfg']['denied_caps'] = array();
+$owned_by_5                             = array( 'created_by' => 5 );
+$inv76                                  = true === MP_Offer_Builder_Download::can_download( $owned_by_5, 999 );
+record( 'inv76_admin_pobiera_kazda_oferte', $inv76 ? 'PASS' : 'FAIL', 'can_download=' . var_export( MP_Offer_Builder_Download::can_download( $owned_by_5, 999 ), true ) );
+
+// 77) Twórca oferty (created_by === user_id), BEZ manage_options -> dostęp.
+$GLOBALS['__mp_ob_cfg']['denied_caps'] = array( 'manage_options' => true );
+$inv77                                  = true === MP_Offer_Builder_Download::can_download( $owned_by_5, 5 );
+record( 'inv77_wlasciciel_pobiera_swoja_oferte', $inv77 ? 'PASS' : 'FAIL', 'can_download=' . var_export( MP_Offer_Builder_Download::can_download( $owned_by_5, 5 ), true ) );
+
+// 78) Inny handlowiec (created_by !== user_id), BEZ manage_options -> ODMOWA
+//     (decyzja własności ofert, Krok 4 — cudza oferta jest niewidoczna).
+$inv78 = false === MP_Offer_Builder_Download::can_download( $owned_by_5, 6 );
+record( 'inv78_obcy_handlowiec_bez_dostepu', $inv78 ? 'PASS' : 'FAIL', 'can_download=' . var_export( MP_Offer_Builder_Download::can_download( $owned_by_5, 6 ), true ) );
+
+// 79) created_by NULL (np. stary/nieoczekiwany wiersz), BEZ manage_options -> ODMOWA,
+//     NIGDY ciche dopasowanie "brak właściciela = każdy może".
+$inv79 = false === MP_Offer_Builder_Download::can_download( array( 'created_by' => null ), 6 );
+record( 'inv79_brak_wlasciciela_bez_dostepu', $inv79 ? 'PASS' : 'FAIL', 'can_download=' . var_export( MP_Offer_Builder_Download::can_download( array( 'created_by' => null ), 6 ), true ) );
+$GLOBALS['__mp_ob_cfg']['denied_caps'] = array();
 
 /* ---------- Podsumowanie ---------- */
 
