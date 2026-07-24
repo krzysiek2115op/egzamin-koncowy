@@ -1004,6 +1004,50 @@ $atomicity_result = ( new MP_OB_D10_QA_Agent() )->run( $atomicity_ctx );
 $inv61              = ! $atomicity_result->is_ok() && 'atomicity_mismatch' === $atomicity_result->get_code();
 record( 'inv61_atomowosc_niezgodna_liczba_wierszy_stop', $inv61 ? 'PASS' : 'FAIL', 'code=' . $atomicity_result->get_code() );
 
+// 86) Blokada optymistyczna (Agent 10.2, High — "lost update"): wersja w bazie
+//     ZMIENIŁA SIĘ między odczytem (Dział 2) a zapisem (ktoś inny wygrał wyścig
+//     na tę samą ofertę) -> STOP z 'concurrent_modification', BEZ nadpisania
+//     cudzego zapisu i BEZ wstawienia naszych pozycji (transakcja robi ROLLBACK).
+$GLOBALS['wpdb']->offers = array(
+	40 => array(
+		'id'           => 40,
+		'status'       => 'draft',
+		'offer_number' => 'OF/2026/000040',
+		'version'      => 5, // ktoś inny zapisał już wersję 5.
+		'created_by'   => 1,
+		'client_name'  => 'Wersja zapisana przez kogos innego',
+	),
+);
+$GLOBALS['wpdb']->items = array();
+$optimistic_ctx         = new MP_OB_Context(
+	array(
+		'write_plan' => array(
+			'header'           => array(
+				'id'           => 40,
+				'offer_number' => 'OF/2026/000040',
+				'version'      => 5,
+				'client_name'  => 'Moja wersja (powinna przegrac)',
+				'updated_at'   => gmdate( 'Y-m-d H:i:s' ),
+			),
+			'items'            => array( array( 'product_id' => 1, 'qty' => 1 ) ),
+			'version'          => array( 'version_number' => 5 ),
+			'log'              => array( 'action' => 'offer.versioned' ),
+			'expected_version' => 4, // STARA wersja odczytana przez NAS — już nieaktualna.
+		),
+	)
+);
+$optimistic_result = ( new MP_OB_D10_Agent_Transaction() )->run( $optimistic_ctx );
+$inv86              = ! $optimistic_result->is_ok()
+	&& 'concurrent_modification' === $optimistic_result->get_code()
+	&& 'Wersja zapisana przez kogos innego' === ( $GLOBALS['wpdb']->offers[40]['client_name'] ?? null )
+	&& 0 === count( $GLOBALS['wpdb']->items );
+record(
+	'inv86_blokada_optymistyczna_wykrywa_lost_update',
+	$inv86 ? 'PASS' : 'FAIL',
+	'code=' . $optimistic_result->get_code() . ' offer_niezmieniony=' . ( 'Wersja zapisana przez kogos innego' === ( $GLOBALS['wpdb']->offers[40]['client_name'] ?? null ) ? 'tak' : 'nie' )
+);
+$GLOBALS['wpdb']->offers = array();
+
 /* ---------- Krok 4.2: created_by (Agent 10.1 + Dział 2 Agent 2.5) ---------- */
 
 echo "\n=== KROK 4.2: WŁAŚCICIEL OFERTY (created_by) ===\n";

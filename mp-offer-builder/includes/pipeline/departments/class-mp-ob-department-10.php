@@ -109,6 +109,12 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 			'pdf_sha256'     => isset( $pdf['sha256'] ) ? (string) $pdf['sha256'] : '',
 			'request_id'     => (string) $context->get( 'request_id', '' ),
 			'created_by'     => $created_by,
+			// Jawnie ustawiane na KAŻDYM zapisie (schemat NIE ma ON UPDATE
+			// CURRENT_TIMESTAMP) — przy okazji gwarantuje, że UPDATE zawsze
+			// realnie zmienia przynajmniej jedną kolumnę, więc "0 wierszy
+			// zmienionych" w Agencie 10.2 jednoznacznie znaczy "WHERE nie
+			// trafił" (blokada optymistyczna), nie "wartości identyczne".
+			'updated_at'     => gmdate( 'Y-m-d H:i:s' ),
 		);
 
 		$offer_id = (int) $context->get( 'offer_id', 0 );
@@ -186,10 +192,14 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 		return MP_OB_Result::ok(
 			array(
 				'write_plan' => array(
-					'header'  => $header,
-					'items'   => $item_rows,
-					'version' => $version_row,
-					'log'     => $log_row,
+					'header'           => $header,
+					'items'            => $item_rows,
+					'version'          => $version_row,
+					'log'              => $log_row,
+					// Blokada optymistyczna (Agent 10.2): wersja wiersza ODCZYTANA
+					// w Dziale 2 (Agent 2.5, "jeden odczyt") — null tylko gdy to
+					// NOWA oferta (offer_id=0, wtedy INSERT, nic do zablokowania).
+					'expected_version' => ( $offer_id > 0 && isset( $numbering['existing_row_version'] ) ) ? $numbering['existing_row_version'] : null,
 				),
 			)
 		);
@@ -259,7 +269,24 @@ class MP_OB_D10_Agent_Transaction extends MP_OB_Abstract_Agent {
 			unset( $header['id'] );
 
 			if ( $offer_id > 0 ) {
-				$ok = false !== $wpdb->update( MP_Offer_Builder_DB::offers_table(), $header, array( 'id' => $offer_id ) );
+				$update_where = array( 'id' => $offer_id );
+				if ( null !== $plan['expected_version'] ) {
+					// Blokada optymistyczna: WHERE zawiera wersję ODCZYTANĄ w Dziale 2,
+					// NIE nową wersję z $header. `updated_at` w $header (patrz Agent 10.1)
+					// gwarantuje, że dopasowany wiersz ZAWSZE realnie się zmienia, więc
+					// 0 wierszy dotkniętych jednoznacznie znaczy "WHERE nie trafił" —
+					// ktoś inny zapisał tę ofertę pomiędzy odczytem (Dział 2) a tym zapisem.
+					$update_where['version'] = (int) $plan['expected_version'];
+				}
+				$update_result = $wpdb->update( MP_Offer_Builder_DB::offers_table(), $header, $update_where );
+				if ( 0 === $update_result && isset( $update_where['version'] ) ) {
+					return MP_OB_Result::fail(
+						'Oferta została zmieniona przez innego użytkownika w międzyczasie. Odśwież i spróbuj ponownie.',
+						array(),
+						'concurrent_modification'
+					);
+				}
+				$ok = false !== $update_result;
 			} else {
 				$ok = false !== $wpdb->insert( MP_Offer_Builder_DB::offers_table(), $header );
 				if ( $ok ) {

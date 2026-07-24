@@ -375,6 +375,12 @@ class MP_OB_Fake_WPDB {
 			if ( ! isset( $this->offers[ $id ] ) ) {
 				return false;
 			}
+			// Blokada optymistyczna: WHERE z 'version' NIE dopasowuje wiersza, którego
+			// bieżąca wersja się różni — real MySQL zwraca wtedy 0 (dotkniętych wierszy),
+			// NIE false (to nie błąd zapytania, po prostu WHERE nic nie znalazł).
+			if ( isset( $where['version'] ) && (int) ( $this->offers[ $id ]['version'] ?? 1 ) !== (int) $where['version'] ) {
+				return 0;
+			}
 			if ( $this->force_unique_collision_always ) {
 				$this->last_error = "Duplicate entry for key 'uq_offer_number_version'";
 				return false;
