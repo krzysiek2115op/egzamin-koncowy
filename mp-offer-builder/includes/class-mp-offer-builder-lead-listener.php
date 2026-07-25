@@ -74,12 +74,16 @@ class MP_Offer_Builder_Lead_Listener {
 		$inserted = $wpdb->insert(
 			$offers_table,
 			array(
-				'status'         => 'draft',
-				'lead_id'        => $lead_id,
-				'client_name'    => isset( $payload['company_name'] ) ? sanitize_text_field( $payload['company_name'] ) : null,
-				'client_email'   => isset( $payload['email'] ) ? sanitize_email( $payload['email'] ) : null,
-				'client_nip'     => isset( $payload['nip'] ) ? sanitize_text_field( $payload['nip'] ) : null,
-				'client_country' => isset( $payload['country'] ) ? sanitize_text_field( $payload['country'] ) : null,
+				'status'            => 'draft',
+				'lead_id'           => $lead_id,
+				'client_name'       => isset( $payload['company_name'] ) ? sanitize_text_field( $payload['company_name'] ) : null,
+				'client_email'      => isset( $payload['email'] ) ? sanitize_email( $payload['email'] ) : null,
+				'client_nip'        => isset( $payload['nip'] ) ? sanitize_text_field( $payload['nip'] ) : null,
+				'client_country'    => isset( $payload['country'] ) ? sanitize_text_field( $payload['country'] ) : null,
+				// Utrwalony status VAT z VIES (plugin 1) — bez tego korekta oferty
+				// UE gubiłaby reverse_charge (Dział 6 czyta client.vat_status po
+				// odtworzeniu ze snapshotu w Dziale 1).
+				'client_vat_status' => isset( $payload['vat_status'] ) ? sanitize_text_field( $payload['vat_status'] ) : null,
 			)
 		);
 

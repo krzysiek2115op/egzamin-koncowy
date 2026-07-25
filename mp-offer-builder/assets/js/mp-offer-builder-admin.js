@@ -112,11 +112,16 @@
 			// pól tylko-do-odczytu ponownie (Dział 1 dociąga je z offer_id).
 			return {};
 		}
+		// Oświadczenie handlowca: klient z UE z potwierdzonym ważnym VAT UE.
+		// Mapujemy checkbox na vat_status='valid' (Dział 6 czyta === 'valid'
+		// → reverse_charge). Pole istnieje tylko na ekranie nowej oferty ręcznej.
+		var vatEl = document.getElementById( 'mp-ob-client-vat-valid' );
 		return {
 			name: nameEl.value,
 			email: document.getElementById( 'mp-ob-client-email' ).value,
 			nip: document.getElementById( 'mp-ob-client-nip' ).value,
 			country: document.getElementById( 'mp-ob-client-country' ).value,
+			vat_status: ( vatEl && vatEl.checked ) ? 'valid' : '',
 		};
 	}
 

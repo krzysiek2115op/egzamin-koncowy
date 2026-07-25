@@ -27,7 +27,7 @@ class MP_Offer_Builder_DB {
 	/**
 	 * Wersja schematu bazy. Podbijamy przy KAŻDEJ zmianie struktury tabel.
 	 */
-	const DB_VERSION = '0.5.0';
+	const DB_VERSION = '0.6.0';
 
 	/** Nazwa opcji WordPress przechowującej aktualną wersję bazy. */
 	const DB_VERSION_OPTION = 'mp_offer_builder_db_version';
@@ -156,6 +156,7 @@ class MP_Offer_Builder_DB {
 			client_email varchar(191) DEFAULT NULL,
 			client_nip varchar(20) DEFAULT NULL,
 			client_country char(2) DEFAULT NULL,
+			client_vat_status varchar(20) DEFAULT NULL,
 			net_grosze bigint(20) NOT NULL DEFAULT 0,
 			vat_grosze bigint(20) NOT NULL DEFAULT 0,
 			gross_grosze bigint(20) NOT NULL DEFAULT 0,

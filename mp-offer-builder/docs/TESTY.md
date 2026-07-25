@@ -62,13 +62,16 @@ a stub `WC_Tax` nie odtwarzał lokalizacyjnej logiki stawek):
 
 ## Uwagi / świadome ograniczenia
 
-- **Odwrotne obciążenie z ręcznego formularza:** ekran budowy nie zbiera
-  `vat_status`, więc mechanizm `reverse_charge` osiągalny jest w praktyce ścieżką
-  automatycznego szkicu z leada (Plugin 1 / VIES). Kod-path potwierdzony
-  programowo (S3). Do decyzji: czy dodać pole statusu VAT do ręcznego formularza.
-- **Prerekwizyt wdrożeniowy:** baza sklepu WooCommerce musi być ustawiona na kraj
-  krajowej stawki VAT (dla polskiej firmy: PL) — plugin bierze stawkę z bazy
-  sklepu. Realny polski sklep ma tę bazę domyślnie.
+- **Odwrotne obciążenie z ręcznego formularza — DOMKNIĘTE w 1.0.2:** ekran
+  budowy nowej oferty ma teraz checkbox „VAT UE potwierdzony" (oświadczenie
+  handlowca), który ustawia `vat_status=valid` → `reverse_charge`. Ponadto
+  `vat_status` jest utrwalany w BD-2 (kolumna `client_vat_status`, DB_VERSION
+  0.6.0), więc mechanizm przetrwa korektę i round-trip przez bazę — wcześniej
+  gubił się przy odczycie ze snapshotu (dotyczyło też ścieżki leada z VIES).
+- **Prerekwizyt wdrożeniowy — UDOKUMENTOWANY w 1.0.2:** baza sklepu WooCommerce
+  musi być ustawiona na kraj krajowej stawki VAT (dla polskiej firmy: PL) —
+  plugin bierze stawkę z bazy sklepu (`WC_Tax::get_base_tax_rates()`). Opisane
+  w `readme.txt` → `== Installation ==`. Realny polski sklep ma tę bazę domyślnie.
 - Testy integracji z Pluginem 1 (`mp_lead_created` → auto-draft) świadomie
   odłożone do osobnej rundy testów całego procesu.
 

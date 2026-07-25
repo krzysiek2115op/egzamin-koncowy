@@ -295,6 +295,17 @@ class MP_Offer_Builder_Admin {
 							<?php endif; ?>
 						</td>
 					</tr>
+					<?php if ( ! $offer ) : ?>
+						<tr>
+							<th><label for="mp-ob-client-vat-valid"><?php esc_html_e( 'VAT UE potwierdzony', 'mp-offer-builder' ); ?></label></th>
+							<td>
+								<label>
+									<input type="checkbox" id="mp-ob-client-vat-valid" value="1" />
+									<?php esc_html_e( 'Klient z UE, którego numer VAT UE potwierdziłem jako ważny (np. w VIES). Zaznacz TYLKO w takim przypadku — włącza odwrotne obciążenie (0% VAT, art. 196 dyrektywy 2006/112/WE). Niezaznaczone = stawka krajowa.', 'mp-offer-builder' ); ?>
+								</label>
+							</td>
+						</tr>
+					<?php endif; ?>
 				</table>
 
 				<h2><?php esc_html_e( 'Wariant i język', 'mp-offer-builder' ); ?></h2>

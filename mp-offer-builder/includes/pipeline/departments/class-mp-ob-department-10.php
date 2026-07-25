@@ -45,17 +45,18 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 
 	/** Limity długości pól tekstowych — lustro schematu w class-mp-offer-builder-db.php. */
 	const FIELD_LIMITS = array(
-		'offer_number'   => 30,
-		'lang'           => 5,
-		'client_name'    => 191,
-		'client_email'   => 191,
-		'client_nip'     => 20,
-		'client_country' => 2,
-		'currency'       => 3,
-		'tax_mechanism'  => 20,
-		'pdf_path'       => 255,
-		'pdf_sha256'     => 64,
-		'request_id'     => 36,
+		'offer_number'      => 30,
+		'lang'              => 5,
+		'client_name'       => 191,
+		'client_email'      => 191,
+		'client_nip'        => 20,
+		'client_country'    => 2,
+		'client_vat_status' => 20,
+		'currency'          => 3,
+		'tax_mechanism'     => 20,
+		'pdf_path'          => 255,
+		'pdf_sha256'        => 64,
+		'request_id'        => 36,
 	);
 
 	public function __construct() {
@@ -100,30 +101,31 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 		}
 
 		$header = array(
-			'offer_number'   => $offer_number,
-			'version'        => $version,
-			'status'         => 'draft',
-			'lang'           => (string) $context->get( 'lang', '' ),
-			'client_name'    => isset( $client['name'] ) ? (string) $client['name'] : '',
-			'client_email'   => isset( $client['email'] ) ? (string) $client['email'] : '',
-			'client_nip'     => isset( $client['nip'] ) ? (string) $client['nip'] : '',
-			'client_country' => isset( $client['country'] ) ? (string) $client['country'] : '',
-			'net_grosze'     => (int) $context->get( 'net_grosze', 0 ),
-			'vat_grosze'     => (int) $context->get( 'vat_grosze', 0 ),
-			'gross_grosze'   => (int) $context->get( 'gross_grosze', 0 ),
-			'currency'       => (string) $context->get( 'currency', 'PLN' ),
-			'tax_mechanism'  => (string) $context->get( 'tax_mechanism', '' ),
-			'pdf_path'       => $pdf_path,
-			'pdf_sha256'     => isset( $pdf['sha256'] ) ? (string) $pdf['sha256'] : '',
-			'request_id'     => (string) $context->get( 'request_id', '' ),
-			'created_by'     => $created_by,
-			'lock_version'   => $new_lock_version,
+			'offer_number'      => $offer_number,
+			'version'           => $version,
+			'status'            => 'draft',
+			'lang'              => (string) $context->get( 'lang', '' ),
+			'client_name'       => isset( $client['name'] ) ? (string) $client['name'] : '',
+			'client_email'      => isset( $client['email'] ) ? (string) $client['email'] : '',
+			'client_nip'        => isset( $client['nip'] ) ? (string) $client['nip'] : '',
+			'client_country'    => isset( $client['country'] ) ? (string) $client['country'] : '',
+			'client_vat_status' => isset( $client['vat_status'] ) ? (string) $client['vat_status'] : '',
+			'net_grosze'        => (int) $context->get( 'net_grosze', 0 ),
+			'vat_grosze'        => (int) $context->get( 'vat_grosze', 0 ),
+			'gross_grosze'      => (int) $context->get( 'gross_grosze', 0 ),
+			'currency'          => (string) $context->get( 'currency', 'PLN' ),
+			'tax_mechanism'     => (string) $context->get( 'tax_mechanism', '' ),
+			'pdf_path'          => $pdf_path,
+			'pdf_sha256'        => isset( $pdf['sha256'] ) ? (string) $pdf['sha256'] : '',
+			'request_id'        => (string) $context->get( 'request_id', '' ),
+			'created_by'        => $created_by,
+			'lock_version'      => $new_lock_version,
 			// Jawnie ustawiane na KAŻDYM zapisie (schemat NIE ma ON UPDATE
 			// CURRENT_TIMESTAMP) — przy okazji gwarantuje, że UPDATE zawsze
 			// realnie zmienia przynajmniej jedną kolumnę, więc "0 wierszy
 			// zmienionych" w Agencie 10.2 jednoznacznie znaczy "WHERE nie
 			// trafił" (blokada optymistyczna), nie "wartości identyczne".
-			'updated_at'     => gmdate( 'Y-m-d H:i:s' ),
+			'updated_at'        => gmdate( 'Y-m-d H:i:s' ),
 		);
 
 		$offer_id = (int) $context->get( 'offer_id', 0 );

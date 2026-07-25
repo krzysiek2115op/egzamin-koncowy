@@ -4,7 +4,7 @@ Tags: oferty, pdf, woocommerce, cennik
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.0.1
+Stable tag: 1.0.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,7 +16,34 @@ Druga z trzech wtyczek procesu "formularz → oferta". Odbiera zakwalifikowanego
 lead-a z MP Lead Intake, dobiera wariant cenowy na bazie cen WooCommerce,
 generuje ofertę PDF wraz z numeracją i historią wersji.
 
+== Installation ==
+
+1. Wgraj katalog wtyczki do `wp-content/plugins/` (lub zainstaluj ZIP przez
+   Wtyczki → Dodaj nową → Wyślij wtyczkę) i aktywuj.
+2. Wymagane WooCommerce z WŁĄCZONYMI podatkami oraz zdefiniowaną krajową
+   stawką VAT (dla polskiej firmy: stawka standardowa PL 23% w WooCommerce →
+   Ustawienia → Podatki → Stawki standardowe).
+3. WAŻNE — kraj bazowy sklepu musi odpowiadać krajowi stawki krajowej.
+   Wtyczka pobiera stawkę VAT z kraju bazowego sklepu (WooCommerce →
+   Ustawienia → Ogólne → „Adres sklepu / Kraj"). Dla polskiej firmy ustaw
+   kraj bazowy na Polskę — inaczej oferta nie znajdzie krajowej stawki VAT.
+   Prawdziwy polski sklep ma tę wartość domyślnie; wymaga uwagi tylko na
+   świeżym/testowym WooCommerce (domyślnie USA).
+
 == Changelog ==
+
+= 1.0.2 =
+* Ręczny formularz oferty ma teraz pole „VAT UE potwierdzony" — oświadczenie
+  handlowca (klient z UE z ważnym VAT UE, np. zweryfikowanym w VIES) włącza
+  odwrotne obciążenie (reverse_charge, 0% VAT) także dla ofert zakładanych
+  ręcznie, nie tylko ze szkicu z leada.
+* [Poprawność] Status VAT klienta (`vat_status`) jest teraz UTRWALANY w BD-2
+  (nowa kolumna `client_vat_status`, DB_VERSION 0.6.0). Wcześniej gubił się
+  przy każdym odczycie ze snapshotu — korekta oferty UE oraz dokończenie
+  szkicu leada z ważnym VAT UE cicho spadały do stawki krajowej. Teraz
+  reverse_charge przetrwa korektę i round-trip przez bazę.
+* Instrukcja instalacji (== Installation ==): udokumentowany prerekwizyt
+  „kraj bazowy sklepu = kraj stawki krajowej (PL)".
 
 = 1.0.1 =
 * Testy na żywym WordPressie/WooCommerce (WordPress Playground) — naprawione

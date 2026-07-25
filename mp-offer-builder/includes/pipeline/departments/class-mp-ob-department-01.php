@@ -84,10 +84,14 @@ class MP_OB_D1_Agent_Contract extends MP_OB_Abstract_Agent {
 					return MP_OB_Result::fail( 'Brak uprawnień do wskazanego szkicu oferty.', array(), 'forbidden' );
 				}
 				$client = array(
-					'name'    => $draft['client_name'],
-					'email'   => $draft['client_email'],
-					'nip'     => $draft['client_nip'],
-					'country' => $draft['client_country'],
+					'name'       => $draft['client_name'],
+					'email'      => $draft['client_email'],
+					'nip'        => $draft['client_nip'],
+					'country'    => $draft['client_country'],
+					// Odtworzone ze snapshotu, żeby korekta oferty UE nie gubiła
+					// mechanizmu reverse_charge (Dział 6 czyta client.vat_status).
+					// Draft leada z VIES=ważny i ręczna oferta z checkboxem tak samo.
+					'vat_status' => isset( $draft['client_vat_status'] ) ? $draft['client_vat_status'] : '',
 				);
 			}
 		}

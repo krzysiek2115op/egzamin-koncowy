@@ -996,6 +996,42 @@ record(
 );
 $GLOBALS['wpdb']->offers = array();
 
+// 57b) Round-trip vat_status (regresja utrwalenia w BD-2, 1.0.2): korekta oferty
+//      UE z ZAPISANYM ważnym VAT UE (client_vat_status='valid' w snapshocie) →
+//      Dział 1 odtwarza vat_status ze snapshotu, Dział 6 zostaje przy
+//      reverse_charge, VAT=0. Bez utrwalenia mechanizm spadłby do 'domestic'.
+$d10_year_rc                   = (int) gmdate( 'Y' );
+$GLOBALS['wpdb']->offers       = array(
+	11 => array(
+		'id'                => 11,
+		'status'            => 'draft',
+		'offer_number'      => sprintf( 'OF/%d/000030', $d10_year_rc ),
+		'version'           => 1,
+		'client_name'       => 'EU Reverse Charge GmbH',
+		'client_email'      => 'vat@eu-firma.de',
+		'client_nip'        => 'DE123456789',
+		'client_country'    => 'DE',
+		'client_vat_status' => 'valid',
+	),
+);
+$GLOBALS['wpdb']->items        = array();
+$GLOBALS['wpdb']->versions     = array();
+$GLOBALS['wpdb']->activity_log = array();
+$rc_corr_input             = base_input();
+$rc_corr_input['offer_id'] = 11;
+unset( $rc_corr_input['client'] );
+$r57b   = run_pipeline( $rc_corr_input );
+$inv57b = $r57b['ok']
+	&& 'reverse_charge' === ( $r57b['final_data']['tax_mechanism'] ?? null )
+	&& 0 === (int) ( $r57b['final_data']['vat_grosze'] ?? -1 )
+	&& 'valid' === ( $GLOBALS['wpdb']->offers[11]['client_vat_status'] ?? null );
+record(
+	'inv57b_vat_status_roundtrip_korekta_reverse_charge',
+	$inv57b ? 'PASS' : 'FAIL',
+	'mechanism=' . ( $r57b['final_data']['tax_mechanism'] ?? '-' ) . ' vat=' . ( $r57b['final_data']['vat_grosze'] ?? '-' ) . ' stored_vat_status=' . ( $GLOBALS['wpdb']->offers[11]['client_vat_status'] ?? '-' )
+);
+$GLOBALS['wpdb']->offers = array();
+
 // 58) Agent 10.1 "plan": pole spoza limitu DDL (client_country > 2 znaki, np.
 //     błąd w innym dziale) → STOP jawny, PRZED jakimkolwiek zapisem.
 $ddl_ctx    = new MP_OB_Context(
