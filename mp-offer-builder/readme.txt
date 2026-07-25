@@ -4,7 +4,7 @@ Tags: oferty, pdf, woocommerce, cennik
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -17,6 +17,20 @@ lead-a z MP Lead Intake, dobiera wariant cenowy na bazie cen WooCommerce,
 generuje ofertę PDF wraz z numeracją i historią wersji.
 
 == Changelog ==
+
+= 1.0.1 =
+* Testy na żywym WordPressie/WooCommerce (WordPress Playground) — naprawione
+  5 problemów niewykrywalnych w testach jednostkowych ze stubami:
+* [Krytyczny] Stawka VAT: pobierana przez WC_Tax::get_base_tax_rates()
+  (deterministycznie z bazy sklepu) zamiast get_rates() (zależnego od sesji
+  klienta) — wcześniej każda oferta padała z „brak stawki VAT".
+* [Krytyczny] Domyślne szablony oferty (PL+EN) zakładane przy aktywacji —
+  bez nich świeża instalacja nie mogła wygenerować żadnej oferty.
+* Kolumna „Akcje" w liście ofert (Edytuj / Pobierz PDF) — naprawiona
+  widoczność metody renderującej.
+* Ekran edycji wczytuje teraz istniejące pozycje oferty.
+* Usunięty komunikat deprecation na PHP 8.3.
+* Wszystkie 12 scenariuszy odbioru — PASS na żywym WooCommerce (docs/TESTY.md).
 
 = 1.0.0 =
 * Pipeline 11 działów kompletny: kontrakt/uprawnienia, integracja WooCommerce
