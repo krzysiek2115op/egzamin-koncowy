@@ -122,7 +122,7 @@ class MP_Offer_Builder_List_Table extends WP_List_Table {
 	 * @param array $item Wiersz oferty.
 	 * @return string
 	 */
-	private function column_actions( array $item ) {
+	public function column_actions( array $item ) {
 		$offer_id  = (int) $item['id'];
 		$build_url = add_query_arg(
 			array(
