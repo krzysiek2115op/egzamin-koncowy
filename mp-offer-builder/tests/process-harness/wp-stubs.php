@@ -284,7 +284,16 @@ function wc_get_products( $args = array() ) {
 	return $results;
 }
 class WC_Tax {
+	// Odwzorowuje realne WooCommerce: get_rates() zależy od lokalizacji
+	// KLIENTA/sesji i przy generowaniu oferty po stronie serwera (brak realnego
+	// klienta WC) zwraca PUSTKĘ nawet gdy stawka bazowa istnieje — dlatego
+	// stub zwraca tu pustą tablicę. Dzięki temu harness złapie regresję, gdyby
+	// ktoś wrócił do get_rates() (bug wykryty na żywym WP 2026-07-25).
 	public static function get_rates( $tax_class = '', $customer = null ) {
+		return array();
+	}
+	// Poprawne, deterministyczne źródło stawki bazowej sklepu (Agent 2.3).
+	public static function get_base_tax_rates( $tax_class = '' ) {
 		return isset( $GLOBALS['__mp_ob_wc_tax_rates'][ $tax_class ] ) ? $GLOBALS['__mp_ob_wc_tax_rates'][ $tax_class ] : array();
 	}
 }

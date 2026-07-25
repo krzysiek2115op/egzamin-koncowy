@@ -27,7 +27,7 @@ class MP_Offer_Builder_DB {
 	/**
 	 * Wersja schematu bazy. Podbijamy przy KAŻDEJ zmianie struktury tabel.
 	 */
-	const DB_VERSION = '0.4.0';
+	const DB_VERSION = '0.5.0';
 
 	/** Nazwa opcji WordPress przechowującej aktualną wersję bazy. */
 	const DB_VERSION_OPTION = 'mp_offer_builder_db_version';
@@ -231,8 +231,107 @@ class MP_Offer_Builder_DB {
 		// CREATE TABLE), bez tej weryfikacji cicha porażka zostałaby trwale
 		// oznaczona jako "zainstalowane poprawnie".
 		if ( self::tables_exist() ) {
+			self::seed_default_templates();
 			update_option( self::DB_VERSION_OPTION, self::DB_VERSION );
 		}
+	}
+
+	/**
+	 * Wstawia domyślne szablony ofert (PL + EN), jeśli dla danego języka NIE ma
+	 * jeszcze żadnego wiersza. Bez tego świeża instalacja NIE MOŻE wygenerować
+	 * ani jednej oferty: Dział 2 (Agent 2.4) wymaga aktywnego szablonu w żądanym
+	 * języku, a nic innego go nie tworzy (brak ekranu szablonów). Idempotentne
+	 * (warunek "brak wiersza w tym języku") — nie duplikuje przy re-aktywacji ani
+	 * nie nadpisuje ewentualnego szablonu wprowadzonego ręcznie. Znaczniki w
+	 * treści MUSZĄ pochodzić z listy podstawianej przez Dział 7 (Agent 7.2),
+	 * inaczej render kończy się 'unfilled_placeholder'.
+	 *
+	 * @return void
+	 */
+	public static function seed_default_templates() {
+		global $wpdb;
+		$table = self::templates_table();
+
+		foreach ( array( 'pl', 'en' ) as $lang ) {
+			$exists = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE lang = %s", $lang ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+			if ( (int) $exists > 0 ) {
+				continue;
+			}
+
+			$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+				$table,
+				array(
+					'name'      => 'pl' === $lang ? 'Domyślny szablon oferty (PL)' : 'Default offer template (EN)',
+					'lang'      => $lang,
+					'content'   => self::default_template_content( $lang ),
+					'variables' => wp_json_encode(
+						array(
+							'client_name',
+							'client_email',
+							'client_nip',
+							'client_country',
+							'items_table',
+							'subtotal',
+							'discount_total',
+							'net_total',
+							'vat_total',
+							'gross_total',
+							'offer_date',
+							'tax_mechanism_note',
+						)
+					),
+					'version'   => '1.0.0',
+					'status'    => 'active',
+				),
+				array( '%s', '%s', '%s', '%s', '%s', '%s' )
+			);
+		}
+	}
+
+	/**
+	 * Treść HTML domyślnego szablonu oferty dla danego języka. Renderowana do PDF
+	 * przez Dompdf (font DejaVu Sans — patrz Dział 9), więc style inline i tylko
+	 * znaczniki `{{...}}` z listy Działu 7.
+	 *
+	 * @param string $lang Kod języka ('pl' albo 'en').
+	 * @return string
+	 */
+	private static function default_template_content( $lang ) {
+		if ( 'en' === $lang ) {
+			return '<div style="font-family:\'DejaVu Sans\',sans-serif;font-size:12px;color:#222;">'
+				. '<h1 style="font-size:20px;margin:0 0 4px;">Commercial offer</h1>'
+				. '<p style="margin:0 0 16px;color:#666;">Date: {{offer_date}}</p>'
+				. '<h2 style="font-size:14px;border-bottom:1px solid #ccc;padding-bottom:4px;">Client</h2>'
+				. '<p style="margin:8px 0 16px;">{{client_name}}<br>VAT no.: {{client_nip}}<br>{{client_email}}<br>Country: {{client_country}}</p>'
+				. '<h2 style="font-size:14px;border-bottom:1px solid #ccc;padding-bottom:4px;">Items</h2>'
+				. '{{items_table}}'
+				. '<table style="width:100%;margin-top:16px;border-collapse:collapse;">'
+				. '<tr><td style="padding:2px 0;">Subtotal (before discount):</td><td style="text-align:right;">{{subtotal}}</td></tr>'
+				. '<tr><td style="padding:2px 0;">Discount:</td><td style="text-align:right;">{{discount_total}}</td></tr>'
+				. '<tr><td style="padding:2px 0;">Net total:</td><td style="text-align:right;">{{net_total}}</td></tr>'
+				. '<tr><td style="padding:2px 0;">VAT:</td><td style="text-align:right;">{{vat_total}}</td></tr>'
+				. '<tr><td style="padding:4px 0;font-weight:bold;border-top:1px solid #333;">Gross total:</td><td style="text-align:right;font-weight:bold;border-top:1px solid #333;">{{gross_total}}</td></tr>'
+				. '</table>'
+				. '<p style="margin-top:12px;font-style:italic;color:#444;">{{tax_mechanism_note}}</p>'
+				. '</div>';
+		}
+
+		return '<div style="font-family:\'DejaVu Sans\',sans-serif;font-size:12px;color:#222;">'
+			. '<h1 style="font-size:20px;margin:0 0 4px;">Oferta handlowa</h1>'
+			. '<p style="margin:0 0 16px;color:#666;">Data: {{offer_date}}</p>'
+			. '<h2 style="font-size:14px;border-bottom:1px solid #ccc;padding-bottom:4px;">Klient</h2>'
+			. '<p style="margin:8px 0 16px;">{{client_name}}<br>NIP: {{client_nip}}<br>{{client_email}}<br>Kraj: {{client_country}}</p>'
+			. '<h2 style="font-size:14px;border-bottom:1px solid #ccc;padding-bottom:4px;">Pozycje</h2>'
+			. '{{items_table}}'
+			. '<table style="width:100%;margin-top:16px;border-collapse:collapse;">'
+			. '<tr><td style="padding:2px 0;">Wartość netto (przed rabatem):</td><td style="text-align:right;">{{subtotal}}</td></tr>'
+			. '<tr><td style="padding:2px 0;">Rabat:</td><td style="text-align:right;">{{discount_total}}</td></tr>'
+			. '<tr><td style="padding:2px 0;">Netto:</td><td style="text-align:right;">{{net_total}}</td></tr>'
+			. '<tr><td style="padding:2px 0;">VAT:</td><td style="text-align:right;">{{vat_total}}</td></tr>'
+			. '<tr><td style="padding:4px 0;font-weight:bold;border-top:1px solid #333;">Brutto:</td><td style="text-align:right;font-weight:bold;border-top:1px solid #333;">{{gross_total}}</td></tr>'
+			. '</table>'
+			. '<p style="margin-top:12px;font-style:italic;color:#444;">{{tax_mechanism_note}}</p>'
+			. '</div>';
 	}
 
 	/**

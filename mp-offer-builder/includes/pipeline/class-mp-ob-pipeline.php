@@ -32,7 +32,7 @@ class MP_OB_Pipeline {
 	/**
 	 * @param MP_OB_Pipeline_Logger|null $logger Logger błędów.
 	 */
-	public function __construct( MP_OB_Pipeline_Logger $logger = null ) {
+	public function __construct( ?MP_OB_Pipeline_Logger $logger = null ) {
 		$this->logger = $logger;
 	}
 

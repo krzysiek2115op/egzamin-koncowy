@@ -181,7 +181,16 @@ class MP_OB_D2_Agent_Tax extends MP_OB_Abstract_Agent {
 		$errors = array();
 		$rates  = array();
 		foreach ( array_keys( $tax_classes ) as $tax_class ) {
-			$found = WC_Tax::get_rates( $tax_class );
+			// get_base_tax_rates(), NIE get_rates(): oferta powstaje po stronie
+			// serwera (AJAX wp-admin) BEZ realnego klienta WooCommerce, a
+			// WC_Tax::get_rates() rozwiązuje stawkę wg lokalizacji KLIENTA/sesji
+			// — w tym kontekście zwraca pustkę nawet gdy sklep ma bazę w kraju,
+			// dla którego stawka jest skonfigurowana (potwierdzone na żywym
+			// WooCommerce 2026-07-25). get_base_tax_rates() bierze stawkę
+			// DETERMINISTYCZNIE z bazy sklepu, niezależnie od sesji. Mechanizm
+			// VAT (krajowy / odwrotne obciążenie / poza zakresem) i tak ustala
+			// dopiero Dział 6 wg kraju klienta — tu chodzi o stawkę krajową bazy.
+			$found = WC_Tax::get_base_tax_rates( $tax_class );
 			if ( empty( $found ) ) {
 				$errors[] = array(
 					'field'   => "tax_class.$tax_class",
