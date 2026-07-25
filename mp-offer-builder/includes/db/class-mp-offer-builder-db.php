@@ -380,6 +380,21 @@ class MP_Offer_Builder_DB {
 	}
 
 	/**
+	 * Pozycje oferty (product_id, variation_id, qty) — do wypełnienia formularza
+	 * przy edycji istniejącej oferty (ekran budowy, Krok 4.5). Bez tego "Edytuj"
+	 * otwierał ofertę z pustą tabelą pozycji i handlowiec nie widział, co koryguje.
+	 *
+	 * @param int $offer_id ID oferty.
+	 * @return array Lista wierszy assoc (product_id, variation_id, qty); pusta gdy brak.
+	 */
+	public static function get_offer_items( $offer_id ) {
+		global $wpdb;
+		$table = self::items_table();
+		$rows  = $wpdb->get_results( $wpdb->prepare( "SELECT product_id, variation_id, qty FROM {$table} WHERE offer_id = %d ORDER BY id ASC", (int) $offer_id ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+		return $rows ? $rows : array();
+	}
+
+	/**
 	 * Pobiera ofertę po request_id (Dział 1: idempotencja — "ten sam request_id
 	 * nigdy nie tworzy drugiej oferty", sprawdzane pre-gate w AJAX przed pipeline).
 	 *

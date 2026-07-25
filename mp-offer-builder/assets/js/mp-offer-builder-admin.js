@@ -19,7 +19,7 @@
 		} );
 	}
 
-	function addItemRow() {
+	function addItemRow( data ) {
 		var body = document.getElementById( 'mp-ob-items-body' );
 		if ( ! body ) {
 			return;
@@ -33,6 +33,21 @@
 			'<td><input type="number" class="mp-ob-item-qty small-text" min="1" value="1" required="required" /></td>' +
 			'<td><button type="button" class="button mp-ob-remove-item">' + mpOfferBuilder.i18n.removeItem + '</button></td>';
 		body.appendChild( row );
+
+		// Prefill przy edycji istniejącej oferty. Guard na product_id, bo handler
+		// przycisku "Dodaj pozycję" wołałby addItemRow z obiektem Event.
+		if ( data && typeof data === 'object' && typeof data.product_id !== 'undefined' ) {
+			if ( data.name ) {
+				row.querySelector( '.mp-ob-item-search' ).value = data.name;
+			}
+			row.querySelector( '.mp-ob-item-product-id' ).value = data.product_id;
+			if ( data.variation_id ) {
+				row.querySelector( '.mp-ob-item-variation-id' ).value = data.variation_id;
+			}
+			if ( data.qty ) {
+				row.querySelector( '.mp-ob-item-qty' ).value = data.qty;
+			}
+		}
 	}
 
 	function renderSearchResults( products, resultsBox, row ) {
@@ -158,7 +173,23 @@
 	document.addEventListener( 'DOMContentLoaded', function () {
 		var addButton = document.getElementById( 'mp-ob-add-item' );
 		if ( addButton ) {
-			addButton.addEventListener( 'click', addItemRow );
+			// Zawinięte, żeby obiekt Event z kliknięcia nie trafił jako prefill.
+			addButton.addEventListener( 'click', function () {
+				addItemRow();
+			} );
+		}
+
+		// Wypełnij pozycje przy edycji istniejącej oferty (JSON osadzony w PHP).
+		var prefillEl = document.getElementById( 'mp-ob-prefill-items' );
+		if ( prefillEl ) {
+			try {
+				var prefill = JSON.parse( prefillEl.textContent );
+				if ( prefill && prefill.length ) {
+					prefill.forEach( function ( item ) {
+						addItemRow( item );
+					} );
+				}
+			} catch ( e ) {} // eslint-disable-line no-empty
 		}
 
 		var itemsBody = document.getElementById( 'mp-ob-items-body' );

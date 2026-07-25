@@ -225,6 +225,27 @@ class MP_Offer_Builder_Admin {
 				wp_die( esc_html__( 'Brak dostępu do tej oferty.', 'mp-offer-builder' ), '', array( 'response' => 403 ) );
 			}
 		}
+
+		// Pozycje do wypełnienia formularza przy edycji (nazwa produktu dociągana
+		// przez wc_get_product wyłącznie do wyświetlenia w polu wyszukiwarki —
+		// zapis i tak waliduje product_id niezależnie w Dziale 2/3).
+		$prefill_items = array();
+		if ( $offer ) {
+			foreach ( MP_Offer_Builder_DB::get_offer_items( $offer_id ) as $it ) {
+				$pid  = (int) $it['product_id'];
+				$name = '';
+				if ( function_exists( 'wc_get_product' ) ) {
+					$product = wc_get_product( $pid );
+					$name    = $product ? $product->get_name() : '';
+				}
+				$prefill_items[] = array(
+					'product_id'   => $pid,
+					'variation_id' => null !== $it['variation_id'] ? (int) $it['variation_id'] : '',
+					'qty'          => (int) $it['qty'],
+					'name'         => $name,
+				);
+			}
+		}
 		?>
 		<div class="wrap mp-offer-builder-build">
 			<h1><?php esc_html_e( 'Budowa oferty', 'mp-offer-builder' ); ?></h1>
@@ -311,6 +332,7 @@ class MP_Offer_Builder_Admin {
 					</thead>
 					<tbody id="mp-ob-items-body"></tbody>
 				</table>
+				<script type="application/json" id="mp-ob-prefill-items"><?php echo wp_json_encode( $prefill_items ); ?></script>
 				<p>
 					<button type="button" class="button" id="mp-ob-add-item"><?php esc_html_e( 'Dodaj pozycję', 'mp-offer-builder' ); ?></button>
 				</p>
