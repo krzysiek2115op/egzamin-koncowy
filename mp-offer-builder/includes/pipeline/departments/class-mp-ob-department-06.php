@@ -6,7 +6,7 @@
  * ze snapshotu Działu 2, subtotal_grosze/discount_total z Działów 4/5) — zero
  * wywołań WC_* albo wpdb. Zawartość pliku (1 plik = 1 dział):
  *  - Agent 6.1 (mechanizm)    — PL / UE odwrotne obciążenie / poza UE
- *  - Agent 6.2 (zaokrąglenia) — netto/VAT/brutto w groszach, zaokrąglenie raz
+ *  - Agent 6.2 (zaokrąglenia) — netto/VAT/brutto w groszach, zaokrąglenie per klasa podatkowa
  *  - QA Agent 6                 — spójność-sumy (netto + VAT = brutto)
  *  - MP_OB_Department_06        — budowniczy działu
  *
@@ -117,13 +117,13 @@ class MP_OB_D6_Agent_Mechanism extends MP_OB_Abstract_Agent {
 }
 
 /**
- * Agent 6.2 — netto/VAT/brutto w groszach, zaokrąglenie RAZ (metoda półówkowa),
+ * Agent 6.2 — netto/VAT/brutto w groszach, zaokrąglenie metodą półówkową per klasa podatkowa,
  * wyłącznie arytmetyką całkowitoliczbową (BCMath — patrz docs/dzial-04).
  */
 class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 
 	public function __construct() {
-		parent::__construct( '6.2', 'Agent 6.2 — zaokrąglenia', 'Netto, VAT i brutto w groszach; zaokrąglenie raz — na sumie podatku, metodą półówkową' );
+		parent::__construct( '6.2', 'Agent 6.2 — zaokrąglenia', 'Netto, VAT i brutto w groszach; zaokrąglenie metodą półówkową raz na każdą klasę podatkową' );
 	}
 
 	/**
@@ -314,7 +314,7 @@ class MP_OB_Department_06 {
 			),
 			array(
 				'agent'  => new MP_OB_D6_Agent_Rounding(),
-				'critic' => new MP_OB_Field_Critic( 'K6.2', 'Krytyk 6.2 — jeden-punkt-zaokrąglenia', 'gross_grosze' ),
+				'critic' => new MP_OB_Field_Critic( 'K6.2', 'Krytyk 6.2 — zaokrąglenie-per-klasa', 'gross_grosze' ),
 			),
 		);
 
@@ -327,7 +327,7 @@ class MP_OB_Department_06 {
 			6,
 			'tax-totals',
 			'Podatki i suma końcowa',
-			'Wybór mechanizmu VAT (PL / UE reverse charge / poza UE) i jedno zaokrąglenie na sumie.',
+			'Wybór mechanizmu VAT (PL / UE reverse charge / poza UE) i zaokrąglenie per klasa podatkowa.',
 			$pairs,
 			$gate
 		);

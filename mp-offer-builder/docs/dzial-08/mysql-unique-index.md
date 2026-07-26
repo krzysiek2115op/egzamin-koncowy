@@ -39,7 +39,7 @@ KANDYDATA pary (offer_number, version), którą Dział 10 wstawi jedną
 transakcją. Kolizja na tym indeksie (np. dwie równoległe oferty wyliczyły ten
 sam kandydat numeru z tego samego, już nieaktualnego, `last_number`) wychodzi
 dopiero PRZY ZAPISIE w Dziale 10 — stąd retry ('FAIL_RETRY: numer + 1,
-ponowny render, ponowna transakcja, maks. 2 podejścia') należy do Działu 10,
+ponowny render, maks. MAX_ATTEMPTS=5 podejść, kolejny numer liczony w pamięci) należy do Działu 10,
 nie do Działu 8 (patrz docblock class-mp-ob-department-10.php). Dział 8
 dostarcza tylko poprawną, spójną PARĘ kandydata — bramka jakości "jedno-albo-
 drugie" pilnuje, że jest to ALBO nowy numer z wersją 1, ALBO ten sam numer

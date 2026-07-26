@@ -1,0 +1,34 @@
+{
+  "title": "MP Offer Builder — instrukcja instalacji",
+  "subtitle": "Dla osób nietechnicznych. Jak wgrać i włączyć wtyczkę krok po kroku, bez wiedzy programistycznej.",
+  "footer": "MP Offer Builder v1.0.3 · instrukcja instalacji (nietechniczna)",
+  "accent": "2563eb",
+  "blocks": [
+    {"t":"h1","text":"Co to jest i co będzie potrzebne"},
+    {"t":"p","text":"MP Offer Builder to wtyczka do WordPressa, która pozwala handlowcom przygotowywać oferty PDF dla klientów — z cenami pobranymi z Twojego sklepu WooCommerce. Poniżej instalujesz ją na swojej stronie."},
+    {"t":"p","text":"Potrzebujesz trzech rzeczy: (1) dostępu do panelu administracyjnego WordPressa (adres zwykle kończy się na /wp-admin), (2) pliku wtyczki mp-offer-builder.zip, (3) działającej wtyczki WooCommerce na tej samej stronie (to sklep, z którego brane są ceny)."},
+    {"t":"note","title":"Zanim zaczniesz — WooCommerce","text":"MP Offer Builder korzysta z WooCommerce. Jeśli nie masz go jeszcze zainstalowanego, poproś osobę techniczną o jego instalację i ustawienie podatków (stawka VAT 23%) oraz kraju sklepu na Polskę. Bez tego oferty nie policzą się poprawnie. Szczegóły są w instrukcji technicznej.","bg":"fef3c7","bc":"f59e0b"},
+
+    {"t":"h1","text":"Instalacja krok po kroku"},
+    {"t":"num","n":1,"text":"Zaloguj się do panelu WordPressa (Twój-adres/wp-admin) na konto administratora."},
+    {"t":"num","n":2,"text":"W menu po lewej stronie kliknij „Wtyczki”, a następnie u góry przycisk „Dodaj nową wtyczkę”."},
+    {"t":"num","n":3,"text":"Kliknij „Wyślij wtyczkę na serwer” (u góry strony)."},
+    {"t":"num","n":4,"text":"Kliknij „Wybierz plik”, wskaż plik mp-offer-builder.zip z dysku i kliknij „Zainstaluj teraz”."},
+    {"t":"num","n":5,"text":"Poczekaj chwilę, aż pojawi się komunikat o powodzeniu, a potem kliknij „Włącz wtyczkę”."},
+    {"t":"p","text":"Gotowe. Po włączeniu w menu po lewej pojawi się nowa pozycja „MP Offer Builder” — po wejściu zobaczysz ekran „Oferty”, gdzie handlowcy tworzą i pobierają oferty."},
+    {"t":"note","title":"Gdy plik ZIP jest zbyt duży","text":"Wtyczka zawiera bibliotekę do tworzenia PDF, więc plik ZIP może być większy niż domyślny limit wysyłania na niektórych serwerach. Jeśli WordPress pokaże błąd „przekracza upload_max_filesize”, przekaż plik osobie technicznej — wgra go metodą opisaną w instrukcji technicznej (przez FTP). To nie jest błąd wtyczki, tylko ustawienie serwera.","bg":"fee2e2","bc":"ef4444"},
+
+    {"t":"h1","text":"Jak sprawdzić, że działa"},
+    {"t":"bullet","text":"W menu po lewej widać pozycję „MP Offer Builder” (ekran nosi tytuł „Oferty”)."},
+    {"t":"bullet","text":"Po wejściu w „MP Offer Builder” i kliknięciu „Nowa oferta” pojawia się formularz z danymi klienta i możliwością wyszukania produktów ze sklepu."},
+    {"t":"bullet","text":"Po utworzeniu pierwszej oferty można pobrać plik PDF z poprawnie policzonymi kwotami i polskimi znakami."},
+
+    {"t":"h1","text":"Najczęstsze pytania"},
+    {"t":"h2","text":"Nie widzę pozycji „MP Offer Builder” w menu"},
+    {"t":"p","text":"Upewnij się, że wtyczka jest włączona (Wtyczki → lista → „MP Offer Builder” powinno być aktywne). Dostęp do ofert ma administrator oraz osoby z rolą handlowca — jeśli ktoś nie widzi menu, poproś administratora o nadanie uprawnienia."},
+    {"t":"h2","text":"Oferta nie chce się policzyć / brak stawki VAT"},
+    {"t":"p","text":"To zwykle znaczy, że WooCommerce nie ma ustawionej stawki VAT albo kraj sklepu jest inny niż Polska. Przekaż to osobie technicznej — poprawia się to w ustawieniach WooCommerce (opisane w instrukcji technicznej)."},
+    {"t":"h2","text":"Czy mogę odinstalować wtyczkę?"},
+    {"t":"p","text":"Tak. Wyłączenie i usunięcie wtyczki odbywa się tak samo jak przy każdej innej (Wtyczki → Wyłącz → Usuń). Usunięcie kasuje dane wtyczki — jeśli chcesz zachować oferty, najpierw je pobierz."}
+  ]
+}

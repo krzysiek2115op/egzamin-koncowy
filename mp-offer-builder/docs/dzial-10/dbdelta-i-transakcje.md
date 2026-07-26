@@ -57,5 +57,5 @@ błąd zapisu w trakcie → `ROLLBACK` (wszystkie zmiany tej transakcji cofnięt
 "jeden-zapis"), a plik tymczasowy PDF jest kasowany (patrz Dział 9). Kolizja
 konkretnie na indeksie `UNIQUE(offer_number, version)` (patrz
 docs/dzial-08/mysql-unique-index.md) ma WŁASNĄ ścieżkę: RETRY lokalny
-(nowy kandydat numeru/wersji + ponowny render PDF, maks. 2 podejścia),
+(nowy kandydat numeru/wersji liczony w pamięci + ponowny render PDF, maks. MAX_ATTEMPTS=5 podejść),
 zamiast zwykłego ROLLBACK-i-STOP.

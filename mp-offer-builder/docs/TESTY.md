@@ -2,7 +2,11 @@
 
 Testy na **żywym WordPressie + WooCommerce** (WordPress Playground CLI, realny
 WP 7.x, PHP 8.3, WooCommerce z katalogu wordpress.org), przeprowadzone
-2026-07-25 na wersji pluginu **1.0.1**.
+2026-07-25 na wersji pluginu **1.0.1** (scenariusze żywe E2E). Kod rozwinięto
+następnie do **1.0.3** — zmiany 1.0.2/1.0.3 (VAT per klasa podatkowa, odrzucanie
+ceny ujemnej, retry MAX_ATTEMPTS=5, pełna deinstalacja) pokrywa regresja
+jednostkowa 102/102 (sekcja Narzędzia); pełny re-run E2E zaplanowany w rundzie
+integracyjnej.
 
 Środowisko testowe: waluta PLN, baza sklepu PL, stawka VAT PL 23%, 3 produkty
 proste (100,00 / 250,50 / 999,99 zł), rola testowa `mp_ob_test_handlowiec`
@@ -73,11 +77,22 @@ a stub `WC_Tax` nie odtwarzał lokalizacyjnej logiki stawek):
   plugin bierze stawkę z bazy sklepu (`WC_Tax::get_base_tax_rates()`). Opisane
   w `readme.txt` → `== Installation ==`. Realny polski sklep ma tę bazę domyślnie.
 - Testy integracji z Pluginem 1 (`mp_lead_created` → auto-draft) świadomie
-  odłożone do osobnej rundy testów całego procesu.
+  odłożone do osobnej rundy testów całego procesu. Dwie sprawy do domknięcia
+  W TEJ rundzie (nie dotyczą trybu standalone P2):
+    - **F2 — kontrakt `vat_status` P1→P2:** P1 emituje `vat_status='checked'`
+      (nigdy `'valid'`), a Dział 6 wymaga `'valid'` do `reverse_charge` — więc
+      odwrotne obciążenie ze ścieżki leada jest na razie nieosiągalne (szkic
+      liczy VAT krajowy). Fix = uzgodnienie słownika statusów przy integracji.
+    - **F3 — właściciel draftu z leada:** `lead-listener` zakłada draft z
+      `created_by = NULL`, więc nie-admin nie zobaczy go na liście (widzi tylko
+      swoje oferty). Fix = mapowanie `salesman_id` → `created_by` przy integracji.
 
 ## Narzędzia
 
 - Środowisko: `@wp-playground/cli` (lokalny WordPress, kod wtyczek montowany
   z dysku — omija limit `upload_max_filesize` przeglądarkowego Playground).
 - Harness jednostkowy (poza WP): `tests/process-harness/run-process.php` —
-  **98/98 PASS** na wersji 1.0.1. PHPCS/WPCS: 0 błędów/ostrzeżeń (46 plików).
+  **102/102 PASS** na wersji 1.0.3. Obejmuje m.in. nowe inwarianty 1.0.3:
+  `inv95` (VAT per klasa podatkowa — koszyk 23%+8%), `inv96` (VAT per klasa
+  z rabatem na sumie rozdzielonym proporcjonalnie), `inv97` (cena ujemna
+  odrzucana). PHPCS/WPCS: 0 błędów/ostrzeżeń (46 plików).

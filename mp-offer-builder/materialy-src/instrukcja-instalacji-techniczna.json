@@ -1,0 +1,51 @@
+{
+  "title": "MP Offer Builder — instrukcja instalacji (techniczna)",
+  "subtitle": "Wymagania, wdrożenie, konfiguracja WooCommerce, uprawnienia, aktualizacje i deinstalacja.",
+  "footer": "MP Offer Builder v1.0.3 · instrukcja instalacji (techniczna)",
+  "accent": "0e7490",
+  "blocks": [
+    {"t":"h1","text":"Wymagania"},
+    {"t":"bullet","text":"WordPress 6.0 lub nowszy."},
+    {"t":"bullet","text":"PHP 7.4 lub nowszy (testowane do 8.3)."},
+    {"t":"bullet","text":"WooCommerce (aktywny) — źródło cen produktów i stawek VAT."},
+    {"t":"bullet","text":"MySQL/MariaDB z obsługą InnoDB i utf8mb4 (standard w każdym hostingu WordPress)."},
+    {"t":"bullet","text":"Rozszerzenie PHP mbstring (do poprawnej obsługi UTF-8); BCMath zalecany (obliczenia kwot — jest fallback, gdy brak)."},
+
+    {"t":"h1","text":"Zależności — Dompdf"},
+    {"t":"p","text":"Generowanie PDF realizuje biblioteka Dompdf. Jest ona dołączona w katalogu vendor/ wewnątrz paczki — NIE trzeba uruchamiać composer install na serwerze klienta. Dlatego plik ZIP jest większy (~4,8 MB): zawiera Dompdf wraz z osadzonymi czcionkami DejaVu Sans (poprawne polskie znaki w PDF)."},
+    {"t":"note","title":"Kontrolowany brak zależności","text":"Jeśli katalog vendor/ zostanie pominięty przy wdrożeniu, wtyczka nie wywoła błędu krytycznego przy starcie — dopiero próba renderu PDF zgłosi kontrolowany komunikat. Zawsze wgrywaj pełną paczkę wraz z vendor/.","bg":"eef4ff","bc":"2563eb"},
+
+    {"t":"h1","text":"Instalacja"},
+    {"t":"h2","text":"Wariant A — panel WordPress (ZIP)"},
+    {"t":"p","text":"Wtyczki → Dodaj nową → Wyślij wtyczkę → wybierz mp-offer-builder.zip → Zainstaluj → Włącz. Jeśli serwer odrzuci plik przez upload_max_filesize, użyj wariantu B."},
+    {"t":"h2","text":"Wariant B — wgranie ręczne (FTP/SFTP)"},
+    {"t":"num","n":1,"text":"Rozpakuj mp-offer-builder.zip lokalnie."},
+    {"t":"num","n":2,"text":"Wgraj katalog mp-offer-builder do wp-content/plugins/ (całość, wraz z vendor/)."},
+    {"t":"num","n":3,"text":"W panelu: Wtyczki → włącz „MP Offer Builder”."},
+    {"t":"h2","text":"Wariant C — WP-CLI"},
+    {"t":"p","text":"wp plugin install ./mp-offer-builder.zip --activate (lub wp plugin activate mp-offer-builder po skopiowaniu katalogu)."},
+
+    {"t":"h1","text":"Konfiguracja WooCommerce (wymagana)"},
+    {"t":"num","n":1,"text":"WooCommerce → Ustawienia → Ogólne: ustaw „Adres sklepu / Kraj” na Polska (dla polskiej firmy)."},
+    {"t":"num","n":2,"text":"WooCommerce → Ustawienia → Podatki: włącz naliczanie podatków."},
+    {"t":"num","n":3,"text":"Podatki → Stawki standardowe: dodaj stawkę krajową (Kraj = PL, Stawka = 23,0000)."},
+    {"t":"note","title":"Dlaczego kraj bazowy sklepu ma znaczenie","text":"Wtyczka pobiera krajową stawkę VAT przez WC_Tax::get_base_tax_rates() — czyli z kraju bazowego sklepu, nie z lokalizacji klienta. Jeśli kraj bazowy jest inny niż PL (świeży/testowy WooCommerce domyślnie ustawia USA), wtyczka nie znajdzie polskiej stawki i oferta zgłosi błąd. Prawdziwy polski sklep ma ten kraj ustawiony domyślnie.","bg":"fef3c7","bc":"f59e0b"},
+
+    {"t":"h1","text":"Uprawnienia i role"},
+    {"t":"p","text":"Wtyczka wprowadza uprawnienie (capability) mp_offer_builder_manage_offers. Przy aktywacji jest ono przypisywane roli administratora. Aby ofertami zarządzał handlowiec, nadaj tę capability jego roli (np. wtyczką do zarządzania rolami) lub utwórz dedykowaną rolę „Handlowiec”."},
+    {"t":"bullet","text":"Właściciel oferty: dostęp do listy i pobierania PDF ma twórca oferty; administrator (manage_options) widzi wszystkie."},
+    {"t":"bullet","text":"Pobieranie PDF odbywa się przez chroniony endpoint (nonce + capability + weryfikacja właściciela) — nie przez publiczny link."},
+
+    {"t":"h1","text":"Weryfikacja po instalacji"},
+    {"t":"bullet","text":"Aktywacja zakłada 5 tabel z prefiksem wp_mp_ob_ (offers, offer_items, offer_versions, offer_activity_log, offer_templates)."},
+    {"t":"bullet","text":"Zakładane są domyślne szablony ofert (PL + EN) — bez nich świeża instalacja nie wygenerowałaby oferty."},
+    {"t":"bullet","text":"Wersja schematu bazy zapisywana jest w opcji mp_offer_builder_db_version (aktualnie 0.7.0)."},
+    {"t":"bullet","text":"Jeśli utworzenie tabel się nie powiedzie (np. brak uprawnień CREATE TABLE), aktywacja jest przerywana z czytelnym komunikatem — brak „cichej” instalacji."},
+
+    {"t":"h1","text":"Aktualizacje i migracje"},
+    {"t":"p","text":"Przy zwykłej podmianie plików schemat bazy aktualizuje się automatycznie: mechanizm maybe_upgrade() wykrywa różnicę wersji i uruchamia dbDelta(), który dokłada brakujące kolumny bez utraty danych. Nie są wymagane ręczne migracje SQL."},
+
+    {"t":"h1","text":"Deinstalacja"},
+    {"t":"p","text":"Wtyczki → Wyłącz → Usuń. Skrypt uninstall.php usuwa tabele wtyczki, jej opcje (w tym sekret podpisujący PDF), wygenerowane pliki PDF wraz z katalogiem prywatnym oraz zdejmuje uprawnienie mp_offer_builder_manage_offers ze wszystkich ról. Przed usunięciem pobierz oferty, które chcesz zachować — dane w bazie zostaną skasowane."}
+  ]
+}

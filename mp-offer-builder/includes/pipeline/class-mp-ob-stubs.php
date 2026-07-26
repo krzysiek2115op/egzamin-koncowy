@@ -1,10 +1,11 @@
 <?php
 /**
- * Zaślepki (stuby) Agenta i Krytyka — rusztowanie kroku 2.
+ * Zaślepki (stuby) Agenta i Krytyka — używane WYŁĄCZNIE przez harness testowy.
  *
- * Na tym etapie agenci NIE mają jeszcze logiki (przepuszczają dane dalej),
- * a krytycy zawsze akceptują. W kroku 3 podmienimy je na konkretne klasy
- * z realnymi zadaniami i weryfikacją.
+ * Agent-zaślepka przepuszcza dane dalej, krytyk-zaślepka zawsze akceptuje.
+ * Ścieżka produkcyjna używa realnych klas (MP_OB_Department_01..11 z agentami,
+ * krytykami i bramkami QA); te stuby służą tylko do izolowanego testowania
+ * mechaniki pipeline'u.
  *
  * @package MP_Offer_Builder
  */
@@ -54,7 +55,7 @@ class MP_OB_Stub_Agent implements MP_OB_Agent_Interface {
 	}
 
 	/**
-	 * TODO(krok 3): tu trafi realna logika agenta.
+	 * Zaślepka testowa: przepuszcza kontekst bez zmian (brak logiki produkcyjnej).
 	 *
 	 * @param MP_OB_Context $context Kontekst.
 	 * @return MP_OB_Result
@@ -96,7 +97,7 @@ class MP_OB_Stub_Critic implements MP_OB_Critic_Interface {
 	}
 
 	/**
-	 * TODO(krok 3): realna weryfikacja wyniku agenta.
+	 * Zaślepka testowa: akceptuje wynik agenta bez weryfikacji.
 	 *
 	 * @param MP_OB_Result  $agent_result Wynik agenta.
 	 * @param MP_OB_Context $context      Kontekst.

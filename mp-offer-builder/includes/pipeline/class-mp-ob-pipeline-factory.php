@@ -4,9 +4,9 @@
  * i bramkami jakości.
  *
  * TO JEST MAPA CAŁEGO PIPELINE w jednym miejscu (do przeglądu spójności).
- * Krok 2: wszystkie 11 działów to zaślepki (MP_OB_Stub_Agent/Critic) —
- * realna logika (MP_OB_Department_01..11 z klasami biznesowymi) trafi tu
- * dopiero w kroku 3, dział po dziale.
+ * Wszystkie 11 działów (MP_OB_Department_01..11) ma już realną logikę
+ * biznesową — agentów, krytyków i bramki QA. Zaślepki (MP_OB_Stub_Agent/
+ * Critic) służą wyłącznie testom harnessu, nie ścieżce produkcyjnej.
  *
  * Reguły odwzorowane w strukturze:
  *  - każdy dział ma wielu Agentów, każdy Agent ma 1 Krytyka (para budowana niżej),
