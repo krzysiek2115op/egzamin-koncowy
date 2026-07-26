@@ -12,8 +12,8 @@
  * Numer PRZED renderem PDF (kryt. 5.3) — zapewnione samą kolejnością działów
  * (8 przed 9), bez dodatkowego kodu. Kolizja numeru (dwie oferty równolegle
  * wyliczyły tego samego kandydata) wychodzi na indeksie UNIQUE dopiero PRZY
- * ZAPISIE — FAIL_RETRY (numer+1, ponowny render, ponowna transakcja, maks. 2
- * podejścia) należy do Działu 10 (zapis), retry LOKALNY wewnątrz jego agenta,
+ * ZAPISIE — FAIL_RETRY (numer+1, ponowny render, ponowna transakcja, wiele
+ * podejść — MAX_ATTEMPTS) należy do Działu 10 (zapis), retry LOKALNY wewnątrz jego agenta,
  * pipeline zostaje ściśle jednokierunkowy — patrz docs/dzial-08/mysql-unique-index.md.
  *
  * Źródła (oficjalne) — Golden Rule #2:

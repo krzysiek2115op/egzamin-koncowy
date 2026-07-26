@@ -168,4 +168,56 @@ class MP_Offer_Builder_Storage {
 			unlink( $tmp_path );
 		}
 	}
+
+	/**
+	 * Usuwa CAŁY prywatny katalog PDF-ów ofert wraz z zawartością (deinstalacja).
+	 * Liczy ścieżkę wprost z wp_upload_dir() — CELOWO nie przez private_dir(), bo
+	 * ten odtworzyłby katalog (ensure_protected_dir) zamiast go usunąć.
+	 *
+	 * @return void
+	 */
+	public static function delete_all() {
+		$upload = wp_upload_dir();
+		if ( empty( $upload['basedir'] ) ) {
+			return;
+		}
+		self::rrmdir( trailingslashit( $upload['basedir'] ) . 'mp-offer-builder-private' );
+	}
+
+	/**
+	 * Rekurencyjnie usuwa katalog wraz z zawartością.
+	 *
+	 * @param string $dir Ścieżka katalogu.
+	 * @return void
+	 */
+	private static function rrmdir( $dir ) {
+		if ( ! is_dir( $dir ) ) {
+			return;
+		}
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_scandir
+		$items = scandir( $dir );
+		if ( false === $items ) {
+			return;
+		}
+		foreach ( $items as $item ) {
+			if ( '.' === $item || '..' === $item ) {
+				continue;
+			}
+			$path = $dir . '/' . $item;
+			// Symlink kasujemy jako link (unlink), NIGDY nie wchodzimy w niego rekurencyjnie
+			// — inaczej podrzucony link w katalogu prywatnym kasowałby zawartość CELU
+			// (poza wtyczką) przy deinstalacji.
+			if ( is_link( $path ) ) {
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+				unlink( $path );
+			} elseif ( is_dir( $path ) ) {
+				self::rrmdir( $path );
+			} else {
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+				unlink( $path );
+			}
+		}
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
+		rmdir( $dir );
+	}
 }

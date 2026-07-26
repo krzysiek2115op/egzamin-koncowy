@@ -136,18 +136,26 @@ class MP_OB_D2_Agent_Prices extends MP_OB_Abstract_Agent {
 			$on_sale   = '' !== (string) $sale && is_numeric( $sale ) && (float) $sale < (float) $regular;
 			$effective = $on_sale ? (float) $sale : (float) $regular;
 
-			// "cena zero wymaga flagi" (kryt. kompletność-cen) — dopuszczona, ale
-			// oznaczona: dalsze działy/handlowiec muszą świadomie ją zaakceptować.
+			// Cena UJEMNA nigdy nie jest poprawna (błędna konfiguracja WC) — jawny
+			// FAIL zamiast cichego ujemnego netto/VAT/brutto w ofercie. Cena 0 jest
+			// dopuszczona (legalna pozycja gratis: 0 netto → 0 VAT, arytmetyka spójna).
+			if ( $effective < 0.0 ) {
+				$errors[] = array(
+					'field'   => "items.$i.price",
+					'message' => 'Cena pozycji jest ujemna — nie można zbudować oferty.',
+				);
+				continue;
+			}
+
 			$prices[ $i ] = array(
-				'regular_price'   => (float) $regular,
-				'sale_price'      => $on_sale ? (float) $sale : null,
-				'on_sale'         => $on_sale,
-				'zero_price_flag' => $effective <= 0.0,
+				'regular_price' => (float) $regular,
+				'sale_price'    => $on_sale ? (float) $sale : null,
+				'on_sale'       => $on_sale,
 			);
 		}
 
 		if ( $errors ) {
-			return MP_OB_Result::fail( 'Brak ceny dla części pozycji.', array( 'errors' => $errors ), 'incomplete_prices' );
+			return MP_OB_Result::fail( 'Nieprawidłowa lub brakująca cena pozycji.', array( 'errors' => $errors ), 'incomplete_prices' );
 		}
 
 		return MP_OB_Result::ok( array( 'prices' => $prices ) );

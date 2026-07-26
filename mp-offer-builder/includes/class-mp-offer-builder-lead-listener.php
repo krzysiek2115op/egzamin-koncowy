@@ -83,7 +83,10 @@ class MP_Offer_Builder_Lead_Listener {
 				// Utrwalony status VAT z VIES (plugin 1) — bez tego korekta oferty
 				// UE gubiłaby reverse_charge (Dział 6 czyta client.vat_status po
 				// odtworzeniu ze snapshotu w Dziale 1).
-				'client_vat_status' => isset( $payload['vat_status'] ) ? sanitize_text_field( $payload['vat_status'] ) : null,
+				// substr do 20 znaków = limit kolumny client_vat_status: gdyby P1 kiedyś
+				// wysłał dłuższą wartość, przy strict-mode INSERT padłby i draft cicho
+				// by nie powstał (ścieżka pipeline ma ten sam limit w FIELD_LIMITS).
+				'client_vat_status' => isset( $payload['vat_status'] ) ? substr( sanitize_text_field( $payload['vat_status'] ), 0, 20 ) : null,
 			)
 		);
 

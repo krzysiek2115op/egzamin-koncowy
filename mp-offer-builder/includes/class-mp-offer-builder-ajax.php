@@ -56,6 +56,19 @@ class MP_Offer_Builder_Ajax {
 			);
 		}
 
+		// Uprawnienie na wejściu (fail-fast, defense-in-depth) — spójnie z
+		// ajax_search_products()/download; pipeline (Dział 1, Agent 1.2) sprawdza je
+		// ponownie, ale nie chcemy nawet uruchamiać pre-gate/odczytu BD bez capability.
+		if ( ! current_user_can( MP_OB_D1_Agent_Permission::CAPABILITY ) ) {
+			wp_send_json_error(
+				array(
+					'code'    => 'forbidden',
+					'message' => 'Brak uprawnień do budowania ofert.',
+				),
+				403
+			);
+		}
+
 		// Wejście TYLKO JSON (Dział 1, zk-label diagramu) — surowe ciało żądania,
 		// nie tablica $_POST (kontrakt to zagnieżdżony obiekt client/items, nie
 		// płaskie pola formularza jak w plugin 1).

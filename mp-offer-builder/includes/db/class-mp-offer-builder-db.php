@@ -27,7 +27,7 @@ class MP_Offer_Builder_DB {
 	/**
 	 * Wersja schematu bazy. Podbijamy przy KAŻDEJ zmianie struktury tabel.
 	 */
-	const DB_VERSION = '0.6.0';
+	const DB_VERSION = '0.7.0';
 
 	/** Nazwa opcji WordPress przechowującej aktualną wersję bazy. */
 	const DB_VERSION_OPTION = 'mp_offer_builder_db_version';
@@ -174,7 +174,8 @@ class MP_Offer_Builder_DB {
 			UNIQUE KEY uq_request_id (request_id),
 			KEY lead_id (lead_id),
 			KEY status (status),
-			KEY created_by (created_by)
+			KEY created_by (created_by),
+			KEY updated_at (updated_at)
 		) ENGINE=InnoDB $charset_collate;";
 
 		// --- Tabela 3: pozycje oferty ---

@@ -147,35 +147,118 @@ class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 	}
 
 	/**
+	 * Proporcjonalny podział kwoty (grosze) — floor( amount * part / total ),
+	 * wyłącznie arytmetyką całkowitą (BCMath, fallback bez float na 64-bit).
+	 *
+	 * @param int $amount Kwota do rozdzielenia (grosze).
+	 * @param int $part   Udział tej części.
+	 * @param int $total  Suma udziałów.
+	 * @return int
+	 */
+	private static function prorate( $amount, $part, $total ) {
+		if ( $total <= 0 ) {
+			return 0;
+		}
+		if ( function_exists( 'bcmul' ) && function_exists( 'bcdiv' ) ) {
+			return (int) bcdiv( bcmul( (string) $amount, (string) $part, 0 ), (string) $total, 0 );
+		}
+		return (int) floor( ( $amount * $part ) / $total );
+	}
+
+	/**
 	 * @param MP_OB_Context $context Kontekst.
 	 * @return MP_OB_Result
 	 */
 	public function run( MP_OB_Context $context ) {
-		$net_grosze = (int) $context->get( 'subtotal_grosze', 0 ) - (int) $context->get( 'discount_total', 0 );
-		$mechanism  = (string) $context->get( 'tax_mechanism', '' );
+		$net_grosze     = (int) $context->get( 'subtotal_grosze', 0 ) - (int) $context->get( 'discount_total', 0 );
+		$mechanism      = (string) $context->get( 'tax_mechanism', '' );
+		$line_tax_rates = array();
 
 		if ( 'domestic' === $mechanism ) {
 			$tax_rates = is_array( $context->get( 'tax_rates' ) ) ? $context->get( 'tax_rates' ) : array();
-			$first     = reset( $tax_rates );
-			$rate      = $first && isset( $first['rate'] ) ? (float) $first['rate'] : null;
-			if ( null === $rate ) {
-				return MP_OB_Result::fail( 'Brak stawki VAT do naliczenia (mechanizm domestic).', array(), 'missing_tax_rate' );
+			$products  = is_array( $context->get( 'products' ) ) ? $context->get( 'products' ) : array();
+			$lines     = is_array( $context->get( 'lines' ) ) ? $context->get( 'lines' ) : array();
+			$subtotal  = (int) $context->get( 'subtotal_grosze', 0 );
+			$discount  = (int) $context->get( 'discount_total', 0 );
+
+			// VAT liczony PER KLASA PODATKOWA, nie jedną stawką na całość: koszyk
+			// B2B może mieszać stawki (np. 23% + 8%), a jedna stawka na sumie
+			// zawyżała/zaniżała podatek. Rabat jest naliczany NA SUMIE (Dział 5),
+			// więc rozdzielamy go proporcjonalnie na klasy, żeby suma netto klas
+			// równała się dokładnie net_grosze. Dla POJEDYNCZEJ klasy wynik jest
+			// identyczny jak wcześniej (jedna stawka na całe netto).
+			$class_subtotal = array();
+			foreach ( $lines as $i => $line ) {
+				$tc = isset( $products[ $i ]['tax_class'] ) ? (string) $products[ $i ]['tax_class'] : '';
+				$lg = isset( $line['line_grosze'] ) ? (int) $line['line_grosze'] : 0;
+				if ( ! isset( $class_subtotal[ $tc ] ) ) {
+					$class_subtotal[ $tc ] = 0;
+				}
+				$class_subtotal[ $tc ] += $lg;
 			}
+
+			// Każda występująca klasa MUSI mieć stawkę (Dział 2 ją zebrał; brak = FAIL,
+			// nigdy domyślne 23% — ta sama zasada co Agent 2.3).
+			foreach ( array_keys( $class_subtotal ) as $tc ) {
+				if ( ! isset( $tax_rates[ $tc ]['rate'] ) || null === $tax_rates[ $tc ]['rate'] ) {
+					return MP_OB_Result::fail( 'Brak stawki VAT do naliczenia (mechanizm domestic).', array(), 'missing_tax_rate' );
+				}
+			}
+
+			// Podział rabatu na klasy proporcjonalnie do ich wartości; resztę z
+			// zaokrągleń w dół dorzucamy do klasy o największej wartości, żeby suma
+			// rabatów klas == discount_total co do grosza (a więc suma netto == net_grosze).
+			$class_discount = array();
+			$assigned       = 0;
+			$max_tc         = null;
+			$max_val        = -1;
+			foreach ( $class_subtotal as $tc => $cs ) {
+				$share                 = ( $subtotal > 0 && $discount > 0 ) ? self::prorate( $discount, $cs, $subtotal ) : 0;
+				$class_discount[ $tc ] = $share;
+				$assigned             += $share;
+				if ( $cs > $max_val ) {
+					$max_val = $cs;
+					$max_tc  = $tc;
+				}
+			}
+			if ( null !== $max_tc && $discount > 0 ) {
+				$class_discount[ $max_tc ] += ( $discount - $assigned );
+			}
+
+			// VAT per klasa (zaokrąglenie RAZ na klasę), suma = vat_grosze oferty.
+			$vat_grosze = 0;
+			foreach ( $class_subtotal as $tc => $cs ) {
+				$class_net   = $cs - $class_discount[ $tc ];
+				$rate        = (float) $tax_rates[ $tc ]['rate'];
+				$vat_grosze += ( 0.0 === $rate || $class_net <= 0 ) ? 0 : self::vat_grosze( $class_net, $rate );
+			}
+
+			// Stawka per pozycja (do zapisu w Dziale 10) — wg klasy danej pozycji.
+			foreach ( $lines as $i => $line ) {
+				$tc                   = isset( $products[ $i ]['tax_class'] ) ? (string) $products[ $i ]['tax_class'] : '';
+				$line_tax_rates[ $i ] = (float) $tax_rates[ $tc ]['rate'];
+			}
+
+			// Reprezentatywna stawka oferty: jedna klasa -> ta stawka; wiele klas ->
+			// null (na dokumencie pokazujemy kwotę VAT, nie pojedynczą stawkę).
+			$rate         = ( 1 === count( $class_subtotal ) && $line_tax_rates ) ? (float) reset( $line_tax_rates ) : null;
+			$gross_grosze = $net_grosze + $vat_grosze;
 		} else {
 			// reverse_charge / out_of_scope — zawsze 0%, z RÓŻNYCH podstaw prawnych
-			// (patrz tax_basis z Agenta 6.1), ale ten sam wynik liczbowy.
-			$rate = 0.0;
+			// (patrz tax_basis z Agenta 6.1), ale ten sam wynik liczbowy. line_tax_rates
+			// zostają puste -> Dział 10 zapisze 0.00 dla każdej pozycji (fallback).
+			$rate         = 0.0;
+			$vat_grosze   = 0;
+			$gross_grosze = $net_grosze;
 		}
-
-		$vat_grosze   = 0.0 === $rate ? 0 : self::vat_grosze( $net_grosze, $rate );
-		$gross_grosze = $net_grosze + $vat_grosze;
 
 		return MP_OB_Result::ok(
 			array(
-				'tax_rate'     => $rate,
-				'net_grosze'   => $net_grosze,
-				'vat_grosze'   => $vat_grosze,
-				'gross_grosze' => $gross_grosze,
+				'tax_rate'       => $rate,
+				'line_tax_rates' => $line_tax_rates,
+				'net_grosze'     => $net_grosze,
+				'vat_grosze'     => $vat_grosze,
+				'gross_grosze'   => $gross_grosze,
 			)
 		);
 	}

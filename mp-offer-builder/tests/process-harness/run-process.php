@@ -1061,7 +1061,7 @@ record( 'inv59_kolizja_unique_pojedyncza_retry_odzyskuje', $inv59 ? 'PASS' : 'FA
 $GLOBALS['wpdb']->force_unique_collision_once = false;
 
 // 60) Kolizja UNIQUE TRWAŁA (np. realna równoległa oferta z tym samym numerem
-//     nieustannie) → retry wyczerpuje maks. 2 podejścia, jawny FAIL, pipeline
+//     nieustannie) → retry wyczerpuje MAX_ATTEMPTS podejść, jawny FAIL, pipeline
 //     robi ROLLBACK (bez połowicznych wierszy).
 $GLOBALS['wpdb']->offers                      = array();
 $GLOBALS['wpdb']->items                       = array();
@@ -1941,6 +1941,92 @@ record(
 	'otwarta=' . ( $inv94a ? 'ok' : 'FAIL' ) . ' zamknieta=' . ( $inv94b ? 'ok' : 'FAIL' )
 );
 $GLOBALS['wpdb']->tx_log = array();
+
+// 95) VAT PER KLASA PODATKOWA (regresja F1, audyt 2026-07-26): koszyk mieszający
+//     stawki (23% + 8%) musi liczyć VAT per klasa, nie jedną stawką na całości.
+//     Stary kod: reset($tax_rates) -> 23% na całe 20000 = 4600 gr (ZAWYŻENIE).
+//     Poprawnie: 10000*23% + 10000*8% = 2300 + 800 = 3100 gr.
+$GLOBALS['__mp_ob_wc_products'][9201] = array(
+	'status'        => 'publish',
+	'name'          => 'Produkt 23%',
+	'tax_class'     => '',
+	'purchasable'   => true,
+	'regular_price' => '100.00',
+	'sale_price'    => '',
+);
+$GLOBALS['__mp_ob_wc_products'][9202] = array(
+	'status'        => 'publish',
+	'name'          => 'Produkt 8%',
+	'tax_class'     => 'obnizona',
+	'purchasable'   => true,
+	'regular_price' => '100.00',
+	'sale_price'    => '',
+);
+$GLOBALS['__mp_ob_wc_tax_rates']['obnizona'] = array( array( 'rate' => 8.0, 'label' => 'VAT 8%' ) );
+$mixed_input               = base_input();
+$mixed_input['wariant']    = 'standard';
+$mixed_input['request_id'] = '3f1c2a10-aaaa-4bbb-8ccc-000000000095';
+$mixed_input['items']      = array(
+	array( 'product_id' => 9201, 'variation_id' => null, 'qty' => 1 ),
+	array( 'product_id' => 9202, 'variation_id' => null, 'qty' => 1 ),
+);
+$r95   = run_pipeline( $mixed_input );
+$inv95 = $r95['ok']
+	&& 'domestic' === ( $r95['final_data']['tax_mechanism'] ?? null )
+	&& 20000 === (int) ( $r95['final_data']['net_grosze'] ?? -1 )
+	&& 3100 === (int) ( $r95['final_data']['vat_grosze'] ?? -1 )
+	&& 23100 === (int) ( $r95['final_data']['gross_grosze'] ?? -1 );
+record(
+	'inv95_vat_per_klasa_podatkowa_mieszany_koszyk',
+	$inv95 ? 'PASS' : 'FAIL',
+	'net=' . ( $r95['final_data']['net_grosze'] ?? '-' ) . ' vat=' . ( $r95['final_data']['vat_grosze'] ?? '-' ) . ' (oczek. 3100) gross=' . ( $r95['final_data']['gross_grosze'] ?? '-' )
+);
+
+// 96) Mieszane klasy + RABAT na sumie: rabat rozdzielony proporcjonalnie na klasy,
+//     suma netto klas == net_grosze, VAT liczony per klasa od netto po rabacie.
+//     20×100 zł (23%) + 20×100 zł (8%) = subtotal 400000 gr, wariant partner → rabat.
+$disc_input               = base_input();
+$disc_input['wariant']    = 'partner';
+$disc_input['request_id'] = '3f1c2a10-aaaa-4bbb-8ccc-000000000096';
+$disc_input['items']      = array(
+	array( 'product_id' => 9201, 'variation_id' => null, 'qty' => 20 ),
+	array( 'product_id' => 9202, 'variation_id' => null, 'qty' => 20 ),
+);
+$r96      = run_pipeline( $disc_input );
+$net96    = (int) ( $r96['final_data']['net_grosze'] ?? -1 );
+$vat96    = (int) ( $r96['final_data']['vat_grosze'] ?? -1 );
+$gross96  = (int) ( $r96['final_data']['gross_grosze'] ?? -1 );
+// Niezależnie od wysokości rabatu: obie klasy mają równy subtotal (100000 każda),
+// więc rabat dzieli się 50/50; VAT = net/2*23% + net/2*8% (z zaokrągleniem per klasa).
+$half     = intdiv( $net96, 2 );
+$exp_vat  = (int) round( $half * 0.23 ) + (int) round( $half * 0.08 );
+$inv96    = $r96['ok'] && $net96 > 0 && $net96 < 400000 && $gross96 === $net96 + $vat96 && abs( $vat96 - $exp_vat ) <= 1;
+record(
+	'inv96_vat_per_klasa_z_rabatem_na_sumie',
+	$inv96 ? 'PASS' : 'FAIL',
+	'net=' . $net96 . ' vat=' . $vat96 . ' (oczek ~' . $exp_vat . ') gross=' . $gross96
+);
+
+// 97) Cena UJEMNA (regresja F5): błędna konfiguracja WC → jawny FAIL, nigdy
+//     cicha oferta z ujemnymi kwotami.
+$GLOBALS['__mp_ob_wc_products'][9203] = array(
+	'status'        => 'publish',
+	'name'          => 'Produkt z ujemną ceną',
+	'tax_class'     => '',
+	'purchasable'   => true,
+	'regular_price' => '-50.00',
+	'sale_price'    => '',
+);
+$neg_input               = base_input();
+$neg_input['request_id'] = '3f1c2a10-aaaa-4bbb-8ccc-000000000097';
+$neg_input['items']      = array( array( 'product_id' => 9203, 'variation_id' => null, 'qty' => 1 ) );
+$r97   = run_pipeline( $neg_input );
+$inv97 = ! $r97['ok'] && 'incomplete_prices' === $r97['code'];
+record(
+	'inv97_cena_ujemna_odrzucona',
+	$inv97 ? 'PASS' : 'FAIL',
+	'ok=' . ( $r97['ok'] ? 'tak(BLAD)' : 'nie' ) . ' code=' . ( $r97['code'] ?? '-' )
+);
 
 /* ---------- Podsumowanie ---------- */
 

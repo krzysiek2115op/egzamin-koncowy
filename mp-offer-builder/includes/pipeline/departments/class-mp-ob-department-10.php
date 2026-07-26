@@ -134,7 +134,10 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 			$header['id'] = $offer_id;
 		}
 
-		$item_rows = array();
+		// Stawka VAT per pozycja z Działu 6 (wg klasy podatkowej pozycji). Fallback do
+		// jednej stawki oferty tylko gdy brak mapy (np. reverse_charge/out_of_scope=0.00).
+		$line_tax_rates = is_array( $context->get( 'line_tax_rates' ) ) ? $context->get( 'line_tax_rates' ) : array();
+		$item_rows      = array();
 		foreach ( $items as $i => $item ) {
 			$item_rows[] = array(
 				'product_id'         => (int) ( isset( $item['product_id'] ) ? $item['product_id'] : 0 ),
@@ -143,7 +146,7 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 				'price_base_grosze'  => (int) ( isset( $lines[ $i ]['unit_grosze'] ) ? $lines[ $i ]['unit_grosze'] : 0 ),
 				'discount_grosze'    => 0, // rabat naliczany NA SUMIE (Dział 5), nie per-pozycja — patrz docs/dzial-05.
 				'price_final_grosze' => (int) ( isset( $lines[ $i ]['line_grosze'] ) ? $lines[ $i ]['line_grosze'] : 0 ),
-				'tax_rate'           => (float) $context->get( 'tax_rate', 0 ),
+				'tax_rate'           => isset( $line_tax_rates[ $i ] ) ? (float) $line_tax_rates[ $i ] : (float) $context->get( 'tax_rate', 0 ),
 			);
 		}
 
@@ -248,17 +251,18 @@ class MP_OB_D10_Critic_DDL extends MP_OB_Abstract_Critic {
 
 /**
  * Agent 10.2 — transakcja: INSERT/UPDATE nagłówka + INSERT pozycji + INSERT
- * wersji. Kolizja UNIQUE(offer_number, version) → RETRY LOKALNY (nowy numer/
- * wersja + ponowny render PDF, żeby metadane zgadzały się z nowym numerem),
- * maks. 2 podejścia; inny błąd zapisu → FAIL (pipeline robi ROLLBACK).
+ * wersji. Kolizja UNIQUE(offer_number, version) → RETRY LOKALNY (kolejny numer/
+ * wersja liczone W PAMIĘCI z numeru, który skolidował, + ponowny render PDF,
+ * żeby metadane zgadzały się z nowym numerem), maks. MAX_ATTEMPTS podejść; inny
+ * błąd zapisu → FAIL (pipeline robi ROLLBACK).
  */
 class MP_OB_D10_Agent_Transaction extends MP_OB_Abstract_Agent {
 
-	/** Maksymalna liczba podejść przy kolizji numeracji. */
-	const MAX_ATTEMPTS = 2;
+	/** Maksymalna liczba podejść przy kolizji numeracji (obsługuje N równoległych zapisów). */
+	const MAX_ATTEMPTS = 5;
 
 	public function __construct() {
-		parent::__construct( '10.2', 'Agent 10.2 — transakcja', 'INSERT-y nagłówka+pozycji+wersji; kolizja UNIQUE — RETRY lokalny (numer/wersja + ponowny render), maks. 2 podejścia' );
+		parent::__construct( '10.2', 'Agent 10.2 — transakcja', 'INSERT-y nagłówka+pozycji+wersji; kolizja UNIQUE — RETRY lokalny (kolejny numer/wersja + ponowny render), wiele podejść' );
 	}
 
 	/**
@@ -397,11 +401,24 @@ class MP_OB_D10_Agent_Transaction extends MP_OB_Abstract_Agent {
 		if ( 'correction' === (string) $context->get( 'numbering_mode', '' ) ) {
 			$new_version = (int) $plan['header']['version'] + 1;
 		} else {
-			$year       = (int) gmdate( 'Y' );
-			$fresh_last = MP_Offer_Builder_DB::get_last_offer_number_for_year( $year );
-			$seq        = 1;
-			if ( $fresh_last && 1 === preg_match( '/^OF\/' . $year . '\/(\d{6})$/', $fresh_last, $m ) ) {
+			// Kolejny numer liczymy z numeru, KTÓRY WŁAŚNIE SKOLIDOWAŁ (+1) —
+			// w PAMIĘCI, a nie przez ponowny odczyt MAX z bazy. Pod REPEATABLE READ
+			// (domyślny poziom izolacji InnoDB) zwykły SELECT wewnątrz otwartej
+			// transakcji Działu 10 czyta ze snapshotu sprzed startu transakcji i
+			// zwróciłby TEN SAM stary numer → druga kolizja i porażka retry.
+			// Inkrement w pamięci jest niezależny od snapshotu i deterministyczny;
+			// przy N równoległych zapisach kolejne próby (MAX_ATTEMPTS) rozwiązują
+			// kolizję, każda podbijając numer o 1.
+			$year = (int) gmdate( 'Y' );
+			$seq  = 1; // ostateczny fallback: pierwsza oferta (np. przełom roku, brak ofert w nowym roku).
+			if ( 1 === preg_match( '/^OF\/' . $year . '\/(\d{6})$/', (string) $plan['header']['offer_number'], $m ) ) {
 				$seq = ( (int) $m[1] ) + 1;
+			} else {
+				// Numer z innego roku / nietypowy → bezpieczny fallback: świeży odczyt.
+				$fresh_last = MP_Offer_Builder_DB::get_last_offer_number_for_year( $year );
+				if ( $fresh_last && 1 === preg_match( '/^OF\/' . $year . '\/(\d{6})$/', $fresh_last, $mm ) ) {
+					$seq = ( (int) $mm[1] ) + 1;
+				}
 			}
 			$plan['header']['offer_number'] = sprintf( 'OF/%d/%06d', $year, $seq );
 			$new_version                    = 1;

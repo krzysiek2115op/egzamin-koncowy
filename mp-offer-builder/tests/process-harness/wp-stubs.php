@@ -319,7 +319,7 @@ class MP_OB_Fake_WPDB {
 	// symuluje DOKŁADNIE JEDNĄ kolizję, którą retry musi rozwiązać.
 	public $force_unique_collision_once = false;
 	// Jak wyżej, ale NIE kasuje się samo — symuluje TRWAŁĄ kolizję (retry
-	// wyczerpuje maks. 2 podejścia i musi się poddać z jawnym FAIL).
+	// wyczerpuje MAX_ATTEMPTS podejść i musi się poddać z jawnym FAIL).
 	public $force_unique_collision_always = false;
 	// Symuluje awarię pojedynczego INSERT-u (np. brak miejsca na dysku, limit
 	// wiersza) na tabelach pozycji/wersji/dziennika — sprawdza, że Dział 10

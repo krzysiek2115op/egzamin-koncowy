@@ -4,7 +4,7 @@ Tags: oferty, pdf, woocommerce, cennik
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.0.2
+Stable tag: 1.0.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -31,6 +31,22 @@ generuje ofertę PDF wraz z numeracją i historią wersji.
    świeżym/testowym WooCommerce (domyślnie USA).
 
 == Changelog ==
+
+= 1.0.3 =
+* Ostateczny audyt (4 równoległe sub-audyty + przegląd krzyżowy) — naprawione:
+* [Ważne] VAT liczony PER KLASĘ PODATKOWĄ — koszyk mieszający stawki (np. 23% + 8%)
+  wcześniej naliczał jedną stawkę na całości (zawyżenie/zaniżenie podatku). Rabat
+  z sumy dzielony proporcjonalnie na klasy; stawka zapisywana per pozycja.
+* [Średni] Cena ujemna produktu odrzucana jawnym błędem (wcześniej dawała ujemne
+  kwoty w ofercie); usunięta martwa „flaga ceny zero".
+* [Średni] Retry po kolizji numeru oferty liczy kolejny numer w pamięci (odporny na
+  snapshot REPEATABLE READ) + więcej podejść — równoległe tworzenie ofert nie kończy
+  się już błędem u „przegranego".
+* [Średni] Deinstalacja usuwa teraz też wygenerowane PDF-y ofert, katalog prywatny,
+  sekret nazw plików i capability ze wszystkich ról (nie tylko admina).
+* Twardsza granica AJAX (capability na wejściu), limit długości statusu VAT z leada,
+  indeks bazodanowy pod sortowanie listy ofert (DB_VERSION 0.7.0).
+* Harness 102/102, PHPCS/WPCS 0/0.
 
 = 1.0.2 =
 * Ręczny formularz oferty ma teraz pole „VAT UE potwierdzony" — oświadczenie
