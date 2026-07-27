@@ -558,13 +558,14 @@ $r28                          = run_pipeline( $high_qty );
 $inv28                        = $r28['ok'] && 'R-02' === ( $r28['final_data']['discounts'][0]['rule_id'] ?? null );
 record( 'inv28_wolumen_wyzszy_prog_R02', $inv28 ? 'PASS' : 'FAIL', 'rule=' . ( $r28['final_data']['discounts'][0]['rule_id'] ?? '-' ) );
 
-// 29) Nieznany wariant → catch-all R-00 (0%), NIE błąd — nowy/nieznany wariant
-//     nie blokuje budowy oferty.
+// 29) S1-3: nieznany wariant ODRZUCONY w Dziale 1 (invalid_contract) — literówka
+//     wariantu ("enterprise", "Partner") to jawny błąd kontraktu, NIE ciche zejście
+//     do catch-all R-00 (0% rabatu), które klient mógłby wziąć za świadomą wycenę.
 $unknown_wariant             = base_input();
 $unknown_wariant['wariant']  = 'enterprise-niezdefiniowany';
 $r29                          = run_pipeline( $unknown_wariant );
-$inv29                        = $r29['ok'] && 'R-00' === ( $r29['final_data']['discounts'][0]['rule_id'] ?? null ) && 0 === ( $r29['final_data']['discount_total'] ?? null );
-record( 'inv29_nieznany_wariant_catchall_R00', $inv29 ? 'PASS' : 'FAIL', 'rule=' . ( $r29['final_data']['discounts'][0]['rule_id'] ?? '-' ) );
+$inv29                        = ! $r29['ok'] && 'invalid_contract' === $r29['code'];
+record( 'inv29_nieznany_wariant_odrzucony', $inv29 ? 'PASS' : 'FAIL', 'ok=' . ( $r29['ok'] ? 'tak' : 'nie' ) . ' code=' . $r29['code'] );
 
 // 30) Mechanika limitu (bezpośrednio na Agent 5.2 — reguły v1 max 10%, nie da się
 //     naturalnie przekroczyć limitu 30% przez dobór reguły, więc testujemy STOP
@@ -2027,6 +2028,87 @@ record(
 	$inv97 ? 'PASS' : 'FAIL',
 	'ok=' . ( $r97['ok'] ? 'tak(BLAD)' : 'nie' ) . ' code=' . ( $r97['code'] ?? '-' )
 );
+
+/* ---------- Runda debug cz.3: nowe zachowania ---------- */
+
+echo "\n=== RUNDA DEBUG cz.3: tax_status / kraj / promocja / strefa / idempotencja ===\n";
+
+// A) S3-02: produkt z tax_status='none' -> pozycja ZWOLNIONA z VAT (0 gr) mimo
+//    klienta krajowego. Snapshot tax_status (Dzial 2) -> klasa TAX_NONE (Dzial 6) -> 0%.
+$GLOBALS['__mp_ob_wc_products'][9101]['tax_status'] = 'none';
+$rA = run_pipeline( base_input() );
+$GLOBALS['__mp_ob_wc_products'][9101]['tax_status'] = 'taxable';
+$invA = $rA['ok'] && 0 === ( $rA['final_data']['vat_grosze'] ?? null ) && ( $rA['final_data']['net_grosze'] ?? 0 ) > 0;
+record( 'inv_s3_02_tax_status_none_vat_zero', $invA ? 'PASS' : 'FAIL', 'vat=' . ( $rA['final_data']['vat_grosze'] ?? '-' ) . ' net=' . ( $rA['final_data']['net_grosze'] ?? '-' ) );
+
+// B) S4-02: kod kraju POPRAWNY formatem (2 wielkie litery), ale NIEZNANY WooCommerce
+//    ('DR') -> STOP 'unknown_country'. Bez tego 'DR' udawalby 'poza UE' i dawal 0% VAT.
+$unknown_country                      = base_input();
+$unknown_country['client']['country'] = 'DR';
+$rB                                   = run_pipeline( $unknown_country );
+$invB                                 = ! $rB['ok'] && 'unknown_country' === $rB['code'];
+record( 'inv_s4_02_kraj_nieznany_unknown_country', $invB ? 'PASS' : 'FAIL', 'ok=' . ( $rB['ok'] ? 'tak' : 'nie' ) . ' code=' . $rB['code'] );
+
+// C) S3-01: promocja z harmonogramem, ktorego okno JUZ MINELO (date_on_sale_to w
+//    przeszlosci) -> is_on_sale()=false -> wycena po cenie REGULARNEJ. Porownanie z
+//    przebiegiem bez promocji: identyczna suma brutto = promocja slusznie pominieta.
+$rC_base = run_pipeline( base_input() );
+$GLOBALS['__mp_ob_wc_products'][9101]['sale_price']        = '99.99';
+$GLOBALS['__mp_ob_wc_products'][9101]['date_on_sale_from'] = '2020-01-01';
+$GLOBALS['__mp_ob_wc_products'][9101]['date_on_sale_to']   = '2020-12-31';
+$rC_exp = run_pipeline( base_input() );
+$GLOBALS['__mp_ob_wc_products'][9101]['sale_price']        = '';
+unset( $GLOBALS['__mp_ob_wc_products'][9101]['date_on_sale_from'], $GLOBALS['__mp_ob_wc_products'][9101]['date_on_sale_to'] );
+$invC = $rC_base['ok'] && $rC_exp['ok']
+	&& ( $rC_exp['final_data']['gross_grosze'] ?? 0 ) > 0
+	&& ( $rC_exp['final_data']['gross_grosze'] ?? null ) === ( $rC_base['final_data']['gross_grosze'] ?? -1 );
+record( 'inv_s3_01_promocja_wygasla_cena_regularna', $invC ? 'PASS' : 'FAIL', 'brutto_exp=' . ( $rC_exp['final_data']['gross_grosze'] ?? '-' ) . ' brutto_reg=' . ( $rC_base['final_data']['gross_grosze'] ?? '-' ) );
+
+// D) S5-02: rok w numerze oferty pochodzi z ZEGARA STREFY (current_time), nie z UTC
+//    (gmdate). Przesuwamy zegar poza granice roku -> numer w NOWYM roku (regresja:
+//    gmdate zwrocilby rok UTC, mylny numer/reset licznika o polnocy sylwestrowej).
+$next_year    = (int) gmdate( 'Y' ) + 1;
+$saved_offset = isset( $GLOBALS['__mp_ob_time_offset'] ) ? $GLOBALS['__mp_ob_time_offset'] : 0;
+$GLOBALS['__mp_ob_time_offset'] = gmmktime( 12, 0, 0, 1, 15, $next_year ) - time();
+$tz_input               = base_input();
+$tz_input['request_id'] = '3f1c2a10-aaaa-4bbb-8ccc-0000000000d1';
+$rD = run_pipeline( $tz_input );
+$GLOBALS['__mp_ob_time_offset'] = $saved_offset;
+$invD = $rD['ok'] && 0 === strpos( (string) ( $rD['final_data']['offer_number'] ?? '' ), 'OF/' . $next_year . '/' );
+record( 'inv_s5_02_strefa_rok_w_numerze', $invD ? 'PASS' : 'FAIL', 'offer_number=' . ( $rD['final_data']['offer_number'] ?? '-' ) . ' oczek_rok=' . $next_year );
+
+// E) S1-2: kolizja UNIQUE(request_id) przy INSERT (wyscig dwoch rownoleglych zadan z
+//    tym samym request_id) -> Dzial 10 przerywa kodem 'idempotent_replay', pipeline
+//    robi ROLLBACK, Dzial 11 NIE startuje (mp_offer_created nie odpala 2. raz).
+$GLOBALS['wpdb']->offers        = array();
+$GLOBALS['wpdb']->items         = array();
+$GLOBALS['wpdb']->versions      = array();
+$GLOBALS['wpdb']->activity_log  = array();
+$GLOBALS['wpdb']->tx_log        = array();
+$GLOBALS['wpdb']->force_request_id_collision_once = true;
+$rE = run_pipeline( base_input() );
+$GLOBALS['wpdb']->force_request_id_collision_once = false;
+$invE = ! $rE['ok'] && 'idempotent_replay' === $rE['code']
+	&& array( 'START', 'ROLLBACK' ) === $GLOBALS['wpdb']->tx_log
+	&& 0 === count( $GLOBALS['wpdb']->offers );
+record( 'inv_s1_2_request_id_kolizja_idempotent_replay', $invE ? 'PASS' : 'FAIL', 'code=' . $rE['code'] . ' tx_log=' . implode( '>', $GLOBALS['wpdb']->tx_log ) . ' offers=' . count( $GLOBALS['wpdb']->offers ) );
+
+// F) S6-02: po retry lokalnym (kolizja UNIQUE numeru) version_row.data_json to PELNY
+//    snapshot ZAKTUALIZOWANEGO stanu -> zawiera NOWY numer, nie ten sprzed kolizji.
+$GLOBALS['wpdb']->offers        = array();
+$GLOBALS['wpdb']->items         = array();
+$GLOBALS['wpdb']->versions      = array();
+$GLOBALS['wpdb']->activity_log  = array();
+$GLOBALS['wpdb']->force_unique_collision_once = true;
+$rF = run_pipeline( base_input() );
+$GLOBALS['wpdb']->force_unique_collision_once = false;
+$vrowF  = isset( $GLOBALS['wpdb']->versions[0] ) ? $GLOBALS['wpdb']->versions[0] : null;
+$vdataF = $vrowF ? json_decode( (string) ( $vrowF['data_json'] ?? '' ), true ) : null;
+$finalF = $rF['final_data']['offer_number'] ?? null;
+$invF = $rF['ok'] && is_array( $vdataF )
+	&& ( $vdataF['offer_number'] ?? null ) === $finalF
+	&& 'OF/' . (int) gmdate( 'Y' ) . '/000002' === $finalF;
+record( 'inv_s6_02_data_json_po_retry_nowy_numer', $invF ? 'PASS' : 'FAIL', 'final=' . ( $finalF ?? '-' ) . ' data_json.offer_number=' . ( $vdataF['offer_number'] ?? '-' ) );
 
 /* ---------- Podsumowanie ---------- */
 

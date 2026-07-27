@@ -153,6 +153,31 @@ class MP_Offer_Builder_Ajax {
 			);
 		}
 
+		// S1-2: wyścig idempotencji — dwa równoległe żądania z tym samym request_id
+		// minęły pre-gate zanim którekolwiek zapisało; Dział 10 (INSERT) trafił na
+		// UNIQUE(request_id) i przerwał kodem 'idempotent_replay'. Oferta ISTNIEJE
+		// (zapisał ją bliźniak) — zwracamy JEJ dane, jak pre-gate, BEZ ponownego
+		// wystawiania mp_offer_created (pipeline zatrzymał się przed Działem 11).
+		if ( ! $result->is_ok() && 'idempotent_replay' === $result->get_code() ) {
+			$twin = MP_Offer_Builder_DB::get_offer_by_request_id( $request_id );
+			if ( $twin ) {
+				$twin_owner = isset( $twin['created_by'] ) && null !== $twin['created_by'] ? (int) $twin['created_by'] : null;
+				if ( null === $twin_owner || get_current_user_id() === $twin_owner || current_user_can( 'manage_options' ) ) {
+					wp_send_json_success(
+						array(
+							'offer_id'     => (int) $twin['id'],
+							'offer_number' => $twin['offer_number'],
+							'version'      => (int) $twin['version'],
+							'pdf_url'      => null,
+							'status'       => $twin['status'],
+							'trace_id'     => $request_id,
+						)
+					);
+				}
+			}
+			// Bliźniak jeszcze niezacommitowany (rzadko) — spada do generycznego błędu niżej.
+		}
+
 		if ( $result->is_ok() ) {
 			$data = $result->get_data();
 			wp_send_json_success(

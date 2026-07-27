@@ -3,10 +3,13 @@
 Testy na **żywym WordPressie + WooCommerce** (WordPress Playground CLI, realny
 WP 7.x, PHP 8.3, WooCommerce z katalogu wordpress.org), przeprowadzone
 2026-07-25 na wersji pluginu **1.0.1** (scenariusze żywe E2E). Kod rozwinięto
-następnie do **1.0.3** — zmiany 1.0.2/1.0.3 (VAT per klasa podatkowa, odrzucanie
-ceny ujemnej, retry MAX_ATTEMPTS=5, pełna deinstalacja) pokrywa regresja
-jednostkowa 102/102 (sekcja Narzędzia); pełny re-run E2E zaplanowany w rundzie
-integracyjnej.
+następnie do **1.0.4**. Zmiany 1.0.2/1.0.3 (VAT per klasa podatkowa, odrzucanie
+ceny ujemnej, retry MAX_ATTEMPTS=5, pełna deinstalacja) oraz **ostateczną rundę
+debug 1.0.4** (8 równoległych sub-audytów + przegląd krzyżowy; ~20 poprawek —
+bezpieczeństwo, VAT zwolniony/nieznany kraj, promocje z harmonogramem, strefa
+czasu, idempotencja zapisu, sprzątanie PDF) pokrywa regresja jednostkowa
+**108/108** (sekcja Narzędzia). Pełny re-run E2E na żywym WP zaplanowany w rundzie
+integracyjnej (razem z Pluginem 3).
 
 Środowisko testowe: waluta PLN, baza sklepu PL, stawka VAT PL 23%, 3 produkty
 proste (100,00 / 250,50 / 999,99 zł), rola testowa `mp_ob_test_handlowiec`
@@ -87,12 +90,34 @@ a stub `WC_Tax` nie odtwarzał lokalizacyjnej logiki stawek):
       `created_by = NULL`, więc nie-admin nie zobaczy go na liście (widzi tylko
       swoje oferty). Fix = mapowanie `salesman_id` → `created_by` przy integracji.
 
+## Świadome kompromisy (runda debug 1.0.4)
+
+Pozycje przeanalizowane i ŚWIADOMIE zaakceptowane jako niski priorytet — nie są
+błędami, lecz udokumentowanymi decyzjami:
+
+- **S6-01 — render PDF wewnątrz otwartej transakcji przy retry.** Ponowny render
+  po kolizji numeru dzieje się, gdy transakcja Działu 10 jest już otwarta —
+  wydłuża ją o czas generowania PDF. Akceptowane przy niskim ruchu B2B (oferty
+  tworzone pojedynczo). Próg powrotu: gdy wzrośnie współbieżność tworzenia ofert,
+  przenieść render przed START TRANSACTION.
+- **S3-03 — podwójny odczyt produktu (`wc_get_product`) w Dziale 2.** WooCommerce
+  cache'uje produkt w obrębie żądania, więc oba odczyty zwracają ten sam obiekt;
+  refaktor ruszałby kontrakt agent/krytyk bez realnego zysku. Niski.
+- **S8-02 — rejestracja hooków „raz na przebieg".** Domknięcie per-run jest
+  poprawne i idempotentne; globalny guard nie jest konieczny. Niski.
+- **S8-04 — pełny kontekst w wyniku pipeline'u.** Wynik celowo niesie pełny stan
+  (testy czytają `final_data`); Dział 11 i tak zawęża odpowiedź AJAX do białej
+  listy pól (bez ścieżek serwera i cudzych danych). Niski.
+
 ## Narzędzia
 
 - Środowisko: `@wp-playground/cli` (lokalny WordPress, kod wtyczek montowany
   z dysku — omija limit `upload_max_filesize` przeglądarkowego Playground).
 - Harness jednostkowy (poza WP): `tests/process-harness/run-process.php` —
-  **102/102 PASS** na wersji 1.0.3. Obejmuje m.in. nowe inwarianty 1.0.3:
-  `inv95` (VAT per klasa podatkowa — koszyk 23%+8%), `inv96` (VAT per klasa
-  z rabatem na sumie rozdzielonym proporcjonalnie), `inv97` (cena ujemna
-  odrzucana). PHPCS/WPCS: 0 błędów/ostrzeżeń (46 plików).
+  **108/108 PASS** na wersji 1.0.4. Obejmuje inwarianty 1.0.3 (`inv95`/`inv96`
+  VAT per klasa podatkowa + rabat proporcjonalny, `inv97` cena ujemna) oraz
+  6 nowych inwariantów rundy debug 1.0.4: produkt `tax_status=none` → 0% VAT,
+  kraj nieznany WooCommerce → `unknown_country`, promocja z wygasłym harmonogramem
+  → cena regularna, przesunięcie strefy przez granicę roku → rok w numerze oferty,
+  kolizja `request_id` → idempotentne przerwanie zapisu, `data_json` wersji po
+  ponownej numeracji → właściwy numer. PHPCS/WPCS: 0 błędów/ostrzeżeń.

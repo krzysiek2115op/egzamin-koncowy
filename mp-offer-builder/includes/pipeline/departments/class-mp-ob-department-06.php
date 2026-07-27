@@ -89,6 +89,21 @@ class MP_OB_D6_Agent_Mechanism extends MP_OB_Abstract_Agent {
 			);
 		}
 
+		// S4-02: format to za mało — literówka/nieprzypisany kod ("DR" zamiast
+		// "DE") ma poprawny kształt, ale trafiał do gałęzi "poza UE" i dostawał
+		// CICHE 0% VAT. Weryfikujemy przynależność do kanonicznej listy krajów
+		// WooCommerce (gdy dostępna) — nieznany kod = jawny błąd, nie 0%.
+		if ( function_exists( 'WC' ) && is_object( WC() ) && isset( WC()->countries ) && method_exists( WC()->countries, 'get_countries' ) ) {
+			$known_countries = WC()->countries->get_countries();
+			if ( is_array( $known_countries ) && ! isset( $known_countries[ $country ] ) ) {
+				return MP_OB_Result::fail(
+					'Nieznany kod kraju klienta — nie występuje na liście krajów WooCommerce.',
+					array(),
+					'unknown_country'
+				);
+			}
+		}
+
 		if ( 'PL' === $country ) {
 			$mechanism = 'domestic';
 			$basis     = 'Polska — stawka krajowa.';
@@ -121,6 +136,9 @@ class MP_OB_D6_Agent_Mechanism extends MP_OB_Abstract_Agent {
  * wyłącznie arytmetyką całkowitoliczbową (BCMath — patrz docs/dzial-04).
  */
 class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
+
+	/** Syntetyczna "klasa" dla pozycji zwolnionych z VAT (tax_status='none') — zawsze 0%. */
+	const TAX_NONE = '__mp_ob_none__';
 
 	public function __construct() {
 		parent::__construct( '6.2', 'Agent 6.2 — zaokrąglenia', 'Netto, VAT i brutto w groszach; zaokrąglenie metodą półówkową raz na każdą klasę podatkową' );
@@ -189,8 +207,11 @@ class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 			// identyczny jak wcześniej (jedna stawka na całe netto).
 			$class_subtotal = array();
 			foreach ( $lines as $i => $line ) {
-				$tc = isset( $products[ $i ]['tax_class'] ) ? (string) $products[ $i ]['tax_class'] : '';
-				$lg = isset( $line['line_grosze'] ) ? (int) $line['line_grosze'] : 0;
+				// S3-02: produkt ze statusem 'none' (zwolniony z VAT) trafia do
+				// odrębnej klasy 0% — NIE dostaje stawki wg tax_class.
+				$is_exempt = isset( $products[ $i ]['tax_status'] ) && 'none' === $products[ $i ]['tax_status'];
+				$tc        = $is_exempt ? self::TAX_NONE : ( isset( $products[ $i ]['tax_class'] ) ? (string) $products[ $i ]['tax_class'] : '' );
+				$lg        = isset( $line['line_grosze'] ) ? (int) $line['line_grosze'] : 0;
 				if ( ! isset( $class_subtotal[ $tc ] ) ) {
 					$class_subtotal[ $tc ] = 0;
 				}
@@ -200,6 +221,9 @@ class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 			// Każda występująca klasa MUSI mieć stawkę (Dział 2 ją zebrał; brak = FAIL,
 			// nigdy domyślne 23% — ta sama zasada co Agent 2.3).
 			foreach ( array_keys( $class_subtotal ) as $tc ) {
+				if ( self::TAX_NONE === $tc ) {
+					continue; // klasa zwolniona (0%) nie wymaga skonfigurowanej stawki.
+				}
 				if ( ! isset( $tax_rates[ $tc ]['rate'] ) || null === $tax_rates[ $tc ]['rate'] ) {
 					return MP_OB_Result::fail( 'Brak stawki VAT do naliczenia (mechanizm domestic).', array(), 'missing_tax_rate' );
 				}
@@ -229,14 +253,15 @@ class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 			$vat_grosze = 0;
 			foreach ( $class_subtotal as $tc => $cs ) {
 				$class_net   = $cs - $class_discount[ $tc ];
-				$rate        = (float) $tax_rates[ $tc ]['rate'];
+				$rate        = ( self::TAX_NONE === $tc ) ? 0.0 : (float) $tax_rates[ $tc ]['rate'];
 				$vat_grosze += ( 0.0 === $rate || $class_net <= 0 ) ? 0 : self::vat_grosze( $class_net, $rate );
 			}
 
 			// Stawka per pozycja (do zapisu w Dziale 10) — wg klasy danej pozycji.
 			foreach ( $lines as $i => $line ) {
-				$tc                   = isset( $products[ $i ]['tax_class'] ) ? (string) $products[ $i ]['tax_class'] : '';
-				$line_tax_rates[ $i ] = (float) $tax_rates[ $tc ]['rate'];
+				$is_exempt            = isset( $products[ $i ]['tax_status'] ) && 'none' === $products[ $i ]['tax_status'];
+				$tc                   = $is_exempt ? self::TAX_NONE : ( isset( $products[ $i ]['tax_class'] ) ? (string) $products[ $i ]['tax_class'] : '' );
+				$line_tax_rates[ $i ] = ( self::TAX_NONE === $tc ) ? 0.0 : (float) $tax_rates[ $tc ]['rate'];
 			}
 
 			// Reprezentatywna stawka oferty: jedna klasa -> ta stawka; wiele klas ->

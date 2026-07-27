@@ -49,6 +49,9 @@ class MP_OB_D1_Agent_Contract extends MP_OB_Abstract_Agent {
 	/** Dozwolone języki oferty. */
 	const ALLOWED_LANGS = array( 'pl', 'en' );
 
+	/** Dozwolone warianty cenowe — lustro RULES w Dziale 5 (standard/partner). */
+	const ALLOWED_WARIANTS = array( 'standard', 'partner' );
+
 	public function __construct() {
 		parent::__construct( '1.1', 'Agent 1.1 — kontrakt', 'Waliduje wejściowy JSON: dane klienta, pozycje, wariant cenowy, język pl/en' );
 	}
@@ -139,11 +142,13 @@ class MP_OB_D1_Agent_Contract extends MP_OB_Abstract_Agent {
 			}
 		}
 
-		$wariant = trim( (string) $context->get( 'wariant', '' ) );
-		if ( '' === $wariant ) {
+		$wariant = strtolower( trim( (string) $context->get( 'wariant', '' ) ) );
+		if ( ! in_array( $wariant, self::ALLOWED_WARIANTS, true ) ) {
 			$errors[] = array(
 				'field'   => 'wariant',
-				'message' => 'Pole wariant jest wymagane.',
+				// S1-3: nieznany wariant odrzucony jak zły `lang` — inaczej literówka
+				// ("Partner", "vip") cicho wpadałaby w catch-all R-00 (0% rabatu).
+				'message' => 'Pole wariant musi być "standard" albo "partner".',
 			);
 		}
 

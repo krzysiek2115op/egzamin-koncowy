@@ -79,19 +79,30 @@ class MP_OB_D9_Agent_Render extends MP_OB_Abstract_Agent {
 		// Dompdf używa domyślnych fontów bazowych PDF — nieosadzonych, "krzaki").
 		$options->set( 'defaultFont', 'DejaVu Sans' );
 
-		$dompdf = new \Dompdf\Dompdf( $options );
-		$dompdf->loadHtml( $html, 'UTF-8' );
-		$dompdf->setPaper( 'A4', 'portrait' );
-		$dompdf->render();
-		// Metadane PDF — "tytuł = numer oferty" (diagram), plus własny klucz z
-		// sumą brutto: podstawa realnej weryfikacji treści w Agencie 9.2/9.1
-		// (patrz docs/dzial-09/dompdf.md — dlaczego metadane, nie treść strony).
-		$dompdf->addInfo( 'Title', $offer_number );
-		$dompdf->addInfo( 'MPOfferGross', (string) $gross_grosze );
+		try {
+			$dompdf = new \Dompdf\Dompdf( $options );
+			$dompdf->loadHtml( $html, 'UTF-8' );
+			$dompdf->setPaper( 'A4', 'portrait' );
+			$dompdf->render();
+			// Metadane PDF — "tytuł = numer oferty" (diagram), plus własny klucz z
+			// sumą brutto: podstawa realnej weryfikacji treści w Agencie 9.2/9.1
+			// (patrz docs/dzial-09/dompdf.md — dlaczego metadane, nie treść strony).
+			$dompdf->addInfo( 'Title', $offer_number );
+			$dompdf->addInfo( 'MPOfferGross', (string) $gross_grosze );
 
-		$pdf_bytes = $dompdf->output();
-		$pages     = (int) $dompdf->getCanvas()->get_page_count();
-		$tmp_path  = MP_Offer_Builder_Storage::write_tmp_pdf( $pdf_bytes );
+			$pdf_bytes = $dompdf->output();
+			$pages     = (int) $dompdf->getCanvas()->get_page_count();
+		} catch ( \Throwable $e ) {
+			// S6-04: błąd renderu (zły HTML/font/pamięć Dompdf) NIE może lecieć jako
+			// nieprzechwycony wyjątek (500) — zwracamy kontrolowany FAIL zamiast fatala.
+			return MP_OB_Result::fail( 'Nie udało się wyrenderować PDF oferty.', array( 'reason' => $e->getMessage() ), 'render_failed' );
+		}
+		$tmp_path = MP_Offer_Builder_Storage::write_tmp_pdf( $pdf_bytes );
+		if ( false === $tmp_path ) {
+			// S7-4: zapis tymczasowego PDF nie powiódł się (dysk/uprawnienia) —
+			// kontrolowany FAIL zamiast propagacji martwej ścieżki do kolejnych działów.
+			return MP_OB_Result::fail( 'Nie udało się zapisać tymczasowego pliku PDF.', array(), 'pdf_tmp_write_failed' );
+		}
 
 		return MP_OB_Result::ok(
 			array(

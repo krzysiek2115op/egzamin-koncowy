@@ -313,6 +313,20 @@ class MP_OB_D10_Agent_Transaction extends MP_OB_Abstract_Agent {
 			}
 
 			if ( ! $ok ) {
+				// S1-2: kolizja UNIQUE(request_id) — inne RÓWNOLEGŁE żądanie z tym samym
+				// request_id zapisało ofertę pomiędzy pre-gate (AJAX) a tym INSERT-em.
+				// Idempotencja (kryt. Działu 1: "ten sam request_id nigdy nie tworzy
+				// drugiej oferty"): przerywamy kodem 'idempotent_replay' — pipeline robi
+				// ROLLBACK (kasuje nasz nadmiarowy tmp PDF) i NIE wchodzi w Dział 11, więc
+				// mp_offer_created NIE odpala się drugi raz. Warstwa AJAX zwraca wtedy dane
+				// ISTNIEJĄCEJ oferty (get_offer_by_request_id), dokładnie jak pre-gate.
+				if ( false !== strpos( (string) $wpdb->last_error, 'uq_request_id' ) ) {
+					return MP_OB_Result::fail(
+						'Oferta dla tego żądania już istnieje (idempotencja).',
+						array( 'request_id' => isset( $header['request_id'] ) ? (string) $header['request_id'] : '' ),
+						'idempotent_replay'
+					);
+				}
 				$is_collision = false !== strpos( (string) $wpdb->last_error, 'uq_offer_number_version' );
 				if ( $is_collision && $attempt < self::MAX_ATTEMPTS ) {
 					$retried_plan = self::retry_after_collision( $context, $plan );
@@ -444,6 +458,14 @@ class MP_OB_D10_Agent_Transaction extends MP_OB_Abstract_Agent {
 		$plan['header']['pdf_path']   = $new_pdf_path;
 		$plan['header']['pdf_sha256'] = file_exists( $render_data['pdf']['tmp_path'] ) ? hash_file( 'sha256', $render_data['pdf']['tmp_path'] ) : '';
 		$plan['version']['pdf_path']  = $new_pdf_path;
+		// S6-02: data_json wersji to PEŁNY snapshot stanu — po retry musi
+		// odzwierciedlać AKTUALNY numer/wersję/pdf (kontekst zaktualizowany powyżej),
+		// inaczej historia wersji utrwaliłaby stan sprzed kolizji. write_plan pomijamy
+		// — to dane pochodne, nieobecne w pierwotnym data_json (Agent 10.1 liczył je
+		// PRZED dopisaniem planu do kontekstu).
+		$snapshot = $context->all();
+		unset( $snapshot['write_plan'] );
+		$plan['version']['data_json'] = wp_json_encode( $snapshot );
 
 		return $plan;
 	}

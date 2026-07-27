@@ -37,8 +37,11 @@ class MP_OB_D4_Agent_Unit_Price extends MP_OB_Abstract_Agent {
 	 * @return int
 	 */
 	public static function to_grosze( $price ) {
-		if ( function_exists( 'bcmul' ) ) {
-			return (int) bcmul( (string) $price, '100', 0 );
+		if ( function_exists( 'bcmul' ) && function_exists( 'bcadd' ) ) {
+			// S4-01: zaokrąglenie połówkowe w górę (jak fallback round()), nie obcięcie —
+			// scale 0 na bcmul obcinał sub-groszową część (rozjazd między środowiskami
+			// przy cenach >2 miejsc po przecinku).
+			return (int) bcadd( bcmul( (string) $price, '100', 2 ), '0.5', 0 );
 		}
 		// Fallback bez rozszerzenia BCMath: round() (nie (int) cast) chroni przed
 		// obcięciem przez błąd reprezentacji float (patrz uzasadnienie w docs/dzial-04).
@@ -131,7 +134,7 @@ class MP_OB_D4_QA_Agent extends MP_OB_Abstract_Agent {
 		// jeśli nie, gdzieś wkradła się arytmetyka spoza int (regresja do float).
 		$check_sum = 0;
 		foreach ( $lines as $line ) {
-			if ( ! is_int( $line['unit_grosze'] ) || ! is_int( $line['line_grosze'] ) ) {
+			if ( ! isset( $line['unit_grosze'], $line['line_grosze'] ) || ! is_int( $line['unit_grosze'] ) || ! is_int( $line['line_grosze'] ) ) {
 				return MP_OB_Result::fail( 'Wykryto wartość spoza int w wycenie pozycji (regresja float).', array(), 'non_integer_arithmetic' );
 			}
 			$check_sum += $line['line_grosze'];

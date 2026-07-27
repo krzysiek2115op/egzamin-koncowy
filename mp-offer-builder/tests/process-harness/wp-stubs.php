@@ -230,6 +230,28 @@ function apply_filters( $tag, $value, ...$a ) {
 $GLOBALS['__mp_ob_wc_products']  = array(); // id => array(status,name,tax_class,purchasable,regular_price,sale_price)
 $GLOBALS['__mp_ob_wc_tax_rates'] = array(); // tax_class => array(array('rate'=>23.0,'label'=>'VAT'))
 $GLOBALS['__mp_ob_wc_currency']  = 'PLN';
+// S4-02: kanoniczna lista krajów (WC()->countries->get_countries()) do walidacji kodu kraju.
+$GLOBALS['__mp_ob_wc_countries'] = array_fill_keys( array( 'PL', 'DE', 'IT', 'US', 'FR', 'CZ', 'SK', 'GB', 'CH', 'NO', 'UA', 'ES', 'NL', 'BE', 'AT', 'SE', 'DK', 'FI', 'IE', 'PT', 'GR', 'HU', 'RO', 'BG', 'HR', 'SI', 'LT', 'LV', 'EE', 'LU', 'MT', 'CY', 'CA', 'JP', 'CN', 'AU' ), 'Country' );
+class MP_OB_Fake_WC_Countries {
+	public function get_countries() {
+		return isset( $GLOBALS['__mp_ob_wc_countries'] ) ? $GLOBALS['__mp_ob_wc_countries'] : array();
+	}
+}
+class MP_OB_Fake_WC {
+	public $countries;
+	public function __construct() {
+		$this->countries = new MP_OB_Fake_WC_Countries();
+	}
+}
+if ( ! function_exists( 'WC' ) ) {
+	function WC() {
+		static $wc = null;
+		if ( null === $wc ) {
+			$wc = new MP_OB_Fake_WC();
+		}
+		return $wc;
+	}
+}
 
 class WC_Product {
 	protected $data;
@@ -248,6 +270,24 @@ class WC_Product {
 		return isset( $this->data['regular_price'] ) ? $this->data['regular_price'] : ''; }
 	public function get_sale_price() {
 		return isset( $this->data['sale_price'] ) ? $this->data['sale_price'] : ''; }
+	public function get_tax_status() {
+		return isset( $this->data['tax_status'] ) ? $this->data['tax_status'] : 'taxable'; }
+	public function is_on_sale() {
+		$sale = isset( $this->data['sale_price'] ) ? $this->data['sale_price'] : '';
+		$reg  = isset( $this->data['regular_price'] ) ? $this->data['regular_price'] : '';
+		if ( '' === (string) $sale || ! is_numeric( $sale ) || ! is_numeric( $reg ) || (float) $sale >= (float) $reg ) {
+			return false;
+		}
+		$now  = function_exists( 'current_time' ) ? current_time( 'timestamp' ) : time();
+		$from = isset( $this->data['date_on_sale_from'] ) ? (int) $this->data['date_on_sale_from'] : 0;
+		$to   = isset( $this->data['date_on_sale_to'] ) ? (int) $this->data['date_on_sale_to'] : 0;
+		if ( $from > 0 && $now < $from ) {
+			return false; }
+		if ( $to > 0 && $now > $to ) {
+			return false; }
+		return true; }
+	public function get_price() {
+		return $this->is_on_sale() ? $this->data['sale_price'] : ( isset( $this->data['regular_price'] ) ? $this->data['regular_price'] : '' ); }
 	public function get_id() {
 		return isset( $this->data['id'] ) ? (int) $this->data['id'] : 0; }
 }
@@ -300,6 +340,18 @@ class WC_Tax {
 function get_woocommerce_currency() {
 	return $GLOBALS['__mp_ob_wc_currency'];
 }
+// Czas wg "strefy sklepu" — domyślnie == UTC/gmdate (offset 0), więc istniejące
+// testy numeracji są nietknięte; test strefy ustawia $GLOBALS['__mp_ob_time_offset'].
+if ( ! function_exists( 'current_time' ) ) {
+	function current_time( $type = 'timestamp', $gmt = 0 ) {
+		unset( $gmt );
+		$ts = time() + ( isset( $GLOBALS['__mp_ob_time_offset'] ) ? (int) $GLOBALS['__mp_ob_time_offset'] : 0 );
+		if ( 'timestamp' === $type || 'U' === $type ) {
+			return $ts;
+		}
+		return gmdate( $type, $ts );
+	}
+}
 
 // --- Fałszywy $wpdb ---
 class MP_OB_Fake_WPDB {
@@ -328,6 +380,10 @@ class MP_OB_Fake_WPDB {
 	public $force_versions_insert_fail = false;
 	public $force_log_insert_fail      = false;
 	public $force_items_delete_fail    = false;
+	// S1-2: gdy true, NASTĘPNY insert() na wp_mp_ob_offers "koliduje" na
+	// UNIQUE(request_id) (jak realny wyścig dwóch żądań z tym samym request_id)
+	// i flaga sama się kasuje — Dział 10 musi przerwać kodem 'idempotent_replay'.
+	public $force_request_id_collision_once = false;
 
 	public function get_charset_collate() {
 		return 'DEFAULT CHARSET=utf8mb4';
@@ -381,6 +437,11 @@ class MP_OB_Fake_WPDB {
 			return 1;
 		}
 		if ( strpos( $table, 'mp_ob_offers' ) !== false ) {
+			if ( $this->force_request_id_collision_once ) {
+				$this->force_request_id_collision_once = false;
+				$this->last_error                      = "Duplicate entry for key 'uq_request_id'";
+				return false;
+			}
 			if ( $this->force_unique_collision_always ) {
 				$this->last_error = "Duplicate entry for key 'uq_offer_number_version'";
 				return false;

@@ -104,8 +104,9 @@ class MP_OB_Pipeline {
 		// połączeniu. Logika wydzielona do maybe_rollback_on_fatal() — testowalna
 		// wprost, bez czekania na realny shutdown skryptu (patrz docblock tamtej metody).
 		register_shutdown_function(
-			static function () use ( &$in_transaction, $wpdb ) {
+			static function () use ( &$in_transaction, $wpdb, $context ) {
 				self::maybe_rollback_on_fatal( $in_transaction, $wpdb );
+				self::cleanup_orphaned_tmp_pdf( $context ); // S6-03: sprzątanie tmp PDF przy twardym fatalu.
 			}
 		);
 
@@ -115,8 +116,20 @@ class MP_OB_Pipeline {
 				// COMMIT musi zdążyć się wykonać przed Działem 11 (zdarzenie/odpowiedź),
 				// patrz docblock set_transactional_until().
 				if ( $in_transaction && $department->get_number() > $this->transactional_until ) {
-					$wpdb->query( 'COMMIT' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+					$committed      = $wpdb->query( 'COMMIT' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 					$in_transaction = false;
+					if ( false === $committed ) {
+						// S6-07: COMMIT nieudany (dysk / tx wycofana po lock-wait timeout) — NIE
+						// wolno przejść do Działu 11 (finalizacja PDF + mp_offer_created), bo dane
+						// nie są w bazie -> oferta-widmo. Traktujemy jak twardy błąd zapisu.
+						$wpdb->query( 'ROLLBACK' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+						self::cleanup_orphaned_tmp_pdf( $context );
+						$commit_fail = MP_OB_Result::fail( 'Nie udało się zatwierdzić zapisu oferty (COMMIT).', array(), 'commit_failed' );
+						if ( $this->logger ) {
+							$this->logger->log_failure( $department, $commit_fail, $context );
+						}
+						return $commit_fail;
+					}
 				}
 
 				// Transakcję otwieramy LENIWIE — dopiero przy pierwszym dziale zapisującym

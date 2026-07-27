@@ -100,12 +100,17 @@ class MP_Offer_Builder_Storage {
 	 * Zapisuje bajty PDF do NOWEGO pliku tymczasowego (Dział 9, Agent 9.1).
 	 *
 	 * @param string $pdf_bytes Zawartość pliku PDF.
-	 * @return string Bezwzględna ścieżka zapisanego pliku.
+	 * @return string|false Bezwzględna ścieżka zapisanego pliku, albo false gdy zapis się nie powiódł.
 	 */
 	public static function write_tmp_pdf( $pdf_bytes ) {
 		$path = self::tmp_dir() . '/of-' . wp_generate_uuid4() . '.pdf';
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-		file_put_contents( $path, $pdf_bytes );
+		if ( false === file_put_contents( $path, $pdf_bytes ) ) {
+			// S7-4: dysk pełny / brak uprawnień — zwracamy false zamiast ścieżki do
+			// nieistniejącego pliku (Dział 9 zamienia to na FAIL). Bez tego dalsze
+			// działy dostawałyby tmp_path wskazujący na pustkę.
+			return false;
+		}
 		return $path;
 	}
 

@@ -44,7 +44,7 @@ class MP_OB_D8_Agent_Number extends MP_OB_Abstract_Agent {
 		$numbering = is_array( $context->get( 'numbering' ) ) ? $context->get( 'numbering' ) : array();
 		// Rok z Działu 2 (Agent 2.5 "numeracja") — ten sam odczyt, żeby licznik
 		// i rok pochodziły z JEDNEGO punktu w czasie (zasada "jeden odczyt").
-		$year = isset( $numbering['year'] ) ? (int) $numbering['year'] : (int) gmdate( 'Y' );
+		$year = isset( $numbering['year'] ) ? (int) $numbering['year'] : (int) current_time( 'Y' );
 		$last = isset( $numbering['last_number'] ) ? (string) $numbering['last_number'] : null;
 
 		$next_seq = 1;
@@ -86,7 +86,7 @@ class MP_OB_D8_Critic_Continuity extends MP_OB_Abstract_Critic {
 		$data      = $agent_result->get_data();
 		$candidate = isset( $data['candidate_offer_number'] ) ? (string) $data['candidate_offer_number'] : '';
 		$numbering = is_array( $context->get( 'numbering' ) ) ? $context->get( 'numbering' ) : array();
-		$year      = isset( $numbering['year'] ) ? (int) $numbering['year'] : (int) gmdate( 'Y' );
+		$year      = isset( $numbering['year'] ) ? (int) $numbering['year'] : (int) current_time( 'Y' );
 
 		if ( 1 !== preg_match( '/^OF\/' . $year . '\/\d{6}$/', $candidate ) ) {
 			return MP_OB_Result::fail( 'Kandydat numeru oferty ma nieprawidłowy format albo zły rok.', array(), 'invalid_candidate_number' );

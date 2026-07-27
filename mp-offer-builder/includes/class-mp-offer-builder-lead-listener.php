@@ -54,6 +54,31 @@ class MP_Offer_Builder_Lead_Listener {
 			return false;
 		}
 
+		// S2-01: sekcja krytyczna check+insert serializowana per-lead. Tabela ofert ma
+		// tylko KEY lead_id (nie UNIQUE) — bez blokady dwa równoległe mp_lead_created dla
+		// tego samego leada (np. szybka reaktywacja) mogłyby OBA minąć kontrolę
+		// "czy draft istnieje" i OBA wstawić szkic (duplikat). GET_LOCK nazwany, per-lead,
+		// serializuje je; przy timeout/awarii blokady kontynuujemy best-effort (sama
+		// kontrola i tak łapie zdecydowaną większość duplikatów).
+		$lock_name = 'mp_ob_lead_' . $lead_id;
+		$wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, %d)', $lock_name, 5 ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+		try {
+			return self::create_draft_for_lead( $lead_id, $payload );
+		} finally {
+			$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock_name ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+		}
+	}
+
+	/**
+	 * Właściwe założenie szkicu (wywoływane pod blokadą per-lead z on_lead_created()).
+	 *
+	 * @param int   $lead_id ID leada (>0, już zwalidowane).
+	 * @param mixed $payload Dane leada — patrz kontrakt w docblocku klasy.
+	 * @return int|false ID draftu (nowego albo istniejącego), albo false przy błędzie zapisu.
+	 */
+	private static function create_draft_for_lead( $lead_id, $payload ) {
+		global $wpdb;
+
 		$offers_table = MP_Offer_Builder_DB::offers_table();
 
 		// Idempotencja: ten sam lead_id może wywołać hook wielokrotnie (reaktywacja
@@ -76,10 +101,13 @@ class MP_Offer_Builder_Lead_Listener {
 			array(
 				'status'            => 'draft',
 				'lead_id'           => $lead_id,
-				'client_name'       => isset( $payload['company_name'] ) ? sanitize_text_field( $payload['company_name'] ) : null,
-				'client_email'      => isset( $payload['email'] ) ? sanitize_email( $payload['email'] ) : null,
-				'client_nip'        => isset( $payload['nip'] ) ? sanitize_text_field( $payload['nip'] ) : null,
-				'client_country'    => isset( $payload['country'] ) ? sanitize_text_field( $payload['country'] ) : null,
+				// S2-02: każde pole przycięte do limitu kolumny (lustro FIELD_LIMITS w Dziale 10)
+				// — za długa wartość z P1 pod strict-mode wywaliłaby INSERT i draft cicho by nie
+				// powstał. Kraj dodatkowo do 2 znaków + upper (kolumna char(2), np. "de"->"DE").
+				'client_name'       => isset( $payload['company_name'] ) ? substr( sanitize_text_field( $payload['company_name'] ), 0, 191 ) : null,
+				'client_email'      => isset( $payload['email'] ) ? substr( sanitize_email( $payload['email'] ), 0, 191 ) : null,
+				'client_nip'        => isset( $payload['nip'] ) ? substr( sanitize_text_field( $payload['nip'] ), 0, 20 ) : null,
+				'client_country'    => isset( $payload['country'] ) ? strtoupper( substr( sanitize_text_field( $payload['country'] ), 0, 2 ) ) : null,
 				// Utrwalony status VAT z VIES (plugin 1) — bez tego korekta oferty
 				// UE gubiłaby reverse_charge (Dział 6 czyta client.vat_status po
 				// odtworzeniu ze snapshotu w Dziale 1).

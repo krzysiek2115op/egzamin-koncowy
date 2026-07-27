@@ -69,11 +69,21 @@ class MP_Offer_Builder_Download {
 			wp_die( esc_html__( 'Plik PDF jeszcze nie istnieje.', 'mp-offer-builder' ), '', array( 'response' => 404 ) );
 		}
 
+		// Obrona w głąb (S7-1): plik MUSI leżeć w prywatnym katalogu wtyczki.
+		// pdf_path pochodzi z BD i jest ustawiany wyłącznie przez Dział 10, ale
+		// endpoint nie ufa mu na tyle, by strumieniować dowolną ścieżkę z dysku.
+		$real_pdf  = realpath( $pdf_path );
+		$real_base = realpath( MP_Offer_Builder_Storage::private_dir() );
+		if ( false === $real_pdf || false === $real_base || 0 !== strpos( $real_pdf, $real_base . DIRECTORY_SEPARATOR ) ) {
+			wp_die( esc_html__( 'Plik PDF poza dozwolonym katalogiem.', 'mp-offer-builder' ), '', array( 'response' => 404 ) );
+		}
+
+		nocache_headers(); // S7-2: poufna oferta (dane klienta/ceny) — bez cache w przeglądarce/proxy.
 		header( 'Content-Type: application/pdf' );
-		header( 'Content-Disposition: attachment; filename="' . basename( $pdf_path ) . '"' );
-		header( 'Content-Length: ' . filesize( $pdf_path ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_read_filesize
+		header( 'Content-Disposition: attachment; filename="' . basename( $real_pdf ) . '"' );
+		header( 'Content-Length: ' . filesize( $real_pdf ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_read_filesize
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile
-		readfile( $pdf_path );
+		readfile( $real_pdf );
 		exit;
 	}
 

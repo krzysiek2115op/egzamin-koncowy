@@ -77,6 +77,9 @@ class MP_OB_D2_Agent_Products extends MP_OB_Abstract_Agent {
 				'id'          => $lookup_id,
 				'name'        => $product->get_name(),
 				'tax_class'   => $product->get_tax_class(),
+				// S3-02: status podatkowy produktu — produkt 'none' (zwolniony) NIE
+				// może dostać VAT wg klasy (Dział 6 traktuje 'none' jako 0%).
+				'tax_status'  => $product->get_tax_status(),
 				'purchasable' => $product->is_purchasable(),
 			);
 		}
@@ -132,9 +135,13 @@ class MP_OB_D2_Agent_Prices extends MP_OB_Abstract_Agent {
 				continue;
 			}
 
-			$sale      = $product->get_sale_price();
-			$on_sale   = '' !== (string) $sale && is_numeric( $sale ) && (float) $sale < (float) $regular;
-			$effective = $on_sale ? (float) $sale : (float) $regular;
+			// S3-01: uwzględnij HARMONOGRAM promocji (date_on_sale_from/to).
+			// is_on_sale()/get_price() liczą aktywną cenę zgodnie z oknem dat,
+			// inaczej niż surowe get_sale_price() (samo meta, bez sprawdzania dat) —
+			// produkt z wygasłą/zaplanowaną promocją brałby błędnie cenę promo.
+			$on_sale   = $product->is_on_sale();
+			$active    = $product->get_price();
+			$effective = ( '' !== (string) $active && is_numeric( $active ) ) ? (float) $active : (float) $regular;
 
 			// Cena UJEMNA nigdy nie jest poprawna (błędna konfiguracja WC) — jawny
 			// FAIL zamiast cichego ujemnego netto/VAT/brutto w ofercie. Cena 0 jest
@@ -149,7 +156,7 @@ class MP_OB_D2_Agent_Prices extends MP_OB_Abstract_Agent {
 
 			$prices[ $i ] = array(
 				'regular_price' => (float) $regular,
-				'sale_price'    => $on_sale ? (float) $sale : null,
+				'sale_price'    => $on_sale ? $effective : null,
 				'on_sale'       => $on_sale,
 			);
 		}
@@ -270,7 +277,9 @@ class MP_OB_D2_Agent_Numbering extends MP_OB_Abstract_Agent {
 	 * @return MP_OB_Result
 	 */
 	public function run( MP_OB_Context $context ) {
-		$year        = (int) gmdate( 'Y' );
+		// S5-02: rok wg strefy SKLEPU (current_time), nie UTC (gmdate) — inaczej
+		// oferta tuż po lokalnej północy na przełomie roku dostaje numer starego roku.
+		$year        = (int) current_time( 'Y' );
 		$last_number = MP_Offer_Builder_DB::get_last_offer_number_for_year( $year );
 
 		$existing_offer_number = null;

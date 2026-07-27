@@ -128,9 +128,22 @@
 	function onSubmit( event ) {
 		event.preventDefault();
 
-		var form    = event.target;
-		var message = document.getElementById( 'mp-ob-form-message' );
-		var offerId = parseInt( form.querySelector( '[name="offer_id"]' ).value, 10 ) || 0;
+		var form      = event.target;
+		var message   = document.getElementById( 'mp-ob-form-message' );
+		var offerId   = parseInt( form.querySelector( '[name="offer_id"]' ).value, 10 ) || 0;
+		var submitBtn = form.querySelector( '[type="submit"]' );
+
+		// S1-1: podwójny klik / równoległy submit tej samej oferty = JEDNA oferta.
+		// (a) przycisk zablokowany na czas żądania — druga próba nie wystartuje zanim
+		//     serwer odpowie; (b) request_id generowany RAZ na formularz i zapamiętany,
+		//     więc ewentualny ponowny submit niesie TEN SAM identyfikator i pre-gate
+		//     idempotencji (AJAX/Dział 10) zwraca istniejącą ofertę zamiast tworzyć drugą.
+		if ( submitBtn && submitBtn.disabled ) {
+			return;
+		}
+		if ( ! form.dataset.mpRequestId ) {
+			form.dataset.mpRequestId = generateUuid();
+		}
 
 		var payload = {
 			input: {
@@ -139,13 +152,16 @@
 				wariant: form.querySelector( '[name="wariant"]' ).value,
 				lang: form.querySelector( '[name="lang"]' ).value,
 			},
-			request_id: generateUuid(),
+			request_id: form.dataset.mpRequestId,
 		};
 		if ( offerId > 0 ) {
 			payload.offer_id = offerId;
 		}
 
 		message.textContent = '';
+		if ( submitBtn ) {
+			submitBtn.disabled = true;
+		}
 
 		var url = mpOfferBuilder.ajaxUrl
 			+ '?action=' + encodeURIComponent( mpOfferBuilder.submitAction )
@@ -169,9 +185,15 @@
 				// NIETKNIĘTY) — komunikat ogólny + trace_id do odszukania w logu BD-2.
 				var traceId = json && json.data && json.data.trace_id ? ' (trace_id: ' + json.data.trace_id + ')' : '';
 				message.textContent = mpOfferBuilder.i18n.genericError + traceId;
+				if ( submitBtn ) {
+					submitBtn.disabled = false;
+				}
 			} )
 			.catch( function () {
 				message.textContent = mpOfferBuilder.i18n.genericError;
+				if ( submitBtn ) {
+					submitBtn.disabled = false;
+				}
 			} );
 	}
 

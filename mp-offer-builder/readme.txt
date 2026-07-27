@@ -4,7 +4,7 @@ Tags: oferty, pdf, woocommerce, cennik
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.3
+Stable tag: 1.0.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -31,6 +31,27 @@ generuje ofertę PDF wraz z numeracją i historią wersji.
    świeżym/testowym WooCommerce (domyślnie USA).
 
 == Changelog ==
+
+= 1.0.4 =
+* Ostateczna runda debug (8 równoległych sub-audytów + przegląd krzyżowy) — naprawione:
+* [Wysoki] Podwójny klik / równoległy zapis tej samej oferty = JEDNA oferta: identyfikator
+  żądania stały na formularz + blokada przycisku na czas zapisu; wyścig po stronie serwera
+  zwraca istniejącą ofertę zamiast błędu (mp_offer_created nie odpala się dwa razy).
+* [Ważne] Bezpieczeństwo: usunięty stored XSS przez nazwę produktu w prefillu edycji; pobieranie
+  PDF ma twardą kontrolę ścieżki (realpath w katalogu prywatnym) i nagłówki no-cache.
+* [Ważne] VAT: produkt zwolniony (tax_status=none) daje 0% zamiast stawki krajowej; kod kraju
+  poprawny formatem, lecz nieznany WooCommerce (np. "DR") jest ODRZUCANY, nie udaje "poza UE" 0%.
+* [Ważne] Promocje z harmonogramem: wygasła/nieaktywna promocja nie zaniża już ceny (is_on_sale).
+* [Ważne] Strefa czasu: rok w numerze oferty i data w PDF z zegara sklepu (nie UTC) — poprawny
+  reset licznika o północy sylwestrowej.
+* [Średni] Render PDF w try/catch (błąd generatora = kontrolowany błąd, nie HTTP 500); nieudany
+  COMMIT nie ogłasza "oferty-widma"; tymczasowy PDF sprzątany przy krytycznym błędzie i nieudanym
+  zapisie pliku.
+* [Średni] Dane klienta zawierające "{{...}}" nie blokują już oferty (neutralizacja nawiasów);
+  kwoty i pola dodatkowo escapowane w PDF. Historia wersji po ponownej numeracji zawiera właściwy numer.
+* Szkic z leada: pola przycięte do limitów kolumn (kraj do 2 znaków) + blokada per-lead przeciw
+  duplikatowi szkicu. Nieznany wariant cenowy odrzucany jawnie (zamiast cichego 0% rabatu).
+* Harness 108/108, PHPCS/WPCS 0/0. Świadome kompromisy: patrz docs/TESTY.md.
 
 = 1.0.3 =
 * Ostateczny audyt (4 równoległe sub-audyty + przegląd krzyżowy) — naprawione:

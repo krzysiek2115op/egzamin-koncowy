@@ -135,6 +135,19 @@ class MP_OB_D7_Agent_Merge extends MP_OB_Abstract_Agent {
 	 * @param string $lang      'pl' albo 'en'.
 	 * @return string
 	 */
+	/**
+	 * Escapowanie wartości POLA (dane klienta/produktu) do HTML szablonu ORAZ
+	 * neutralizacja nawiasów podstawienia (S5-01) — dane z literalnym "{{token}}"
+	 * nie mogą udawać niepodstawionego znacznika ani wstrzyknąć się w szablon.
+	 * Nawiasy stają się encjami (Dompdf wyświetli je jako { }).
+	 *
+	 * @param string $value Wartość pola.
+	 * @return string
+	 */
+	public static function esc_field( $value ) {
+		return str_replace( array( '{', '}' ), array( '&#123;', '&#125;' ), esc_html( (string) $value ) );
+	}
+
 	public static function format_date( $timestamp, $lang ) {
 		return 'pl' === $lang ? gmdate( 'd.m.Y', $timestamp ) : gmdate( 'Y-m-d', $timestamp );
 	}
@@ -159,7 +172,7 @@ class MP_OB_D7_Agent_Merge extends MP_OB_Abstract_Agent {
 
 			$rows .= sprintf(
 				'<tr><td>%s</td><td>%d</td><td>%s</td><td>%s</td></tr>',
-				esc_html( $name ),
+				self::esc_field( $name ),
 				$qty,
 				esc_html( self::format_money( $unit_grosze, $lang, $currency ) ),
 				esc_html( self::format_money( $line_grosze, $lang, $currency ) )
@@ -193,18 +206,19 @@ class MP_OB_D7_Agent_Merge extends MP_OB_Abstract_Agent {
 		}
 
 		$dict = array(
-			'client_name'        => esc_html( isset( $client['name'] ) ? $client['name'] : '' ),
-			'client_email'       => esc_html( isset( $client['email'] ) ? $client['email'] : '' ),
-			'client_nip'         => esc_html( isset( $client['nip'] ) ? $client['nip'] : '' ),
-			'client_country'     => esc_html( isset( $client['country'] ) ? $client['country'] : '' ),
+			'client_name'        => self::esc_field( isset( $client['name'] ) ? $client['name'] : '' ),
+			'client_email'       => self::esc_field( isset( $client['email'] ) ? $client['email'] : '' ),
+			'client_nip'         => self::esc_field( isset( $client['nip'] ) ? $client['nip'] : '' ),
+			'client_country'     => self::esc_field( isset( $client['country'] ) ? $client['country'] : '' ),
 			'items_table'        => self::build_items_table( $items, $products, $lines, $lang, $currency ),
-			'subtotal'           => self::format_money( (int) $context->get( 'subtotal_grosze', 0 ), $lang, $currency ),
-			'discount_total'     => self::format_money( (int) $context->get( 'discount_total', 0 ), $lang, $currency ),
-			'net_total'          => self::format_money( (int) $context->get( 'net_grosze', 0 ), $lang, $currency ),
-			'vat_total'          => self::format_money( (int) $context->get( 'vat_grosze', 0 ), $lang, $currency ),
-			'gross_total'        => self::format_money( (int) $context->get( 'gross_grosze', 0 ), $lang, $currency ),
+			'subtotal'           => esc_html( self::format_money( (int) $context->get( 'subtotal_grosze', 0 ), $lang, $currency ) ),
+			'discount_total'     => esc_html( self::format_money( (int) $context->get( 'discount_total', 0 ), $lang, $currency ) ),
+			'net_total'          => esc_html( self::format_money( (int) $context->get( 'net_grosze', 0 ), $lang, $currency ) ),
+			'vat_total'          => esc_html( self::format_money( (int) $context->get( 'vat_grosze', 0 ), $lang, $currency ) ),
+			'gross_total'        => esc_html( self::format_money( (int) $context->get( 'gross_grosze', 0 ), $lang, $currency ) ),
 			'currency'           => esc_html( $currency ),
-			'offer_date'         => self::format_date( time(), $lang ),
+			// phpcs:ignore WordPress.DateTime.CurrentTimeTimestamp.Requested -- data WYŚWIETLANA w PDF: current_time+gmdate renderuje lokalną datę ścienną (strefa sklepu), nie do arytmetyki.
+			'offer_date'         => self::format_date( current_time( 'timestamp' ), $lang ),
 			'tax_mechanism_note' => esc_html( $note ),
 		);
 
