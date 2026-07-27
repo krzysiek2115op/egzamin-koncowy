@@ -9,9 +9,9 @@
  *  - Zamrożenie snapshotu w pamięci
  *  - Działy 3–7 = czyste funkcje
  *
- * Zrodla (Golden Rule #2): docs/dzial-02/ — co najmniej jedno oryginalne
- * zrodlo na dzial, dodawane w kolejnym kroku prac.
- * Diagram wskazuje: WP_User_Query (meta_query) · Working with User Metadata
+ * Zrodlo (Golden Rule #2): docs/dzial-02/strzal-odczytu-bd-1.md
+ * — jeden plik dokumentacji na dzial, czytany przez agentow i krytykow.
+ * Diagram wskazywal: WP_User_Query (meta_query) · Working with User Metadata
  *
  * Pary Agent+Krytyk sa na razie zaslepkami z prawdziwymi identyfikatorami,
  * nazwami i zadaniami — realna logika podstawiana jest para po parze.

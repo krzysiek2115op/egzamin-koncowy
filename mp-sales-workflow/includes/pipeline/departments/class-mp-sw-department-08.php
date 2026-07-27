@@ -9,9 +9,9 @@
  *  - Konflikt wersji = ponowienie od Działu 2
  *  - Po ROLLBACK kolejka pusta
  *
- * Zrodla (Golden Rule #2): docs/dzial-08/ — co najmniej jedno oryginalne
- * zrodlo na dzial, dodawane w kolejnym kroku prac.
- * Diagram wskazuje: dbDelta() · MySQL START TRANSACTION / COMMIT
+ * Zrodlo (Golden Rule #2): docs/dzial-08/zapis-jedna-transakcja.md
+ * — jeden plik dokumentacji na dzial, czytany przez agentow i krytykow.
+ * Diagram wskazywal: dbDelta() · MySQL START TRANSACTION / COMMIT
  *
  * Pary Agent+Krytyk sa na razie zaslepkami z prawdziwymi identyfikatorami,
  * nazwami i zadaniami — realna logika podstawiana jest para po parze.

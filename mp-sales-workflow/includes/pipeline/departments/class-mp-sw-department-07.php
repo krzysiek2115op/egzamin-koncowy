@@ -9,9 +9,9 @@
  *  - Kolejka z ponowieniami (maks. 3)
  *  - Wysyłka PO COMMIT, poza żądaniem
  *
- * Zrodla (Golden Rule #2): docs/dzial-07/ — co najmniej jedno oryginalne
- * zrodlo na dzial, dodawane w kolejnym kroku prac.
- * Diagram wskazuje: wp_mail() · wp_mail_from · phpmailer_init
+ * Zrodlo (Golden Rule #2): docs/dzial-07/powiadomienia-e-mail.md
+ * — jeden plik dokumentacji na dzial, czytany przez agentow i krytykow.
+ * Diagram wskazywal: wp_mail() · wp_mail_from · phpmailer_init
  *
  * Pary Agent+Krytyk sa na razie zaslepkami z prawdziwymi identyfikatorami,
  * nazwami i zadaniami — realna logika podstawiana jest para po parze.

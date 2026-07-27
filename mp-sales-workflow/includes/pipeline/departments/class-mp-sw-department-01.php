@@ -9,9 +9,9 @@
  *  - Uprawnienia przy wywołaniu ręcznym
  *  - Klucz idempotencji na zdarzenie
  *
- * Zrodla (Golden Rule #2): docs/dzial-01/ — co najmniej jedno oryginalne
- * zrodlo na dzial, dodawane w kolejnym kroku prac.
- * Diagram wskazuje: JSON Schema 2020-12 · WP REST permission_callback · Nonces
+ * Zrodlo (Golden Rule #2): docs/dzial-01/brama-i-kontrakt-zdarzenia.md
+ * — jeden plik dokumentacji na dzial, czytany przez agentow i krytykow.
+ * Diagram wskazywal: JSON Schema 2020-12 · WP REST permission_callback · Nonces
  *
  * Pary Agent+Krytyk sa na razie zaslepkami z prawdziwymi identyfikatorami,
  * nazwami i zadaniami — realna logika podstawiana jest para po parze.

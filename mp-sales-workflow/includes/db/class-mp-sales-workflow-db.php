@@ -15,9 +15,8 @@
  * bezpiecznie sprzątać po sobie przy deinstalacji.
  *
  * Źródła (oficjalne) — Golden Rule #2:
- *  - docs/dzial-08/dbdelta-i-transakcje.md (reguły formatowania SQL dla dbDelta)
- *  - docs/dzial-01/mysql-unique-index.md   (UNIQUE + wiele NULL — idempotencja)
- *  - docs/dzial-08/mysql-foreign-keys.md   (więzy integralności referencyjnej)
+ *  - docs/dzial-08/zapis-jedna-transakcja.md   (dbDelta, transakcje, więzy)
+ *  - docs/dzial-01/brama-i-kontrakt-zdarzenia.md (UNIQUE + wiele NULL)
  *
  * @package MP_Sales_Workflow
  */
@@ -207,7 +206,7 @@ class MP_Sales_Workflow_DB {
 	 * Zakłada brakujące więzy `flow_id` → `flow.id` z akcją ON DELETE CASCADE.
 	 *
 	 * Funkcja dbDelta() nie tworzy kluczy obcych, więc trzeba je dołożyć osobnym
-	 * ALTER-em (docs/dzial-08/mysql-foreign-keys.md). Każdy krok jest osłonięty,
+	 * ALTER-em (docs/dzial-08/zapis-jedna-transakcja.md). Każdy krok jest osłonięty,
 	 * bo każdy może się nie udać z powodów niezależnych od wtyczki:
 	 *
 	 *  1. Więz już istnieje — przy powtórnej aktywacji lub migracji wersji.
@@ -406,7 +405,7 @@ class MP_Sales_Workflow_DB {
 	/**
 	 * Definicje CREATE TABLE dla wszystkich tabel BD-1.
 	 *
-	 * Składnia podlega wymogom dbDelta() (docs/dzial-08/dbdelta-i-transakcje.md):
+	 * Składnia podlega wymogom dbDelta() (docs/dzial-08/zapis-jedna-transakcja.md):
 	 * każde pole w osobnej linii, DWIE spacje po `PRIMARY KEY`, słowo `KEY`
 	 * zamiast `INDEX`, brak backticków, typy małymi literami, jawne długości.
 	 *
@@ -484,7 +483,7 @@ class MP_Sales_Workflow_DB {
 		 * `<flow_id>:<type>` dopóki zadanie jest otwarte i NULL, gdy zostanie
 		 * zamknięte lub anulowane — UNIQUE blokuje wtedy drugie otwarte zadanie
 		 * tego samego typu, a zamkniętych dopuszcza dowolnie wiele, bo "a UNIQUE
-		 * index permits multiple NULL values" (docs/dzial-01/mysql-unique-index.md).
+		 * index permits multiple NULL values" (docs/dzial-01/brama-i-kontrakt-zdarzenia.md).
 		 * Sprawdzenie SELECT-em przed INSERT-em byłoby podatne na wyścig dwóch
 		 * równoległych wywołań crona.
 		 *

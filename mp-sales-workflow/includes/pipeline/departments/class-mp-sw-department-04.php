@@ -9,9 +9,9 @@
  *  - Rotacja po ostatnim przypisaniu
  *  - Fallback zespołu przy braku kandydata
  *
- * Zrodla (Golden Rule #2): docs/dzial-04/ — co najmniej jedno oryginalne
- * zrodlo na dzial, dodawane w kolejnym kroku prac.
- * Diagram wskazuje: reguły wg zlecenia + usermeta mp_* (konfiguracja)
+ * Zrodlo (Golden Rule #2): docs/dzial-04/przypisanie-handlowca.md
+ * — jeden plik dokumentacji na dzial, czytany przez agentow i krytykow.
+ * Diagram wskazywal: reguły wg zlecenia + usermeta mp_* (konfiguracja)
  *
  * Pary Agent+Krytyk sa na razie zaslepkami z prawdziwymi identyfikatorami,
  * nazwami i zadaniami — realna logika podstawiana jest para po parze.

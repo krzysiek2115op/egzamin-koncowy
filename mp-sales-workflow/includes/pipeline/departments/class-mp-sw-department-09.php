@@ -9,9 +9,9 @@
  *  - Kolejka rusza poza żądaniem
  *  - Wyjście tylko JSON + trace_id
  *
- * Zrodla (Golden Rule #2): docs/dzial-09/ — co najmniej jedno oryginalne
- * zrodlo na dzial, dodawane w kolejnym kroku prac.
- * Diagram wskazuje: do_action · wp_send_json_success · Action Scheduler
+ * Zrodlo (Golden Rule #2): docs/dzial-09/wyjscie-i-uruchomienie-kolejki.md
+ * — jeden plik dokumentacji na dzial, czytany przez agentow i krytykow.
+ * Diagram wskazywal: do_action · wp_send_json_success · Action Scheduler
  *
  * Pary Agent+Krytyk sa na razie zaslepkami z prawdziwymi identyfikatorami,
  * nazwami i zadaniami — realna logika podstawiana jest para po parze.

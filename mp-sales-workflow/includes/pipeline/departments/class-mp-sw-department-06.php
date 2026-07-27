@@ -9,9 +9,9 @@
  *  - Zmiana statusu anuluje oczekujące
  *  - Wykonanie: cron → zdarzenie task.due
  *
- * Zrodla (Golden Rule #2): docs/dzial-06/ — co najmniej jedno oryginalne
- * zrodlo na dzial, dodawane w kolejnym kroku prac.
- * Diagram wskazuje: WP-Cron → systemowy harmonogram (Plugin Handbook)
+ * Zrodlo (Golden Rule #2): docs/dzial-06/zadania-follow-up.md
+ * — jeden plik dokumentacji na dzial, czytany przez agentow i krytykow.
+ * Diagram wskazywal: WP-Cron → systemowy harmonogram (Plugin Handbook)
  *
  * Pary Agent+Krytyk sa na razie zaslepkami z prawdziwymi identyfikatorami,
  * nazwami i zadaniami — realna logika podstawiana jest para po parze.

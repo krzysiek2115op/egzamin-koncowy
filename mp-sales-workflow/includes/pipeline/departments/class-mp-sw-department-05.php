@@ -8,9 +8,9 @@
  *  - Słownik dozwolonych przejść (wersjonowany)
  *  - Skutki przejścia wyliczone jawnie
  *
- * Zrodla (Golden Rule #2): docs/dzial-05/ — co najmniej jedno oryginalne
- * zrodlo na dzial, dodawane w kolejnym kroku prac.
- * Diagram wskazuje: maszyna stanów wg zlecenia · kryt. 5.5
+ * Zrodlo (Golden Rule #2): docs/dzial-05/maszyna-statusow.md
+ * — jeden plik dokumentacji na dzial, czytany przez agentow i krytykow.
+ * Diagram wskazywal: maszyna stanów wg zlecenia · kryt. 5.5
  *
  * Pary Agent+Krytyk sa na razie zaslepkami z prawdziwymi identyfikatorami,
  * nazwami i zadaniami — realna logika podstawiana jest para po parze.

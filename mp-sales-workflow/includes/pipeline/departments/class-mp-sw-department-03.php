@@ -8,9 +8,9 @@
  *  - current_user_can na operację
  *  - Zakres danych wg roli i zespołu
  *
- * Zrodla (Golden Rule #2): docs/dzial-03/ — co najmniej jedno oryginalne
- * zrodlo na dzial, dodawane w kolejnym kroku prac.
- * Diagram wskazuje: Roles and Capabilities · current_user_can()
+ * Zrodlo (Golden Rule #2): docs/dzial-03/uprawnienia-i-zakres-roli.md
+ * — jeden plik dokumentacji na dzial, czytany przez agentow i krytykow.
+ * Diagram wskazywal: Roles and Capabilities · current_user_can()
  *
  * Pary Agent+Krytyk sa na razie zaslepkami z prawdziwymi identyfikatorami,
  * nazwami i zadaniami — realna logika podstawiana jest para po parze.
