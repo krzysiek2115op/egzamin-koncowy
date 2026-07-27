@@ -21,8 +21,8 @@ danych między formularzem, WooCommerce i pocztą.
 | # | Wtyczka | Branch | Opis |
 |---|---------|--------|------|
 | 1 | `mp-lead-intake` | `mp-lead-intake` | Przyjęcie i kwalifikacja lead-a z formularza |
-| 2 | _(do ustalenia)_ | — | — |
-| 3 | _(do ustalenia)_ | — | — |
+| 2 | `mp-offer-builder` | `mp-offer-builder` | Kalkulacja cenowa, integracja WooCommerce, oferty PDF |
+| 3 | `mp-sales-workflow` | `mp-sales-workflow` | Statusy procesu, handlowiec, powiadomienia, follow-up, dashboard |
 
 ## Struktura repozytorium
 
@@ -32,4 +32,8 @@ wtyczek WordPress). Prace nad każdą wtyczką prowadzimy na dedykowanym branchu
 ## Workflow
 
 - Praca nad wtyczką 1 toczy się na branchu `mp-lead-intake`.
+- Praca nad wtyczką 2 toczy się na branchu `mp-offer-builder`.
+- Praca nad wtyczką 3 toczy się na branchu `mp-sales-workflow` — branch założony
+  od `main`, w pełni odizolowany (własny `composer.json`/`.phpcs.xml.dist`, nie
+  dziedziczy kodu z branchy 1 i 2).
 - Commity powstają automatycznie przy każdym większym kroku.

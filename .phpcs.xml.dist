@@ -1,0 +1,97 @@
+<?xml version="1.0"?>
+<ruleset name="Egzamin koncowy - MP Sales Workflow">
+	<description>
+		Standardy kodowania wtyczki MP Sales Workflow (baza: WordPress Coding Standards).
+		Ten branch jest w pelni odizolowany od mp-lead-intake i mp-offer-builder —
+		wlasna konfiguracja, nie dziedziczona.
+	</description>
+
+	<!-- Co skanujemy -->
+	<file>mp-sales-workflow</file>
+	<arg name="extensions" value="php"/>
+	<arg name="basepath" value="."/>
+	<arg value="ps"/><!-- p = progress, s = pokaz kody sniffow -->
+
+	<exclude-pattern>*/tests/*</exclude-pattern>
+
+	<!-- Standard bazowy: pełny WordPress (Core + Docs + Extra) -->
+	<rule ref="WordPress"/>
+
+	<!-- Minimalna wersja WP i PHP dla kontroli zgodności -->
+	<config name="minimum_wp_version" value="6.0"/>
+
+	<!-- Text domain wtyczki (i18n) -->
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="mp-sales-workflow"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!--
+		Prefiks globalny: funkcje mp_sales_workflow_*, klasy produktowe MP_Sales_Workflow_*.
+		WPCS wymaga prefiksu >= 3 znaki. Ta sama swiadoma decyzja co w mp-lead-intake
+		i mp-offer-builder. UWAGA: goly prefiks "MP_" NIE jest unikalny miedzy wtyczkami
+		projektu (plugin 1 uzywa go dla swojego frameworku pipeline'u, plugin 2 uzywa
+		MP_OB_*) — dlatego framework tej wtyczki uzywa wlasnego prefiksu MP_SW_*, zeby
+		uniknac kolizji nazw klas przy jednoczesnej aktywacji wszystkich trzech wtyczek.
+	-->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<severity>0</severity>
+	</rule>
+
+	<!--
+		=== Reguły świadomie rozluźnione (ta sama decyzja projektowa co w mp-lead-intake
+		i mp-offer-builder, podjęta niezależnie dla tej samej konwencji architektonicznej) ===
+	-->
+
+	<!-- Konwencja projektu "1 plik = 1 dział": kilka powiązanych klas (Agent/Krytyk/budowniczy) w pliku działu -->
+	<rule ref="Generic.Files.OneObjectStructurePerFile">
+		<severity>0</severity>
+	</rule>
+	<!-- Nazwy plików nie muszą odpowiadać jednej klasie (wieloklasowe pliki działów) -->
+	<rule ref="WordPress.Files.FileName">
+		<severity>0</severity>
+	</rule>
+
+	<!-- Krótki opis w docblocku nie jest wymagany dla prostych metod (run/getterów) -->
+	<rule ref="Generic.Commenting.DocComment.MissingShort">
+		<severity>0</severity>
+	</rule>
+	<!-- Trywialne metody (np. konstruktory delegujące) nie wymagają docblocka -->
+	<rule ref="Squiz.Commenting.FunctionComment.Missing">
+		<severity>0</severity>
+	</rule>
+	<!-- Pliki-zaślepki (index.php "Silence is golden") bez pełnego docblocka pliku -->
+	<rule ref="Squiz.Commenting.FileComment.Missing">
+		<severity>0</severity>
+	</rule>
+	<rule ref="Squiz.Commenting.FileComment.WrongStyle">
+		<severity>0</severity>
+	</rule>
+
+	<!--
+		=== Zapytania do bazy — warstwa DB/pipeline + integracja z wtyczkami 1 i 2 ===
+		Wtyczka z WLASNYMI tabelami (BD-1). Zapytania bezposrednie sa zamierzone;
+		wartosci uzytkownika ida przez $wpdb->prepare()/placeholdery, a interpolowane
+		sa wylacznie nazwy tabel pochodzace z kodu. Ta sama swiadoma decyzja co w
+		pozostalych wtyczkach projektu.
+	-->
+	<rule ref="WordPress.DB.DirectDatabaseQuery">
+		<exclude-pattern>*/includes/db/*</exclude-pattern>
+		<exclude-pattern>*/includes/pipeline/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.DB.PreparedSQL">
+		<exclude-pattern>*/includes/db/*</exclude-pattern>
+		<exclude-pattern>*/includes/pipeline/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.DB.PreparedSQLPlaceholders">
+		<exclude-pattern>*/includes/db/*</exclude-pattern>
+		<exclude-pattern>*/includes/pipeline/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.DB.SlowDBQuery">
+		<exclude-pattern>*/includes/db/*</exclude-pattern>
+		<exclude-pattern>*/includes/pipeline/*</exclude-pattern>
+	</rule>
+</ruleset>

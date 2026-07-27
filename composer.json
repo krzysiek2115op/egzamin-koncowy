@@ -1,0 +1,13 @@
+{
+    "name": "krzysiek2115op/mp-sales-workflow",
+    "description": "Dev tooling (PHPCS/WPCS) dla wtyczki MP Sales Workflow — branch mp-sales-workflow, niezalezny od pozostalych branchy.",
+    "type": "project",
+    "require-dev": {
+        "wp-coding-standards/wpcs": "^3.1"
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    }
+}
