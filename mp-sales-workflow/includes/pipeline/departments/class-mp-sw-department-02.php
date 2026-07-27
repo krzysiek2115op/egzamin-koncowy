@@ -85,7 +85,7 @@ class MP_SW_D2_Reader {
 
 		$snapshot = array(
 			'salesmen'  => self::read_salesmen(),
-			'roles'     => self::read_roles(),
+			'roles'     => self::read_roles( $context ),
 			'flow'      => self::read_flow( $context ),
 			'workload'  => self::read_workload(),
 			'templates' => self::read_templates(),
@@ -177,17 +177,51 @@ class MP_SW_D2_Reader {
 	}
 
 	/**
-	 * Obecność ról wymaganych przez kryterium odbioru.
+	 * Obecność ról wymaganych przez kryterium odbioru oraz rola AKTORA.
 	 *
+	 * Dane aktora czytane są tutaj, a nie w Dziale 3, bo tamten ma być czystą
+	 * funkcją: „Działy 3–7 = czyste funkcje" (operacje Działu 2 wg diagramu).
+	 * Gdyby Dział 3 sam wołał `get_userdata()`, zasada jednego strzału odczytu
+	 * byłaby złamana bez śladu w liczniku.
+	 *
+	 * @param MP_SW_Context $context Kontekst.
 	 * @return array
 	 */
-	private static function read_roles() {
+	private static function read_roles( MP_SW_Context $context ) {
 		$missing = MP_SW_Roles::missing_roles();
+
+		$event   = (array) $context->get( 'event', array() );
+		$user_id = isset( $event['actor']['user_id'] ) ? (int) $event['actor']['user_id'] : 0;
+
+		$actor = array(
+			'user_id'    => $user_id,
+			'roles'      => array(),
+			'manage_all' => false,
+			'team'       => '',
+			'exists'     => false,
+		);
+
+		if ( $user_id > 0 ) {
+			$user = get_userdata( $user_id );
+
+			if ( $user instanceof WP_User ) {
+				$actor['exists']     = true;
+				$actor['roles']      = array_values( (array) $user->roles );
+				$actor['manage_all'] = user_can( $user, MP_SW_Roles::CAP_MANAGE_ALL );
+				$actor['handles']    = user_can( $user, MP_SW_Roles::CAP_HANDLE_EVENT );
+				$actor['team']       = (string) get_user_meta( $user_id, self::META_TEAM, true );
+			}
+		}
+
+		if ( ! isset( $actor['handles'] ) ) {
+			$actor['handles'] = false;
+		}
 
 		return array(
 			'required' => MP_SW_Roles::required_roles(),
 			'missing'  => $missing,
 			'ok'       => empty( $missing ),
+			'actor'    => $actor,
 		);
 	}
 
