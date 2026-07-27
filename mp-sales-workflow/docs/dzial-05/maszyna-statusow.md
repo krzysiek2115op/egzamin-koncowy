@@ -12,6 +12,14 @@ Jeden plik na dział (zasada projektu).
 3. wpdb::update() — WordPress Code Reference.
    URL:     https://developer.wordpress.org/reference/classes/wpdb/update/
    Pobrano: 2026-07-28.
+4. in_array() — PHP Manual, "Function Reference / Array Functions".
+   URL:     https://www.php.net/manual/en/function.in-array.php
+   Pobrano: 2026-07-28.
+   UWAGA: wtyczka deklaruje "Requires PHP: 7.4", a `match` istnieje dopiero od
+   PHP 8.0. Słownik przejść sprawdzamy więc przez in_array() z włączonym
+   trybem ścisłym — to daje tę samą własność, o którą chodzi w cytacie o
+   `match`: porównanie typów, a nie luźne. Cytat o `match` zostaje, bo opisuje
+   ZASADĘ (identyczność + twardy błąd zamiast cichego przejścia dalej).
 
 Dotyczy par Działu 5:
  - A5.1 "przejście" / K5.1 "legalność-przejścia" — słownik dozwolonych przejść
@@ -50,6 +58,19 @@ try {
     var_dump($e);
 }
 ```
+
+## Sprawdzenie wartości w słowniku — tryb ścisły (cytaty, źródło 4)
+
+Sygnatura: `in_array(mixed $needle, array $haystack, bool $strict = false): bool`
+
+"Checks if a value exists in an array. Searches for needle in haystack using
+loose comparison unless strict is set."
+
+"If the third parameter strict is set to true then the in_array() function will
+also check the types of the needle in the haystack."
+
+"Note: Prior to PHP 8.0.0, a string needle will match an array value of 0 in
+non-strict mode, and vice versa. That may lead to undesireable results."
 
 ## Jedno źródło czasu — current_time() (cytat, źródło 2)
 
