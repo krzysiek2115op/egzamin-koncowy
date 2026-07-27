@@ -10,7 +10,11 @@
  *
  * Zrodlo (Golden Rule #2): docs/dzial-05/maszyna-statusow.md
  * — jeden plik dokumentacji na dzial, czytany przez agentow i krytykow.
- * Diagram wskazywal: maszyna stanów wg zlecenia · kryt. 5.5
+ * Diagram wskazywal: maszyna stanów wg zlecenia · kryt. 5.5. Sam slownik
+ * przejsc pochodzi ze zlecenia, ale dokumentacja dzialu opisuje NARZEDZIA,
+ * ktorymi jest realizowany: PHP match (porownanie ===, twardy blad zamiast
+ * cichego przejscia dalej), current_time() (jedno zrodlo czasu w GMT dla SLA)
+ * i wpdb::update().
  *
  * Pary Agent+Krytyk sa na razie zaslepkami z prawdziwymi identyfikatorami,
  * nazwami i zadaniami — realna logika podstawiana jest para po parze.

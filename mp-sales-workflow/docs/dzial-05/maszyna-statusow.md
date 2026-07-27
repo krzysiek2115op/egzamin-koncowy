@@ -2,62 +2,79 @@
 DOKUMENTACJA ŹRÓDŁOWA DZIAŁU 5 — MASZYNA STATUSÓW.
 Jeden plik na dział (zasada projektu).
 
-ŹRÓDŁO ORYGINALNE:
-Diagram LP.3 "MP Sales Workflow + BD-1", rewizja 2.0 z 27.07.2026, sekcja
-Działu 5 — dostarczony przez klienta i przechowywany w repozytorium:
-blueprint/LP3_diagram_wizualny.html
-Odczytano: 2026-07-28.
+ŹRÓDŁA OFICJALNE — dokumentacja techniczna narzędzi używanych przez ten dział:
+1. match — PHP Manual, "Control Structures / match".
+   URL:     https://www.php.net/manual/en/control-structures.match.php
+   Pobrano: 2026-07-28.
+2. current_time() — WordPress Code Reference.
+   URL:     https://developer.wordpress.org/reference/functions/current_time/
+   Pobrano: 2026-07-28.
+3. wpdb::update() — WordPress Code Reference.
+   URL:     https://developer.wordpress.org/reference/classes/wpdb/update/
+   Pobrano: 2026-07-28.
 
-Dlaczego akurat to źródło: diagram wskazuje dla tego działu "maszyna stanów wg
-zlecenia", a nie zewnętrzne API — WordPress nie dostarcza mechanizmu maszyny
-stanów, więc jedynym wiążącym źródłem słownika przejść jest specyfikacja
-klienta. Poniżej dosłowny zapis z diagramu.
+Dotyczy par Działu 5:
+ - A5.1 "przejście" / K5.1 "legalność-przejścia" — słownik dozwolonych przejść
+   i odmowa przy przejściu spoza słownika (źródło 1: porównanie tożsamościowe
+   `===` i twardy błąd przy braku dopasowania, zamiast cichego przejścia dalej),
+ - A5.2 "skutki" / K5.2 "komplet-skutków" — wyliczenie nowego SLA wymaga
+   jednego źródła czasu w GMT (źródło 2),
+ - przygotowanie zmiany statusu wiersza procesu; sam zapis wykonuje Dział 8
+   jedną transakcją (źródło 3).
 -->
 
-# Dział 5 — maszyna statusów: zapis źródłowy
+# Dział 5 — maszyna statusów: dokumentacja źródłowa
 
-## Zakres działu (cytat z diagramu)
+## Wyrażenie match — porównanie tożsamościowe (cytat, źródło 1)
 
-"MASZYNA STATUSÓW" — "pkt 2: statusy procesu"
+"The match expression branches evaluation based on an identity check of a
+value. Similarly to a switch statement, a match expression has a subject
+expression that is compared against multiple alternatives. Unlike switch, it
+will evaluate to a value much like ternary expressions. Unlike switch, the
+comparison is an identity check (`===`) rather than a weak equality check
+(`==`)."
 
-## Para A5.1 / K5.1 (cytat z diagramu)
+## Brak dopasowania kończy się błędem, nie przemilczeniem (cytat, źródło 1)
 
-Agent "przejście": "Sprawdza przejście w słowniku: nowy → przypisany →
-oferta_robocza → oferta_wyslana → negocjacje → wygrany / przegrany"
+"UnhandledMatchError is thrown."
 
-Krytyk "legalność-przejścia": "Przejście spoza słownika = odmowa z kodem, stan
-bez zmian"
+```php
+$condition = 5;
 
-## Para A5.2 / K5.2 (cytat z diagramu)
+try {
+    match ($condition) {
+        1, 2 => foo(),
+        3, 4 => bar(),
+    };
+} catch (\UnhandledMatchError $e) {
+    var_dump($e);
+}
+```
 
-Agent "skutki": "Wylicza skutki przejścia: nowe SLA, zamknięcie oczekujących
-zadań, powiadomienia do wysłania"
+## Jedno źródło czasu — current_time() (cytat, źródło 2)
 
-Krytyk "komplet-skutków": "Każdy skutek ma pokrycie w regule przejścia — nic
-„przy okazji”"
+"Retrieves the current time based on specified type. The ‘mysql’ type will
+return the time in the format for MySQL DATETIME field. The ‘timestamp’ or ‘U’
+types will return the current timestamp or a sum of timestamp and timezone
+offset, depending on $gmt. Other strings will be interpreted as PHP date
+formats (e.g. ‘Y-m-d’). If $gmt is a truthy value then both types will use GMT
+time."
 
-## Operacje działu (cytat z diagramu)
+Sygnatura (cytat): `current_time( string $type, int|bool $gmt = false ): int|string`
 
-"Słownik dozwolonych przejść (wersjonowany)"
+## Aktualizacja wiersza — wpdb::update() (cytat, źródło 3)
 
-"Skutki przejścia wyliczone jawnie"
+"Updates a row in the table."
 
-## Bramka jakości (cytat z diagramu)
-
-QA Agent: "legalność-przejścia + komplet skutków"
-
-QA Krytyk: "stan zmienia się tylko przez maszynę, nigdy wprost"
-
-## Kształt danych wyjściowych działu (cytat z diagramu)
-
-```json
-{ "transition": {
-   "from": "oferta_robocza",
-   "to": "oferta_wyslana",
-   "allowed": true,
-   "machine_version": "v3" },
-  "effects": [
-   "schedule_followups",
-   "notify_client",
-   "close_tasks" ] }
+```php
+$wpdb->update(
+	'table',
+	array(
+		'column1' => 'foo',
+		'column2' => 1337,
+	),
+	array( 'ID' => 1 ),
+	array( '%s', '%d' ),
+	array( '%d' )
+);
 ```

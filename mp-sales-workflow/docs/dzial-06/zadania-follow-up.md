@@ -2,19 +2,27 @@
 DOKUMENTACJA ŹRÓDŁOWA DZIAŁU 6 — ZADANIA FOLLOW-UP (d+3 / d+7).
 Jeden plik na dział (zasada projektu).
 
-ŹRÓDŁA OFICJALNE:
+ŹRÓDŁA OFICJALNE — dokumentacja techniczna narzędzi używanych przez ten dział:
 1. WP-Cron — WordPress Plugin Handbook, "What is WP-Cron".
    URL:     https://developer.wordpress.org/plugins/cron/
    Pobrano: 2026-07-28.
 2. Hooking WP-Cron Into the System Task Scheduler — WordPress Plugin Handbook.
    URL:     https://developer.wordpress.org/plugins/cron/hooking-wp-cron-into-the-system-task-scheduler/
    Pobrano: 2026-07-28.
+3. wp_schedule_single_event() — WordPress Code Reference.
+   URL:     https://developer.wordpress.org/reference/functions/wp_schedule_single_event/
+   Pobrano: 2026-07-28.
+4. wp_next_scheduled() — WordPress Code Reference.
+   URL:     https://developer.wordpress.org/reference/functions/wp_next_scheduled/
+   Pobrano: 2026-07-28.
 
-Dotyczy par Działu 6 diagramu LP.3: A6.1 "harmonogram" / K6.1 "warunek-4.5"
-(zadanie aktywuje się TYLKO gdy status niezmieniony) oraz A6.2 "deduplikacja"
-/ K6.2 "brak-duplikatów-zadań". Cytat ze źródła 1 jest powodem, dla którego
-termin d+3 i d+7 NIE może być traktowany jako gwarancja czasu wykonania, a
-źródło 2 opisuje jedyny sposób, by wykonanie faktycznie następowało o czasie.
+Dotyczy par Działu 6:
+ - A6.1 "harmonogram" / K6.1 "warunek-4.5" — terminy d+3 i d+7 planowane jako
+   zdarzenia jednorazowe (źródło 3); źródła 1-2 wyjaśniają, dlaczego sam
+   WP-Cron NIE gwarantuje wykonania o czasie,
+ - A6.2 "deduplikacja" / K6.2 "brak-duplikatów-zadań" — źródło 3 opisuje
+   zarówno pułapkę (zdarzenia w odstępie 10 minut bywają pomijane), jak i
+   zalecany sposób wykrycia duplikatu (źródło 4).
 -->
 
 # Dział 6 — zadania follow-up: dokumentacja źródłowa
@@ -51,3 +59,25 @@ editing and add the following line:
 define( 'DISABLE_WP_CRON', true );
 ```
 "
+
+## Planowanie zdarzenia jednorazowego (cytat, źródło 3)
+
+Sygnatura: `wp_schedule_single_event( int $timestamp, string $hook, array $args = array(), bool $wp_error = false ): bool|WP_Error`
+
+"Schedules an event to run only once. Schedules a hook which will be triggered
+by WordPress at the specified UTC time. The action will trigger when someone
+visits your WordPress site if the scheduled time has passed."
+
+Parametr (cytat): "$timestamp int required — Unix timestamp (UTC) for when to
+next run the event."
+
+## Pułapka duplikatów i zalecane sprawdzenie (cytat, źródło 3)
+
+"Note that scheduling an event to occur within 10 minutes of an existing event
+with the same action hook will be ignored unless you pass unique $args values
+for each scheduled event. Use wp_next_scheduled() to prevent duplicate events.
+Use wp_schedule_event() to schedule a recurring event."
+
+## Odczyt najbliższego terminu (cytat, źródło 4)
+
+Sygnatura: `wp_next_scheduled( string $hook, array $args = array() ): int|false`
