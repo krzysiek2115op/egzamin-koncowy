@@ -17,6 +17,7 @@
  * Źródła (oficjalne) — Golden Rule #2:
  *  - docs/dzial-08/dbdelta-i-transakcje.md (reguły formatowania SQL dla dbDelta)
  *  - docs/dzial-01/mysql-unique-index.md   (UNIQUE + wiele NULL — idempotencja)
+ *  - docs/dzial-08/mysql-foreign-keys.md   (więzy integralności referencyjnej)
  *
  * @package MP_Sales_Workflow
  */
@@ -34,10 +35,16 @@ class MP_Sales_Workflow_DB {
 	 * Wersja schematu. Podnoszona przy KAŻDEJ zmianie DDL — `maybe_upgrade()`
 	 * porównuje ją z wartością zapisaną w opcji i dopiero wtedy woła dbDelta().
 	 */
-	const DB_VERSION = '0.1.0';
+	const DB_VERSION = '0.2.0';
 
 	/** Opcja przechowująca wersję schematu zainstalowaną na tej witrynie. */
 	const DB_VERSION_OPTION = 'mp_sales_workflow_db_version';
+
+	/** Nazwa więzu: zadanie follow-up → proces sprzedażowy. */
+	const FK_TASKS_FLOW = 'fk_mp_sw_tasks_flow';
+
+	/** Nazwa więzu: powiadomienie w kolejce → proces sprzedażowy. */
+	const FK_NOTIFICATIONS_FLOW = 'fk_mp_sw_notifications_flow';
 
 	// --- Słownik statusów procesu (kolumna flow.status) -----------------------
 	// Klucze angielskie, etykiety PL/EN dochodzą w warstwie prezentacji (decyzja
@@ -167,9 +174,174 @@ class MP_Sales_Workflow_DB {
 			return false;
 		}
 
+		/*
+		 * Więzy integralności są DODATKIEM, nie warunkiem działania: ich wynik
+		 * celowo nie wpływa na rezultat instalacji. Na hostingu bez uprawnienia
+		 * REFERENCES albo na silniku innym niż InnoDB wtyczka ma działać
+		 * normalnie — tyle że spójności pilnuje wtedy wyłącznie kod (Dział 8
+		 * zapisuje proces i jego zadania jedną transakcją).
+		 */
+		self::maybe_add_foreign_keys();
+
 		update_option( self::DB_VERSION_OPTION, self::DB_VERSION );
 
 		return true;
+	}
+
+	/**
+	 * Mapa więzów: nazwa więzu → tabela zależna, w której go zakładamy.
+	 *
+	 * Obie tabele wskazują kolumną `flow_id` na `flow.id`. Dziennik aktywności
+	 * świadomie nie jest tu wymieniony (audyt przeżywa usunięcie procesu).
+	 *
+	 * @return array<string,string>
+	 */
+	private static function foreign_keys() {
+		return array(
+			self::FK_TASKS_FLOW         => self::tasks_table(),
+			self::FK_NOTIFICATIONS_FLOW => self::notifications_table(),
+		);
+	}
+
+	/**
+	 * Zakłada brakujące więzy `flow_id` → `flow.id` z akcją ON DELETE CASCADE.
+	 *
+	 * Funkcja dbDelta() nie tworzy kluczy obcych, więc trzeba je dołożyć osobnym
+	 * ALTER-em (docs/dzial-08/mysql-foreign-keys.md). Każdy krok jest osłonięty,
+	 * bo każdy może się nie udać z powodów niezależnych od wtyczki:
+	 *
+	 *  1. Więz już istnieje — przy powtórnej aktywacji lub migracji wersji.
+	 *  2. Silnik nie obsługuje więzów: "For other storage engines, MySQL Server
+	 *     parses and ignores the FOREIGN KEY syntax". Wymóg dodatkowy: "Parent
+	 *     and child tables must use the same storage engine".
+	 *  3. W tabeli zależnej leżą już wiersze bez procesu (sieroty) — ALTER
+	 *     odbiłby się błędem. Nie kasujemy ich po cichu: dane użytkownika nie
+	 *     znikają bez jego decyzji, więc więz po prostu nie powstaje.
+	 *  4. Brak uprawnienia: "Creating a foreign key constraint requires the
+	 *     REFERENCES privilege on the parent table" — typowe na współdzielonym
+	 *     hostingu.
+	 *
+	 * Indeksów nie trzeba dokładać: `KEY idx_flow (flow_id)` jest w schemacie
+	 * obu tabel zależnych, a `flow.id` jest kluczem głównym.
+	 *
+	 * @return array<string,bool> Nazwa więzu → czy istnieje po wykonaniu metody.
+	 */
+	public static function maybe_add_foreign_keys() {
+		global $wpdb;
+
+		$flow   = self::flow_table();
+		$result = array();
+
+		$suppressed = $wpdb->suppress_errors( true );
+
+		foreach ( self::foreign_keys() as $constraint => $child ) {
+			if ( self::has_foreign_key( $child, $constraint ) ) {
+				$result[ $constraint ] = true;
+				continue;
+			}
+
+			$engine = self::table_engine( $child );
+
+			if ( 'innodb' !== $engine || 'innodb' !== self::table_engine( $flow ) ) {
+				$result[ $constraint ] = false;
+				continue;
+			}
+
+			if ( self::has_orphan_rows( $child, $flow ) ) {
+				$result[ $constraint ] = false;
+				continue;
+			}
+
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- nazwy tabel i więzów pochodzą ze stałych klasy, nie z danych użytkownika.
+			$wpdb->query( "ALTER TABLE {$child} ADD CONSTRAINT {$constraint} FOREIGN KEY (flow_id) REFERENCES {$flow} (id) ON DELETE CASCADE" );
+
+			$result[ $constraint ] = self::has_foreign_key( $child, $constraint );
+		}
+
+		$wpdb->suppress_errors( $suppressed );
+
+		return $result;
+	}
+
+	/**
+	 * Czy tabela ma więz o podanej nazwie.
+	 *
+	 * @param string $table      Nazwa tabeli zależnej.
+	 * @param string $constraint Nazwa więzu.
+	 * @return bool
+	 */
+	private static function has_foreign_key( $table, $constraint ) {
+		global $wpdb;
+
+		$found = $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS
+				WHERE CONSTRAINT_SCHEMA = DATABASE()
+				AND TABLE_NAME = %s
+				AND CONSTRAINT_NAME = %s
+				AND CONSTRAINT_TYPE = %s',
+				$table,
+				$constraint,
+				'FOREIGN KEY'
+			)
+		);
+
+		return null !== $found;
+	}
+
+	/**
+	 * Silnik składowania tabeli, małymi literami.
+	 *
+	 * Zwraca pusty ciąg, gdy odczyt się nie powiedzie — tak dzieje się m.in. na
+	 * warstwach zgodności bez `information_schema`. Wywołujący traktuje to jak
+	 * brak wsparcia dla więzów, czyli po prostu ich nie zakłada.
+	 *
+	 * @param string $table Nazwa tabeli.
+	 * @return string
+	 */
+	private static function table_engine( $table ) {
+		global $wpdb;
+
+		$engine = $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT ENGINE FROM information_schema.TABLES
+				WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',
+				$table
+			)
+		);
+
+		return is_string( $engine ) ? strtolower( $engine ) : '';
+	}
+
+	/**
+	 * Czy w tabeli zależnej są wiersze wskazujące na nieistniejący proces.
+	 *
+	 * @param string $child       Tabela zależna (kolumna `flow_id`).
+	 * @param string $flow_table  Tabela procesów.
+	 * @return bool
+	 */
+	private static function has_orphan_rows( $child, $flow_table ) {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- nazwy tabel pochodzą z metod klasy, nie z danych użytkownika.
+		$orphan = $wpdb->get_var( "SELECT c.id FROM {$child} c LEFT JOIN {$flow_table} p ON c.flow_id = p.id WHERE p.id IS NULL LIMIT 1" );
+
+		return null !== $orphan;
+	}
+
+	/**
+	 * Stan więzów — do diagnostyki i testów.
+	 *
+	 * @return array<string,bool>
+	 */
+	public static function foreign_keys_status() {
+		$status = array();
+
+		foreach ( self::foreign_keys() as $constraint => $child ) {
+			$status[ $constraint ] = self::has_foreign_key( $child, $constraint );
+		}
+
+		return $status;
 	}
 
 	/**
@@ -213,12 +385,18 @@ class MP_Sales_Workflow_DB {
 	/**
 	 * Usuwa tabele BD-1 i wersję schematu (deinstalacja wtyczki).
 	 *
+	 * Kolejność ma znaczenie: `tables()` wymienia tabelę procesów jako pierwszą,
+	 * a od wersji 0.2.0 wskazują na nią więzy z tabel zadań i powiadomień —
+	 * usunięcie rodzica przed dziećmi zostałoby odrzucone przez bazę. Odwrócenie
+	 * listy kasuje dzieci najpierw. Nowe tabele zależne dopisywać w `tables()`
+	 * PO tabeli, do której się odwołują.
+	 *
 	 * @return void
 	 */
 	public static function uninstall() {
 		global $wpdb;
 
-		foreach ( self::tables() as $table ) {
+		foreach ( array_reverse( self::tables() ) as $table ) {
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- nazwa tabeli pochodzi z kodu, nie z danych użytkownika.
 		}
 
@@ -309,6 +487,11 @@ class MP_Sales_Workflow_DB {
 		 * index permits multiple NULL values" (docs/dzial-01/mysql-unique-index.md).
 		 * Sprawdzenie SELECT-em przed INSERT-em byłoby podatne na wyścig dwóch
 		 * równoległych wywołań crona.
+		 *
+		 * `flow_id` dostaje więz do `flow.id` z ON DELETE CASCADE — zakładany
+		 * osobno w `maybe_add_foreign_keys()`, bo dbDelta() kluczy obcych nie
+		 * tworzy. Indeks `idx_flow` jest tu wymagany także z tego powodu:
+		 * "MySQL requires indexes on foreign keys and referenced keys".
 		 */
 		$sql[] = "CREATE TABLE {$tasks} (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -340,6 +523,12 @@ class MP_Sales_Workflow_DB {
 		 *
 		 * `attempts`/`last_error` obsługują ponowienia; limit prób jest stałą w
 		 * kodzie kolejki, nie kolumną — to parametr wysyłki, nie cecha wiersza.
+		 *
+		 * `flow_id` ma więz do `flow.id` z ON DELETE CASCADE: usunięcie procesu
+		 * (żądanie RODO) zabiera ze sobą treści e-maili, w których siedzą dane
+		 * klienta. Ślad samej wysyłki zostaje w dzienniku aktywności, który
+		 * więzu nie ma — kryterium odbioru o odtworzeniu historii wysyłek jest
+		 * więc spełnione bez przechowywania treści.
 		 */
 		$sql[] = "CREATE TABLE {$notifications} (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
