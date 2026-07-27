@@ -16,6 +16,10 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 }
 
 require_once __DIR__ . '/includes/db/class-mp-sales-workflow-db.php';
+require_once __DIR__ . '/includes/class-mp-sw-roles.php';
 
 // Tabele BD-1 + zapisana wersja schematu.
 MP_Sales_Workflow_DB::uninstall();
+
+// Role wtyczki + uprawnienia dołożone administratorowi.
+MP_SW_Roles::uninstall();
