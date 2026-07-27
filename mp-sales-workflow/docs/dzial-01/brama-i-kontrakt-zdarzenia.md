@@ -9,10 +9,19 @@ Jeden plik na dział (zasada projektu).
 2. UNIQUE index — MySQL 8.4 Reference Manual, "CREATE INDEX Statement".
    URL:     https://dev.mysql.com/doc/refman/8.4/en/create-index.html
    Pobrano: 2026-07-27.
+3. current_user_can() — WordPress Code Reference.
+   URL:     https://developer.wordpress.org/reference/functions/current_user_can/
+   Pobrano: 2026-07-28.
+4. wp_generate_uuid4() — WordPress Code Reference.
+   URL:     https://developer.wordpress.org/reference/functions/wp_generate_uuid4/
+   Pobrano: 2026-07-28.
+5. wp_is_uuid() — WordPress Code Reference.
+   URL:     https://developer.wordpress.org/reference/functions/wp_is_uuid/
+   Pobrano: 2026-07-28.
 
 Dotyczy par Działu 1 diagramu LP.3:
  - A1.2 "źródło" / K1.2 "kto-woła"  — wywołanie ręczne wymaga nonce'a i
-   uprawnienia; bez nich 403 PRZED wykonaniem pracy (źródło 1),
+   uprawnienia; bez nich 403 PRZED wykonaniem pracy (źródła 1 i 3),
  - A1.3 "idempotencja" / K1.3 "klucz-idempotencji" — ten sam event_id nigdy
    nie obsłuży zdarzenia dwa razy; realizuje to indeks UNIQUE na kolumnie
    event_id, nie sprawdzenie w kodzie (źródło 2).
@@ -54,3 +63,30 @@ matches an existing row."
 
 "A `UNIQUE` index permits multiple `NULL` values for columns that can contain
 `NULL`."
+
+## Sprawdzenie uprawnienia bieżącego użytkownika (cytat, źródło 3)
+
+"Returns whether the current user has the specified capability."
+
+"This function also accepts an ID of an object to check against if the
+capability is a meta capability. Meta capabilities such as edit_post and
+edit_user are capabilities used by the map_meta_cap() function to map to
+primitive capabilities that a user or role has."
+
+## Generowanie identyfikatora zdarzenia (cytat, źródło 4)
+
+"Generates a random UUID (version 4)."
+
+Zwraca (cytat): "string UUID."
+
+## Walidacja identyfikatora zdarzenia (cytat, źródło 5)
+
+Sygnatura: `wp_is_uuid( mixed $uuid, int $version = null ): bool`
+
+"Validates that a UUID is valid."
+
+Parametry (cytat): "$uuid mixed required — UUID to check. $version int optional
+— Specify which version of UUID to check against. Default is none, to accept
+any UUID version. Otherwise, only version allowed is 4."
+
+Zwraca (cytat): "bool The string is a valid UUID or false on failure."

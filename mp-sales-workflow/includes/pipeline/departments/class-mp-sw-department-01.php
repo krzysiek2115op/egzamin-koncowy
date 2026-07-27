@@ -13,14 +13,428 @@
  * — jeden plik dokumentacji na dzial, czytany przez agentow i krytykow.
  * Diagram wskazywal: JSON Schema 2020-12 · WP REST permission_callback · Nonces
  *
- * Pary Agent+Krytyk sa na razie zaslepkami z prawdziwymi identyfikatorami,
- * nazwami i zadaniami — realna logika podstawiana jest para po parze.
+ * Podzial pracy w parze jest tu konsekwentny: AGENT parsuje i normalizuje
+ * (nigdy nie przerywa na pierwszym bledzie), a KRYTYK dopiero odrzuca calosc z
+ * kodem. Dzieki temu wywolujacy dostaje KOMPLET brakow w jednej odpowiedzi —
+ * tego wprost wymaga krytyk K1.1 ("komplet błędów naraz").
  *
  * @package MP_Sales_Workflow
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
+}
+
+/**
+ * Stale i slowniki Dzialu 1 — wspolne dla agentow, krytykow i wywolujacych.
+ */
+class MP_SW_D1 {
+
+	/** Zrodlo: zdarzenie systemowe (hook z wtyczki 1 lub 2). */
+	const SOURCE_SYSTEM = 'system';
+
+	/** Zrodlo: timer (harmonogram zadan follow-up). */
+	const SOURCE_CRON = 'cron';
+
+	/** Zrodlo: wywolanie reczne przez handlowca lub managera. */
+	const SOURCE_MANUAL = 'manual';
+
+	/** Akcja nonce'a dla wywolan recznych. */
+	const NONCE_ACTION = 'mp_sw_event';
+
+	/** Uprawnienie wymagane przy wywolaniu recznym. */
+	const CAP_MANUAL = 'mp_sw_handle_event';
+
+	/** Dopuszczalne jezyki procesu. */
+	const LANGS = array( 'pl', 'en' );
+
+	/**
+	 * Slownik zrodel zdarzenia.
+	 *
+	 * @return string[]
+	 */
+	public static function sources() {
+		return array( self::SOURCE_SYSTEM, self::SOURCE_CRON, self::SOURCE_MANUAL );
+	}
+
+	/**
+	 * Pola encji wymagane dla danego typu zdarzenia.
+	 *
+	 * `dashboard.view` celowo nie wymaga encji: to przeglad listy procesow w
+	 * zakresie roli aktora (Dzial 3), a nie operacja na jednym procesie.
+	 *
+	 * @param string $type Typ zdarzenia.
+	 * @return string[]
+	 */
+	public static function required_entity_fields( $type ) {
+		$map = array(
+			MP_SW_Pipeline_Factory::EVENT_LEAD_CREATED   => array( 'lead_id' ),
+			MP_SW_Pipeline_Factory::EVENT_OFFER_APPROVED => array( 'lead_id', 'offer_id' ),
+			MP_SW_Pipeline_Factory::EVENT_STATUS_CHANGE  => array( 'lead_id' ),
+			MP_SW_Pipeline_Factory::EVENT_TASK_DUE       => array( 'task_id' ),
+			MP_SW_Pipeline_Factory::EVENT_DASHBOARD_VIEW => array(),
+		);
+
+		return isset( $map[ $type ] ) ? $map[ $type ] : array();
+	}
+}
+
+/**
+ * A1.1 „kontrakt" — waliduje i normalizuje kopertę zdarzenia.
+ */
+class MP_SW_D1_Agent_Contract extends MP_SW_Abstract_Agent {
+
+	/**
+	 * @param MP_SW_Context $context Kontekst.
+	 * @return MP_SW_Result
+	 */
+	public function run( MP_SW_Context $context ) {
+		$errors = array();
+
+		// --- Typ ze slownika ---
+		$type = $context->get( 'type', '' );
+		$type = is_string( $type ) ? trim( $type ) : '';
+
+		if ( ! in_array( $type, MP_SW_Pipeline_Factory::event_types(), true ) ) {
+			$errors[] = 'type';
+		}
+
+		// --- Encja: pola wymagane zaleza od typu ---
+		$raw_entity = $context->get( 'entity', array() );
+		$raw_entity = is_array( $raw_entity ) ? $raw_entity : array();
+		$entity     = array();
+
+		foreach ( MP_SW_D1::required_entity_fields( $type ) as $field ) {
+			$value = isset( $raw_entity[ $field ] ) ? $raw_entity[ $field ] : 0;
+
+			// Identyfikatory sa dodatnimi liczbami calkowitymi; 0 znaczy "brak".
+			if ( ! is_numeric( $value ) || (int) $value <= 0 ) {
+				$errors[] = 'entity.' . $field;
+				continue;
+			}
+
+			$entity[ $field ] = (int) $value;
+		}
+
+		// --- Aktor ---
+		$raw_actor = $context->get( 'actor', array() );
+		$raw_actor = is_array( $raw_actor ) ? $raw_actor : array();
+
+		if ( ! array_key_exists( 'user_id', $raw_actor ) || ! is_numeric( $raw_actor['user_id'] ) || (int) $raw_actor['user_id'] < 0 ) {
+			// Zero jest dopuszczalne — tak oznaczamy aktora systemowego (hook, cron).
+			$errors[] = 'actor.user_id';
+			$actor    = array( 'user_id' => 0 );
+		} else {
+			$actor = array( 'user_id' => (int) $raw_actor['user_id'] );
+		}
+
+		// --- Jezyk procesu ---
+		$lang = $context->get( 'lang', 'pl' );
+		$lang = is_string( $lang ) ? strtolower( trim( $lang ) ) : '';
+
+		if ( ! in_array( $lang, MP_SW_D1::LANGS, true ) ) {
+			// Jezyk spoza slownika nie blokuje zdarzenia: proces dostaje jezyk
+			// domyslny, a jezyk ODBIORCY ustala Dzial 7 z danych procesu.
+			$lang = 'pl';
+		}
+
+		return MP_SW_Result::ok(
+			array(
+				'event'           => array(
+					'type'   => $type,
+					'entity' => $entity,
+					'actor'  => $actor,
+					'lang'   => $lang,
+				),
+				'contract_errors' => $errors,
+			)
+		);
+	}
+}
+
+/**
+ * K1.1 „schemat-zdarzenia" — odrzuca niekompletną kopertę kodem 422.
+ */
+class MP_SW_D1_Critic_Schema extends MP_SW_Abstract_Critic {
+
+	/**
+	 * @param MP_SW_Result  $agent_result Wynik agenta.
+	 * @param MP_SW_Context $context      Kontekst.
+	 * @return MP_SW_Result
+	 */
+	public function review( MP_SW_Result $agent_result, MP_SW_Context $context ) {
+		$data   = $agent_result->get_data();
+		$errors = isset( $data['contract_errors'] ) ? (array) $data['contract_errors'] : array();
+
+		if ( ! empty( $errors ) ) {
+			return MP_SW_Result::fail(
+				sprintf(
+					/* translators: %s: lista pól niezgodnych z kontraktem zdarzenia. */
+					__( 'Zdarzenie niezgodne z kontraktem — pola: %s', 'mp-sales-workflow' ),
+					implode( ', ', $errors )
+				),
+				array(
+					'errors'      => $errors,
+					'http_status' => 422,
+				),
+				'invalid_event'
+			);
+		}
+
+		return MP_SW_Result::ok( $data );
+	}
+}
+
+/**
+ * A1.2 „źródło" — ustala, kto woła, i weryfikuje wywołanie ręczne.
+ */
+class MP_SW_D1_Agent_Source extends MP_SW_Abstract_Agent {
+
+	/**
+	 * @param MP_SW_Context $context Kontekst.
+	 * @return MP_SW_Result
+	 */
+	public function run( MP_SW_Context $context ) {
+		$source = $context->get( 'source', '' );
+		$source = is_string( $source ) ? strtolower( trim( $source ) ) : '';
+
+		/*
+		 * Zrodlo nieznane albo nieprzekazane traktujemy jak RECZNE, czyli
+		 * najostrzej: z wymogiem nonce'a i uprawnienia. Odwrotne domyslne
+		 * ustawienie ("skoro nie wiadomo, to pewnie system") pozwalaloby ominac
+		 * bramke przez samo POMINIECIE pola w zadaniu.
+		 */
+		if ( ! in_array( $source, MP_SW_D1::sources(), true ) ) {
+			$source = MP_SW_D1::SOURCE_MANUAL;
+		}
+
+		$auth = array(
+			'nonce_ok' => true,
+			'cap_ok'   => true,
+			'user_id'  => 0,
+		);
+
+		if ( MP_SW_D1::SOURCE_MANUAL === $source ) {
+			$nonce = $context->get( 'nonce', '' );
+			$nonce = is_string( $nonce ) ? $nonce : '';
+
+			$auth['nonce_ok'] = (bool) wp_verify_nonce( $nonce, MP_SW_D1::NONCE_ACTION );
+			$auth['cap_ok']   = current_user_can( MP_SW_D1::CAP_MANUAL );
+			$auth['user_id']  = get_current_user_id();
+		}
+
+		return MP_SW_Result::ok(
+			array(
+				'source' => $source,
+				'auth'   => $auth,
+			)
+		);
+	}
+}
+
+/**
+ * K1.2 „kto-woła" — 403 dla wywołania ręcznego bez nonce'a lub uprawnienia.
+ */
+class MP_SW_D1_Critic_Caller extends MP_SW_Abstract_Critic {
+
+	/**
+	 * @param MP_SW_Result  $agent_result Wynik agenta.
+	 * @param MP_SW_Context $context      Kontekst.
+	 * @return MP_SW_Result
+	 */
+	public function review( MP_SW_Result $agent_result, MP_SW_Context $context ) {
+		$data   = $agent_result->get_data();
+		$source = isset( $data['source'] ) ? $data['source'] : '';
+		$auth   = isset( $data['auth'] ) ? (array) $data['auth'] : array();
+
+		if ( MP_SW_D1::SOURCE_MANUAL !== $source ) {
+			return MP_SW_Result::ok( $data );
+		}
+
+		$errors = array();
+
+		if ( empty( $auth['nonce_ok'] ) ) {
+			$errors[] = 'nonce';
+		}
+
+		if ( empty( $auth['cap_ok'] ) ) {
+			$errors[] = 'capability';
+		}
+
+		if ( empty( $auth['user_id'] ) ) {
+			$errors[] = 'actor.user_id';
+		}
+
+		if ( ! empty( $errors ) ) {
+			// Odmowa zapada w Dziale 1 — PRZED jakąkolwiek pracą pipeline'u:
+			// bez odczytu bazy, przypisania handlowca i kolejki powiadomień.
+			return MP_SW_Result::fail(
+				__( 'Brak uprawnień do ręcznego wywołania zdarzenia.', 'mp-sales-workflow' ),
+				array(
+					'errors'      => $errors,
+					'http_status' => 403,
+				),
+				'forbidden'
+			);
+		}
+
+		return MP_SW_Result::ok( $data );
+	}
+}
+
+/**
+ * A1.3 „idempotencja" — nadaje klucz zdarzenia i identyfikator śladu.
+ */
+class MP_SW_D1_Agent_Idempotency extends MP_SW_Abstract_Agent {
+
+	/**
+	 * @param MP_SW_Context $context Kontekst.
+	 * @return MP_SW_Result
+	 */
+	public function run( MP_SW_Context $context ) {
+		$event_id = $context->get( 'event_id', '' );
+		$event_id = is_string( $event_id ) ? trim( $event_id ) : '';
+		$type     = $context->get( 'type', '' );
+
+		$generated = false;
+		$trace_id  = $context->get( 'trace_id', '' );
+		$trace_id  = is_string( $trace_id ) && wp_is_uuid( $trace_id, 4 ) ? $trace_id : wp_generate_uuid4();
+
+		if ( ! wp_is_uuid( $event_id, 4 ) ) {
+			/*
+			 * Zdarzenie z timera MUSI przyjść z gotowym kluczem, nadanym w
+			 * chwili PLANOWANIA zadania. Gdyby klucz powstawał tutaj, każde
+			 * uruchomienie crona dostawałoby nowy UUID i wymóg "timer d+3
+			 * wykonany dokładnie raz" przestałby cokolwiek znaczyć: ponowione
+			 * zadanie wyglądałoby na zupełnie nowe zdarzenie.
+			 */
+			if ( MP_SW_Pipeline_Factory::EVENT_TASK_DUE === $type ) {
+				return MP_SW_Result::ok(
+					array(
+						'event_id'           => '',
+						'trace_id'           => $trace_id,
+						'event_id_generated' => false,
+					)
+				);
+			}
+
+			$event_id  = wp_generate_uuid4();
+			$generated = true;
+		}
+
+		return MP_SW_Result::ok(
+			array(
+				'event_id'           => $event_id,
+				'trace_id'           => $trace_id,
+				'event_id_generated' => $generated,
+			)
+		);
+	}
+}
+
+/**
+ * K1.3 „klucz-idempotencji" — bez poprawnego klucza zdarzenie nie rusza dalej.
+ */
+class MP_SW_D1_Critic_Idempotency_Key extends MP_SW_Abstract_Critic {
+
+	/**
+	 * @param MP_SW_Result  $agent_result Wynik agenta.
+	 * @param MP_SW_Context $context      Kontekst.
+	 * @return MP_SW_Result
+	 */
+	public function review( MP_SW_Result $agent_result, MP_SW_Context $context ) {
+		$data     = $agent_result->get_data();
+		$event_id = isset( $data['event_id'] ) ? $data['event_id'] : '';
+
+		if ( ! wp_is_uuid( $event_id, 4 ) ) {
+			return MP_SW_Result::fail(
+				__( 'Zdarzenie bez poprawnego klucza idempotencji (UUID v4).', 'mp-sales-workflow' ),
+				array(
+					'errors'      => array( 'event_id' ),
+					'http_status' => 422,
+				),
+				'missing_idempotency_key'
+			);
+		}
+
+		return MP_SW_Result::ok( $data );
+	}
+}
+
+/**
+ * QA1 — bramka jakości Działu 1: komplet zdarzenia (typ + encja + aktor).
+ */
+class MP_SW_D1_QA_Agent extends MP_SW_Abstract_Agent {
+
+	/**
+	 * @param MP_SW_Context $context Kontekst.
+	 * @return MP_SW_Result
+	 */
+	public function run( MP_SW_Context $context ) {
+		$event   = (array) $context->get( 'event', array() );
+		$missing = array();
+
+		$type = isset( $event['type'] ) ? $event['type'] : '';
+
+		if ( ! in_array( $type, MP_SW_Pipeline_Factory::event_types(), true ) ) {
+			$missing[] = 'event.type';
+		}
+
+		$entity = isset( $event['entity'] ) ? (array) $event['entity'] : array();
+
+		foreach ( MP_SW_D1::required_entity_fields( $type ) as $field ) {
+			if ( empty( $entity[ $field ] ) ) {
+				$missing[] = 'event.entity.' . $field;
+			}
+		}
+
+		if ( ! isset( $event['actor']['user_id'] ) ) {
+			$missing[] = 'event.actor.user_id';
+		}
+
+		if ( ! wp_is_uuid( (string) $context->get( 'event_id', '' ), 4 ) ) {
+			$missing[] = 'event_id';
+		}
+
+		if ( ! in_array( (string) $context->get( 'source', '' ), MP_SW_D1::sources(), true ) ) {
+			$missing[] = 'source';
+		}
+
+		return MP_SW_Result::ok( array( 'qa_missing' => $missing ) );
+	}
+}
+
+/**
+ * QA1 krytyk — brak któregokolwiek elementu kończy się 422 z listą pól.
+ */
+class MP_SW_D1_QA_Critic extends MP_SW_Abstract_Critic {
+
+	/**
+	 * @param MP_SW_Result  $agent_result Wynik agenta.
+	 * @param MP_SW_Context $context      Kontekst.
+	 * @return MP_SW_Result
+	 */
+	public function review( MP_SW_Result $agent_result, MP_SW_Context $context ) {
+		$data    = $agent_result->get_data();
+		$missing = isset( $data['qa_missing'] ) ? (array) $data['qa_missing'] : array();
+
+		if ( ! empty( $missing ) ) {
+			return MP_SW_Result::fail(
+				sprintf(
+					/* translators: %s: lista brakujących elementów zdarzenia. */
+					__( 'Niekompletne zdarzenie — brakuje: %s', 'mp-sales-workflow' ),
+					implode( ', ', $missing )
+				),
+				array(
+					'errors'      => $missing,
+					'http_status' => 422,
+				),
+				'incomplete_event'
+			);
+		}
+
+		return MP_SW_Result::ok( $data );
+	}
 }
 
 /**
@@ -42,22 +456,22 @@ class MP_SW_Department_01 {
 	public static function build() {
 		$pairs = array(
 			array(
-				'agent'  => new MP_SW_Stub_Agent( '1.1', 'kontrakt', 'Waliduje JSON zdarzenia: typ ze słownika (lead.created · offer.approved · status.change · task.due · dashboard.view), encja, aktor' ),
-				'critic' => new MP_SW_Stub_Critic( 'K1.1', 'schemat-zdarzenia', 'Typ spoza słownika = 422; komplet błędów naraz' ),
+				'agent'  => new MP_SW_D1_Agent_Contract( '1.1', 'kontrakt', 'Waliduje JSON zdarzenia: typ ze słownika (lead.created · offer.approved · status.change · task.due · dashboard.view), encja, aktor' ),
+				'critic' => new MP_SW_D1_Critic_Schema( 'K1.1', 'schemat-zdarzenia', 'Typ spoza słownika = 422; komplet błędów naraz' ),
 			),
 			array(
-				'agent'  => new MP_SW_Stub_Agent( '1.2', 'źródło', 'Zdarzenie systemowe (hook), timer (cron) albo ręczne od handlowca / managera — ręczne z nonce i uprawnieniem' ),
-				'critic' => new MP_SW_Stub_Critic( 'K1.2', 'kto-woła', 'Wywołanie ręczne bez uprawnień = 403 przed pracą' ),
+				'agent'  => new MP_SW_D1_Agent_Source( '1.2', 'źródło', 'Zdarzenie systemowe (hook), timer (cron) albo ręczne od handlowca / managera — ręczne z nonce i uprawnieniem' ),
+				'critic' => new MP_SW_D1_Critic_Caller( 'K1.2', 'kto-woła', 'Wywołanie ręczne bez uprawnień = 403 przed pracą' ),
 			),
 			array(
-				'agent'  => new MP_SW_Stub_Agent( '1.3', 'idempotencja', 'event_id (UUID) na zdarzenie; timer d+3 wykonany dokładnie raz' ),
-				'critic' => new MP_SW_Stub_Critic( 'K1.3', 'klucz-idempotencji', 'Ten sam event_id nigdy nie obsłuży zdarzenia dwa razy' ),
+				'agent'  => new MP_SW_D1_Agent_Idempotency( '1.3', 'idempotencja', 'event_id (UUID) na zdarzenie; timer d+3 wykonany dokładnie raz' ),
+				'critic' => new MP_SW_D1_Critic_Idempotency_Key( 'K1.3', 'klucz-idempotencji', 'Ten sam event_id nigdy nie obsłuży zdarzenia dwa razy' ),
 			),
 		);
 
 		$gate = new MP_SW_Quality_Gate(
-			new MP_SW_Stub_Agent( 'QA1', 'bramka jakosci D1', 'komplet zdarzenia: typ + encja + aktor' ),
-			new MP_SW_Stub_Critic( 'QA1.K', 'krytyk bramki D1', 'brak któregokolwiek = 422 z listą pól' )
+			new MP_SW_D1_QA_Agent( 'QA1', 'bramka jakosci D1', 'komplet zdarzenia: typ + encja + aktor' ),
+			new MP_SW_D1_QA_Critic( 'QA1.K', 'krytyk bramki D1', 'brak któregokolwiek = 422 z listą pól' )
 		);
 
 		return new MP_SW_Department(
