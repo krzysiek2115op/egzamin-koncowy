@@ -61,11 +61,17 @@ class MP_Offer_Builder_Lead_Listener {
 		// serializuje je; przy timeout/awarii blokady kontynuujemy best-effort (sama
 		// kontrola i tak łapie zdecydowaną większość duplikatów).
 		$lock_name = 'mp_ob_lead_' . $lead_id;
-		$wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, %d)', $lock_name, 5 ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+		// SR2-04: zapamiętaj czy blokada REALNIE zdobyta (1). Przy timeoutcie 5s/awarii
+		// kontynuujemy best-effort (sam check "czy draft istnieje" łapie większość
+		// duplikatów; utrata leada byłaby gorsza niż rzadki duplikat szkicu), ale
+		// zwalniamy TYLKO blokadę, którą faktycznie trzymamy.
+		$got_lock = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, %d)', $lock_name, 5 ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
 		try {
 			return self::create_draft_for_lead( $lead_id, $payload );
 		} finally {
-			$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock_name ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+			if ( '1' === (string) $got_lock ) {
+				$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock_name ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+			}
 		}
 	}
 

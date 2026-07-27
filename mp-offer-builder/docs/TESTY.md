@@ -109,12 +109,39 @@ błędami, lecz udokumentowanymi decyzjami:
   (testy czytają `final_data`); Dział 11 i tak zawęża odpowiedź AJAX do białej
   listy pól (bez ścieżek serwera i cudzych danych). Niski.
 
+## Security Hardening (runda 1.0.5)
+
+Pełny security review: 5 niezależnych Security Reviewerów per segment (wejście/AJAX,
+baza/zapis, PDF/storage, admin/output, config/hooki/RODO) + Cross Security Review
+szwów. **Zero luk krytycznych/wysokich; wszystkie średnie domknięte.**
+
+Wdrożone: rate-limiting submitu (20/min/user) + limit rozmiaru wejścia (256 KB /
+głębokość JSON / max 200 pozycji); koniec enumeracji (cudzy szkic/`request_id` daje
+ten sam wynik co „nie istnieje”); audit-log pobrań PDF (+ odmów); nagłówki
+nosniff/X-Frame-Options:DENY/Referrer-Policy/no-store na pobieraniu; Dompdf
+isPhpEnabled+isJavascriptEnabled jawnie false; integracja RODO (eksporter + eraser
+anonimizujący + polityka prywatności); 0-wierszy przy UPDATE = konflikt; GET_LOCK
+zwalniany tylko gdy zdobyty; containment przy finalizacji PDF; ostrzeżenie nginx;
+guard CLI harnessu; `.distignore`.
+
+Zweryfikowane jako bezpieczne (fałszywe tropy, nie luki): SQLi (prepare + whitelist
+ORDER BY + esc_like), mass-assignment (twarde klucze insert/update), XSS stored/
+reflected/DOM (esc_html/esc_attr/esc_url/textContent), CSRF (nonce wszędzie), open
+redirect (brak), SSRF/XXE przez Dompdf (isRemoteEnabled=false + chroot), CSV/PDF
+injection (brak eksportu; dane escapowane), path traversal (realpath containment),
+zip slip (brak zip), uninstall (guard + symlink-safe).
+
+Świadome ryzyka rezydualne (Niski): pod nginx bez reguły `deny` poufność PDF opiera
+się na nazwie HMAC (obrona w głąb; ostrzeżenie w panelu + readme); flood draftów z
+leada zależy od rate-limitu formularza P1 (kontrakt do_action nie uwierzytelnia
+emitera); nagłówki ogólnowitrynowe (HSTS) to poziom serwera (readme).
+
 ## Narzędzia
 
 - Środowisko: `@wp-playground/cli` (lokalny WordPress, kod wtyczek montowany
   z dysku — omija limit `upload_max_filesize` przeglądarkowego Playground).
 - Harness jednostkowy (poza WP): `tests/process-harness/run-process.php` —
-  **108/108 PASS** na wersji 1.0.4. Obejmuje inwarianty 1.0.3 (`inv95`/`inv96`
+  **110/110 PASS** na wersji 1.0.5 (w tym 2 inwarianty rundy security: limit pozycji, jednolity kod enumeracji). Obejmuje inwarianty 1.0.3 (`inv95`/`inv96`
   VAT per klasa podatkowa + rabat proporcjonalny, `inv97` cena ujemna) oraz
   6 nowych inwariantów rundy debug 1.0.4: produkt `tax_status=none` → 0% VAT,
   kraj nieznany WooCommerce → `unknown_country`, promocja z wygasłym harmonogramem

@@ -52,6 +52,9 @@ class MP_OB_D1_Agent_Contract extends MP_OB_Abstract_Agent {
 	/** Dozwolone warianty cenowe — lustro RULES w Dziale 5 (standard/partner). */
 	const ALLOWED_WARIANTS = array( 'standard', 'partner' );
 
+	/** SR1-02: górny limit liczby pozycji w jednym żądaniu (DoS pipeline). */
+	const MAX_ITEMS = 200;
+
 	public function __construct() {
 		parent::__construct( '1.1', 'Agent 1.1 — kontrakt', 'Waliduje wejściowy JSON: dane klienta, pozycje, wariant cenowy, język pl/en' );
 	}
@@ -84,7 +87,14 @@ class MP_OB_D1_Agent_Contract extends MP_OB_Abstract_Agent {
 				// podstawienie offer_id. Fail-fast, PRZED dociągnięciem danych klienta.
 				$owner = ( isset( $draft['created_by'] ) && null !== $draft['created_by'] ) ? (int) $draft['created_by'] : null;
 				if ( null !== $owner && get_current_user_id() !== $owner && ! current_user_can( 'manage_options' ) ) {
-					return MP_OB_Result::fail( 'Brak uprawnień do wskazanego szkicu oferty.', array(), 'forbidden' );
+					// SR1-01: NIE różnicujemy "cudzy szkic" od "nie istnieje" — inaczej sekwencyjny
+					// offer_id staje się wyrocznią do enumeracji cudzych szkiców. Ten sam błąd i kod
+					// (invalid_contract, 422) co dla nieistniejącego; $client poniżej i tak zostaje
+					// ODRZUCONY przez niepuste $errors, a AJAX zwraca generyk (nie listę błędów).
+					$errors[] = array(
+						'field'   => 'offer_id',
+						'message' => 'Wskazany szkic oferty nie istnieje albo nie jest w statusie draft.',
+					);
 				}
 				$client = array(
 					'name'       => $draft['client_name'],
@@ -115,6 +125,13 @@ class MP_OB_D1_Agent_Contract extends MP_OB_Abstract_Agent {
 			$errors[] = array(
 				'field'   => 'items',
 				'message' => 'Lista pozycji nie może być pusta.',
+			);
+		} elseif ( count( $items ) > self::MAX_ITEMS ) {
+			// SR1-02: górny limit liczby pozycji — Dział 1 (pierwszy, fail-fast) odrzuca
+			// nadmiarowe żądanie ZANIM ruszą kosztowne działy 2-11 (odczyt WC, render PDF).
+			$errors[] = array(
+				'field'   => 'items',
+				'message' => sprintf( 'Zbyt wiele pozycji w ofercie (maksimum %d).', self::MAX_ITEMS ),
 			);
 		} else {
 			foreach ( $items as $i => $item ) {

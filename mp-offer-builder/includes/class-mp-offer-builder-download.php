@@ -61,6 +61,9 @@ class MP_Offer_Builder_Download {
 		}
 
 		if ( ! self::can_download( $offer, get_current_user_id() ) ) {
+			// SR3-01: odmowa dostępu do CUDZEJ oferty (próba IDOR przez uprawnionego
+			// handlowca) trafia do dziennika audytu — inaczej nadużycie byłoby niewykrywalne.
+			self::log_access( $offer_id, 'offer.pdf_denied', 'owner_mismatch' );
 			wp_die( esc_html__( 'Brak dostępu do tej oferty.', 'mp-offer-builder' ), '', array( 'response' => 403 ) );
 		}
 
@@ -78,13 +81,45 @@ class MP_Offer_Builder_Download {
 			wp_die( esc_html__( 'Plik PDF poza dozwolonym katalogiem.', 'mp-offer-builder' ), '', array( 'response' => 404 ) );
 		}
 
+		// SR3-01: rozliczalność — kto/kiedy pobrał poufną ofertę B2B (indywidualne ceny).
+		self::log_access( $offer_id, 'offer.pdf_downloaded', '' );
+
 		nocache_headers(); // S7-2: poufna oferta (dane klienta/ceny) — bez cache w przeglądarce/proxy.
 		header( 'Content-Type: application/pdf' );
+		header( 'X-Content-Type-Options: nosniff' );          // SR3-03/SR4-02: bez MIME-sniffingu.
+		header( 'X-Frame-Options: DENY' );                     // SR4-03: bez osadzania w ramce (clickjacking).
+		header( 'Referrer-Policy: no-referrer' );              // SR5-05: nazwa pliku nie wycieka w Referer.
+		header( 'Cache-Control: private, no-store, max-age=0' ); // SR3-04: twardszy no-store dla dokumentu z cenami.
 		header( 'Content-Disposition: attachment; filename="' . basename( $real_pdf ) . '"' );
 		header( 'Content-Length: ' . filesize( $real_pdf ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_read_filesize
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile
 		readfile( $real_pdf );
 		exit;
+	}
+
+	/**
+	 * Wpis audytowy pobrania/odmowy PDF do BD-2 (SR3-01, rozliczalność dostępu do
+	 * poufnych ofert). Best-effort — ewentualny błąd logu nie blokuje odpowiedzi.
+	 * Zapisujemy user_id + offer_id + akcję (created_at z DEFAULT schematu); BEZ IP
+	 * (minimalizacja danych — RODO). Odmowy 'offer.pdf_denied' służą wykrywaniu IDOR.
+	 *
+	 * @param int    $offer_id ID oferty.
+	 * @param string $action   'offer.pdf_downloaded' albo 'offer.pdf_denied'.
+	 * @param string $note     Krótki, nietajny opis (np. powód odmowy).
+	 * @return void
+	 */
+	private static function log_access( $offer_id, $action, $note = '' ) {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->insert(
+			MP_Offer_Builder_DB::activity_log_table(),
+			array(
+				'offer_id'    => (int) $offer_id,
+				'action'      => (string) $action,
+				'description' => (string) $note,
+				'user_id'     => get_current_user_id(),
+			)
+		);
 	}
 
 	/**

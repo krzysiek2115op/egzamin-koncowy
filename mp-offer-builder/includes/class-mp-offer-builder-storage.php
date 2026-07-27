@@ -153,9 +153,16 @@ class MP_Offer_Builder_Storage {
 	 *                       rename() się nie powiódł (dysk pełny, uprawnienia).
 	 */
 	public static function finalize_pdf( $tmp_path, $offer_number, $version ) {
+		// SR3-06: obrona w głąb — źródło MUSI leżeć w katalogu tymczasowym (choć
+		// pochodzi z zaufanego kontekstu pipeline'u) zanim je przeniesiemy na docelową nazwę.
+		$real_tmp  = realpath( $tmp_path );
+		$real_base = realpath( self::tmp_dir() );
+		if ( false === $real_tmp || false === $real_base || 0 !== strpos( $real_tmp, $real_base . DIRECTORY_SEPARATOR ) ) {
+			return false;
+		}
 		$final_path = self::final_pdf_path( $offer_number, $version );
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename
-		if ( ! rename( $tmp_path, $final_path ) ) {
+		if ( ! rename( $real_tmp, $final_path ) ) {
 			return false;
 		}
 		return $final_path;

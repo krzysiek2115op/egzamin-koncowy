@@ -1,4 +1,9 @@
 <?php
+// SR5-03: harness działa WYŁĄCZNIE z CLI (albo w WP z ABSPATH). Bezpośrednie
+// wywołanie przez web-serwer nie robi nic (info disclosure / obciążenie).
+if ( 'cli' !== PHP_SAPI && ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 /**
  * Harness weryfikujący RUSZTOWANIE (krok 2) pipeline'u MP Offer Builder.
  *
@@ -1385,7 +1390,10 @@ $r95                                        = run_pipeline( $idor95_input );
 $GLOBALS['__mp_ob_cfg']['current_user_id'] = 0;
 $GLOBALS['__mp_ob_cfg']['denied_caps']     = array();
 $inv95                                      = ! $r95['ok']
-	&& 'forbidden' === $r95['code']
+	// SR1-01: korekta CUDZEJ oferty nadal ZABLOKOWANA, ale kod jest teraz celowo
+	// nierozróżnialny od "szkic nie istnieje" (invalid_contract), żeby sekwencyjny
+	// offer_id nie stał się wyrocznią enumeracji cudzych szkiców (wcześniej 'forbidden').
+	&& 'invalid_contract' === $r95['code']
 	&& 33 === (int) ( $GLOBALS['wpdb']->offers[22]['created_by'] ?? 0 ) // właściciel niezmieniony.
 	&& 'Klient Z Wlascicielem Sp. z o.o.' === ( $GLOBALS['wpdb']->offers[22]['client_name'] ?? '' ); // dane NIE nadpisane.
 record(
@@ -2109,6 +2117,30 @@ $invF = $rF['ok'] && is_array( $vdataF )
 	&& ( $vdataF['offer_number'] ?? null ) === $finalF
 	&& 'OF/' . (int) gmdate( 'Y' ) . '/000002' === $finalF;
 record( 'inv_s6_02_data_json_po_retry_nowy_numer', $invF ? 'PASS' : 'FAIL', 'final=' . ( $finalF ?? '-' ) . ' data_json.offer_number=' . ( $vdataF['offer_number'] ?? '-' ) );
+
+/* ---------- Runda Security Hardening 1.0.5 ---------- */
+
+echo "\n=== SECURITY: limit pozycji / IDOR-enumeracja ===\n";
+
+// SEC-1 (SR1-02): żądanie z liczbą pozycji > MAX_ITEMS odrzucone w Dziale 1
+//   (fail-fast, invalid_contract) ZANIM ruszą kosztowne działy 2-11 (DoS).
+$too_many          = base_input();
+$too_many['items'] = array();
+for ( $k = 0; $k < ( MP_OB_D1_Agent_Contract::MAX_ITEMS + 5 ); $k++ ) {
+	$too_many['items'][] = array( 'product_id' => 812, 'variation_id' => 9101, 'qty' => 1 );
+}
+$rSec1 = run_pipeline( $too_many );
+$invSec1 = ! $rSec1['ok'] && 'invalid_contract' === $rSec1['code'] && 1 === $rSec1['stop_dept'];
+record( 'inv_sec1_limit_pozycji_dos', $invSec1 ? 'PASS' : 'FAIL', 'ok=' . ( $rSec1['ok'] ? 'tak' : 'nie' ) . ' code=' . $rSec1['code'] . ' stop=' . $rSec1['stop_dept'] );
+
+// SEC-2 (SR1-01): nieistniejący offer_id daje TEN SAM kod (invalid_contract) co
+//   korekta CUDZEJ oferty (inv95) — brak wyroczni enumeracji po statusie/kodzie.
+$ghost              = base_input();
+$ghost['offer_id']  = 987654;
+unset( $ghost['client'] );
+$rSec2 = run_pipeline( $ghost );
+$invSec2 = ! $rSec2['ok'] && 'invalid_contract' === $rSec2['code'];
+record( 'inv_sec2_enumeracja_jednolity_kod', $invSec2 ? 'PASS' : 'FAIL', 'code=' . $rSec2['code'] );
 
 /* ---------- Podsumowanie ---------- */
 

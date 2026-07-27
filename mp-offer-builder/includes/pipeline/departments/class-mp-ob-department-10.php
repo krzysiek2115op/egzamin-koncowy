@@ -297,9 +297,13 @@ class MP_OB_D10_Agent_Transaction extends MP_OB_Abstract_Agent {
 					$update_where['lock_version'] = (int) $plan['expected_lock_version'];
 				}
 				$update_result = $wpdb->update( MP_Offer_Builder_DB::offers_table(), $header, $update_where );
-				if ( 0 === $update_result && isset( $update_where['lock_version'] ) ) {
+				if ( 0 === $update_result ) {
+					// SR2-03: 0 zmienionych wierszy = WHERE nie trafił (blokada optymistyczna
+					// ALBO wiersz nie istnieje). NIGDY cichy sukces — inaczej pozycje wstawiłyby
+					// się dla nieistniejącego nagłówka. updated_at zmienia się przy KAŻDYM zapisie,
+					// więc realny UPDATE trafionego wiersza zawsze daje >=1 (0 = brak trafienia).
 					return MP_OB_Result::fail(
-						'Oferta została zmieniona przez innego użytkownika w międzyczasie. Odśwież i spróbuj ponownie.',
+						'Oferta została zmieniona przez innego użytkownika albo nie istnieje. Odśwież i spróbuj ponownie.',
 						array(),
 						'concurrent_modification'
 					);

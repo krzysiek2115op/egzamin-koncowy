@@ -65,6 +65,8 @@ class MP_OB_D9_Agent_Render extends MP_OB_Abstract_Agent {
 
 		$options = new \Dompdf\Options();
 		$options->set( 'isRemoteEnabled', false ); // offline — bez pobierania zdalnych zasobów (SSRF).
+		$options->set( 'isPhpEnabled', false );        // SR3-05: bez wykonywania PHP w szablonie PDF.
+		$options->set( 'isJavascriptEnabled', false ); // SR4-01: bez osadzania JS w dokumencie PDF.
 		// "chroot" (docs/dzial-09/dompdf.md — cytat z Options.php): "All local
 		// files opened by dompdf must be in a subdirectory of the directory or
 		// directories specified by this option." Szablon Działu 7 NIE odwołuje

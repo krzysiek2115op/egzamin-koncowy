@@ -4,7 +4,7 @@ Tags: oferty, pdf, woocommerce, cennik
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.4
+Stable tag: 1.0.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -30,7 +30,54 @@ generuje ofertę PDF wraz z numeracją i historią wersji.
    Prawdziwy polski sklep ma tę wartość domyślnie; wymaga uwagi tylko na
    świeżym/testowym WooCommerce (domyślnie USA).
 
+== Security & Privacy ==
+
+Poufność ofert (indywidualne ceny B2B) jest chroniona wielowarstwowo: pliki PDF
+leżą w katalogu prywatnym, a pobieranie przechodzi przez endpoint z weryfikacją
+nonce + uprawnienia + właściciela oferty (nigdy publiczny link). Każde pobranie i
+odmowa są logowane (rozliczalność). Endpoint wysyła nagłówki nosniff / X-Frame-
+Options: DENY / Referrer-Policy / no-store.
+
+Zalecenia wdrożeniowe (poziom serwera, poza wtyczką):
+
+* HTTPS + HSTS: skonfiguruj na poziomie serwera/hostingu (nagłówek Strict-
+  Transport-Security dla całej witryny) — wtyczka nie ustawia nagłówków
+  ogólnowitrynowych, żeby nie kolidować z konfiguracją serwera.
+* nginx: pliki .htaccess są ignorowane. Dodaj do konfiguracji blok blokujący
+  bezpośredni dostęp do katalogu ofert (wtyczka pokazuje to ostrzeżenie w panelu):
+  `location ~* /uploads/mp-offer-builder-private/ { deny all; return 403; }`
+
+RODO/GDPR:
+
+* Dane osobowe klienta (nazwa, e-mail, NIP, kraj) obsługują wbudowane narzędzia
+  WordPressa: Narzędzia → Eksport danych osobowych oraz Narzędzia → Usuń dane
+  osobowe (po adresie e-mail). Usunięcie ANONIMIZUJE dane w ofertach, redaguje
+  snapshoty wersji i kasuje pliki PDF; sam wiersz oferty zostaje jako dokument
+  handlowy o wartości dowodowej.
+* Retencja: wtyczka NIE usuwa ofert automatycznie. Politykę retencji (jak długo
+  przechowywać oferty/logi) określa administrator zgodnie z wymogami prawnymi.
+* Sugerowana treść polityki prywatności jest dodawana w Ustawienia → Prywatność.
+
 == Changelog ==
+
+= 1.0.5 =
+* Pelny Security Hardening (5 niezaleznych Security Reviewerow per segment + cross-review):
+* [Bezp.] Rate-limiting endpointu budowy oferty (20/min/uzytkownik) + twardy limit
+  rozmiaru zadania (256 KB, glebokosc JSON) i liczby pozycji (max 200) — ochrona przed
+  floodem i DoS przez rozdmuchane wejscie.
+* [Bezp.] Koniec enumeracji: korekta/podgladanie cudzego szkicu po sekwencyjnym offer_id
+  oraz cudzy request_id zwracaja TEN SAM wynik co 'nie istnieje' (brak wyroczni wlasnosci).
+* [Bezp.] Audit-log pobran PDF (kto/kiedy pobral oferte + prob odmowy) — rozliczalnosc dostepu.
+* [Bezp.] Naglowki pobierania: X-Content-Type-Options: nosniff, X-Frame-Options: DENY,
+  Referrer-Policy: no-referrer, Cache-Control: private, no-store.
+* [Bezp.] Dompdf: jawnie wylaczone isPhpEnabled i isJavascriptEnabled (obrona w glab PDF).
+* [RODO] Integracja prywatnosci WordPressa: eksporter + anonimizacja (eraser) danych klienta
+  po e-mailu (kasowanie PDF, redakcja snapshotu), sugerowana tresc polityki prywatnosci.
+* [Bezp.] Zapis oferty: 0 zmienionych wierszy przy UPDATE = konflikt (nigdy cichy sukces);
+  blokada per-lead zwalniana tylko gdy zdobyta; containment przy finalizacji PDF.
+* [Bezp.] Ostrzezenie dla nginx (gdzie .htaccess nie dziala) z gotowym blokiem konfiguracji;
+  guard CLI na harnessie; .distignore wykluczajacy pliki dev z paczki.
+* Harness 110/110, PHPCS/WPCS 0/0. Zero luk krytycznych/wysokich; wszystkie srednie domkniete.
 
 = 1.0.4 =
 * Ostateczna runda debug (8 równoległych sub-audytów + przegląd krzyżowy) — naprawione:

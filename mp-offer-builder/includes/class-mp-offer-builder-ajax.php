@@ -30,6 +30,33 @@ class MP_Offer_Builder_Ajax {
 	/** Nazwa akcji AJAX. */
 	const ACTION = 'mp_offer_builder_submit';
 
+	/** SR1-02: twardy limit rozmiaru ciała JSON (DoS) — 256 KB z zapasem na duże oferty. */
+	const MAX_BODY_BYTES = 262144;
+	/** SR1-03: okno (s) i limit żądań submit per użytkownik (flood). */
+	const RATE_WINDOW = 60;
+	const RATE_MAX    = 20;
+
+	/**
+	 * SR1-03: throttle per zalogowany użytkownik (transient). Idempotencja dedupuje
+	 * tylko IDENTYCZNY request_id; różne request_id uruchamiają kosztowny pipeline —
+	 * bez limitu przejęte/zapętlone konto zalewa system. Zwraca true = zablokować.
+	 *
+	 * @return bool
+	 */
+	private static function throttled() {
+		$user_id = get_current_user_id();
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+		$key   = 'mp_ob_rate_' . $user_id;
+		$count = (int) get_transient( $key );
+		if ( $count >= self::RATE_MAX ) {
+			return true;
+		}
+		set_transient( $key, $count + 1, self::RATE_WINDOW );
+		return false;
+	}
+
 	/**
 	 * Rejestruje akcję AJAX (wyłącznie zalogowani — patrz uzasadnienie wyżej).
 	 *
@@ -69,11 +96,33 @@ class MP_Offer_Builder_Ajax {
 			);
 		}
 
+		// SR1-03: rate-limit PRZED odczytem/parsowaniem ciała i pipeline.
+		if ( self::throttled() ) {
+			wp_send_json_error(
+				array(
+					'code'    => 'rate_limited',
+					'message' => 'Zbyt wiele żądań. Odczekaj chwilę i spróbuj ponownie.',
+				),
+				429
+			);
+		}
+
 		// Wejście TYLKO JSON (Dział 1, zk-label diagramu) — surowe ciało żądania,
 		// nie tablica $_POST (kontrakt to zagnieżdżony obiekt client/items, nie
 		// płaskie pola formularza jak w plugin 1).
-		$raw     = file_get_contents( 'php://input' );
-		$decoded = json_decode( (string) $raw, true );
+		$raw = file_get_contents( 'php://input' );
+		// SR1-02: odrzuć nadmiarowo duże ciało PRZED json_decode (DoS pamięci/CPU).
+		if ( strlen( (string) $raw ) > self::MAX_BODY_BYTES ) {
+			wp_send_json_error(
+				array(
+					'code'    => 'payload_too_large',
+					'message' => 'Żądanie jest zbyt duże.',
+				),
+				413
+			);
+		}
+		// Jawny limit głębokości zagnieżdżenia JSON (SR1-02) — obrona przed bombą struktury.
+		$decoded = json_decode( (string) $raw, true, 32 );
 		if ( ! is_array( $decoded ) ) {
 			$decoded = array();
 		}
@@ -99,26 +148,23 @@ class MP_Offer_Builder_Ajax {
 			// trafia do klienta jako trace_id (Dział 11), więc BEZ tej kontroli podanie
 			// cudzego request_id ujawniłoby metadane cudzej oferty (IDOR).
 			$existing_owner = isset( $existing['created_by'] ) && null !== $existing['created_by'] ? (int) $existing['created_by'] : null;
-			if ( null !== $existing_owner && get_current_user_id() !== $existing_owner && ! current_user_can( 'manage_options' ) ) {
-				wp_send_json_error(
+			$owns_existing  = null === $existing_owner || get_current_user_id() === $existing_owner || current_user_can( 'manage_options' );
+			if ( $owns_existing ) {
+				// SR1-04: TYLKO właściciel dostaje dane istniejącej oferty. Dla CUDZEGO
+				// request_id nie zwracamy ani 403, ani danych — płyniemy dalej jak dla
+				// nieznanego (pipeline trafi na uq_request_id → idempotent_replay → generyk),
+				// żeby trace_id nie stał się wyrocznią istnienia cudzej oferty (enumeracja).
+				wp_send_json_success(
 					array(
-						'code'     => 'forbidden',
-						'message'  => 'Brak dostępu do wskazanego żądania.',
-						'trace_id' => $request_id,
-					),
-					403
+						'offer_id'     => (int) $existing['id'],
+						'offer_number' => $existing['offer_number'],
+						'version'      => (int) $existing['version'],
+						'pdf_url'      => null,
+						'status'       => $existing['status'],
+						'trace_id'     => $request_id,
+					)
 				);
 			}
-			wp_send_json_success(
-				array(
-					'offer_id'     => (int) $existing['id'],
-					'offer_number' => $existing['offer_number'],
-					'version'      => (int) $existing['version'],
-					'pdf_url'      => null,
-					'status'       => $existing['status'],
-					'trace_id'     => $request_id,
-				)
-			);
 		}
 
 		// offer_id (opcjonalny): dokończenie istniejącego draftu z Kroku 2.5
