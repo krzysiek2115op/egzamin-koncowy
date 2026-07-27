@@ -28,6 +28,9 @@ define( 'MP_SALES_WORKFLOW_URL', plugin_dir_url( __FILE__ ) );
 // --- Warstwa bazy danych (BD-1) ---
 require_once MP_SALES_WORKFLOW_DIR . 'includes/db/class-mp-sales-workflow-db.php';
 
+// --- Pipeline (9 działów LP.3) ---
+require_once MP_SALES_WORKFLOW_DIR . 'includes/pipeline/bootstrap.php';
+
 /**
  * Aktywacja wtyczki — założenie tabel BD-1.
  *
