@@ -73,11 +73,20 @@ class MP_SW_Department {
 			if ( ! $agent_result->is_ok() ) {
 				$agent_data = $agent_result->get_data();
 
+				/*
+				 * Dane agenta idą dalej W CAŁOŚCI, a nie tylko lista pól. Odmowa
+				 * niesie wskazówki dla wywołującego — kod HTTP (403 / 409 / 422)
+				 * i `retry_from` przy konflikcie wersji — a te powstają w agencie
+				 * albo krytyku i nikt inny ich nie odtworzy.
+				 */
 				return MP_SW_Result::fail(
 					$agent_result->get_errors(),
-					array(
-						'agent'  => $agent->get_id(),
-						'errors' => isset( $agent_data['errors'] ) ? $agent_data['errors'] : array(),
+					array_merge(
+						$agent_data,
+						array(
+							'agent'  => $agent->get_id(),
+							'errors' => isset( $agent_data['errors'] ) ? $agent_data['errors'] : array(),
+						)
 					),
 					$agent_result->get_code() ? $agent_result->get_code() : 'agent_failed'
 				);
@@ -90,10 +99,13 @@ class MP_SW_Department {
 
 				return MP_SW_Result::fail(
 					$review->get_errors(),
-					array(
-						'agent'  => $agent->get_id(),
-						'critic' => $critic->get_id(),
-						'errors' => isset( $review_data['errors'] ) ? $review_data['errors'] : array(),
+					array_merge(
+						$review_data,
+						array(
+							'agent'  => $agent->get_id(),
+							'critic' => $critic->get_id(),
+							'errors' => isset( $review_data['errors'] ) ? $review_data['errors'] : array(),
+						)
 					),
 					'critic_failed'
 				);
@@ -110,9 +122,12 @@ class MP_SW_Department {
 
 			return MP_SW_Result::fail(
 				$gate_result->get_errors(),
-				array(
-					'gate'   => $this->key,
-					'errors' => isset( $gate_data['errors'] ) ? $gate_data['errors'] : array(),
+				array_merge(
+					$gate_data,
+					array(
+						'gate'   => $this->key,
+						'errors' => isset( $gate_data['errors'] ) ? $gate_data['errors'] : array(),
+					)
 				),
 				'gate_failed'
 			);
