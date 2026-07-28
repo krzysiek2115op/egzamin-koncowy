@@ -57,23 +57,49 @@ class MP_SW_Queue {
 		$batch = (int) apply_filters( self::FILTER_BATCH, self::BATCH );
 		$batch = max( 1, min( 200, $batch ) );
 
+		$summary = array(
+			'sent'    => 0,
+			'failed'  => 0,
+			'retry'   => 0,
+			'blocked' => 0,
+		);
+
+		/*
+		 * Bezpiecznik sprawdzamy PRZED pobraniem paczki. Zalew zdarzeń zamienia
+		 * sklep w nadawcę masowej poczty, a skutkiem jest wpisanie domeny na
+		 * czarne listy — jedyna szkoda w tym systemie, której nie da się cofnąć
+		 * poprawką w kodzie.
+		 */
+		if ( MP_SW_Mailer::halted() ) {
+			$summary['blocked'] = self::pending();
+
+			return $summary;
+		}
+
+		/*
+		 * Odstęp między próbami rośnie wykładniczo: 5 minut po pierwszej
+		 * nieudanej próbie, 25 po drugiej. Ponawianie co przebieg dobijałoby się
+		 * do serwera, który właśnie odmawia — a przy odmowie za nadmiar żądań
+		 * przedłużałoby własną blokadę.
+		 */
 		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare(
-				"SELECT * FROM {$table} WHERE status = %s AND attempts < %d ORDER BY id ASC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- nazwa tabeli pochodzi ze stalej klasy.
+				"SELECT * FROM {$table} WHERE status = %s AND attempts < %d AND ( attempts = 0 OR updated_at <= DATE_SUB( %s, INTERVAL POWER( 5, attempts ) MINUTE ) ) ORDER BY id ASC LIMIT %d",
 				self::STATUS_QUEUED,
 				self::MAX_ATTEMPTS,
+				current_time( 'mysql', true ),
 				$batch
 			),
 			ARRAY_A
 		);
 
-		$summary = array(
-			'sent'   => 0,
-			'failed' => 0,
-			'retry'  => 0,
-		);
-
 		foreach ( (array) $rows as $row ) {
+			if ( ! MP_SW_Mailer::allow_send() ) {
+				++$summary['blocked'];
+				continue;
+			}
+
 			$outcome = self::send_one( $row );
 			++$summary[ $outcome ];
 		}
@@ -110,8 +136,32 @@ class MP_SW_Queue {
 			array( 'id' => $id )
 		);
 
+		/*
+		 * Nagłówki budowane WYŁĄCZNIE jako tablica stałych — nigdy przez sklejanie
+		 * łańcucha z danymi z bazy. Temat przechodzi jeszcze raz przez czyszczenie,
+		 * choć Dział 7 już to zrobił: wiersz mógł trafić do kolejki starszą wersją
+		 * kodu albo zostać zmieniony poza pipelinem, a to jest ostatni moment przed
+		 * przekazaniem go bibliotece pocztowej.
+		 */
 		$headers = array( 'Content-Type: text/plain; charset=UTF-8' );
-		$sent    = wp_mail( $row['recipient'], $row['subject'], (string) $row['body'], $headers );
+		$to      = sanitize_email( (string) $row['recipient'] );
+		$subject = MP_SW_Mailer::header_safe( (string) $row['subject'] );
+
+		if ( ! is_email( $to ) ) {
+			$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+				$table,
+				array(
+					'status'     => self::STATUS_FAILED,
+					'last_error' => 'invalid recipient',
+					'updated_at' => $now,
+				),
+				array( 'id' => $id )
+			);
+
+			return 'failed';
+		}
+
+		$sent = wp_mail( $to, $subject, (string) $row['body'], $headers );
 
 		if ( $sent ) {
 			$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery

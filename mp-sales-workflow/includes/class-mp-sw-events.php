@@ -44,13 +44,109 @@ class MP_SW_Events {
 				'actor'    => array( 'user_id' => get_current_user_id() ),
 				'lang'     => 'pl',
 				'event_id' => wp_generate_uuid4(),
+
+				/*
+				 * Ślad nadajemy TUTAJ, a nie w Dziale 1, bo odmowa pochodzenia
+				 * zapada przed pipeline'em — a i ona musi dać się połączyć z wpisem
+				 * w dzienniku technicznym. Dział 1 istniejący ślad zachowuje.
+				 */
+				'trace_id' => wp_generate_uuid4(),
 			),
 			$data
 		);
 
-		$context  = new MP_SW_Context( $envelope );
+		// Zawsze nasze, nigdy z $data: wywołujący nie nadaje sobie pochodzenia.
+		$envelope['type']   = (string) $type;
+		$envelope['source'] = (string) $source;
+
+		$context = new MP_SW_Context( $envelope );
+		$origin  = MP_SW_Origin::check( $type, $source, $envelope );
+
+		if ( ! $origin['ok'] ) {
+			return self::refuse( $origin, $context, $envelope );
+		}
+
 		$pipeline = MP_SW_Pipeline_Factory::make( $type );
 		$result   = $pipeline->run( $context );
+
+		return array(
+			'result'  => $result,
+			'context' => $context,
+		);
+	}
+
+	/**
+	 * Zdarzenie z haka wtyczki 1 lub 2 (wywołanie wewnątrz procesu).
+	 *
+	 * @param string $type Typ zdarzenia.
+	 * @param array  $data Koperta.
+	 * @return array{result:MP_SW_Result,context:MP_SW_Context}
+	 */
+	public static function from_hook( $type, array $data ) {
+		return self::dispatch( $type, $data, MP_SW_D1::SOURCE_SYSTEM );
+	}
+
+	/**
+	 * Zdarzenie z harmonogramu.
+	 *
+	 * @param string $type Typ zdarzenia.
+	 * @param array  $data Koperta.
+	 * @return array{result:MP_SW_Result,context:MP_SW_Context}
+	 */
+	public static function from_cron( $type, array $data ) {
+		return self::dispatch( $type, $data, MP_SW_D1::SOURCE_CRON );
+	}
+
+	/**
+	 * Zdarzenie z żądania HTTP zalogowanego użytkownika.
+	 *
+	 * @param string $type Typ zdarzenia.
+	 * @param array  $data Koperta.
+	 * @return array{result:MP_SW_Result,context:MP_SW_Context}
+	 */
+	public static function from_http( $type, array $data ) {
+		return self::dispatch( $type, $data, MP_SW_D1::SOURCE_MANUAL );
+	}
+
+	/**
+	 * Odmowa pochodzenia — 403 przed jakąkolwiek pracą pipeline'u.
+	 *
+	 * Nie powstaje żaden kontekst zapisu, nie rusza odczyt, nie ma transakcji.
+	 * Ślad zostaje wyłącznie w dzienniku technicznym (log PHP), więc scenariusz
+	 * „zero zmian w bazie" jest spełniony dosłownie.
+	 *
+	 * @param array         $origin   Wynik kontroli pochodzenia.
+	 * @param MP_SW_Context $context  Kontekst.
+	 * @param array         $envelope Koperta.
+	 * @return array{result:MP_SW_Result,context:MP_SW_Context}
+	 */
+	private static function refuse( array $origin, MP_SW_Context $context, array $envelope ) {
+		$entity = isset( $envelope['entity'] ) ? (array) $envelope['entity'] : array();
+
+		MP_SW_Log::security(
+			MP_SW_Errors::code( $origin['code'] ),
+			array(
+				'code'     => MP_SW_Errors::code( $origin['code'] ),
+				'type'     => (string) $envelope['type'],
+				'source'   => (string) $envelope['source'],
+				'reason'   => (string) $origin['reason'],
+				'event_id' => (string) $envelope['event_id'],
+				'trace_id' => (string) $envelope['trace_id'],
+				'user_id'  => get_current_user_id(),
+				'lead_id'  => isset( $entity['lead_id'] ) ? (int) $entity['lead_id'] : 0,
+				'offer_id' => isset( $entity['offer_id'] ) ? (int) $entity['offer_id'] : 0,
+				'ip_hash'  => MP_SW_Log::ip_hash(),
+			)
+		);
+
+		$result = MP_SW_Result::fail(
+			__( 'Zdarzenie tego typu nie może pochodzić z tego kanału.', 'mp-sales-workflow' ),
+			array(
+				'errors'      => array( 'source' ),
+				'http_status' => 403,
+			),
+			$origin['code']
+		);
 
 		return array(
 			'result'  => $result,
@@ -124,14 +220,34 @@ class MP_SW_Events {
 			return empty( $response ) ? array( 'ok' => true ) : $response;
 		}
 
-		$data = $result->get_data();
+		$data     = $result->get_data();
+		$code     = MP_SW_Errors::code( $result->get_code() );
+		$trace_id = (string) $context->get( 'trace_id', '' );
+
+		/*
+		 * Szczegółowy komunikat krytyka trafia do dziennika, nie do odpowiedzi.
+		 * Wśród tych komunikatów są takie, które cytują wartość z żądania — przy
+		 * odmowie „bez poprawnego adresu odbiorcy (x@y)" oznaczałoby to odesłanie
+		 * adresu klienta wywołującemu. Powiązanie daje `trace_id`.
+		 */
+		MP_SW_Log::notice(
+			$code,
+			array(
+				'code'     => $code,
+				'type'     => (string) $context->get( 'type', '' ),
+				'source'   => (string) $context->get( 'source', '' ),
+				'event_id' => (string) $context->get( 'event_id', '' ),
+				'trace_id' => $trace_id,
+				'user_id'  => get_current_user_id(),
+			)
+		);
 
 		return array(
 			'ok'       => false,
-			'code'     => (string) $result->get_code(),
-			'message'  => implode( ' ', (array) $result->get_errors() ),
+			'code'     => $code,
+			'message'  => MP_SW_Errors::message( $code ),
 			'fields'   => isset( $data['errors'] ) ? array_values( (array) $data['errors'] ) : array(),
-			'trace_id' => (string) $context->get( 'trace_id', '' ),
+			'trace_id' => $trace_id,
 		);
 	}
 }

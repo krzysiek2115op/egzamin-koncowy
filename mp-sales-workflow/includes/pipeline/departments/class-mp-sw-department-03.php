@@ -64,6 +64,30 @@ class MP_SW_D3 {
 	public static function is_automated( $source ) {
 		return in_array( $source, array( MP_SW_D1::SOURCE_SYSTEM, MP_SW_D1::SOURCE_CRON ), true );
 	}
+
+	/**
+	 * Czy właściciel procesu mieści się w zasięgu aktora.
+	 *
+	 * Kolejność jest istotna: najpierw pełny widok, potem zespół — sprawdzany
+	 * po LIŚCIE ze snapshotu, nie po nazwie zespołu właściciela. Porównanie nazw
+	 * wymagałoby doczytania `mp_team` właściciela, czyli kolejnego strzału do
+	 * bazy poza jedynym odczytem (I-5).
+	 *
+	 * @param array $actor Dane aktora.
+	 * @param int   $owner Właściciel procesu.
+	 * @return bool
+	 */
+	public static function in_reach( array $actor, $owner ) {
+		if ( ! empty( $actor['manage_all'] ) ) {
+			return true;
+		}
+
+		if ( empty( $actor['view_team'] ) ) {
+			return false;
+		}
+
+		return in_array( (int) $owner, array_map( 'intval', (array) $actor['team_members'] ), true );
+	}
 }
 
 /**
@@ -87,12 +111,16 @@ class MP_SW_D3_Agent_Actor extends MP_SW_Abstract_Agent {
 		$from_db  = isset( $snapshot['roles']['actor'] ) ? (array) $snapshot['roles']['actor'] : array();
 
 		$actor = array(
-			'user_id'    => $user_id,
-			'roles'      => isset( $from_db['roles'] ) ? (array) $from_db['roles'] : array(),
-			'manage_all' => ! empty( $from_db['manage_all'] ),
-			'handles'    => ! empty( $from_db['handles'] ),
-			'team'       => isset( $from_db['team'] ) ? (string) $from_db['team'] : '',
-			'automated'  => MP_SW_D3::is_automated( $source ),
+			'user_id'       => $user_id,
+			'roles'         => isset( $from_db['roles'] ) ? (array) $from_db['roles'] : array(),
+			'manage_all'    => ! empty( $from_db['manage_all'] ),
+			'view_team'     => ! empty( $from_db['view_team'] ),
+			'assign'        => ! empty( $from_db['assign'] ),
+			'change_status' => ! empty( $from_db['change_status'] ),
+			'handles'       => ! empty( $from_db['handles'] ),
+			'team'          => isset( $from_db['team'] ) ? (string) $from_db['team'] : '',
+			'team_members'  => isset( $from_db['team_members'] ) ? array_map( 'intval', (array) $from_db['team_members'] ) : array(),
+			'automated'     => MP_SW_D3::is_automated( $source ),
 		);
 
 		/*
@@ -108,14 +136,50 @@ class MP_SW_D3_Agent_Actor extends MP_SW_Abstract_Agent {
 			$allowed = ! empty( $actor['handles'] );
 			$reason  = $allowed ? 'capability_granted' : 'capability_missing';
 
-			// Operacja na CUDZYM procesie wymaga uprawnień managera. Nie ma tu
-			// cichego zawężenia "zrobię to, ale tylko na swoim" — albo wolno,
+			/*
+			 * Uprawnienie SZCZEGÓŁOWE dla tego typu zdarzenia. Samo „obsługuje
+			 * procesy" odpowiadało na inne pytanie niż to, które trzeba zadać:
+			 * przepuszczało handlowca do każdego typu, bo znaczyło tylko tyle, że w
+			 * ogóle pracuje w tym module.
+			 */
+			$needed = MP_SW_Roles::cap_for_event( $type );
+
+			if ( $allowed && '' !== $needed ) {
+				$granted = array(
+					MP_SW_Roles::CAP_CHANGE_STATUS => ! empty( $actor['change_status'] ),
+					MP_SW_Roles::CAP_ASSIGN        => ! empty( $actor['assign'] ),
+					MP_SW_Roles::CAP_VIEW_OWN      => ! empty( $actor['handles'] ),
+				);
+
+				if ( empty( $granted[ $needed ] ) ) {
+					$allowed = false;
+					$reason  = 'capability_missing';
+				}
+			}
+
+			// Operacja na CUDZYM procesie wymaga zakresu, który go obejmuje. Nie ma
+			// tu cichego zawężenia "zrobię to, ale tylko na swoim" — albo wolno,
 			// albo odmowa z kodem (K3.1).
 			if ( $allowed ) {
 				$flow  = (array) $context->get( 'flow', array() );
 				$owner = isset( $flow['row']['assigned_user_id'] ) ? (int) $flow['row']['assigned_user_id'] : 0;
 
-				if ( $owner > 0 && $owner !== $user_id && ! $actor['manage_all'] ) {
+				if ( $owner > 0 && $owner !== $user_id && ! MP_SW_D3::in_reach( $actor, $owner ) ) {
+					$allowed = false;
+					$reason  = 'foreign_process';
+				}
+
+				/*
+				 * Proces NIEISTNIEJĄCY dostaje tę samą odmowę co cudzy — i to jest
+				 * cała różnica między 404 a wyrocznią. Gdyby brak procesu kończył
+				 * się innym kodem niż cudzy proces (np. 422 „niedozwolone
+				 * przejście"), wystarczyłoby przelecieć identyfikatory i po samych
+				 * kodach odpowiedzi odczytać, które z nich istnieją. Odmowa musi
+				 * wyglądać identycznie w obu przypadkach.
+				 *
+				 * Podglądu to nie dotyczy: `dashboard.view` nie wskazuje procesu.
+				 */
+				if ( $allowed && empty( $flow['exists'] ) && MP_SW_Pipeline_Factory::EVENT_DASHBOARD_VIEW !== $type ) {
 					$allowed = false;
 					$reason  = 'foreign_process';
 				}
@@ -149,18 +213,32 @@ class MP_SW_D3_Critic_Permission extends MP_SW_Abstract_Critic {
 		if ( empty( $data['allowed'] ) ) {
 			$reason = isset( $data['reason'] ) ? (string) $data['reason'] : 'forbidden';
 
+			/*
+			 * Cudzy proces to 404, nie 403 — i jest to różnica bezpieczeństwa, nie
+			 * kosmetyka. Odpowiedź 403 („nie wolno ci tego procesu") potwierdza, że
+			 * proces ISTNIEJE; wystarczy przelecieć identyfikatory i po samych
+			 * kodach odpowiedzi da się odczytać, ilu klientów obsługuje konkurencja
+			 * i pod jakimi numerami. 404 mówi to samo, co przy numerze zmyślonym.
+			 *
+			 * Brak uprawnienia jako takiego zostaje przy 403: tam nie ma czego
+			 * ukrywać, bo odmowa nie zależy od tego, czy obiekt istnieje.
+			 */
+			$hidden = 'foreign_process' === $reason;
+
 			return MP_SW_Result::fail(
-				sprintf(
-					/* translators: 1: nazwa operacji, 2: powód odmowy. */
-					__( 'Operacja %1$s poza uprawnieniami aktora (%2$s).', 'mp-sales-workflow' ),
-					isset( $data['operation'] ) ? $data['operation'] : '?',
-					$reason
-				),
+				$hidden
+					? __( 'Nie znaleziono procesu.', 'mp-sales-workflow' )
+					: sprintf(
+						/* translators: 1: nazwa operacji, 2: powód odmowy. */
+						__( 'Operacja %1$s poza uprawnieniami aktora (%2$s).', 'mp-sales-workflow' ),
+						isset( $data['operation'] ) ? $data['operation'] : '?',
+						$reason
+					),
 				array(
-					'errors'      => array( $reason ),
-					'http_status' => 403,
+					'errors'      => array( $hidden ? 'flow' : $reason ),
+					'http_status' => $hidden ? 404 : 403,
 				),
-				'operation_forbidden'
+				$hidden ? 'flow_not_found' : 'operation_forbidden'
 			);
 		}
 
@@ -182,12 +260,19 @@ class MP_SW_D3_Agent_Scope extends MP_SW_Abstract_Agent {
 
 		$automated  = ! empty( $actor['automated'] );
 		$manage_all = ! empty( $actor['manage_all'] );
+		$view_team  = ! empty( $actor['view_team'] );
 		$team       = isset( $actor['team'] ) ? (string) $actor['team'] : '';
 		$user_id    = isset( $actor['user_id'] ) ? (int) $actor['user_id'] : 0;
 
+		/*
+		 * Zakres zespołu wymaga UPRAWNIENIA, nie samej przynależności. Poprzednia
+		 * reguła („ma wpisany mp_team, więc widzi zespół") dawała szerszy widok
+		 * każdemu handlowcowi, któremu ktokolwiek ustawił pole zespołu — a to
+		 * pole opisuje, GDZIE ktoś pracuje, nie CO wolno mu zobaczyć.
+		 */
 		if ( $automated || $manage_all ) {
 			$scope = MP_SW_D3::SCOPE_ALL;
-		} elseif ( '' !== $team ) {
+		} elseif ( $view_team && '' !== $team ) {
 			$scope = MP_SW_D3::SCOPE_TEAM;
 		} else {
 			$scope = MP_SW_D3::SCOPE_OWN;
@@ -208,6 +293,14 @@ class MP_SW_D3_Agent_Scope extends MP_SW_Abstract_Agent {
 				'scope'           => $scope,
 				'scope_user_id'   => $user_id,
 				'scope_team'      => $team,
+
+				/*
+				 * Skład zespołu idzie dalej kontekstem, żeby pulpit budował zapytanie
+				 * z TEJ listy — tej samej, na której zapadła decyzja o zakresie.
+				 * Odczytanie go drugi raz przy wyświetlaniu byłoby drugim strzałem i,
+				 * gorzej, drugim źródłem prawdy.
+				 */
+				'scope_members'   => MP_SW_D3::SCOPE_TEAM === $scope && isset( $actor['team_members'] ) ? array_map( 'intval', (array) $actor['team_members'] ) : array(),
 				'scope_requested' => $requested,
 			)
 		);

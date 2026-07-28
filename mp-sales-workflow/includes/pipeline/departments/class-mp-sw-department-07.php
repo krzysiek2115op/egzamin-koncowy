@@ -253,7 +253,16 @@ class MP_SW_D7_Agent_Recipients extends MP_SW_Abstract_Agent {
 	}
 
 	/**
-	 * Dane klienta: pierwszeństwo ma proces, uzupełnia je koperta.
+	 * Dane klienta — WYŁĄCZNIE ze snapshotu (I-3).
+	 *
+	 * Kolejność źródeł: najpierw tabela leadów wtyczki 1 (odczytana po `lead_id`
+	 * w Dziale 2), potem wiersz procesu. Koperta zdarzenia NIE jest już źródłem
+	 * adresu i to jest właściwa poprawka, nie tylko porządek: dopóki adres mógł
+	 * przyjść w kopercie, dowolna wtyczka na tej instalacji mogła wywołać
+	 * `mp_lead_created` z własnym adresem i przekierować firmową ofertę.
+	 *
+	 * Wiersz procesu zostaje jako źródło zapasowe dla procesów prowadzonych bez
+	 * wtyczki 1 — tam nie ma leada do odczytania, a adres wpisał człowiek.
 	 *
 	 * @param MP_SW_Context $context Kontekst.
 	 * @param array         $flow    Sekcja procesu.
@@ -261,17 +270,18 @@ class MP_SW_D7_Agent_Recipients extends MP_SW_Abstract_Agent {
 	 */
 	private static function client_data( MP_SW_Context $context, array $flow ) {
 		$row      = isset( $flow['row'] ) ? (array) $flow['row'] : array();
-		$envelope = (array) $context->get( 'client', array() );
+		$snapshot = (array) $context->get( MP_SW_D2_Reader::SNAPSHOT_KEY, array() );
+		$lead     = isset( $snapshot['lead'] ) ? (array) $snapshot['lead'] : array();
 
-		$name  = isset( $row['client_name'] ) ? (string) $row['client_name'] : '';
-		$email = isset( $row['client_email'] ) ? (string) $row['client_email'] : '';
+		$name  = isset( $lead['name'] ) ? (string) $lead['name'] : '';
+		$email = isset( $lead['email'] ) ? (string) $lead['email'] : '';
 
-		if ( '' === $name && isset( $envelope['name'] ) ) {
-			$name = (string) $envelope['name'];
+		if ( '' === $name && isset( $row['client_name'] ) ) {
+			$name = (string) $row['client_name'];
 		}
 
-		if ( '' === $email && isset( $envelope['email'] ) ) {
-			$email = (string) $envelope['email'];
+		if ( '' === $email && isset( $row['client_email'] ) ) {
+			$email = (string) $row['client_email'];
 		}
 
 		return array(
@@ -417,8 +427,10 @@ class MP_SW_D7_Agent_Content extends MP_SW_Abstract_Agent {
 				 * kolejki, a przy ofercie na kilka megabajtów i kilkudziesięciu
 				 * powiadomieniach kończy się to wyczerpaniem limitu pamięci.
 				 */
-				'link'          => self::process_link( $lead_id ),
+				'link'          => self::link_for( $recipient, $snapshot, $lead_id ),
 			);
+
+			$subject = MP_SW_D7_Notifier::render( $tpl['subject'], $vars );
 
 			$messages[] = array(
 				'audience'         => (string) $recipient['audience'],
@@ -428,7 +440,18 @@ class MP_SW_D7_Agent_Content extends MP_SW_Abstract_Agent {
 				'recipient'        => (string) $recipient['email'],
 				'recipient_name'   => (string) $recipient['name'],
 				'user_id'          => (int) $recipient['user_id'],
-				'subject'          => MP_SW_D7_Notifier::render( $tpl['subject'], $vars ),
+
+				/*
+				 * Temat trafia do NAGŁÓWKA wiadomości, a jego treść pochodzi z pola
+				 * `client_name` wypełnionego przez anonima w publicznym formularzu.
+				 * Znak końca linii w tym miejscu kończy nagłówek „Subject" i zaczyna
+				 * następny — czyli pozwala dopisać własne `Bcc:`. Czyścimy, a próbę
+				 * odnotowujemy, żeby krytyk mógł odrzucić całą wiadomość.
+				 */
+				'subject'          => MP_SW_Mailer::header_safe( $subject ),
+				'subject_raw'      => $subject,
+				'header_attempt'   => MP_SW_Mailer::has_injection( $subject ) || MP_SW_Mailer::has_injection( $recipient['name'] ),
+				'link'             => (string) $vars['link'],
 				'body'             => MP_SW_D7_Notifier::render( $tpl['body'], $vars ),
 				'reason'           => (string) $recipient['reason'],
 			);
@@ -449,6 +472,38 @@ class MP_SW_D7_Agent_Content extends MP_SW_Abstract_Agent {
 		$value = isset( $row[ $key ] ) ? (string) $row[ $key ] : '';
 
 		return '' !== $value ? $value : (string) $fallback;
+	}
+
+	/**
+	 * Adres w wiadomości — inny dla klienta, inny dla handlowca.
+	 *
+	 * To była realna usterka, nie tylko kwestia bezpieczeństwa: klient dostawał
+	 * w ofercie adres `wp-admin`, którego nie może otworzyć, bo nie ma konta.
+	 * Klientowi należy się PODPISANY link do dokumentu, handlowcowi — podstrona
+	 * procesu w panelu.
+	 *
+	 * @param array $recipient Odbiorca.
+	 * @param array $snapshot  Snapshot Działu 2.
+	 * @param int   $lead_id   Identyfikator leada.
+	 * @return string
+	 */
+	private static function link_for( array $recipient, array $snapshot, $lead_id ) {
+		$audience = isset( $recipient['audience'] ) ? (string) $recipient['audience'] : '';
+
+		if ( MP_SW_D7_Notifier::AUDIENCE_CLIENT !== $audience ) {
+			return self::process_link( $lead_id );
+		}
+
+		$offer  = isset( $snapshot['offer'] ) ? (array) $snapshot['offer'] : array();
+		$handle = isset( $offer['handle'] ) ? (string) $offer['handle'] : '';
+
+		/*
+		 * Pusty adres NIE jest tu zastępowany adresem panelu. Znacznik `{{link}}`
+		 * zostanie wtedy nierozwiązany, a krytyk K7.2 odrzuci wiadomość — i o to
+		 * chodzi: brak klucza podpisu ma zatrzymać wysyłkę, a nie wypuścić do
+		 * klienta wiadomość z odnośnikiem, którego nie otworzy.
+		 */
+		return MP_SW_Download::url( $handle );
 	}
 
 	/**
@@ -502,6 +557,41 @@ class MP_SW_D7_Critic_Empty_Fields extends MP_SW_Abstract_Critic {
 						implode( ', ', array_unique( $unresolved ) )
 					),
 					array( 'errors' => array( 'messages.markers' ) ),
+					'unresolved_markers'
+				);
+			}
+
+			if ( ! empty( $message['header_attempt'] ) ) {
+				/*
+				 * Odrzucamy, mimo że temat został już oczyszczony. Cicha naprawa
+				 * wysłałaby wiadomość i ukryła fakt, że ktoś wpisał w nazwę firmy
+				 * znak końca linii — a to jedyny moment, w którym da się to
+				 * zauważyć. Wiadomość zatrzymana da się wysłać ponownie; wysłana
+				 * nie da się cofnąć.
+				 */
+				return MP_SW_Result::fail(
+					sprintf(
+						/* translators: %s: klucz szablonu. */
+						__( 'Powiadomienie %s odrzucone: próba wstrzyknięcia nagłówka.', 'mp-sales-workflow' ),
+						$message['template']
+					),
+					array(
+						'errors'      => array( 'messages.header' ),
+						'http_status' => 422,
+					),
+					'header_injection'
+				);
+			}
+
+			if ( MP_SW_D7_Notifier::AUDIENCE_CLIENT === (string) $message['audience'] && '' === trim( (string) $message['link'] ) ) {
+				// Oferta bez adresu dokumentu jest dla klienta bezużyteczna, a
+				// pusty odnośnik zwykle znaczy brak MP_SW_LINK_KEY na produkcji.
+				return MP_SW_Result::fail(
+					__( 'Powiadomienie do klienta bez adresu dokumentu — sprawdź MP_SW_LINK_KEY.', 'mp-sales-workflow' ),
+					array(
+						'errors'      => array( 'messages.link' ),
+						'http_status' => 500,
+					),
 					'unresolved_markers'
 				);
 			}

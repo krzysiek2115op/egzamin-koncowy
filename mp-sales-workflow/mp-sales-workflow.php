@@ -28,6 +28,15 @@ define( 'MP_SALES_WORKFLOW_URL', plugin_dir_url( __FILE__ ) );
 // --- Warstwa bazy danych (BD-1) ---
 require_once MP_SALES_WORKFLOW_DIR . 'includes/db/class-mp-sales-workflow-db.php';
 
+// --- Bezpieczeństwo: kody błędów, dziennik techniczny, macierz pochodzenia ---
+require_once MP_SALES_WORKFLOW_DIR . 'includes/class-mp-sw-errors.php';
+require_once MP_SALES_WORKFLOW_DIR . 'includes/class-mp-sw-log.php';
+require_once MP_SALES_WORKFLOW_DIR . 'includes/class-mp-sw-origin.php';
+require_once MP_SALES_WORKFLOW_DIR . 'includes/class-mp-sw-meta-guard.php';
+require_once MP_SALES_WORKFLOW_DIR . 'includes/class-mp-sw-download.php';
+require_once MP_SALES_WORKFLOW_DIR . 'includes/class-mp-sw-mailer.php';
+require_once MP_SALES_WORKFLOW_DIR . 'includes/class-mp-sw-privacy.php';
+
 // --- Role, uprawnienia i szablony powiadomień ---
 require_once MP_SALES_WORKFLOW_DIR . 'includes/class-mp-sw-roles.php';
 require_once MP_SALES_WORKFLOW_DIR . 'includes/class-mp-sw-templates.php';
@@ -56,6 +65,10 @@ function mp_sales_workflow_boot() {
 	MP_SW_Ajax::register();
 	MP_SW_Cron::register();
 	MP_SW_Hooks::register();
+	MP_SW_Meta_Guard::register();
+	MP_SW_Download::register();
+	MP_SW_Mailer::register();
+	MP_SW_Privacy::register();
 
 	if ( is_admin() ) {
 		MP_SW_Admin::register();

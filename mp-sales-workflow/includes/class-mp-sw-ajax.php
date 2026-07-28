@@ -25,6 +25,37 @@ class MP_SW_Ajax {
 	/** Akcja AJAX (admin-ajax.php?action=...). */
 	const ACTION = 'mp_sw_event';
 
+	/** Górna granica rozmiaru żądania (32 KB). */
+	const MAX_BYTES = 32768;
+
+	/**
+	 * Pola, które wolno przysłać.
+	 *
+	 * Lista jest ZAMKNIĘTA i sprawdzana jawnie, zamiast po cichu ignorować
+	 * nadmiar. Milczące pomijanie nieznanych pól brzmi łagodniej, ale kryje
+	 * pomyłki: żądanie z literówką w nazwie pola wykonywałoby się „poprawnie",
+	 * tylko bez tej wartości — a przy polu `to_status` znaczy to zupełnie inne
+	 * przejście niż zamierzone.
+	 *
+	 * @return string[]
+	 */
+	public static function allowed_fields() {
+		return array(
+			'action',
+			'_wpnonce',
+			'_ajax_nonce',
+			'type',
+			'lead_id',
+			'offer_id',
+			'task_id',
+			'lang',
+			'to_status',
+			'country',
+			'event_id',
+			'scope',
+		);
+	}
+
 	/**
 	 * Wpina punkt wejścia.
 	 *
@@ -48,28 +79,49 @@ class MP_SW_Ajax {
 
 		if ( ! wp_verify_nonce( $nonce, MP_SW_D1::NONCE_ACTION ) ) {
 			// 403, nie 400: żądanie jest zrozumiałe, tylko nieuprawnione.
-			wp_send_json_error(
-				array(
-					'ok'      => false,
-					'code'    => 'bad_nonce',
-					'message' => __( 'Nieaktualny token żądania — odśwież stronę i spróbuj ponownie.', 'mp-sales-workflow' ),
-				),
-				403
-			);
+			self::refuse( MP_SW_Errors::E_NONCE, 403, array() );
 		}
 
 		if ( ! current_user_can( MP_SW_Roles::CAP_HANDLE_EVENT ) ) {
-			wp_send_json_error(
+			self::refuse( MP_SW_Errors::E_CAPABILITY, 403, array() );
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce sprawdzony wyżej.
+		$type = isset( $_POST['type'] ) ? sanitize_text_field( wp_unslash( $_POST['type'] ) ) : '';
+
+		/*
+		 * MACIERZ POCHODZENIA (I-2) — sprawdzana TUTAJ, na wejściu, a nie dopiero
+		 * w pipelinie. Kanał HTTP obsługuje wyłącznie to, co robi człowiek przy
+		 * pulpicie. Bez tej kontroli zalogowany handlowiec mógł wysłać
+		 * `type=offer.approved` z dowolnym `lead_id` i wypuścić firmowego e-maila
+		 * do cudzego klienta — nonce miał własny, uprawnienie własne, a nic nie
+		 * wiązało TYPU zdarzenia z kanałem, którym przyszło.
+		 */
+		if ( ! MP_SW_Origin::allowed( $type, MP_SW_D1::SOURCE_MANUAL ) ) {
+			self::refuse(
+				MP_SW_Errors::E_ORIGIN,
+				403,
 				array(
-					'ok'      => false,
-					'code'    => 'forbidden',
-					'message' => __( 'Brak uprawnień do obsługi procesów sprzedażowych.', 'mp-sales-workflow' ),
-				),
-				403
+					'type'   => $type,
+					'reason' => 'channel',
+				)
 			);
 		}
 
-		$type = isset( $_POST['type'] ) ? sanitize_text_field( wp_unslash( $_POST['type'] ) ) : '';
+		$needed = MP_SW_Roles::cap_for_event( $type );
+
+		if ( '' !== $needed && ! current_user_can( $needed ) ) {
+			self::refuse(
+				MP_SW_Errors::E_CAPABILITY,
+				403,
+				array(
+					'type'   => $type,
+					'reason' => 'cap_' . $needed,
+				)
+			);
+		}
+
+		self::guard_payload( $type );
 
 		/*
 		 * Nonce idzie DALEJ, do koperty. Sprawdzenie powyżej odcina żądanie od
@@ -80,7 +132,7 @@ class MP_SW_Ajax {
 		$envelope          = self::envelope();
 		$envelope['nonce'] = $nonce;
 
-		$dispatched = MP_SW_Events::dispatch( $type, $envelope, MP_SW_D1::SOURCE_MANUAL );
+		$dispatched = MP_SW_Events::from_http( $type, $envelope );
 		$status     = MP_SW_Events::http_status( $dispatched['result'] );
 		$payload    = MP_SW_Events::payload( $dispatched['result'], $dispatched['context'] );
 
@@ -89,6 +141,81 @@ class MP_SW_Ajax {
 		}
 
 		wp_send_json_error( $payload, $status );
+	}
+
+	/**
+	 * Odmowa: kod ze słownika, ślad w dzienniku technicznym, koniec żądania.
+	 *
+	 * @param string $code   Kod MP3-Exxx.
+	 * @param int    $status Kod HTTP.
+	 * @param array  $facts  Dodatkowe identyfikatory do dziennika.
+	 * @return void
+	 */
+	private static function refuse( $code, $status, array $facts ) {
+		$trace_id = wp_generate_uuid4();
+
+		MP_SW_Log::security(
+			$code,
+			array_merge(
+				array(
+					'code'     => $code,
+					'source'   => MP_SW_D1::SOURCE_MANUAL,
+					'channel'  => 'http',
+					'trace_id' => $trace_id,
+					'user_id'  => get_current_user_id(),
+					'ip_hash'  => MP_SW_Log::ip_hash(),
+				),
+				$facts
+			)
+		);
+
+		wp_send_json_error(
+			array(
+				'ok'       => false,
+				'code'     => $code,
+				'message'  => MP_SW_Errors::message( $code ),
+				'fields'   => array(),
+				'trace_id' => $trace_id,
+			),
+			(int) $status
+		);
+	}
+
+	/**
+	 * Rozmiar żądania i pola spoza kontraktu.
+	 *
+	 * @param string $type Typ zdarzenia (do dziennika).
+	 * @return void
+	 */
+	private static function guard_payload( $type ) {
+		$length = isset( $_SERVER['CONTENT_LENGTH'] ) ? (int) $_SERVER['CONTENT_LENGTH'] : 0;
+
+		if ( $length > self::MAX_BYTES ) {
+			self::refuse(
+				MP_SW_Errors::E_TOO_LARGE,
+				413,
+				array(
+					'type'  => $type,
+					'count' => $length,
+				)
+			);
+		}
+
+		$allowed = self::allowed_fields();
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce sprawdzony w handle().
+		foreach ( array_keys( (array) $_POST ) as $field ) {
+			if ( ! in_array( (string) $field, $allowed, true ) ) {
+				self::refuse(
+					MP_SW_Errors::E_UNKNOWN_FIELD,
+					422,
+					array(
+						'type'   => $type,
+						'reason' => 'field',
+					)
+				);
+			}
+		}
 	}
 
 	/**

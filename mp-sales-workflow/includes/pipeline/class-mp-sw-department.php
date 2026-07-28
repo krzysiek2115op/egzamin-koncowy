@@ -107,7 +107,11 @@ class MP_SW_Department {
 							'errors' => isset( $review_data['errors'] ) ? $review_data['errors'] : array(),
 						)
 					),
-					'critic_failed'
+					// Kod KRYTYKA idzie dalej, gdy go nadał. Wspólne `critic_failed`
+					// mówiło tylko tyle, że coś odrzucono — za mało, żeby brama HTTP
+					// zamieniła odmowę na właściwy kod ze słownika: sięgnięcie po
+					// cudzy proces wychodziło jako błąd wewnętrzny zamiast jako 404.
+					$review->get_code() ? $review->get_code() : 'critic_failed'
 				);
 			}
 
@@ -129,6 +133,10 @@ class MP_SW_Department {
 						'errors' => isset( $gate_data['errors'] ) ? $gate_data['errors'] : array(),
 					)
 				),
+				// Bramka zawsze melduje się jako `gate_failed`. Inaczej niż przy
+				// parach agent-krytyk: tam kod krytyka jest jedyną informacją o
+				// POWODZIE odmowy, tutaj powód i tak jest w liście pól, a ważniejsze
+				// jest, że dział zatrzymała BRAMKA, a nie któraś z par.
 				'gate_failed'
 			);
 		}

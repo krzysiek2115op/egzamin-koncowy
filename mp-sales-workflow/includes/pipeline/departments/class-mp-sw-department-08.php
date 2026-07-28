@@ -109,6 +109,7 @@ class MP_SW_D8_Writer {
 				'data'         => array(),
 				'flow_id'      => 0,
 				'lock_version' => 0,
+				'guard'        => '',
 			),
 			'tasks_create'  => array(),
 			'tasks_close'   => array(),
@@ -135,7 +136,20 @@ class MP_SW_D8_Agent_Plan extends MP_SW_Abstract_Agent {
 		$assignment = (array) $context->get( 'assignment', array() );
 		$tasks      = (array) $context->get( 'tasks_plan', MP_SW_D6_Scheduler::empty_plan() );
 		$event      = (array) $context->get( 'event', array() );
-		$client     = (array) $context->get( 'client', array() );
+
+		/*
+		 * Dane klienta bierzemy ze SNAPSHOTU (odczyt po `lead_id` z tabeli leadów),
+		 * a nie z koperty zdarzenia — inwariant I-3. Koperta pozostaje źródłem
+		 * zapasowym wyłącznie dla procesów prowadzonych bez wtyczki 1, gdzie nie ma
+		 * leada do odczytania; tam adres pochodzi od zalogowanego człowieka, nie z
+		 * anonimowego wywołania haka.
+		 */
+		$lead_row = isset( $snapshot['lead'] ) ? (array) $snapshot['lead'] : array();
+		$envelope = (array) $context->get( 'client', array() );
+		$client   = array(
+			'name'  => ! empty( $lead_row['name'] ) ? (string) $lead_row['name'] : ( isset( $envelope['name'] ) ? (string) $envelope['name'] : '' ),
+			'email' => ! empty( $lead_row['email'] ) ? (string) $lead_row['email'] : ( isset( $envelope['email'] ) ? (string) $envelope['email'] : '' ),
+		);
 
 		$entity   = isset( $event['entity'] ) ? (array) $event['entity'] : array();
 		$lead_id  = isset( $entity['lead_id'] ) ? (int) $entity['lead_id'] : 0;
@@ -214,6 +228,23 @@ class MP_SW_D8_Agent_Plan extends MP_SW_Abstract_Agent {
 		}
 
 		$plan['flow']['data'] = $data;
+
+		/*
+		 * WARTOWNIK SPRAWDZANY PONOWNIE W TRANSAKCJI (TOCTOU).
+		 *
+		 * Dział 6 sprawdził wartownika na snapshocie — czyli na stanie sprzed
+		 * odczytu. Między odczytem a zapisem handlowiec mógł zamknąć sprzedaż
+		 * jako wygraną, a przypomnienie „minęły 3 dni od wysłania oferty"
+		 * poszłoby mimo to. Token blokady sam by to złapał, bo rośnie przy każdym
+		 * zapisie, ale warunek na statusie mówi wprost, CZEGO pilnujemy, i broni
+		 * także wtedy, gdyby ktoś kiedyś zapisał status z pominięciem tokenu.
+		 */
+		$plan['flow']['guard'] = '';
+
+		if ( MP_SW_Pipeline_Factory::EVENT_TASK_DUE === (string) $context->get( 'type', '' ) && ! empty( $tasks['fire'] ) ) {
+			$first                 = (array) $tasks['fire'][0];
+			$plan['flow']['guard'] = isset( $first['guard_status'] ) ? (string) $first['guard_status'] : '';
+		}
 
 		foreach ( (array) $tasks['create'] as $task ) {
 			$plan['tasks_create'][] = $task;
@@ -449,13 +480,21 @@ class MP_SW_D8_Agent_Transaction extends MP_SW_Abstract_Agent {
 			 * token rośnie przy każdym zapisie, także gdy reszta kolumn zostaje
 			 * bez zmian.
 			 */
+			$where = array(
+				'id'           => $flow_id,
+				'lock_version' => (int) $plan['flow']['lock_version'],
+			);
+
+			// Wartownik follow-upu w warunku zapisu — patrz komentarz przy budowie
+			// planu. Status musi być wciąż ten, dla którego zaplanowano zadanie.
+			if ( ! empty( $plan['flow']['guard'] ) ) {
+				$where['status'] = (string) $plan['flow']['guard'];
+			}
+
 			$result = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 				MP_Sales_Workflow_DB::flow_table(),
 				$plan['flow']['data'],
-				array(
-					'id'           => $flow_id,
-					'lock_version' => (int) $plan['flow']['lock_version'],
-				)
+				$where
 			);
 
 			if ( false === $result ) {
@@ -709,16 +748,32 @@ class MP_SW_D8_Agent_Journal extends MP_SW_Abstract_Agent {
 
 		foreach ( (array) $plan['notifications'] as $notification ) {
 			/*
-			 * Adresat i wersja szablonu trafiają do dziennika, treść zostaje tylko
-			 * w kolejce. Kolejka ma więz do procesu i znika razem z nim (żądanie
-			 * RODO), a dziennik zostaje — dlatego nie trzyma treści, a mimo to
-			 * wystarcza do odtworzenia historii wysyłek (kryterium 5.5).
+			 * BEZ ADRESU (BLOK H). Dziennik z kryterium 5.5 nie podlega czyszczeniu
+			 * — ma odtwarzać historię także po latach. Adres wpisany tutaj
+			 * przeżyłby więc żądanie usunięcia danych: skasowalibyśmy go z kolejki
+			 * i z procesu, a on zostałby w dzienniku, którego z założenia nie
+			 * ruszamy. Zapisujemy KTO CO dostał w sensie roli i szablonu; komu
+			 * dokładnie — mówi kolejka, powiązana tym samym `event_id`, i to ona
+			 * podlega anonimizacji.
 			 */
+
+			/*
+			 * Odbiorcę opisujemy ROLĄ, nie adresem. Rola wynika z szablonu: tylko
+			 * „oferta wysłana" idzie do klienta, reszta do handlowca. Wiersz kolejki
+			 * nie niesie tej informacji, bo tabela powiadomień nie ma takiej
+			 * kolumny — a dokładanie jej wyłącznie na potrzeby dziennika byłoby
+			 * duplikowaniem tego, co i tak wynika z szablonu.
+			 */
+			$audience = MP_SW_Templates::TPL_OFFER_SENT === (string) $notification['template']
+				? MP_SW_D7_Notifier::AUDIENCE_CLIENT
+				: MP_SW_D7_Notifier::AUDIENCE_SALESMAN;
+
 			$entries[] = array(
-				'action'    => MP_SW_D8_Writer::LOG_NOTIFICATION,
-				'old_value' => '',
-				'new_value' => $notification['template'] . ' v' . $notification['template_version']
-					. ' [' . $notification['lang'] . '] → ' . $notification['recipient'],
+				'action'     => MP_SW_D8_Writer::LOG_NOTIFICATION,
+				'entity_ref' => 'notification:' . $audience,
+				'old_value'  => '',
+				'new_value'  => $notification['template'] . ' v' . $notification['template_version']
+					. ' [' . $notification['lang'] . '] → ' . $audience,
 			);
 		}
 
@@ -730,7 +785,7 @@ class MP_SW_D8_Agent_Journal extends MP_SW_Abstract_Agent {
 				array(
 					'event_id'   => $event_id,
 					'flow_id'    => $flow_id,
-					'entity_ref' => 'lead:' . $lead_id,
+					'entity_ref' => isset( $entry['entity_ref'] ) ? (string) $entry['entity_ref'] : 'lead:' . $lead_id,
 					'action'     => $entry['action'],
 					'old_value'  => $entry['old_value'],
 					'new_value'  => $entry['new_value'],

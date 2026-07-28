@@ -87,6 +87,8 @@ class MP_SW_D2_Reader {
 			'salesmen'  => self::read_salesmen(),
 			'roles'     => self::read_roles( $context ),
 			'flow'      => self::read_flow( $context ),
+			'lead'      => self::read_lead( $context ),
+			'offer'     => self::read_offer( $context ),
 			'workload'  => self::read_workload(),
 			'templates' => self::read_templates(),
 		);
@@ -194,22 +196,36 @@ class MP_SW_D2_Reader {
 		$user_id = isset( $event['actor']['user_id'] ) ? (int) $event['actor']['user_id'] : 0;
 
 		$actor = array(
-			'user_id'    => $user_id,
-			'roles'      => array(),
-			'manage_all' => false,
-			'team'       => '',
-			'exists'     => false,
+			'user_id'       => $user_id,
+			'roles'         => array(),
+			'manage_all'    => false,
+			'view_team'     => false,
+			'assign'        => false,
+			'change_status' => false,
+			'team'          => '',
+			'team_members'  => array(),
+			'exists'        => false,
 		);
 
 		if ( $user_id > 0 ) {
 			$user = get_userdata( $user_id );
 
 			if ( $user instanceof WP_User ) {
-				$actor['exists']     = true;
-				$actor['roles']      = array_values( (array) $user->roles );
-				$actor['manage_all'] = user_can( $user, MP_SW_Roles::CAP_MANAGE_ALL );
-				$actor['handles']    = user_can( $user, MP_SW_Roles::CAP_HANDLE_EVENT );
-				$actor['team']       = (string) get_user_meta( $user_id, self::META_TEAM, true );
+				$actor['exists'] = true;
+				$actor['roles']  = array_values( (array) $user->roles );
+
+				/*
+				 * `manage_all` znaczy „widzi wszystko". Stara stała zostaje w
+				 * warunku dla instalacji, które jeszcze się nie przemigrowały —
+				 * ale nowym źródłem prawdy jest `mp_sw_view_all`.
+				 */
+				$actor['manage_all']    = user_can( $user, MP_SW_Roles::CAP_VIEW_ALL ) || user_can( $user, MP_SW_Roles::CAP_MANAGE_ALL );
+				$actor['view_team']     = user_can( $user, MP_SW_Roles::CAP_VIEW_TEAM );
+				$actor['assign']        = user_can( $user, MP_SW_Roles::CAP_ASSIGN );
+				$actor['change_status'] = user_can( $user, MP_SW_Roles::CAP_CHANGE_STATUS );
+				$actor['handles']       = user_can( $user, MP_SW_Roles::CAP_HANDLE_EVENT );
+				$actor['team']          = (string) get_user_meta( $user_id, self::META_TEAM, true );
+				$actor['team_members']  = self::read_team_members( $actor );
 			}
 		}
 
@@ -223,6 +239,198 @@ class MP_SW_D2_Reader {
 			'ok'       => empty( $missing ),
 			'actor'    => $actor,
 		);
+	}
+
+	/**
+	 * Oferta ze zdarzenia — istnienie, przynależność do leada i uchwyt do pliku.
+	 *
+	 * Bez tego odczytu zdarzenie `offer.approved` z haka było przyjmowane na
+	 * słowo: nikt nie sprawdzał, czy oferta w ogóle istnieje ani czy dotyczy
+	 * TEGO leada. Para identyfikatorów podana przez obcą wtyczkę wystarczała,
+	 * żeby wysłać klientowi A dokument klienta B.
+	 *
+	 * @param MP_SW_Context $context Kontekst.
+	 * @return array
+	 */
+	private static function read_offer( MP_SW_Context $context ) {
+		global $wpdb;
+
+		$event    = (array) $context->get( 'event', array() );
+		$entity   = isset( $event['entity'] ) ? (array) $event['entity'] : array();
+		$offer_id = isset( $entity['offer_id'] ) ? (int) $entity['offer_id'] : 0;
+		$lead_id  = isset( $entity['lead_id'] ) ? (int) $entity['lead_id'] : 0;
+
+		$empty = array(
+			'exists'        => false,
+			'offer_id'      => $offer_id,
+			'belongs'       => false,
+			'handle'        => '',
+			'offer_number'  => '',
+			'status'        => '',
+			'table_present' => false,
+		);
+
+		if ( $offer_id < 1 ) {
+			return $empty;
+		}
+
+		/**
+		 * Pozwala wtyczce 2 rozwiazac oferte wlasnym kodem.
+		 *
+		 * Zaczep istnieje z tego samego powodu co przy linku pobrania: LP.3 czyta
+		 * cudza tabele tylko dlatego, ze inaczej nie ma jak potwierdzic oferty.
+		 * Gdy LP.2 zechce podac te dane sama, przestaniemy siegac po jej schemat.
+		 *
+		 * @param array|null $offer    Dane oferty albo null.
+		 * @param int        $offer_id Identyfikator oferty.
+		 * @param int        $lead_id  Identyfikator leada.
+		 */
+		$override = apply_filters( 'mp_sw_read_offer', null, $offer_id, $lead_id );
+
+		if ( is_array( $override ) ) {
+			return array_merge( $empty, $override );
+		}
+
+		$table = $wpdb->prefix . 'mp_ob_offers';
+		$found = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+		if ( $found !== $table ) {
+			// Wtyczka 2 nieaktywna: nie mamy jak potwierdzić oferty, więc mówimy o
+			// tym wprost zamiast udawać, że sprawdzenie wypadło pomyślnie.
+			return $empty;
+		}
+
+		$row = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"SELECT id, lead_id, request_id, offer_number, status FROM {$table} WHERE id = %d LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$offer_id
+			),
+			ARRAY_A
+		);
+
+		$empty['table_present'] = true;
+
+		if ( ! is_array( $row ) ) {
+			return $empty;
+		}
+
+		$request_id = isset( $row['request_id'] ) ? (string) $row['request_id'] : '';
+
+		return array(
+			'exists'        => true,
+			'offer_id'      => $offer_id,
+			'belongs'       => $lead_id > 0 && (int) $row['lead_id'] === $lead_id,
+
+			/*
+			 * Uchwyt do podpisanego linku. `request_id` jest UUID-em, więc z adresu
+			 * nie da się odczytać, ile ofert wystawiła firma; identyfikator to
+			 * wariant zapasowy dla ofert sprzed jego wprowadzenia — bezpieczny, bo
+			 * o dostępie i tak decyduje podpis, nie uchwyt.
+			 */
+			'handle'        => '' !== $request_id ? $request_id : (string) $offer_id,
+			'offer_number'  => isset( $row['offer_number'] ) ? (string) $row['offer_number'] : '',
+			'status'        => isset( $row['status'] ) ? (string) $row['status'] : '',
+			'table_present' => true,
+		);
+	}
+
+	/**
+	 * Dane klienta CZYTANE PO `lead_id` z tabeli leadów wtyczki 1.
+	 *
+	 * To jest realizacja inwariantu I-3: adres odbiorcy nigdy nie pochodzi z
+	 * koperty zdarzenia. Wcześniej pochodził — hak `mp_lead_created` przynosił
+	 * `client.email`, a Dział 8 zapisywał go do procesu. Wystarczyłoby, żeby
+	 * dowolna wtyczka na tej instalacji wywołała ten sam hak z własnym adresem,
+	 * a firmowa oferta poszłaby pod adres podstawiony przez nią, nie pod adres z
+	 * bazy leadów. Koperta niesie od teraz wyłącznie IDENTYFIKATORY.
+	 *
+	 * Odczyt idzie w tym samym strzale co reszta snapshotu, więc licznik
+	 * `db_reads` się nie zmienia (I-5).
+	 *
+	 * @param MP_SW_Context $context Kontekst.
+	 * @return array
+	 */
+	private static function read_lead( MP_SW_Context $context ) {
+		global $wpdb;
+
+		$event   = (array) $context->get( 'event', array() );
+		$entity  = isset( $event['entity'] ) ? (array) $event['entity'] : array();
+		$lead_id = isset( $entity['lead_id'] ) ? (int) $entity['lead_id'] : 0;
+
+		$empty = array(
+			'exists'  => false,
+			'lead_id' => $lead_id,
+			'email'   => '',
+			'name'    => '',
+			'country' => '',
+			'segment' => '',
+		);
+
+		if ( $lead_id < 1 ) {
+			return $empty;
+		}
+
+		$table = $wpdb->prefix . 'mp_leads';
+
+		// Wtyczka 1 może być nieaktywna (LP.3 działa też samodzielnie) — brak
+		// tabeli nie jest wtedy błędem, tylko brakiem danych do uzupełnienia.
+		$found = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+		if ( $found !== $table ) {
+			return $empty;
+		}
+
+		$row = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"SELECT email, company_name, country, segment FROM {$table} WHERE id = %d AND deleted_at IS NULL LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$lead_id
+			),
+			ARRAY_A
+		);
+
+		if ( ! is_array( $row ) ) {
+			return $empty;
+		}
+
+		return array(
+			'exists'  => true,
+			'lead_id' => $lead_id,
+			'email'   => sanitize_email( (string) $row['email'] ),
+			'name'    => sanitize_text_field( (string) $row['company_name'] ),
+			'country' => sanitize_text_field( (string) $row['country'] ),
+			'segment' => sanitize_text_field( (string) $row['segment'] ),
+		);
+	}
+
+	/**
+	 * Skład zespołu aktora — podstawa zakresu „procesy zespołu" (I-4).
+	 *
+	 * Lista powstaje TUTAJ, w jedynym strzale odczytu, a nie w Dziale 3 przy
+	 * liczeniu zakresu ani w pulpicie przy budowie zapytania. Gdyby powstawała
+	 * tam, zakres brałby się z zapytania wykonanego już PO decyzji o dostępie —
+	 * a wtedy „zespół" znaczyłoby co innego przy sprawdzaniu, a co innego przy
+	 * wyświetlaniu.
+	 *
+	 * @param array $actor Dane aktora zebrane do tej pory.
+	 * @return int[]
+	 */
+	private static function read_team_members( array $actor ) {
+		$team = isset( $actor['team'] ) ? (string) $actor['team'] : '';
+
+		if ( '' === $team || empty( $actor['view_team'] ) ) {
+			return array();
+		}
+
+		$ids = get_users(
+			array(
+				'meta_key'   => self::META_TEAM, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				'meta_value' => $team, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+				'fields'     => 'ID',
+				'number'     => 500,
+			)
+		);
+
+		return array_map( 'intval', (array) $ids );
 	}
 
 	/**
@@ -683,10 +891,34 @@ class MP_SW_D2_QA_Agent extends MP_SW_Abstract_Agent {
 			}
 		}
 
+		/*
+		 * WALIDACJA DOMENOWA OFERTY (BLOK A).
+		 *
+		 * Zdarzenie z haka jest tak samo niesprawdzone jak żądanie HTTP — inna
+		 * wtyczka na tej samej instalacji może wywołać `mp_offer_approved` z
+		 * dowolną parą identyfikatorów. Wcześniej para była przyjmowana na słowo:
+		 * nikt nie pytał, czy oferta istnieje ani czy dotyczy TEGO leada, więc
+		 * podanie cudzego `offer_id` wysyłało klientowi A dokument klienta B.
+		 *
+		 * Sprawdzamy tylko wtedy, gdy tabela ofert w ogóle jest — bez wtyczki 2
+		 * nie ma czego weryfikować, a LP.3 ma działać także samodzielnie.
+		 */
+		$offer      = isset( $snapshot['offer'] ) ? (array) $snapshot['offer'] : array();
+		$offer_fail = '';
+
+		if ( ! empty( $offer['offer_id'] ) && ! empty( $offer['table_present'] ) ) {
+			if ( empty( $offer['exists'] ) ) {
+				$offer_fail = 'offer_missing';
+			} elseif ( empty( $offer['belongs'] ) ) {
+				$offer_fail = 'offer_foreign';
+			}
+		}
+
 		return MP_SW_Result::ok(
 			array(
 				'qa_missing_sections' => $missing,
 				'qa_db_reads'         => $context->get_db_reads(),
+				'qa_offer_fail'       => $offer_fail,
 			)
 		);
 	}
@@ -706,6 +938,20 @@ class MP_SW_D2_QA_Critic extends MP_SW_Abstract_Critic {
 		$data    = $agent_result->get_data();
 		$missing = isset( $data['qa_missing_sections'] ) ? (array) $data['qa_missing_sections'] : array();
 		$reads   = isset( $data['qa_db_reads'] ) ? (int) $data['qa_db_reads'] : 0;
+		$offer   = isset( $data['qa_offer_fail'] ) ? (string) $data['qa_offer_fail'] : '';
+
+		if ( '' !== $offer ) {
+			// 404, nie 422: „oferta nie należy do tego leada" potwierdzałoby, że
+			// oferta o tym numerze istnieje. Tak samo jak przy cudzym procesie.
+			return MP_SW_Result::fail(
+				__( 'Nie znaleziono oferty wskazanej w zdarzeniu.', 'mp-sales-workflow' ),
+				array(
+					'errors'      => array( 'entity.offer_id' ),
+					'http_status' => 404,
+				),
+				'flow_not_found'
+			);
+		}
 
 		if ( ! empty( $missing ) ) {
 			return MP_SW_Result::fail(

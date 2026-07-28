@@ -152,7 +152,7 @@ class MP_SW_Hooks {
 	 */
 	private static function dispatch( $type, array $envelope ) {
 		try {
-			$dispatched = MP_SW_Events::dispatch( $type, $envelope, MP_SW_D1::SOURCE_SYSTEM );
+			$dispatched = MP_SW_Events::from_hook( $type, $envelope );
 			$result     = $dispatched['result'];
 
 			if ( ! $result->is_ok() ) {

@@ -31,6 +31,18 @@ class MP_SW_Cron {
 	/** Ile zadań obsługujemy w jednym przeglądzie. */
 	const SWEEP_LIMIT = 50;
 
+	/** Hak czyszczenia rejestru zdarzeń. */
+	const HOOK_RETENTION = 'mp_sw_retention';
+
+	/** Odstęp czyszczenia. */
+	const SCHEDULE_RETENTION = 'daily';
+
+	/** Po ilu dniach kasujemy wpis z rejestru zdarzeń. */
+	const RETENTION_DAYS = 90;
+
+	/** Ile wierszy kasujemy w jednym przebiegu. */
+	const RETENTION_LIMIT = 1000;
+
 	/**
 	 * Wpina haki harmonogramu.
 	 *
@@ -38,7 +50,36 @@ class MP_SW_Cron {
 	 */
 	public static function register() {
 		add_action( self::HOOK_SWEEP, array( __CLASS__, 'sweep_tasks' ) );
+		add_action( self::HOOK_RETENTION, array( __CLASS__, 'purge_events' ) );
 		add_action( MP_SW_D9_Emitter::CRON_QUEUE, array( __CLASS__, 'run_queue' ) );
+	}
+
+	/**
+	 * Czyści rejestr zdarzeń po okresie retencji.
+	 *
+	 * Rejestr `mp_sw_events` służy WYŁĄCZNIE idempotencji: trzyma klucze, żeby
+	 * powtórzone zdarzenie odbiło się o UNIQUE. Po trzech miesiącach nikt tego
+	 * samego zdarzenia już nie powtórzy, a tabela rośnie z każdym kliknięciem w
+	 * panelu. Dziennik z kryterium 5.5 (`mp_sw_activity`) NIE jest czyszczony —
+	 * to on odtwarza historię i jest przedmiotem odbioru.
+	 *
+	 * @return int Liczba usuniętych wierszy.
+	 */
+	public static function purge_events() {
+		global $wpdb;
+
+		$table  = MP_Sales_Workflow_DB::events_table();
+		$cutoff = gmdate( 'Y-m-d H:i:s', time() - ( self::RETENTION_DAYS * DAY_IN_SECONDS ) );
+
+		$deleted = $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"DELETE FROM {$table} WHERE created_at < %s LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$cutoff,
+				self::RETENTION_LIMIT
+			)
+		);
+
+		return max( 0, (int) $deleted );
 	}
 
 	/**
@@ -49,6 +90,10 @@ class MP_SW_Cron {
 	public static function schedule() {
 		if ( ! wp_next_scheduled( self::HOOK_SWEEP ) ) {
 			wp_schedule_event( time() + 300, self::SCHEDULE_SWEEP, self::HOOK_SWEEP );
+		}
+
+		if ( ! wp_next_scheduled( self::HOOK_RETENTION ) ) {
+			wp_schedule_event( time() + HOUR_IN_SECONDS, self::SCHEDULE_RETENTION, self::HOOK_RETENTION );
 		}
 	}
 
@@ -62,6 +107,7 @@ class MP_SW_Cron {
 	 */
 	public static function unschedule() {
 		wp_clear_scheduled_hook( self::HOOK_SWEEP );
+		wp_clear_scheduled_hook( self::HOOK_RETENTION );
 		wp_clear_scheduled_hook( MP_SW_D9_Emitter::CRON_QUEUE );
 	}
 
@@ -77,9 +123,45 @@ class MP_SW_Cron {
 	public static function sweep_tasks() {
 		global $wpdb;
 
+		$summary = array(
+			'processed' => 0,
+			'fired'     => 0,
+			'skipped'   => 0,
+			'claimed'   => 0,
+		);
+
+		/*
+		 * Przegląd wolno uruchomić WYŁĄCZNIE harmonogramowi. Bez tej kontroli
+		 * `do_action( 'mp_sw_sweep_tasks' )` z dowolnego miejsca w procesie —
+		 * także z żądania HTTP obsłużonego przez inną wtyczkę — wypychałby
+		 * przypomnienia poza terminem, z pominięciem całej macierzy pochodzenia.
+		 */
+		if ( ! MP_SW_Origin::is_cron_context() ) {
+			MP_SW_Log::security(
+				MP_SW_Errors::E_CRON_CONTEXT,
+				array(
+					'code'    => MP_SW_Errors::E_CRON_CONTEXT,
+					'type'    => MP_SW_Pipeline_Factory::EVENT_TASK_DUE,
+					'source'  => MP_SW_D1::SOURCE_CRON,
+					'reason'  => 'sweep_outside_cron',
+					'user_id' => get_current_user_id(),
+					'ip_hash' => MP_SW_Log::ip_hash(),
+				)
+			);
+
+			return $summary;
+		}
+
 		$tasks = MP_Sales_Workflow_DB::tasks_table();
 		$flow  = MP_Sales_Workflow_DB::flow_table();
 		$now   = current_time( 'mysql', true );
+		$claim = self::claim( $now );
+
+		$summary['claimed'] = $claim['count'];
+
+		if ( $claim['count'] < 1 ) {
+			return $summary;
+		}
 
 		/*
 		 * `lead_id` dociągamy złączeniem, bo koperta `task.due` musi go nieść —
@@ -88,7 +170,7 @@ class MP_SW_Cron {
 		$sql = "SELECT t.id, t.event_id, f.lead_id, f.offer_id
 			FROM {$tasks} t
 			INNER JOIN {$flow} f ON f.id = t.flow_id
-			WHERE t.status = %s AND t.due_at <= %s
+			WHERE t.status = %s AND t.claim_token = %s
 			ORDER BY t.due_at ASC, t.id ASC
 			LIMIT %d";
 
@@ -97,16 +179,10 @@ class MP_SW_Cron {
 			$wpdb->prepare(
 				$sql, // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 				MP_SW_D6_Scheduler::STATUS_PENDING,
-				$now,
+				$claim['token'],
 				self::SWEEP_LIMIT
 			),
 			ARRAY_A
-		);
-
-		$summary = array(
-			'processed' => 0,
-			'fired'     => 0,
-			'skipped'   => 0,
 		);
 
 		foreach ( (array) $rows as $row ) {
@@ -119,7 +195,7 @@ class MP_SW_Cron {
 				$entity['offer_id'] = (int) $row['offer_id'];
 			}
 
-			$dispatched = MP_SW_Events::dispatch(
+			$dispatched = MP_SW_Events::from_cron(
 				MP_SW_Pipeline_Factory::EVENT_TASK_DUE,
 				array(
 					'entity'   => $entity,
@@ -132,8 +208,7 @@ class MP_SW_Cron {
 					 * zamiast wysyłać przypomnienie drugi raz.
 					 */
 					'event_id' => self::task_event_id( (int) $row['id'], (string) $row['event_id'] ),
-				),
-				MP_SW_D1::SOURCE_CRON
+				)
 			);
 
 			++$summary['processed'];
@@ -145,6 +220,53 @@ class MP_SW_Cron {
 		}
 
 		return $summary;
+	}
+
+	/**
+	 * Klamruje zadania na wyłączność tego przebiegu.
+	 *
+	 * Jedna instrukcja UPDATE zamiast „wybierz, potem oznacz". Różnica jest
+	 * praktyczna: WP-Cron nie ma pojedynczego procesu i przy ruchliwej witrynie
+	 * dwa przebiegi potrafią nałożyć się w tej samej sekundzie. Wybór, po którym
+	 * następuje oznaczenie, dałby obu przebiegom TĘ SAMĄ listę zadań; UPDATE
+	 * bierze zamek na wiersze, więc drugi przebieg zastanie je już zajęte i
+	 * dostanie pustą paczkę.
+	 *
+	 * Znacznik ma termin ważności: przebieg przerwany limitem czasu PHP nie może
+	 * zamrozić zadania na zawsze, więc po `CLAIM_TTL_MINUTES` wraca ono do puli.
+	 *
+	 * @param string $now Czas UTC w formacie MySQL.
+	 * @return array{count:int,token:string}
+	 */
+	private static function claim( $now ) {
+		global $wpdb;
+
+		$tasks = MP_Sales_Workflow_DB::tasks_table();
+		$token = wp_generate_uuid4();
+		$stale = gmdate( 'Y-m-d H:i:s', strtotime( $now . ' UTC' ) - ( MP_Sales_Workflow_DB::CLAIM_TTL_MINUTES * MINUTE_IN_SECONDS ) );
+
+		$sql = "UPDATE {$tasks}
+			SET claim_token = %s, claimed_at = %s
+			WHERE status = %s AND due_at <= %s AND ( claimed_at IS NULL OR claimed_at < %s )
+			ORDER BY due_at ASC, id ASC
+			LIMIT %d";
+
+		$count = $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				$sql, // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+				$token,
+				$now,
+				MP_SW_D6_Scheduler::STATUS_PENDING,
+				$now,
+				$stale,
+				self::SWEEP_LIMIT
+			)
+		);
+
+		return array(
+			'count' => max( 0, (int) $count ),
+			'token' => $token,
+		);
 	}
 
 	/**

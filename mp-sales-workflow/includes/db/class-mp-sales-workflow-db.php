@@ -34,7 +34,10 @@ class MP_Sales_Workflow_DB {
 	 * Wersja schematu. Podnoszona przy KAŻDEJ zmianie DDL — `maybe_upgrade()`
 	 * porównuje ją z wartością zapisaną w opcji i dopiero wtedy woła dbDelta().
 	 */
-	const DB_VERSION = '0.2.0';
+	const DB_VERSION = '0.3.0';
+
+	/** Po ilu minutach klamra na zadaniu wygasa i zadanie wraca do przeglądu. */
+	const CLAIM_TTL_MINUTES = 15;
 
 	/** Opcja przechowująca wersję schematu zainstalowaną na tej witrynie. */
 	const DB_VERSION_OPTION = 'mp_sales_workflow_db_version';
@@ -502,13 +505,16 @@ class MP_Sales_Workflow_DB {
 			assignee bigint(20) unsigned DEFAULT NULL,
 			event_id char(36) DEFAULT NULL,
 			open_key varchar(64) DEFAULT NULL,
+			claimed_at datetime DEFAULT NULL,
+			claim_token char(36) DEFAULT NULL,
 			created_at datetime NOT NULL,
 			updated_at datetime NOT NULL,
 			PRIMARY KEY  (id),
 			UNIQUE KEY uq_open_task (open_key),
 			KEY idx_flow (flow_id),
 			KEY idx_due (due_at, status),
-			KEY idx_event (event_id)
+			KEY idx_event (event_id),
+			KEY idx_claim (status, claimed_at)
 		) {$charset_collate};";
 
 		/*
