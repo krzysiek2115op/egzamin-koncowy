@@ -140,6 +140,16 @@ class MP_SW_Pipeline {
 
 						return $commit_fail;
 					}
+
+					/*
+					 * Znacznik zatwierdzenia w kopercie. Dział 9 nie ma innego
+					 * sposobu, żeby SPRAWDZIĆ, że transakcja jest domknięta — a bez
+					 * tego jego krytyk „nic nie wychodzi przed COMMIT" byłby samą
+					 * deklaracją. Pipeline jest jedynym miejscem, które to wie, więc
+					 * to on zostawia ślad.
+					 */
+					$context->set( 'committed', true );
+					$context->set( 'committed_at', current_time( 'mysql', true ) );
 				}
 
 				if ( $this->transactional_from > 0 && ! $in_transaction
