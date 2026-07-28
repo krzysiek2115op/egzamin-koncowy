@@ -243,6 +243,7 @@ class MP_SW_D2_Reader {
 			'row'          => null,
 			'lock_version' => 0,
 			'lead_id'      => $lead_id,
+			'open_tasks'   => array(),
 		);
 
 		if ( $lead_id <= 0 ) {
@@ -263,7 +264,52 @@ class MP_SW_D2_Reader {
 			// przy zapisie — to on rozstrzyga, czy ktoś zmienił wiersz w międzyczasie.
 			'lock_version' => isset( $row['lock_version'] ) ? (int) $row['lock_version'] : 0,
 			'lead_id'      => $lead_id,
+			// Oczekujące zadania follow-up wchodzą do TEGO SAMEGO strzału odczytu.
+			// Dział 6 musi wiedzieć, co już jest otwarte (deduplikacja K6.2) i który
+			// wartownik obowiązuje (kryterium 4.5), a sam do bazy sięgnąć nie może —
+			// działy 3–7 są czystymi funkcjami.
+			'open_tasks'   => self::read_open_tasks( (int) $row['id'] ),
 		);
+	}
+
+	/**
+	 * Oczekujące zadania danego procesu.
+	 *
+	 * @param int $flow_id Identyfikator procesu.
+	 * @return array
+	 */
+	private static function read_open_tasks( $flow_id ) {
+		global $wpdb;
+
+		if ( $flow_id <= 0 ) {
+			return array();
+		}
+
+		$table = MP_Sales_Workflow_DB::tasks_table();
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, type, due_at, guard_status, status, event_id FROM {$table} WHERE flow_id = %d AND status = %s ORDER BY due_at ASC, id ASC", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$flow_id,
+				MP_SW_D6_Scheduler::STATUS_PENDING
+			),
+			ARRAY_A
+		);
+
+		$tasks = array();
+
+		foreach ( (array) $rows as $task ) {
+			$tasks[] = array(
+				'id'           => (int) $task['id'],
+				'type'         => (string) $task['type'],
+				'due_at'       => (string) $task['due_at'],
+				'guard_status' => (string) $task['guard_status'],
+				'status'       => (string) $task['status'],
+				'event_id'     => (string) $task['event_id'],
+			);
+		}
+
+		return $tasks;
 	}
 
 	/**

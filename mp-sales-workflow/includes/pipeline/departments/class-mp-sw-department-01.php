@@ -71,7 +71,15 @@ class MP_SW_D1 {
 			MP_SW_Pipeline_Factory::EVENT_LEAD_CREATED   => array( 'lead_id' ),
 			MP_SW_Pipeline_Factory::EVENT_OFFER_APPROVED => array( 'lead_id', 'offer_id' ),
 			MP_SW_Pipeline_Factory::EVENT_STATUS_CHANGE  => array( 'lead_id' ),
-			MP_SW_Pipeline_Factory::EVENT_TASK_DUE       => array( 'task_id' ),
+
+			/*
+			 * `task.due` niesie RÓWNIEŻ lead_id, choć sam identyfikator zadania
+			 * wystarczyłby do jego odnalezienia. Powód jest w Dziale 2: proces
+			 * czytany jest po `lead_id`, a odczyt jest dokładnie jeden. Bez leada w
+			 * kopercie trzeba by najpierw przeczytać zadanie, żeby dowiedzieć się,
+			 * którego procesu dotyczy — czyli wykonać drugi strzał.
+			 */
+			MP_SW_Pipeline_Factory::EVENT_TASK_DUE       => array( 'lead_id', 'task_id' ),
 			MP_SW_Pipeline_Factory::EVENT_DASHBOARD_VIEW => array(),
 		);
 
