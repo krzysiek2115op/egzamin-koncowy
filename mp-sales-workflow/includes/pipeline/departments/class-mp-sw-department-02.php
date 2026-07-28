@@ -276,6 +276,11 @@ class MP_SW_D2_Reader {
 		 * 2 może dotyczyć NOWSZEJ oferty niż ta zapisana w procesie. Wiersz procesu
 		 * jest już w tym miejscu wczytany — to nie jest dodatkowy strzał do bazy.
 		 */
+		// Skad wziety identyfikator ma znaczenie dla bramki QA2: z koperty jest
+		// wektorem podszycia i wymaga twardej walidacji, z wiersza procesu jest
+		// tylko wskazowka, ktora moze sie zdezaktualizowac.
+		$from_event = ( $offer_id > 0 );
+
 		if ( $offer_id < 1 ) {
 			$row      = isset( $flow['row'] ) ? (array) $flow['row'] : $flow;
 			$offer_id = isset( $row['offer_id'] ) ? (int) $row['offer_id'] : 0;
@@ -289,6 +294,7 @@ class MP_SW_D2_Reader {
 			'offer_number'  => '',
 			'status'        => '',
 			'table_present' => false,
+			'from_event'    => $from_event,
 		);
 
 		if ( $offer_id < 1 ) {
@@ -352,6 +358,7 @@ class MP_SW_D2_Reader {
 			'offer_number'  => isset( $row['offer_number'] ) ? (string) $row['offer_number'] : '',
 			'status'        => isset( $row['status'] ) ? (string) $row['status'] : '',
 			'table_present' => true,
+			'from_event'    => $from_event,
 		);
 	}
 
@@ -927,7 +934,15 @@ class MP_SW_D2_QA_Agent extends MP_SW_Abstract_Agent {
 		$offer      = isset( $snapshot['offer'] ) ? (array) $snapshot['offer'] : array();
 		$offer_fail = '';
 
-		if ( ! empty( $offer['offer_id'] ) && ! empty( $offer['table_present'] ) ) {
+		/*
+		 * Sprawdzamy WYŁĄCZNIE ofertę podaną w kopercie. Numer wzięty z wiersza
+		 * procesu przeszedł tę kontrolę wtedy, gdy tam trafiał, i nie jest już
+		 * wektorem podszycia — a bywa nieaktualny, bo ofertę można w module
+		 * ofertowym usunąć. Traktowanie go tak samo ostro zamrażałoby proces:
+		 * handlowiec nie mógłby nawet oznaczyć sprzedaży jako przegranej, bo
+		 * pipeline odbijałby się o nieistniejący dokument.
+		 */
+		if ( ! empty( $offer['offer_id'] ) && ! empty( $offer['table_present'] ) && ! empty( $offer['from_event'] ) ) {
 			if ( empty( $offer['exists'] ) ) {
 				$offer_fail = 'offer_missing';
 			} elseif ( empty( $offer['belongs'] ) ) {

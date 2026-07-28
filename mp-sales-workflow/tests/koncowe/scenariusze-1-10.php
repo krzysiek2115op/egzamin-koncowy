@@ -370,7 +370,26 @@ if ( mp_ok( null !== $to_client, 'w kolejce jest wiadomosc do KLIENTA' ) ) {
 	mp_ok( '' !== (string) $to_client['template_version'], 'zapisano wersje szablonu (kryt. K2.5)' );
 }
 
-$sent = MP_SW_Queue::run();
+/*
+ * Kolejka wysyla PACZKAMI po 20 wiadomosci, od najstarszej. Pojedyncze `run()`
+ * wystarczalo tylko dopoty, dopoki na instalacji nie zalegalo nic wczesniejszego
+ * — a wystarczy, ze inny zestaw testow zostawi ~20 wpisow, i wiadomosc TEGO
+ * scenariusza wypada poza paczke. Objaw byl mylacy: „wiadomosc nie poszla do
+ * klienta", choc kod dzialal poprawnie, a wpis po prostu czekal w kolejce.
+ * Kręcimy wiec kolejka, az sie oprozni; limit obrotow chroni przed petla
+ * nieskonczona, gdyby wpis wracal do kolejki po nieudanej probie.
+ */
+$sent = array();
+for ( $obrot = 0; $obrot < 25; $obrot++ ) {
+	$partia = MP_SW_Queue::run();
+	if ( is_array( $partia ) ) {
+		$sent = array_merge( $sent, $partia );
+	}
+	$zalega = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$notif_t} WHERE status = %s", 'queued' ) ); // phpcs:ignore
+	if ( 0 === $zalega ) {
+		break;
+	}
+}
 mp_ok( is_array( $sent ), 'kolejka przetworzona' );
 mp_ok( count( $GLOBALS['mp_mail'] ) > 0, 'wp_mail() faktycznie wywolane po COMMIT', 'wywolan=' . count( $GLOBALS['mp_mail'] ) );
 
