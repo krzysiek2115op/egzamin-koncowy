@@ -95,6 +95,16 @@ class MP_D11_Agent_Report extends MP_Abstract_Agent {
 				'status'          => (string) $context->get( 'status', 'new' ),
 				'vat_status'      => (string) $context->get( 'vat_status', 'checked' ),
 				'salesman_id'     => $context->get( 'salesman_id' ),
+
+				/*
+				 * Produkty i przewidywany wolumen — to, po co klient w ogole
+				 * wypelnil formularz. Wczesniej zostawaly w BD-3 i nie jechaly
+				 * dalej, wiec modul ofertowy zakladal PUSTY szkic, a handlowiec
+				 * przepisywal recznie dane, ktore klient juz podal. Zlecenie mowi
+				 * wprost: proces ma dzialac „bez recznego kopiowania danych".
+				 */
+				'products'        => $context->get( 'products' ),
+				'est_volume'      => $context->get( 'est_volume' ),
 			);
 			do_action( 'mp_lead_created', $lead_id, $payload );
 		}
