@@ -398,8 +398,40 @@ class MP_SW_D7_Agent_Content extends MP_SW_Abstract_Agent {
 		$lead_id  = isset( $entity['lead_id'] ) ? (int) $entity['lead_id'] : 0;
 		$offsets  = MP_SW_D6_Scheduler::plan_types();
 		$messages = array();
+		$skipped  = array();
 
 		foreach ( $recipients as $recipient ) {
+			/*
+			 * Niedostarczalny adres WEWNĘTRZNY nie unieważnia zdarzenia.
+			 *
+			 * Wcześniej krytyk 7.2 odrzucał całą kopertę, gdy którykolwiek
+			 * odbiorca miał zły adres — także wtedy, gdy chodziło o handlowca.
+			 * Skutek był nieproporcjonalny: JEDNO konto bez e-maila blokowało
+			 * przyjmowanie leadów w całości. Klient wypełniał formularz, po jego
+			 * stronie wszystko było poprawne, a lead nie powstawał, bo ktoś
+			 * w firmie miał niedokończony profil.
+			 *
+			 * Rozróżnienie idzie po tym, CZYJ kontakt zawodzi. Brak dojścia do
+			 * KLIENTA unieważnia sens zdarzenia „wyślij ofertę" — tam odmowa
+			 * zostaje (krytyk 7.2 poniżej). Brak dojścia do własnego pracownika
+			 * to usterka administracyjna: pomijamy to jedno powiadomienie,
+			 * odnotowujemy je w dzienniku (kryt. 5.5) i prowadzimy proces dalej.
+			 * Cicho nie znika nic — znika tylko blokada.
+			 */
+			$adres = trim( (string) $recipient['email'] );
+			if ( MP_SW_D7_Notifier::AUDIENCE_CLIENT !== (string) $recipient['audience'] && ( '' === $adres || ! is_email( $adres ) ) ) {
+				$skipped[] = array(
+					'audience' => (string) $recipient['audience'],
+					'template' => (string) $recipient['template'],
+					'reason'   => (string) $recipient['reason'],
+					'user_id'  => (int) $recipient['user_id'],
+					// Sam adres NIE trafia do dziennika — dziennik jest bez adresów
+					// i bez IP (RODO). Wystarczy wiedzieć KTO i CZEGO nie dostał.
+					'cause'    => '' === $adres ? 'brak_adresu' : 'adres_niepoprawny',
+				);
+				continue;
+			}
+
 			$key  = (string) $recipient['template'];
 			$lang = (string) $recipient['lang'];
 			$tpl  = isset( $set[ $key ][ $lang ] )
@@ -457,7 +489,14 @@ class MP_SW_D7_Agent_Content extends MP_SW_Abstract_Agent {
 			);
 		}
 
-		return MP_SW_Result::ok( array( 'messages' => $messages ) );
+		return MP_SW_Result::ok(
+			array(
+				'messages'              => $messages,
+				// Pominięte powiadomienia wewnętrzne — Dział 8 dopisuje je do
+				// dziennika, żeby dało się odtworzyć, czego handlowiec nie dostał.
+				'skipped_notifications' => $skipped,
+			)
+		);
 	}
 
 	/**
@@ -608,6 +647,14 @@ class MP_SW_D7_Critic_Empty_Fields extends MP_SW_Abstract_Critic {
 				);
 			}
 
+			/*
+			 * W praktyce dotyczy to juz TYLKO klienta: powiadomienia wewnetrzne
+			 * z niedostarczalnym adresem odpadaja wczesniej, w Agencie 7.2, i ida
+			 * do dziennika zamiast wywracac cala koperte (patrz komentarz tam).
+			 * Tutaj zostaje twarda odmowa, bo „wyslij oferte klientowi" bez adresu
+			 * klienta nie ma sensu — i defense-in-depth, gdyby filtr wyzej kiedys
+			 * przestal dzialac.
+			 */
 			if ( '' === trim( (string) $message['recipient'] ) || ! is_email( $message['recipient'] ) ) {
 				return MP_SW_Result::fail(
 					sprintf(

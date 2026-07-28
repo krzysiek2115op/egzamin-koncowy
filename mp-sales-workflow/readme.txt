@@ -4,7 +4,7 @@ Tags: sprzedaz, crm, workflow, follow-up
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.1
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,6 +33,24 @@ rekordow SPF/DKIM/DMARC oraz blokady katalogu z ofertami PDF. Pelna checklista:
 powiadomien do klientow.
 
 == Changelog ==
+
+= 1.2.0 =
+
+* NIEDOSTARCZALNY ADRES WEWNETRZNY NIE BLOKUJE JUZ PROCESU. Krytyk 7.2 odrzucal
+  CALA koperte, gdy ktorykolwiek odbiorca mial zly adres — takze wtedy, gdy
+  chodzilo o handlowca. Skutek byl nieproporcjonalny: JEDNO konto bez e-maila
+  blokowalo przyjmowanie leadow. Klient wypelnial formularz, po jego stronie
+  wszystko bylo poprawne, a lead nie powstawal, bo ktos w firmie mial
+  niedokonczony profil.
+* Teraz rozroznienie idzie po tym, CZYJ kontakt zawodzi. Brak dojscia do KLIENTA
+  nadal unieważnia zdarzenie „wyslij oferte" — bez adresu klienta nie ma ono
+  sensu. Brak dojscia do wlasnego pracownika to usterka administracyjna:
+  pomijamy to jedno powiadomienie i prowadzimy proces dalej.
+* Pominiete powiadomienie NIE znika po cichu — trafia do dziennika jako
+  `notification.skipped`, z rola odbiorcy, szablonem i powodem (brak adresu /
+  adres niepoprawny). Bez adresu, tak jak reszta dziennika (RODO). Dzieki temu
+  kryterium odbioru 5.5 („odtworzenie historii wysylek") zostaje prawdziwe
+  wlasnie tam, gdzie jest najbardziej potrzebne.
 
 = 1.1.1 =
 

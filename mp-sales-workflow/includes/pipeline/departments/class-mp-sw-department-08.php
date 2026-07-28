@@ -57,6 +57,17 @@ class MP_SW_D8_Writer {
 	const LOG_NOTIFICATION = 'notification.queued';
 
 	/**
+	 * Wpis dziennika: powiadomienie WEWNĘTRZNE pominięte (zły adres odbiorcy).
+	 *
+	 * Powiadomienie do własnego pracownika bez dostarczalnego adresu nie wywraca
+	 * już całego zdarzenia (patrz Agent 7.2) — ale nie ma prawa zniknąć po cichu.
+	 * Ten wpis jest dowodem, że wiadomość się należała i dlaczego nie poszła;
+	 * bez niego kryterium 5.5 („odtworzenie historii wysyłek") przestałoby być
+	 * prawdziwe dokładnie w tych przypadkach, w których jest najbardziej potrzebne.
+	 */
+	const LOG_NOTIFICATION_SKIPPED = 'notification.skipped';
+
+	/**
 	 * Limity długości kolumn tekstowych z DDL (BD-1).
 	 *
 	 * Sprawdzamy je PRZED zapisem, bo MySQL w trybie nieścisłym po cichu obcina
@@ -774,6 +785,22 @@ class MP_SW_D8_Agent_Journal extends MP_SW_Abstract_Agent {
 				'old_value'  => '',
 				'new_value'  => $notification['template'] . ' v' . $notification['template_version']
 					. ' [' . $notification['lang'] . '] → ' . $audience,
+			);
+		}
+
+		/*
+		 * Powiadomienia wewnętrzne pominięte z powodu niedostarczalnego adresu.
+		 * Idą do dziennika ZAMIAST wywracać zdarzenie — administrator ma z czego
+		 * odczytać, że handlowiec nie dostał wiadomości i dlaczego. Bez adresu,
+		 * tak samo jak wpisy powyżej.
+		 */
+		foreach ( (array) $context->get( 'skipped_notifications', array() ) as $pominiete ) {
+			$entries[] = array(
+				'action'     => MP_SW_D8_Writer::LOG_NOTIFICATION_SKIPPED,
+				'entity_ref' => 'notification:' . (string) $pominiete['audience'],
+				'old_value'  => '',
+				'new_value'  => (string) $pominiete['template'] . ' → ' . (string) $pominiete['audience']
+					. ' #' . (int) $pominiete['user_id'] . ' (' . (string) $pominiete['cause'] . ')',
 			);
 		}
 
