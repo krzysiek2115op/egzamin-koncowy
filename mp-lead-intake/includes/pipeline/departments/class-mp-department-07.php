@@ -134,7 +134,21 @@ class MP_D7_Agent_Prepare extends MP_Abstract_Agent {
 		$vat_valid      = $context->get( 'vat_valid' );
 		$company_status = $context->get( 'company_status' );
 		$vat_pending    = ( $context->get( 'vat_pending' ) || $context->get( 'company_status_pending' ) );
-		$vat_status     = $vat_pending ? 'pending' : 'checked';
+
+		/*
+		 * F2 (bramka integracyjna): przy rozstrzygniętej weryfikacji rozróżniamy
+		 * POTWIERDZONY ważny numer ('valid') od sprawdzenia bez potwierdzenia
+		 * ('checked'). To samo rozróżnienie robi weryfikator w tle — patrz
+		 * class-mp-vat-verifier.php. Bez niego wtyczka 2 nie mogła odróżnić leada
+		 * z ważnym VAT UE i odwrotne obciążenie było ze ścieżki leada nieosiągalne.
+		 */
+		if ( $vat_pending ) {
+			$vat_status = 'pending';
+		} elseif ( true === $vat_valid ) {
+			$vat_status = 'valid';
+		} else {
+			$vat_status = 'checked';
+		}
 
 		$lead_data = array(
 			'company_name'         => $company,

@@ -332,7 +332,10 @@ printf(
 	(int) $GLOBALS['__mp_http_calls']
 );
 
-// 13) Worker rozstrzyga: VIES valid + WL 'Czynny' → 'checked', re-scoring (+50), mp_lead_verified.
+// 13) Worker rozstrzyga: VIES valid + WL 'Czynny' → 'valid', re-scoring (+50), mp_lead_verified.
+//     F2 (bramka integracyjna): potwierdzony wazny VAT UE ma WLASNY status 'valid'.
+//     Dawniej dawal 'checked' — tak samo jak sprawdzenie BEZ potwierdzenia — przez co
+//     wtyczka 2 nie mogla odroznic obu przypadkow i odwrotne obciazenie bylo nieosiagalne.
 $reset_async();
 $prov13     = run_pipeline( base_input( $VALID_NIP ) );
 $lid13      = (int) ( isset( $prov13['final_data']['lead_id'] ) ? $prov13['final_data']['lead_id'] : 0 );
@@ -346,13 +349,13 @@ $verified_before = isset( $GLOBALS['__mp_actions']['mp_lead_verified'] ) ? $GLOB
 MP_Lead_Intake_Vat_Verifier::run( $lid13 );
 $row13b = $find_lead( $lid13 );
 $inv13  = $row13b
-	&& 'checked' === ( isset( $row13b['vat_status'] ) ? $row13b['vat_status'] : '' )
+	&& 'valid' === ( isset( $row13b['vat_status'] ) ? $row13b['vat_status'] : '' )
 	&& 1 === (int) ( isset( $row13b['vat_valid'] ) ? $row13b['vat_valid'] : -1 )
 	&& 'Czynny' === ( isset( $row13b['company_status'] ) ? $row13b['company_status'] : '' )
 	&& (int) ( isset( $row13b['score'] ) ? $row13b['score'] : 0 ) === $prov_score + 50
 	&& ( isset( $GLOBALS['__mp_actions']['mp_lead_verified'] ) ? $GLOBALS['__mp_actions']['mp_lead_verified'] : 0 ) === $verified_before + 1;
 printf(
-	"[%-4s] Worker: 'checked', vat_valid=1, status=Czynny, score %d→%d (+50), mp_lead_verified++\n",
+	"[%-4s] Worker: 'valid', vat_valid=1, status=Czynny, score %d→%d (+50), mp_lead_verified++\n",
 	$inv13 ? 'PASS' : 'FAIL',
 	$prov_score,
 	(int) ( $row13b && isset( $row13b['score'] ) ? $row13b['score'] : 0 )
@@ -593,7 +596,7 @@ $GLOBALS['__mp_cfg']['http_responses'] = array(
 );
 $fired24 = fire_all_cron();
 $row24   = $find_lead( $lid23 );
-$inv24   = $fired24 >= 1 && $row24 && 'checked' === ( isset( $row24['vat_status'] ) ? $row24['vat_status'] : '' );
+$inv24   = $fired24 >= 1 && $row24 && 'valid' === ( isset( $row24['vat_status'] ) ? $row24['vat_status'] : '' );
 printf(
 	"[%-4s] Wiring: do_action(VERIFY_HOOK) uruchamia run() przez register() (odpalone=%d, vat_status=%s)\n",
 	$inv24 ? 'PASS' : 'FAIL',

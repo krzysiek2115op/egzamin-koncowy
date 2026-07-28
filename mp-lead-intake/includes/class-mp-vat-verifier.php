@@ -163,8 +163,27 @@ class MP_Lead_Intake_Vat_Verifier {
 		);
 
 		if ( $vat_checked ) {
-			// VIES rozstrzygnął jednoznacznie.
-			$new_status = ( false === $vat_valid ) ? 'invalid' : 'checked';
+			/*
+			 * VIES rozstrzygnął jednoznacznie.
+			 *
+			 * F2 (bramka integracyjna): rozróżniamy POTWIERDZONY ważny numer
+			 * ('valid') od sprawdzenia, które ważności nie potwierdziło
+			 * ('checked' — np. lead spoza UE, gdzie VIES nie ma czego sprawdzać).
+			 * Wcześniej oba przypadki dawały 'checked', więc wtyczka 2 nie miała
+			 * jak odróżnić leada z ważnym VAT UE od pozostałych i odwrotne
+			 * obciążenie (0% VAT, art. 196 dyrektywy 2006/112/WE) było ze ścieżki
+			 * leada NIEOSIĄGALNE — każda oferta dostawała stawkę krajową.
+			 *
+			 * Odpowiedź „ważny" siedziała w osobnej kolumnie `vat_valid`, ale nie
+			 * wychodziła na zewnątrz w statusie; teraz wychodzi.
+			 */
+			if ( false === $vat_valid ) {
+				$new_status = 'invalid';
+			} elseif ( true === $vat_valid ) {
+				$new_status = 'valid';
+			} else {
+				$new_status = 'checked';
+			}
 		} else {
 			// Nierozstrzygnięte (VIES/MF niedostępne): ponów do limitu, potem poddaj się.
 			$new_status = ( $attempts >= self::MAX_ATTEMPTS ) ? 'unknown' : 'pending';
