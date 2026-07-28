@@ -359,6 +359,24 @@ class MP_SW_D1_Agent_Idempotency extends MP_SW_Abstract_Agent {
 				);
 			}
 
+			/*
+			 * Rozróżnienie, które chroni idempotencję: BRAK klucza to normalna
+			 * sytuacja (kliknięcie w panelu żadnego nie ma), ale klucz PODANY i
+			 * uszkodzony to błąd wywołującego. Ciche podmienienie go na nowy
+			 * sprawiłoby, że ponowione zdarzenie wyglądałoby na zupełnie inne —
+			 * czyli dokładnie to, przed czym idempotencja ma bronić.
+			 */
+			if ( '' !== $event_id ) {
+				return MP_SW_Result::ok(
+					array(
+						'event_id'           => '',
+						'trace_id'           => $trace_id,
+						'event_id_generated' => false,
+						'event_id_malformed' => true,
+					)
+				);
+			}
+
 			$event_id  = wp_generate_uuid4();
 			$generated = true;
 		}
@@ -368,6 +386,7 @@ class MP_SW_D1_Agent_Idempotency extends MP_SW_Abstract_Agent {
 				'event_id'           => $event_id,
 				'trace_id'           => $trace_id,
 				'event_id_generated' => $generated,
+				'event_id_malformed' => false,
 			)
 		);
 	}
@@ -388,13 +407,17 @@ class MP_SW_D1_Critic_Idempotency_Key extends MP_SW_Abstract_Critic {
 		$event_id = isset( $data['event_id'] ) ? $data['event_id'] : '';
 
 		if ( ! wp_is_uuid( $event_id, 4 ) ) {
+			$malformed = ! empty( $data['event_id_malformed'] );
+
 			return MP_SW_Result::fail(
-				__( 'Zdarzenie bez poprawnego klucza idempotencji (UUID v4).', 'mp-sales-workflow' ),
+				$malformed
+					? __( 'Klucz idempotencji podany, ale nie jest UUID v4 — nie podmieniamy go po cichu.', 'mp-sales-workflow' )
+					: __( 'Zdarzenie bez poprawnego klucza idempotencji (UUID v4).', 'mp-sales-workflow' ),
 				array(
 					'errors'      => array( 'event_id' ),
 					'http_status' => 422,
 				),
-				'missing_idempotency_key'
+				$malformed ? 'malformed_idempotency_key' : 'missing_idempotency_key'
 			);
 		}
 
