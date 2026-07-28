@@ -59,6 +59,36 @@ class MP_SW_Events {
 	}
 
 	/**
+	 * Buduje POWTARZALNY klucz idempotencji z treści zdarzenia.
+	 *
+	 * Te same składniki dają zawsze ten sam UUID, więc powtórzone zdarzenie o tej
+	 * samej treści (wtyczka wystawiła hak dwa razy, cron wrócił po to samo
+	 * zadanie) odbija się o UNIQUE w rejestrze zdarzeń zamiast przejść ścieżkę
+	 * drugi raz i wysłać drugi e-mail.
+	 *
+	 * Wynik ma postać UUID v4 nie dla ozdoby: taki kształt wymusza kontrakt
+	 * Działu 1 i kolumna `char(36)` w BD-1.
+	 *
+	 * @param string $kind  Rodzaj zdarzenia (np. 'lead.created').
+	 * @param array  $parts Składniki wyróżniające zdarzenie.
+	 * @return string
+	 */
+	public static function derive_event_id( $kind, array $parts ) {
+		$hash = md5( 'mp_sw:' . $kind . ':' . implode( ':', $parts ) );
+
+		return sprintf(
+			'%s-%s-4%s-%s%s-%s',
+			substr( $hash, 0, 8 ),
+			substr( $hash, 8, 4 ),
+			substr( $hash, 13, 3 ),
+			// Wariant UUID: pierwszy znak czwartej grupy musi być 8, 9, a albo b.
+			dechex( hexdec( substr( $hash, 16, 1 ) ) % 4 + 8 ),
+			substr( $hash, 17, 3 ),
+			substr( $hash, 20, 12 )
+		);
+	}
+
+	/**
 	 * Kod HTTP wynikający z odmowy.
 	 *
 	 * Krytycy ustawiają go przy odrzuceniu (403 / 409 / 422); brak wskazania

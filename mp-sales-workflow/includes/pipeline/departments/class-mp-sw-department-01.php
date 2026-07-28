@@ -262,6 +262,27 @@ class MP_SW_D1_Agent_Source extends MP_SW_Abstract_Agent {
 			$auth['nonce_ok'] = (bool) wp_verify_nonce( $nonce, MP_SW_D1::NONCE_ACTION );
 			$auth['cap_ok']   = current_user_can( MP_SW_D1::CAP_MANUAL );
 			$auth['user_id']  = get_current_user_id();
+
+			/*
+			 * Sam PODGLĄD nonce'a nie wymaga i jest to decyzja świadoma. Token
+			 * broni przed wymuszeniem AKCJI przez obcą witrynę (CSRF) — a ścieżka
+			 * `dashboard.view` żadnej akcji nie wykonuje: fabryka buduje dla niej
+			 * pipeline bez transakcji i bez Działu 8, więc `db_writes = 0` wynika
+			 * z budowy, nie z dobrej woli. Wymóg tokenu przy renderze podstrony
+			 * dawał tylko pozór kontroli: strona nie ma skąd wziąć cudzego tokenu,
+			 * więc wystawiałaby go sobie sama i sama sprawdzała.
+			 *
+			 * Uprawnienie zostaje sprawdzone tak samo ostro jak przy każdym innym
+			 * wywołaniu ręcznym — to ono decyduje, kto widzi procesy.
+			 */
+			if ( MP_SW_Pipeline_Factory::EVENT_DASHBOARD_VIEW === (string) $context->get( 'type', '' ) ) {
+				$auth['nonce_ok']       = true;
+				$auth['nonce_required'] = false;
+			}
+		}
+
+		if ( ! isset( $auth['nonce_required'] ) ) {
+			$auth['nonce_required'] = MP_SW_D1::SOURCE_MANUAL === $source;
 		}
 
 		return MP_SW_Result::ok(

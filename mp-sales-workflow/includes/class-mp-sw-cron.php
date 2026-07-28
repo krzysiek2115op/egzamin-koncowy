@@ -159,17 +159,7 @@ class MP_SW_Cron {
 	 * @return string
 	 */
 	public static function task_event_id( $task_id, $event_id ) {
-		$hash = md5( 'mp_sw_task_due:' . $task_id . ':' . $event_id );
-
-		return sprintf(
-			'%s-%s-4%s-%s%s-%s',
-			substr( $hash, 0, 8 ),
-			substr( $hash, 8, 4 ),
-			substr( $hash, 13, 3 ),
-			dechex( hexdec( substr( $hash, 16, 1 ) ) % 4 + 8 ),
-			substr( $hash, 17, 3 ),
-			substr( $hash, 20, 12 )
-		);
+		return MP_SW_Events::derive_event_id( 'task.due', array( $task_id, $event_id ) );
 	}
 
 	/**

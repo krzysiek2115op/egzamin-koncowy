@@ -61,20 +61,16 @@ class MP_SW_Admin {
 		}
 
 		/*
-		 * Nonce nadajemy tutaj, a nie przyjmujemy z żądania. To nie jest obejście
-		 * kontroli: podstrona renderuje się po stronie serwera, więc nie istnieje
-		 * „cudze" żądanie, przed którym nonce miałby bronić. Token wiąże zdarzenie
-		 * z SESJĄ tego użytkownika (wp_create_nonce jest per użytkownik), dzięki
-		 * czemu wpis w dzienniku nadal mówi, czyj to był podgląd. Za dostęp
-		 * odpowiada uprawnienie — sprawdzone i tutaj, i przez krytyka K1.2 — a
-		 * ścieżka `dashboard.view` i tak niczego nie zapisuje.
+		 * Bez nonce'a — świadomie. Podgląd niczego nie zapisuje, a token broni
+		 * przed wymuszeniem AKCJI przez obcą witrynę; szczegóły przy krytyku K1.2.
+		 * O dostępie decyduje uprawnienie, sprawdzone tuż wyżej i jeszcze raz w
+		 * Dziale 1.
 		 */
 		$dispatched = MP_SW_Events::dispatch(
 			MP_SW_Pipeline_Factory::EVENT_DASHBOARD_VIEW,
 			array(
 				'entity' => array(),
 				'actor'  => array( 'user_id' => get_current_user_id() ),
-				'nonce'  => wp_create_nonce( MP_SW_D1::NONCE_ACTION ),
 			),
 			MP_SW_D1::SOURCE_MANUAL
 		);

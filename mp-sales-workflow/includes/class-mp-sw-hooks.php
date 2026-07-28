@@ -56,15 +56,16 @@ class MP_SW_Hooks {
 		$payload = is_array( $payload ) ? $payload : array();
 
 		$envelope = array(
-			'entity' => array( 'lead_id' => (int) $lead_id ),
+			'entity'   => array( 'lead_id' => (int) $lead_id ),
 			// Zdarzenie z haka nie ma zalogowanego użytkownika nawet wtedy, gdy
 			// powstało w panelu: aktorem jest system, a Dział 3 nie sprawdza
 			// uprawnień procesu automatycznego.
-			'actor'  => array( 'user_id' => 0 ),
-			'client' => array(
+			'actor'    => array( 'user_id' => 0 ),
+			'client'   => array(
 				'name'  => isset( $payload['company_name'] ) ? (string) $payload['company_name'] : '',
 				'email' => isset( $payload['email'] ) ? (string) $payload['email'] : '',
 			),
+			'event_id' => MP_SW_Events::derive_event_id( 'lead.created', array( (int) $lead_id ) ),
 		);
 
 		if ( isset( $payload['country'] ) ) {
@@ -105,6 +106,7 @@ class MP_SW_Hooks {
 				),
 				'actor'     => array( 'user_id' => 0 ),
 				'to_status' => MP_Sales_Workflow_DB::STATUS_OFFER_DRAFT,
+				'event_id'  => MP_SW_Events::derive_event_id( 'offer.draft', array( $lead_id, (int) $offer_id ) ),
 			)
 		);
 	}
@@ -127,11 +129,12 @@ class MP_SW_Hooks {
 		self::dispatch(
 			MP_SW_Pipeline_Factory::EVENT_OFFER_APPROVED,
 			array(
-				'entity' => array(
+				'entity'   => array(
 					'lead_id'  => $lead_id,
 					'offer_id' => (int) $offer_id,
 				),
-				'actor'  => array( 'user_id' => 0 ),
+				'actor'    => array( 'user_id' => 0 ),
+				'event_id' => MP_SW_Events::derive_event_id( 'offer.approved', array( $lead_id, (int) $offer_id ) ),
 			)
 		);
 	}
