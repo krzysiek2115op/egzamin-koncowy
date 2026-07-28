@@ -79,6 +79,16 @@ class MP_SW_Errors {
 	/** Zbyt wiele prob pobrania z jednego adresu. */
 	const E_RATE_LIMIT = 'MP3-E182';
 
+	/**
+	 * Oferta nie ma jeszcze gotowego dokumentu do wyslania.
+	 *
+	 * Osobny kod, a nie „blad wewnetrzny": to jedyna odmowa na pulpicie, ktora
+	 * handlowiec usuwa SAM — dokanczajac oferte w module ofertowym. Zlanie jej z
+	 * brakiem klucza podpisu (usterka wdrozeniowa, sprawa administratora) kazaloby
+	 * mu szukac winy nie tam, gdzie trzeba.
+	 */
+	const E_OFFER_DOCUMENT = 'MP3-E190';
+
 	/** Blad po naszej stronie. */
 	const E_INTERNAL = 'MP3-E500';
 
@@ -113,6 +123,7 @@ class MP_SW_Errors {
 			'version_conflict'          => self::E_CONFLICT,
 			'invalid_transition'        => self::E_TRANSITION,
 			'unresolved_markers'        => self::E_MAIL,
+			'offer_document_missing'    => self::E_OFFER_DOCUMENT,
 			'invalid_recipient'         => self::E_MAIL,
 			'header_injection'          => self::E_MAIL,
 			'attachment_not_allowed'    => self::E_MAIL,
@@ -165,6 +176,7 @@ class MP_SW_Errors {
 			self::E_CONFLICT       => __( 'Proces zmienił się w międzyczasie — odśwież i powtórz.', 'mp-sales-workflow' ),
 			self::E_TRANSITION     => __( 'Niedozwolone przejście statusu.', 'mp-sales-workflow' ),
 			self::E_MAIL           => __( 'Powiadomienie odrzucone przed wysyłką.', 'mp-sales-workflow' ),
+			self::E_OFFER_DOCUMENT => __( 'Oferta nie ma jeszcze gotowego dokumentu PDF — dokończ ją w module ofertowym i spróbuj ponownie.', 'mp-sales-workflow' ),
 			self::E_QUEUE_BREAKER  => __( 'Kolejka powiadomień wstrzymana przez bezpiecznik.', 'mp-sales-workflow' ),
 			self::E_LINK_SIGNATURE => __( 'Link jest nieprawidłowy.', 'mp-sales-workflow' ),
 			self::E_LINK_EXPIRED   => __( 'Link jest nieprawidłowy.', 'mp-sales-workflow' ),

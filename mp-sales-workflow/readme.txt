@@ -4,7 +4,7 @@ Tags: sprzedaz, crm, workflow, follow-up
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,6 +33,30 @@ rekordow SPF/DKIM/DMARC oraz blokady katalogu z ofertami PDF. Pelna checklista:
 powiadomien do klientow.
 
 == Changelog ==
+
+= 1.1.0 =
+
+Audyt zgodnosci ze zleceniem — trzy braki zamkniete.
+
+* JEDNA rola managera. Wtyczka zakladala wlasne `mp_manager` z taka sama nazwa
+  wyswietlana, co `mp_manager_sprzedazy` z MP Lead Intake: administrator widzial
+  w liscie rol „Manager sprzedazy" dwa razy i nie mial jak ich odroznic. Teraz
+  uzywamy sluga z wtyczki 1, a aktywacja przenosi konta ze starej roli i ja kasuje.
+* Deinstalacja NIE kasuje juz rol — obie dzielimy z MP Lead Intake, wiec ich
+  usuniecie zabieraloby handlowcom dostep do leadow. Zdejmowane sa wylacznie
+  uprawnienia tej wtyczki.
+* Pulpit dostal AKCJE. Wczesniej byl tylko do odczytu: punkt AJAX dzialal, ale nic
+  w interfejsie go nie wywolywalo, wiec handlowiec nie mial jak przesunac procesu.
+  Teraz kazdy wiersz ma wybor statusu docelowego (z maszyny statusow, nie z osobnej
+  listy) oraz nazwany przycisk „Zatwierdz i wyslij oferte" — krok 4 zlecenia.
+  Formularz bez JavaScriptu, jeden token CSRF sprawdzany dwa razy.
+* Dziennik aktywnosci widoczny w panelu (kryterium odbioru 5.5) — klikniecie leada
+  otwiera historie procesu. Zakres sprawdzany przez przynaleznosc do juz pobranej
+  listy, bez dodatkowego zapytania.
+* Zatwierdzenie oferty bez gotowego PDF ma wlasny kod MP3-E190 i komunikat
+  wskazujacy modul ofertowy, zamiast bledu wewnetrznego MP3-E500.
+* Dzial 2 bierze numer oferty z procesu, gdy koperta go nie niesie — reczne
+  zatwierdzenie podaje sam `lead_id`, a handlowiec nie wpisuje numeru z pamieci.
 
 = 1.0.0 =
 

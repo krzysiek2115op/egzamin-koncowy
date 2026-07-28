@@ -383,6 +383,66 @@ foreach ( $GLOBALS['mp_mail'] as $m ) {
 }
 mp_ok( null !== $client_mail, 'wiadomosc poszla na adres klienta z BAZY LP.1' );
 
+
+// --- Krok 4 zlecenia: handlowiec zatwierdza ofertę z PULPITU ---
+// Nie przez wewnętrzne API, tylko tą samą drogą, którą klika człowiek: formularz
+// POST na podstronie panelu. Bez tego cała maszyna statusów byla nieosiagalna
+// dla uzytkownika (pulpit nie mial ani jednego przycisku).
+mp_login( $owner_id );
+
+$_GET  = array( 'page' => MP_SW_Admin::PAGE );
+$_POST = array();
+ob_start();
+MP_SW_Admin::render();
+$html = (string) ob_get_clean();
+
+mp_ok( false !== strpos( $html, '<form method="post"' ), 'pulpit renderuje formularz akcji' );
+mp_ok( false !== strpos( $html, 'name="mp_sw_nonce"' ), 'formularz niesie token CSRF' );
+mp_ok( false !== strpos( $html, 'name="to_status"' ), 'formularz pozwala wybrac status docelowy' );
+
+// Proces w statusie „oferta robocza" ma dostac nazwany przycisk wysylki.
+$wpdb->update( $flow_t, array( 'status' => MP_Sales_Workflow_DB::STATUS_OFFER_DRAFT ), array( 'id' => $flow_id ) ); // phpcs:ignore
+ob_start();
+MP_SW_Admin::render();
+$html2 = (string) ob_get_clean();
+mp_ok( false !== strpos( $html2, 'Zatwierdź i wyślij ofertę' ), 'proces z oferta robocza ma przycisk zatwierdzenia' );
+
+$notif_ui = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$notif_t} WHERE flow_id = %d", $flow_id ) ); // phpcs:ignore
+$nonce_ui = wp_create_nonce( MP_SW_D1::NONCE_ACTION );
+$_POST    = array(
+	'mp_sw_action' => 'change_status',
+	'mp_sw_nonce'  => $nonce_ui,
+	'lead_id'      => $lead_id,
+	'to_status'    => MP_Sales_Workflow_DB::STATUS_OFFER_SENT,
+);
+$_REQUEST = $_POST;
+ob_start();
+MP_SW_Admin::render();
+$html3 = (string) ob_get_clean();
+$_POST    = array();
+$_REQUEST = array();
+
+$status_ui = (string) $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$flow_t} WHERE id = %d", $flow_id ) ); // phpcs:ignore
+mp_ok( MP_Sales_Workflow_DB::STATUS_OFFER_SENT === $status_ui, 'zatwierdzenie z pulpitu przestawilo status na oferta wyslana', 'status=' . $status_ui );
+mp_ok( (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$notif_t} WHERE flow_id = %d", $flow_id ) ) > $notif_ui, 'zatwierdzenie z pulpitu dolozylo powiadomienie do kolejki' ); // phpcs:ignore
+mp_ok( false !== strpos( $html3, 'notice-success' ), 'pulpit potwierdzil operacje komunikatem' );
+
+// Bez tokenu ta sama operacja ma sie nie wykonac (check_admin_referer konczy
+// zadanie, wiec sprawdzamy przez brak zmiany stanu przy zlym tokenie w kopercie).
+$lock_ui = (int) $wpdb->get_var( $wpdb->prepare( "SELECT lock_version FROM {$flow_t} WHERE id = %d", $flow_id ) ); // phpcs:ignore
+$zly     = MP_SW_Events::from_http(
+	MP_SW_Pipeline_Factory::EVENT_STATUS_CHANGE,
+	array(
+		'entity'    => array( 'lead_id' => $lead_id ),
+		'actor'     => array( 'user_id' => $owner_id ),
+		'to_status' => MP_Sales_Workflow_DB::STATUS_WON,
+		'nonce'     => 'podrobiony-token',
+		'event_id'  => wp_generate_uuid4(),
+	)
+);
+mp_ok( ! $zly['result']->is_ok(), 'zmiana statusu z podrobionym tokenem odrzucona' );
+mp_ok( $lock_ui === (int) $wpdb->get_var( $wpdb->prepare( "SELECT lock_version FROM {$flow_t} WHERE id = %d", $flow_id ) ), 'odrzucona proba niczego nie zapisala' ); // phpcs:ignore
+
 /* ==================================================================== S6 */
 mp_sc( 'S6/10 — podpisany link do oferty' );
 
@@ -550,6 +610,25 @@ foreach ( $log as $row ) {
 	}
 }
 mp_ok( $with_actor === count( $log ), 'kazdy wpis wie, KTO go wywolal (actor_type)' );
+
+
+// Dziennik ma byc WIDOCZNY w panelu, nie tylko obecny w bazie (kryt. 5.5).
+mp_login( $owner_id );
+$_GET = array( 'page' => MP_SW_Admin::PAGE, 'mp_sw_dzien' => $flow_id );
+ob_start();
+MP_SW_Admin::render();
+$html_dz = (string) ob_get_clean();
+mp_ok( false !== strpos( $html_dz, 'Dziennik procesu' ), 'pulpit wyswietla dziennik wybranego procesu' );
+mp_ok( false !== strpos( $html_dz, MP_SW_D8_Writer::LOG_STATUS ), 'w dzienniku widac zmiane statusu' );
+
+// Cudzy proces: podstawienie identyfikatora w adresie nie moze pokazac historii.
+mp_login( $sal_de );
+$_GET = array( 'page' => MP_SW_Admin::PAGE, 'mp_sw_dzien' => $flow_id );
+ob_start();
+MP_SW_Admin::render();
+$html_obcy = (string) ob_get_clean();
+$_GET = array();
+mp_ok( false === strpos( $html_obcy, 'Dziennik procesu' ), 'obcy uzytkownik nie zobaczy dziennika cudzego procesu' );
 
 // Dziennik przezywa usuniecie procesu (brak wiezu — swiadomie).
 $probe_flow = (int) $wpdb->get_var( "SELECT MAX(id) + 1000 FROM {$flow_t}" ); // phpcs:ignore

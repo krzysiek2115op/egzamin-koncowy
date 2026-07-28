@@ -177,12 +177,47 @@ mk_ok( in_array( 'LP.3', $owner, true ), 'LP.3 ma zaplanowane wlasne zadania', w
 /* ------------------------------------------------------------------ 5 */
 mk_sec( '5. Role i uprawnienia — brak przejmowania cudzych' );
 
-$roles_p1 = array( 'mp_manager_sprzedazy', 'mp_handlowiec' );
 $roles_p3 = array( MP_SW_Roles::ROLE_MANAGER, MP_SW_Roles::ROLE_SALESMAN );
 
 foreach ( $roles_p3 as $r ) {
 	mk_ok( null !== get_role( $r ), "rola LP.3 {$r} istnieje" );
 }
+
+/*
+ * ZDUBLOWANE ROLE BIZNESOWE. Poprzednia wersja tego testu sprawdzala tylko, czy
+ * role LP.3 istnieja — i przepuscila stan, w ktorym na instalacji stały DWIE
+ * role o nazwie „Manager sprzedazy" (`mp_manager_sprzedazy` z LP.1 i `mp_manager`
+ * z LP.3). Administrator nie mial jak ich odroznic, a wybor zlej odbieral
+ * managerowi dostep do polowy systemu. Zlecenie wymaga TRZECH rol, nie czterech.
+ */
+$po_nazwie = array();
+
+foreach ( wp_roles()->roles as $slug => $rola ) {
+	if ( 0 !== strpos( (string) $slug, 'mp_' ) ) {
+		continue;
+	}
+
+	$nazwa = strtolower( trim( (string) $rola['name'] ) );
+
+	if ( ! isset( $po_nazwie[ $nazwa ] ) ) {
+		$po_nazwie[ $nazwa ] = array();
+	}
+
+	$po_nazwie[ $nazwa ][] = (string) $slug;
+}
+
+$zdublowane = array();
+
+foreach ( $po_nazwie as $nazwa => $slugi ) {
+	if ( count( $slugi ) > 1 ) {
+		$zdublowane[ $nazwa ] = $slugi;
+	}
+}
+
+mk_ok( empty( $zdublowane ), 'zadne dwie role mp_* nie maja tej samej nazwy wyswietlanej', wp_json_encode( $zdublowane ) );
+mk_ok( count( $po_nazwie ) <= 2, 'wtyczki wnosza najwyzej DWIE role wlasne (manager + handlowiec); trzecia rola ze zlecenia to administrator', wp_json_encode( array_keys( $po_nazwie ) ) );
+mk_ok( null === get_role( MP_SW_Roles::ROLE_MANAGER_LEGACY ), 'stara rola mp_manager zostala usunieta przez migracje' );
+mk_ok( MP_SW_Roles::ROLE_MANAGER === 'mp_manager_sprzedazy', 'LP.3 uzywa tego samego sluga managera co LP.1' );
 
 // Rola `mp_handlowiec` jest WSPOLNA (LP.1 tez ja zaklada) — to zamierzone:
 // jeden handlowiec, jedna rola. Sprawdzamy, czy obie wtyczki nadaly jej swoje

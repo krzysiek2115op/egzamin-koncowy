@@ -584,15 +584,27 @@ class MP_SW_D7_Critic_Empty_Fields extends MP_SW_Abstract_Critic {
 			}
 
 			if ( MP_SW_D7_Notifier::AUDIENCE_CLIENT === (string) $message['audience'] && '' === trim( (string) $message['link'] ) ) {
-				// Oferta bez adresu dokumentu jest dla klienta bezużyteczna, a
-				// pusty odnośnik zwykle znaczy brak MP_SW_LINK_KEY na produkcji.
+				/*
+				 * Oferta bez adresu dokumentu jest dla klienta bezużyteczna, ale
+				 * powody bywają dwa i naprawia je KTO INNY. Brak klucza podpisu to
+				 * usterka wdrożeniowa — sprawa administratora. Brak samego dokumentu
+				 * (oferta wciąż w szkicu, PDF jeszcze nie powstał) to zwykły stan
+				 * pracy, który handlowiec usuwa sam, dokańczając ofertę w module
+				 * ofertowym. Jeden wspólny komunikat kazał mu szukać winy nie tam,
+				 * gdzie trzeba — widać to było dopiero, gdy pulpit dostał przycisk
+				 * „Zatwierdź i wyślij ofertę".
+				 */
+				$brak_klucza = ( '' === MP_SW_Download::key() );
+
 				return MP_SW_Result::fail(
-					__( 'Powiadomienie do klienta bez adresu dokumentu — sprawdź MP_SW_LINK_KEY.', 'mp-sales-workflow' ),
+					$brak_klucza
+						? __( 'Powiadomienie do klienta bez adresu dokumentu — sprawdź MP_SW_LINK_KEY.', 'mp-sales-workflow' )
+						: __( 'Oferta nie ma jeszcze gotowego dokumentu — nie ma czego wysłać klientowi.', 'mp-sales-workflow' ),
 					array(
 						'errors'      => array( 'messages.link' ),
-						'http_status' => 500,
+						'http_status' => $brak_klucza ? 500 : 409,
 					),
-					'unresolved_markers'
+					$brak_klucza ? 'unresolved_markers' : 'offer_document_missing'
 				);
 			}
 

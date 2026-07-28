@@ -28,8 +28,24 @@ class MP_SW_Roles {
 	/** Handlowiec — prowadzi własne procesy sprzedażowe. */
 	const ROLE_SALESMAN = 'mp_handlowiec';
 
-	/** Manager sprzedaży — widzi i prowadzi procesy całego zespołu. */
-	const ROLE_MANAGER = 'mp_manager';
+	/**
+	 * Manager sprzedaży — widzi i prowadzi procesy całego zespołu.
+	 *
+	 * Slug jest TEN SAM, co w MP Lead Intake (`mp_manager_sprzedazy`). Wcześniej
+	 * ta wtyczka zakładała własne `mp_manager` z identyczną nazwą wyświetlaną, więc
+	 * na instalacji z obiema wtyczkami administrator widział w liście ról „Manager
+	 * sprzedaży" dwa razy i nie miał jak ich odróżnić — po wybraniu złej manager nie
+	 * widział albo leadów, albo procesów sprzedażowych. Zlecenie wymaga TRZECH ról
+	 * (administrator, manager sprzedaży, handlowiec), nie czterech.
+	 *
+	 * Ustępuje ta wtyczka, nie tamta: MP Lead Intake jest wdrożone i ma odebrane
+	 * testy, więc zmiana jego sluga osierociłaby konta, którym klient zdążył nadać
+	 * rolę.
+	 */
+	const ROLE_MANAGER = 'mp_manager_sprzedazy';
+
+	/** Nazwa roli managera z wersji sprzed ujednolicenia — tylko do migracji. */
+	const ROLE_MANAGER_LEGACY = 'mp_manager';
 
 	/** Rola wbudowana WordPressa, której dokładamy uprawnienia wtyczki. */
 	const ROLE_ADMIN = 'administrator';
@@ -182,6 +198,8 @@ class MP_SW_Roles {
 		add_role( self::ROLE_SALESMAN, __( 'Handlowiec', 'mp-sales-workflow' ), self::caps_for( self::ROLE_SALESMAN ) );
 		add_role( self::ROLE_MANAGER, __( 'Manager sprzedaży', 'mp-sales-workflow' ), self::caps_for( self::ROLE_MANAGER ) );
 
+		self::migrate_legacy_manager();
+
 		foreach ( self::required_roles() as $role_name ) {
 			$role = get_role( $role_name );
 
@@ -211,6 +229,53 @@ class MP_SW_Roles {
 		}
 
 		return self::roles_exist();
+	}
+
+	/**
+	 * Przenosi konta ze starej roli `mp_manager` na ujednoliconą i kasuje starą.
+	 *
+	 * Sama zmiana stałej nie wystarcza: na instalacji, która działała na
+	 * poprzedniej wersji, rola `mp_manager` zostaje w bazie razem z przypisanymi
+	 * do niej kontami. Bez tej migracji administrator dalej widziałby dwa
+	 * „Managery sprzedaży", a managerowie straciliby dostęp do procesów —
+	 * uprawnienia synchronizujemy tylko na rolach z `required_roles()`.
+	 *
+	 * Rola kasowana jest DOPIERO po przepisaniu kont. Odwrotna kolejność zabrałaby
+	 * im jedyną rolę i zostawiła konta bez żadnej.
+	 *
+	 * @return int Liczba przeniesionych kont.
+	 */
+	public static function migrate_legacy_manager() {
+		if ( ! get_role( self::ROLE_MANAGER_LEGACY ) && ! get_role( self::ROLE_MANAGER ) ) {
+			return 0;
+		}
+
+		$moved = 0;
+		$users = get_users(
+			array(
+				'role'   => self::ROLE_MANAGER_LEGACY,
+				'fields' => 'ID',
+				'number' => -1,
+			)
+		);
+
+		foreach ( (array) $users as $user_id ) {
+			$user = new WP_User( (int) $user_id );
+
+			if ( ! $user->exists() ) {
+				continue;
+			}
+
+			$user->add_role( self::ROLE_MANAGER );
+			$user->remove_role( self::ROLE_MANAGER_LEGACY );
+			++$moved;
+		}
+
+		if ( get_role( self::ROLE_MANAGER_LEGACY ) ) {
+			remove_role( self::ROLE_MANAGER_LEGACY );
+		}
+
+		return $moved;
 	}
 
 	/**
@@ -254,15 +319,25 @@ class MP_SW_Roles {
 	 * @return void
 	 */
 	public static function uninstall() {
-		$admin = get_role( self::ROLE_ADMIN );
+		/*
+		 * Role NIE są kasowane — obie dzielimy z MP Lead Intake, które zakłada
+		 * `mp_manager_sprzedazy` i `mp_handlowiec` na własny użytek. Usunięcie ich
+		 * przy deinstalacji tej wtyczki zabrałoby handlowcom dostęp do leadów,
+		 * czyli zepsułoby CUDZY moduł. Zdejmujemy wyłącznie to, co sami nadaliśmy.
+		 *
+		 * Wcześniej wywoływane tu `remove_role()` było bezpieczne tylko dlatego,
+		 * że rola managera miała wtedy własną, osobną nazwę.
+		 */
+		foreach ( array( self::ROLE_ADMIN, self::ROLE_MANAGER, self::ROLE_SALESMAN ) as $role_name ) {
+			$role = get_role( $role_name );
 
-		if ( $admin ) {
+			if ( ! $role ) {
+				continue;
+			}
+
 			foreach ( self::all_caps() as $cap ) {
-				$admin->remove_cap( $cap );
+				$role->remove_cap( $cap );
 			}
 		}
-
-		remove_role( self::ROLE_SALESMAN );
-		remove_role( self::ROLE_MANAGER );
 	}
 }

@@ -85,6 +85,13 @@ class MP_SW_Admin {
 		echo '<div class="wrap">';
 		echo '<h1>' . esc_html__( 'Procesy sprzedażowe', 'mp-sales-workflow' ) . '</h1>';
 
+		// Akcja wykonywana jest PRZED narysowaniem tabeli, ale wykaz `$rows` wczytano
+		// wcześniej — po zmianie statusu trzeba go odświeżyć, inaczej pulpit
+		// pokazałby stan sprzed operacji, którą użytkownik właśnie wykonał.
+		if ( self::maybe_change_status() ) {
+			$rows = self::flows( $scope, get_current_user_id(), $members );
+		}
+
 		if ( ! $dispatched['result']->is_ok() ) {
 			echo '<div class="notice notice-error"><p>'
 				. esc_html( implode( ' ', (array) $dispatched['result']->get_errors() ) )
@@ -93,8 +100,90 @@ class MP_SW_Admin {
 
 		self::render_summary( $context, $scope );
 		self::render_table( $rows );
+		self::render_journal( $rows );
 
 		echo '</div>';
+	}
+
+	/**
+	 * Zmiana statusu procesu z pulpitu — jedyna droga, którą handlowiec prowadzi
+	 * sprzedaż bez wchodzenia w bazę.
+	 *
+	 * Formularz nie używa JavaScriptu: zwykły POST na tę samą podstronę. Wysyłka
+	 * przez `admin-ajax.php` wymagałaby skryptu, a ten musiałby i tak przekazać
+	 * ten sam token i to samo uprawnienie — bez żadnego zysku, za to z jednym
+	 * dodatkowym miejscem, w którym coś może pójść nie tak.
+	 *
+	 * Token jest JEDEN i sprawdzany DWA razy: tutaj przez `check_admin_referer()`
+	 * i jeszcze raz w Dziale 1, który dostaje go w kopercie. Nie generujemy tokenu
+	 * po stronie serwera „na potrzeby pipeline'u" — wtedy pipeline weryfikowałby
+	 * coś, co sam przed chwilą wystawił, czyli nic.
+	 *
+	 * @return bool Czy operacja została wykonana (niezależnie od jej wyniku).
+	 */
+	private static function maybe_change_status() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce sprawdzany niżej.
+		if ( ! isset( $_POST['mp_sw_action'] ) || 'change_status' !== $_POST['mp_sw_action'] ) {
+			return false;
+		}
+
+		check_admin_referer( MP_SW_D1::NONCE_ACTION, 'mp_sw_nonce' );
+
+		if ( ! current_user_can( MP_SW_Roles::CAP_CHANGE_STATUS ) ) {
+			wp_die( esc_html__( 'Brak uprawnień do zmiany statusu procesu.', 'mp-sales-workflow' ) );
+		}
+
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce sprawdzony wyżej.
+		$lead_id   = isset( $_POST['lead_id'] ) ? absint( wp_unslash( $_POST['lead_id'] ) ) : 0;
+		$to_status = isset( $_POST['to_status'] ) ? sanitize_text_field( wp_unslash( $_POST['to_status'] ) ) : '';
+		$nonce     = isset( $_POST['mp_sw_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['mp_sw_nonce'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		if ( $lead_id < 1 || '' === $to_status ) {
+			return false;
+		}
+
+		$dispatched = MP_SW_Events::from_http(
+			MP_SW_Pipeline_Factory::EVENT_STATUS_CHANGE,
+			array(
+				'entity'    => array( 'lead_id' => $lead_id ),
+				'actor'     => array( 'user_id' => get_current_user_id() ),
+				'to_status' => $to_status,
+				'nonce'     => $nonce,
+
+				/*
+				 * Klucz wyprowadzony z (proces, status docelowy, minuta), a nie losowy:
+				 * odświeżenie strony po zmianie statusu wysyła ten sam formularz drugi
+				 * raz, a rejestr zdarzeń odbija powtórkę zamiast wysłać klientowi
+				 * drugą ofertę.
+				 */
+				'event_id'  => MP_SW_Events::derive_event_id(
+					'dashboard.status',
+					array( $lead_id, $to_status, (int) floor( time() / MINUTE_IN_SECONDS ) )
+				),
+			)
+		);
+
+		$result = $dispatched['result'];
+
+		if ( $result->is_ok() ) {
+			echo '<div class="notice notice-success is-dismissible"><p>'
+				. esc_html__( 'Status procesu zmieniony.', 'mp-sales-workflow' )
+				. '</p></div>';
+
+			return true;
+		}
+
+		// Krytyk zwraca kod WEWNĘTRZNY (`unresolved_markers`), a słownik komunikatów
+		// zna wyłącznie kody publiczne — bez tego tłumaczenia każda odmowa
+		// wyglądała na pulpicie jak błąd wewnętrzny MP3-E500.
+		$kod = MP_SW_Errors::code( $result->get_code() );
+
+		echo '<div class="notice notice-error is-dismissible"><p>'
+			. esc_html( MP_SW_Errors::message( $kod ) ) . ' <code>' . esc_html( $kod ) . '</code>'
+			. '</p></div>';
+
+		return true;
 	}
 
 	/**
@@ -195,7 +284,13 @@ class MP_SW_Admin {
 
 		echo '<table class="wp-list-table widefat fixed striped"><thead><tr>';
 
-		foreach ( array( 'Lead', 'Klient', 'Status', 'Handlowiec', 'Termin SLA', 'Otwarte zadania', 'Aktualizacja' ) as $naglowek ) {
+		$naglowki = array( 'Lead', 'Klient', 'Status', 'Handlowiec', 'Termin SLA', 'Otwarte zadania', 'Aktualizacja' );
+
+		if ( current_user_can( MP_SW_Roles::CAP_CHANGE_STATUS ) ) {
+			$naglowki[] = 'Akcje';
+		}
+
+		foreach ( $naglowki as $naglowek ) {
 			echo '<th>' . esc_html( $naglowek ) . '</th>';
 		}
 
@@ -203,15 +298,176 @@ class MP_SW_Admin {
 
 		foreach ( $rows as $row ) {
 			$owner = $row['assigned_user_id'] ? get_userdata( (int) $row['assigned_user_id'] ) : null;
+			$link  = add_query_arg(
+				array(
+					'page'        => self::PAGE,
+					'mp_sw_dzien' => (int) $row['id'],
+				),
+				admin_url( 'admin.php' )
+			);
 
 			echo '<tr>';
-			echo '<td>' . esc_html( $row['lead_id'] ) . '</td>';
+			echo '<td><a href="' . esc_url( $link ) . '">' . esc_html( $row['lead_id'] ) . '</a></td>';
 			echo '<td>' . esc_html( '' !== (string) $row['client_name'] ? $row['client_name'] : '—' ) . '</td>';
 			echo '<td>' . esc_html( self::status_label( (string) $row['status'] ) ) . '</td>';
 			echo '<td>' . esc_html( $owner instanceof WP_User ? $owner->display_name : '—' ) . '</td>';
 			echo '<td>' . esc_html( $row['sla_due_at'] ? $row['sla_due_at'] : '—' ) . '</td>';
 			echo '<td>' . esc_html( $row['open_tasks'] ) . '</td>';
 			echo '<td>' . esc_html( $row['updated_at'] ) . '</td>';
+
+			if ( current_user_can( MP_SW_Roles::CAP_CHANGE_STATUS ) ) {
+				echo '<td>';
+				self::render_actions( $row );
+				echo '</td>';
+			}
+
+			echo '</tr>';
+		}
+
+		echo '</tbody></table>';
+	}
+
+	/**
+	 * Formularz akcji dla jednego procesu.
+	 *
+	 * Lista statusów docelowych pochodzi z maszyny statusów, nie z osobnej listy w
+	 * widoku — inaczej pulpit oferowałby przejścia, które Dział 5 i tak odrzuci,
+	 * a użytkownik dowiadywałby się o tym dopiero po kliknięciu.
+	 *
+	 * @param array $row Wiersz procesu.
+	 * @return void
+	 */
+	private static function render_actions( array $row ) {
+		$status = (string) $row['status'];
+		$mapa   = MP_SW_D5_Machine::transitions();
+		$cele   = isset( $mapa[ $status ] ) ? (array) $mapa[ $status ] : array();
+
+		if ( empty( $cele ) ) {
+			echo '<span class="description">' . esc_html__( 'proces zamknięty', 'mp-sales-workflow' ) . '</span>';
+			return;
+		}
+
+		echo '<form method="post" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">';
+		wp_nonce_field( MP_SW_D1::NONCE_ACTION, 'mp_sw_nonce' );
+		echo '<input type="hidden" name="mp_sw_action" value="change_status" />';
+		echo '<input type="hidden" name="lead_id" value="' . esc_attr( (int) $row['lead_id'] ) . '" />';
+
+		/*
+		 * Krok 4 zlecenia („oferta trafia do handlowca do zatwierdzenia; po
+		 * akceptacji system wysyła ją klientowi") to w tej maszynie przejście
+		 * `oferta robocza → oferta wysłana`. Dostaje własny, nazwany przycisk,
+		 * bo to jedyna akcja na tym pulpicie, która wysyła pocztę na zewnątrz —
+		 * nie powinna wyglądać jak każda inna pozycja na liście.
+		 */
+		if ( MP_Sales_Workflow_DB::STATUS_OFFER_DRAFT === $status
+			&& in_array( MP_Sales_Workflow_DB::STATUS_OFFER_SENT, $cele, true ) ) {
+			echo '<button type="submit" name="to_status" class="button button-primary" value="'
+				. esc_attr( MP_Sales_Workflow_DB::STATUS_OFFER_SENT ) . '">'
+				. esc_html__( 'Zatwierdź i wyślij ofertę', 'mp-sales-workflow' )
+				. '</button>';
+
+			$cele = array_values( array_diff( $cele, array( MP_Sales_Workflow_DB::STATUS_OFFER_SENT ) ) );
+
+			if ( empty( $cele ) ) {
+				echo '</form>';
+				return;
+			}
+		}
+
+		echo '<select name="to_status">';
+
+		foreach ( $cele as $cel ) {
+			echo '<option value="' . esc_attr( $cel ) . '">' . esc_html( self::status_label( $cel ) ) . '</option>';
+		}
+
+		echo '</select>';
+		echo '<button type="submit" class="button">' . esc_html__( 'Zmień', 'mp-sales-workflow' ) . '</button>';
+		echo '</form>';
+	}
+
+	/**
+	 * Dziennik jednego procesu — kryterium odbioru 5.5.
+	 *
+	 * Zakres sprawdzany jest przez PRZYNALEŻNOŚĆ do już pobranej listy procesów,
+	 * a nie osobnym zapytaniem o uprawnienia. Lista przeszła już przez zakres
+	 * roli z Działu 3, więc proces spoza niej po prostu w niej nie występuje —
+	 * podstawienie cudzego identyfikatora w adresie nie ma czego pokazać i nie
+	 * kosztuje ani jednego dodatkowego zapytania.
+	 *
+	 * @param array $rows Procesy widoczne dla użytkownika.
+	 * @return void
+	 */
+	private static function render_journal( array $rows ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- podgląd, bez zapisu.
+		$flow_id = isset( $_GET['mp_sw_dzien'] ) ? absint( wp_unslash( $_GET['mp_sw_dzien'] ) ) : 0;
+
+		if ( $flow_id < 1 ) {
+			return;
+		}
+
+		$widoczny = null;
+
+		foreach ( $rows as $row ) {
+			if ( (int) $row['id'] === $flow_id ) {
+				$widoczny = $row;
+			}
+		}
+
+		if ( null === $widoczny ) {
+			echo '<div class="notice notice-error"><p>'
+				. esc_html( MP_SW_Errors::message( MP_SW_Errors::E_NOT_FOUND ) )
+				. '</p></div>';
+			return;
+		}
+
+		global $wpdb;
+
+		$tabela = MP_Sales_Workflow_DB::activity_table();
+		$wpisy  = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"SELECT action, entity_ref, old_value, new_value, actor_type, actor_id, created_at
+				 FROM {$tabela} WHERE flow_id = %d ORDER BY id ASC LIMIT 200", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$flow_id
+			),
+			ARRAY_A
+		);
+
+		echo '<h2>';
+		printf(
+			/* translators: %s: identyfikator leada. */
+			esc_html__( 'Dziennik procesu — lead %s', 'mp-sales-workflow' ),
+			esc_html( (string) $widoczny['lead_id'] )
+		);
+		echo '</h2>';
+
+		if ( empty( $wpisy ) ) {
+			echo '<p>' . esc_html__( 'Brak wpisów w dzienniku tego procesu.', 'mp-sales-workflow' ) . '</p>';
+			return;
+		}
+
+		echo '<table class="wp-list-table widefat fixed striped"><thead><tr>';
+
+		foreach ( array( 'Kiedy (GMT)', 'Zdarzenie', 'Czego dotyczy', 'Było', 'Jest', 'Kto' ) as $naglowek ) {
+			echo '<th>' . esc_html( $naglowek ) . '</th>';
+		}
+
+		echo '</tr></thead><tbody>';
+
+		foreach ( $wpisy as $wpis ) {
+			$kto = (string) $wpis['actor_type'];
+
+			if ( 'user' === $kto && (int) $wpis['actor_id'] > 0 ) {
+				$user = get_userdata( (int) $wpis['actor_id'] );
+				$kto  = $user instanceof WP_User ? $user->display_name : $kto;
+			}
+
+			echo '<tr>';
+			echo '<td>' . esc_html( (string) $wpis['created_at'] ) . '</td>';
+			echo '<td><code>' . esc_html( (string) $wpis['action'] ) . '</code></td>';
+			echo '<td>' . esc_html( '' !== (string) $wpis['entity_ref'] ? $wpis['entity_ref'] : '—' ) . '</td>';
+			echo '<td>' . esc_html( '' !== (string) $wpis['old_value'] ? $wpis['old_value'] : '—' ) . '</td>';
+			echo '<td>' . esc_html( '' !== (string) $wpis['new_value'] ? $wpis['new_value'] : '—' ) . '</td>';
+			echo '<td>' . esc_html( $kto ) . '</td>';
 			echo '</tr>';
 		}
 

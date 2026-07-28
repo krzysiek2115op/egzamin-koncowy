@@ -83,12 +83,16 @@ class MP_SW_D2_Reader {
 		 */
 		$context->count_db_read();
 
+		// Proces czytany osobno i PRZED ofertą: gdy koperta nie niesie numeru
+		// oferty, bierzemy ten, który proces ma już zapisany.
+		$flow = self::read_flow( $context );
+
 		$snapshot = array(
 			'salesmen'  => self::read_salesmen(),
 			'roles'     => self::read_roles( $context ),
-			'flow'      => self::read_flow( $context ),
+			'flow'      => $flow,
 			'lead'      => self::read_lead( $context ),
-			'offer'     => self::read_offer( $context ),
+			'offer'     => self::read_offer( $context, $flow ),
 			'workload'  => self::read_workload(),
 			'templates' => self::read_templates(),
 		);
@@ -250,15 +254,32 @@ class MP_SW_D2_Reader {
 	 * żeby wysłać klientowi A dokument klienta B.
 	 *
 	 * @param MP_SW_Context $context Kontekst.
+	 * @param array         $flow    Wiersz procesu wczytany chwilę wcześniej.
 	 * @return array
 	 */
-	private static function read_offer( MP_SW_Context $context ) {
+	private static function read_offer( MP_SW_Context $context, array $flow = array() ) {
 		global $wpdb;
 
 		$event    = (array) $context->get( 'event', array() );
 		$entity   = isset( $event['entity'] ) ? (array) $event['entity'] : array();
 		$offer_id = isset( $entity['offer_id'] ) ? (int) $entity['offer_id'] : 0;
 		$lead_id  = isset( $entity['lead_id'] ) ? (int) $entity['lead_id'] : 0;
+
+		/*
+		 * Gdy koperta nie niesie oferty, bierzemy tę, którą proces ma już
+		 * zapisaną. Ręczna zmiana statusu z pulpitu podaje sam `lead_id` —
+		 * handlowiec zatwierdza PROCES, nie wpisuje numeru oferty z pamięci.
+		 * Bez tego zatwierdzenie kończyło się odmową „brak dokumentu", mimo że
+		 * proces od dawna wiedział, której oferty dotyczy.
+		 *
+		 * Kolejność jest istotna: koperta ma pierwszeństwo, bo zdarzenie z wtyczki
+		 * 2 może dotyczyć NOWSZEJ oferty niż ta zapisana w procesie. Wiersz procesu
+		 * jest już w tym miejscu wczytany — to nie jest dodatkowy strzał do bazy.
+		 */
+		if ( $offer_id < 1 ) {
+			$row      = isset( $flow['row'] ) ? (array) $flow['row'] : $flow;
+			$offer_id = isset( $row['offer_id'] ) ? (int) $row['offer_id'] : 0;
+		}
 
 		$empty = array(
 			'exists'        => false,
