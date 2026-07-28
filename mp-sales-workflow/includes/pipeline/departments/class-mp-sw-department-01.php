@@ -146,6 +146,38 @@ class MP_SW_D1_Agent_Contract extends MP_SW_Abstract_Agent {
 			$lang = 'pl';
 		}
 
+		/*
+		 * --- Dane klienta ---
+		 *
+		 * Nieobowiązkowe: zdarzenia crona i zmiany statusu ich nie niosą, bo
+		 * proces ma je już zapisane. Przy zdarzeniach przychodzących z wtyczki 1
+		 * to jedyne miejsce, którym adres klienta wchodzi do procesu — treść
+		 * powiadomienia (Dział 7) nie ma skąd go wziąć, jeśli nie przyjdzie tutaj.
+		 *
+		 * Adres niepoprawny NIE jest przemilczany: taki wiersz trafiłby do kolejki
+		 * i odbił się dopiero przy wysyłce, długo po odpowiedzi na żądanie.
+		 */
+		$raw_client = $context->get( 'client', array() );
+		$raw_client = is_array( $raw_client ) ? $raw_client : array();
+		$client     = array(
+			'name'  => '',
+			'email' => '',
+		);
+
+		if ( isset( $raw_client['name'] ) ) {
+			$client['name'] = sanitize_text_field( (string) $raw_client['name'] );
+		}
+
+		if ( isset( $raw_client['email'] ) && '' !== trim( (string) $raw_client['email'] ) ) {
+			$email = sanitize_email( (string) $raw_client['email'] );
+
+			if ( ! is_email( $email ) ) {
+				$errors[] = 'client.email';
+			} else {
+				$client['email'] = $email;
+			}
+		}
+
 		return MP_SW_Result::ok(
 			array(
 				'event'           => array(
@@ -154,6 +186,7 @@ class MP_SW_D1_Agent_Contract extends MP_SW_Abstract_Agent {
 					'actor'  => $actor,
 					'lang'   => $lang,
 				),
+				'client'          => $client,
 				'contract_errors' => $errors,
 			)
 		);

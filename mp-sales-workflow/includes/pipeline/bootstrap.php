@@ -43,4 +43,11 @@ require_once $mp_sw_pipeline_dir . 'departments/class-mp-sw-department-09.php';
 
 require_once $mp_sw_pipeline_dir . 'class-mp-sw-pipeline-factory.php';
 
+/*
+ * Strażnik wysyłki wpina się od razu przy ładowaniu, a nie dopiero w Dziale 7:
+ * krytyk K7.3 ma wykryć wysyłkę wykonaną GDZIEKOLWIEK w żądaniu, także przed
+ * wejściem w pipeline.
+ */
+MP_SW_D7_Notifier::install_guard();
+
 unset( $mp_sw_pipeline_dir );
