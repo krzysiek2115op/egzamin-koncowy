@@ -85,6 +85,18 @@ class MP_OB_D11_Agent_Event extends MP_OB_Abstract_Agent {
 				'client_name'  => isset( $client['name'] ) ? (string) $client['name'] : '',
 				'gross_grosze' => (int) $context->get( 'gross_grosze', 0 ),
 				'currency'     => (string) $context->get( 'currency', 'PLN' ),
+
+				/*
+				 * F4 (bramka integracyjna): identyfikator leada w zdarzeniu.
+				 * Plugin 3 prowadzi proces sprzedażowy PO LEADZIE — bez tego pola
+				 * nie miał jak powiązać oferty ze sprawą i zdarzenie przechodziło
+				 * mu bokiem. Zgadywanie po nazwie klienta odpadało: dwie firmy o
+				 * tej samej nazwie trafiłyby do siebie nawzajem.
+				 *
+				 * Zero oznacza ofertę utworzoną ręcznie, bez leada — odbiorca ma to
+				 * rozróżnić, a nie dostać pole, którego brakuje.
+				 */
+				'lead_id'      => (int) $context->get( 'lead_id', 0 ),
 			)
 		);
 		$after = did_action( self::HOOK );

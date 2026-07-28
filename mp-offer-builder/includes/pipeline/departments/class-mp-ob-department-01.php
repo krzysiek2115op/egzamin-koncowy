@@ -69,6 +69,8 @@ class MP_OB_D1_Agent_Contract extends MP_OB_Abstract_Agent {
 		$offer_id   = (int) $context->get( 'offer_id', 0 );
 		$offer_mode = 'new';
 		$client     = is_array( $context->get( 'client' ) ) ? $context->get( 'client' ) : array();
+		// F4: lead szkicu — zerowy dla oferty ręcznej, która leada po prostu nie ma.
+		$lead_id = 0;
 
 		if ( $offer_id > 0 ) {
 			$offer_mode = 'draft';
@@ -106,6 +108,8 @@ class MP_OB_D1_Agent_Contract extends MP_OB_Abstract_Agent {
 					// Draft leada z VIES=ważny i ręczna oferta z checkboxem tak samo.
 					'vat_status' => isset( $draft['client_vat_status'] ) ? $draft['client_vat_status'] : '',
 				);
+
+				$lead_id = isset( $draft['lead_id'] ) ? (int) $draft['lead_id'] : 0;
 			}
 		}
 
@@ -189,6 +193,15 @@ class MP_OB_D1_Agent_Contract extends MP_OB_Abstract_Agent {
 				'lang'       => $lang,
 				'offer_mode' => $offer_mode,
 				'offer_id'   => $offer_id > 0 ? $offer_id : null,
+
+				/*
+				 * F4 (bramka integracyjna): identyfikator leada odtworzony ze
+				 * szkicu i przeniesiony przez kontekst do Działu 11, który wystawia
+				 * `mp_offer_created`. Bez tego zdarzenie nie mówiło, której SPRAWY
+				 * dotyczy oferta, a plugin 3 prowadzi proces właśnie po leadzie.
+				 * Oferta ręczna leada nie ma — wtedy zostaje 0.
+				 */
+				'lead_id'    => $lead_id,
 			)
 		);
 	}

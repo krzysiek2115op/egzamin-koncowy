@@ -30,6 +30,9 @@ class MP_Offer_Builder_Lead_Listener {
 	/** Nazwa hooka emitowanego przez plugin 1. */
 	const HOOK = 'mp_lead_created';
 
+	/** Hook wyniku weryfikacji VAT (plugin 1, worker w tle). */
+	const HOOK_VERIFIED = 'mp_lead_verified';
+
 	/**
 	 * Rejestruje subskrybenta.
 	 *
@@ -37,6 +40,82 @@ class MP_Offer_Builder_Lead_Listener {
 	 */
 	public static function register() {
 		add_action( self::HOOK, array( __CLASS__, 'on_lead_created' ), 10, 2 );
+		add_action( self::HOOK_VERIFIED, array( __CLASS__, 'on_lead_verified' ), 10, 2 );
+	}
+
+	/**
+	 * Aktualizuje snapshot VAT w szkicu po weryfikacji w tle.
+	 *
+	 * F2 (bramka integracyjna). Kolejność zdarzeń jest tu kluczowa i łatwo ją
+	 * przeoczyć: dla leada z UE plugin 1 zapisuje `vat_status = 'pending'` i
+	 * DOPIERO POTEM, asynchronicznie, odpytuje VIES. Szkic oferty powstaje w
+	 * chwili `mp_lead_created`, czyli ZANIM odpowiedź dotrze — i bez tego
+	 * nasłuchu zostawał ze statusem „pending" na zawsze. Skutek: Dział 6 nigdy
+	 * nie widział ważnego VAT UE i naliczał stawkę krajową zamiast odwrotnego
+	 * obciążenia, choć plugin 1 dawno znał odpowiedź.
+	 *
+	 * Aktualizujemy WYŁĄCZNIE szkice. Oferta zatwierdzona ma stawkę utrwaloną
+	 * razem z podstawą prawną i dokumentem PDF — zmiana stawki pod już wysłanym
+	 * dokumentem byłaby fałszowaniem historii.
+	 *
+	 * @param int   $lead_id ID leada.
+	 * @param array $fields  Pola zaktualizowane przez weryfikator (m.in. vat_status).
+	 * @return bool Czy szkic został zaktualizowany.
+	 */
+	public static function on_lead_verified( $lead_id, $fields ) {
+		global $wpdb;
+
+		$lead_id = (int) $lead_id;
+		$fields  = is_array( $fields ) ? $fields : array();
+
+		if ( $lead_id <= 0 || ! isset( $fields['vat_status'] ) ) {
+			return false;
+		}
+
+		$vat_status = substr( sanitize_text_field( (string) $fields['vat_status'] ), 0, 20 );
+
+		if ( '' === $vat_status ) {
+			return false;
+		}
+
+		$offers_table = MP_Offer_Builder_DB::offers_table();
+
+		$draft_id = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"SELECT id FROM {$offers_table} WHERE lead_id = %d AND status = 'draft' LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$lead_id
+			)
+		);
+
+		if ( $draft_id <= 0 ) {
+			// Brak szkicu to normalna sytuacja: handlowiec mógł już dokończyć
+			// ofertę albo lead nie doczekał się draftu. Nic do zrobienia.
+			return false;
+		}
+
+		$updated = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$offers_table,
+			array( 'client_vat_status' => $vat_status ),
+			array(
+				'id'     => $draft_id,
+				'status' => 'draft',
+			)
+		);
+
+		if ( ! $updated ) {
+			return false;
+		}
+
+		$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			MP_Offer_Builder_DB::activity_log_table(),
+			array(
+				'offer_id'    => $draft_id,
+				'action'      => 'draft_vat_status_updated',
+				'description' => sprintf( 'Status VAT szkicu zaktualizowany po zdarzeniu mp_lead_verified (lead_id=%d, vat_status=%s).', $lead_id, $vat_status ),
+			)
+		);
+
+		return true;
 	}
 
 	/**
@@ -121,6 +200,18 @@ class MP_Offer_Builder_Lead_Listener {
 				// wysłał dłuższą wartość, przy strict-mode INSERT padłby i draft cicho
 				// by nie powstał (ścieżka pipeline ma ten sam limit w FIELD_LIMITS).
 				'client_vat_status' => isset( $payload['vat_status'] ) ? substr( sanitize_text_field( $payload['vat_status'] ), 0, 20 ) : null,
+
+				/*
+				 * F3 (bramka integracyjna): właściciel draftu bierze się z handlowca
+				 * przypisanego w pluginie 1. Bez tego `created_by` zostawało NULL i
+				 * draft z leada był w UI niedostępny dla wszystkich poza adminem —
+				 * pipeline go dopuszczał, ale handlowiec fizycznie nie mógł go
+				 * otworzyć, więc automatyczna ścieżka lead→oferta kończyła się
+				 * ofertą, której nikt nie widzi.
+				 */
+				'created_by'        => isset( $payload['salesman_id'] ) && (int) $payload['salesman_id'] > 0
+					? (int) $payload['salesman_id']
+					: null,
 			)
 		);
 
