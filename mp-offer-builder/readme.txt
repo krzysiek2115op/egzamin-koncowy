@@ -4,7 +4,7 @@ Tags: oferty, pdf, woocommerce, cennik
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.5
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -59,6 +59,39 @@ RODO/GDPR:
 * Sugerowana treść polityki prywatności jest dodawana w Ustawienia → Prywatność.
 
 == Changelog ==
+
+= 1.1.0 =
+
+Audyt zgodnosci ze zleceniem — dwa braki zamkniete. Schemat bazy: 0.8.0.
+
+* ZATWIERDZANIE OFERTY (krok 4 zlecenia). Wtyczka 3 od poczatku nasluchiwala
+  zdarzenia `mp_offer_approved`, ale NIKT go nie wystawial: pipeline konczyl
+  oferte w statusie `draft` i proces sie tam urywal. Lista ofert ma teraz akcje
+  „Zatwierdz" (token CSRF per-oferta, uprawnienie, kontrola wlasciciela), ktora
+  przenosi oferte w status `approved` i wystawia zdarzenie dokladnie raz.
+* Przejscie jest warunkowe w samym UPDATE (`WHERE status = 'draft'`), wiec przy
+  dwoch rownoleglych zadaniach zdarzenie wychodzi raz — o zwyciezcy decyduje baza,
+  nie kontrola w PHP.
+* Nie da sie zatwierdzic oferty bez numeru i pliku PDF. Wczesniej taka proba
+  konczylaby sie odmowa dopiero we wtyczce 3 (MP3-E190), czyli o jeden modul
+  za pozno; teraz blad pada tam, gdzie mozna go naprawic.
+* Oferta zatwierdzona jest ZAMROZONA: Dzial 1 przyjmowal offer_id wylacznie w
+  statusie draft, wiec dzialo sie to samo z siebie — ekran budowy mowi to jednak
+  od razu, zamiast odbijac zapis po wypelnieniu calego formularza. Znika tez
+  odnosnik „Edytuj" przy ofercie zatwierdzonej.
+* Dopiero teraz ma jak zadzialac odswiezanie statusu VAT wylacznie w szkicach
+  (`on_lead_verified`) — wczesniej ZADNA oferta nie wychodzila ze stanu draft.
+* PROSBA KLIENTA W SZKICU. Wtyczka 1 zbiera w formularzu „Produkty / zakres
+  zainteresowania" i „Przewidywany wolumen", ale zdarzenie ich nie nioslo —
+  handlowiec musial otworzyc liste leadow w drugiej wtyczce i przepisac tresc
+  recznie. Szkic ma teraz kolumny `lead_products` / `lead_est_volume`, a ekran
+  budowy pokazuje je tylko do odczytu.
+* Swiadomie NIE zamieniamy tego tekstu na pozycje oferty: „500 szt. filtrow,
+  moze tez obudowy" nie da sie bezblednie zmapowac na product_id, a pomylka
+  oznaczalaby PDF z cena za nie ten towar. Pozycje nadal wybiera handlowiec.
+* Powtorne zdarzenie dla tego samego leada (reaktywacja) odswieza opis prosby w
+  istniejacym szkicu; pusty payload starszej wtyczki 1 niczego nie kasuje.
+* Kolumna „Status" pokazuje nazwy po polsku (Szkic / Zatwierdzona).
 
 = 1.0.5 =
 * Pelny Security Hardening (5 niezaleznych Security Reviewerow per segment + cross-review):

@@ -7,13 +7,21 @@
  * udanym przebiegu swojego pipeline'u — w tym przy reaktywacji istniejącego,
  * zarchiwizowanego leada (ten sam $lead_id może więc wystąpić więcej niż raz).
  * $payload = lead_id, company_name, nip, email, phone, country, segment,
- * client_category, score, status, vat_status, salesman_id — BEZ pozycji/produktów.
+ * client_category, score, status, vat_status, salesman_id oraz — od wersji 1.2.2
+ * pluginu 1 — products i est_volume.
  *
- * Ponieważ payload nie zawiera pozycji, NIE uruchamiamy tu pełnego 11-działowego
- * pipeline'u (nie ma czego wycenić) — zakładamy tylko wiersz-szkic (status=draft)
- * ze snapshotem klienta; handlowiec dokańcza ofertę ręcznie (wybór produktów →
- * MP_Offer_Builder_Ajax → pełny pipeline). Decyzja klienta 2026-07-23, patrz
- * plugin2-architecture w pamięci projektu / plan P-2, Krok 2.5.
+ * `products` / `est_volume` to WOLNY TEKST z formularza ("Produkty / zakres
+ * zainteresowania", "Przewidywany wolumen"), a nie pozycje oferty: nie ma tam
+ * product_id ani ilości, które dałoby się wycenić. Dlatego nadal NIE uruchamiamy
+ * tu pełnego 11-działowego pipeline'u — zakładamy wiersz-szkic (status=draft) ze
+ * snapshotem klienta I z zapisaną prośbą klienta, a handlowiec dokańcza ofertę
+ * ręcznie (wybór produktów → MP_Offer_Builder_Ajax → pełny pipeline). Decyzja
+ * klienta 2026-07-23, patrz plugin2-architecture w pamięci projektu / plan P-2,
+ * Krok 2.5.
+ *
+ * Oba pola są OPCJONALNE: starsza wersja pluginu 1 ich nie wysyła, a klient nie
+ * musi ich wypełnić (nie są wymagane w formularzu). Ich brak nie może przeszkodzić
+ * w założeniu szkicu — lead bez opisu produktów jest wciąż leadem.
  *
  * @package MP_Offer_Builder
  */
@@ -175,15 +183,39 @@ class MP_Offer_Builder_Lead_Listener {
 				$lead_id
 			)
 		);
+
+		$payload = is_array( $payload ) ? $payload : array();
+		$request = self::lead_request( $payload );
+
 		if ( $existing ) {
+			/*
+			 * Szkic już jest, ale zdarzenie przyszło ponownie — to reaktywacja
+			 * zarchiwizowanego leada, czyli klient odezwał się DRUGI RAZ i mógł
+			 * poprosić o coś innego niż za pierwszym razem. Odświeżamy więc opis
+			 * prośby; gdybyśmy tylko zwrócili istniejący szkic (tak było wcześniej),
+			 * handlowiec czytałby nieaktualne zapotrzebowanie.
+			 *
+			 * Odświeżamy WYŁĄCZNIE te dwie kolumny i wyłącznie gdy nowe zdarzenie
+			 * coś niesie: pusty payload starszego pluginu 1 nie ma prawa skasować
+			 * treści, którą wcześniej dostaliśmy.
+			 */
+			if ( $request ) {
+				$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+					$offers_table,
+					$request,
+					array(
+						'id'     => (int) $existing,
+						'status' => 'draft',
+					)
+				);
+			}
+
 			return (int) $existing;
 		}
 
-		$payload = is_array( $payload ) ? $payload : array();
-
 		$inserted = $wpdb->insert(
 			$offers_table,
-			array(
+			$request + array(
 				'status'            => 'draft',
 				'lead_id'           => $lead_id,
 				// S2-02: każde pole przycięte do limitu kolumny (lustro FIELD_LIMITS w Dziale 10)
@@ -234,5 +266,42 @@ class MP_Offer_Builder_Lead_Listener {
 		);
 
 		return $offer_id;
+	}
+
+	/**
+	 * Wyciąga z payloadu prośbę klienta w postaci gotowej do zapisu.
+	 *
+	 * Zwraca TYLKO te klucze, które faktycznie przyszły. Pusta tablica znaczy
+	 * „zdarzenie nic nie niesie" — a to nie to samo, co „klient nic nie chce":
+	 * pierwsze zdarza się przy starszym pluginie 1, drugie przy pustym polu
+	 * formularza. Rozróżnienie ma znaczenie przy odświeżaniu istniejącego szkicu,
+	 * gdzie nadpisanie pustką skasowałoby treść.
+	 *
+	 * @param array $payload Dane leada ze zdarzenia.
+	 * @return array<string,string> Kolumny do zapisu (możliwie puste).
+	 */
+	private static function lead_request( array $payload ) {
+		$out = array();
+
+		if ( isset( $payload['products'] ) ) {
+			$products = sanitize_textarea_field( (string) $payload['products'] );
+			if ( '' !== $products ) {
+				// Kolumna `text` po obu stronach (plugin 1 też), więc przycięcie jest
+				// obroną teoretyczną. Liczymy mimo to w ZNAKACH, nie bajtach: cięcie
+				// bajtowe rozłupałoby polski znak i strict-mode odrzuciłby cały INSERT,
+				// czyli szkic nie powstałby wcale.
+				$out['lead_products'] = function_exists( 'mb_substr' ) ? mb_substr( $products, 0, 16000 ) : substr( $products, 0, 16000 );
+			}
+		}
+
+		if ( isset( $payload['est_volume'] ) ) {
+			$volume = sanitize_text_field( (string) $payload['est_volume'] );
+			if ( '' !== $volume ) {
+				// 100 znaków = limit kolumny (lustro varchar(100) po obu stronach).
+				$out['lead_est_volume'] = function_exists( 'mb_substr' ) ? mb_substr( $volume, 0, 100 ) : substr( $volume, 0, 100 );
+			}
+		}
+
+		return $out;
 	}
 }

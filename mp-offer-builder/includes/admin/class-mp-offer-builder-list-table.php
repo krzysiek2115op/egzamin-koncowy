@@ -101,7 +101,7 @@ class MP_Offer_Builder_List_Table extends WP_List_Table {
 			case 'client_name':
 				return esc_html( (string) $item['client_name'] );
 			case 'status':
-				return esc_html( (string) $item['status'] );
+				return esc_html( self::status_label( (string) $item['status'] ) );
 			case 'gross_grosze':
 				return esc_html( number_format_i18n( ( (int) $item['gross_grosze'] ) / 100, 2 ) . ' ' . (string) $item['currency'] );
 			case 'version':
@@ -116,26 +116,56 @@ class MP_Offer_Builder_List_Table extends WP_List_Table {
 	}
 
 	/**
-	 * Odnośniki „Dokończ”/„Edytuj” (do ekranu budowy, Krok 4.5) i „Pobierz PDF”
-	 * (TYM SAMYM wzorcem linku co Dział 11 — MP_OB_D11_Agent_Response) gdy plik istnieje.
+	 * Nazwa statusu dokumentu po ludzku.
+	 *
+	 * Surowy `draft` w kolumnie „Status" nic handlowcowi nie mówił, a po dodaniu
+	 * drugiego stanu różnica między nimi jest już decyzją, nie ciekawostką.
+	 * Nieznany status pokazujemy bez tłumaczenia zamiast ukrywać — lepiej zobaczyć
+	 * dziwną wartość niż pustą komórkę.
+	 *
+	 * @param string $status Status z BD-2.
+	 * @return string
+	 */
+	public static function status_label( $status ) {
+		$labels = array(
+			MP_Offer_Builder_DB::STATUS_DRAFT    => __( 'Szkic', 'mp-offer-builder' ),
+			MP_Offer_Builder_DB::STATUS_APPROVED => __( 'Zatwierdzona', 'mp-offer-builder' ),
+		);
+
+		return isset( $labels[ $status ] ) ? $labels[ $status ] : (string) $status;
+	}
+
+	/**
+	 * Odnośniki „Dokończ”/„Edytuj” (do ekranu budowy, Krok 4.5), „Pobierz PDF”
+	 * (TYM SAMYM wzorcem linku co Dział 11 — MP_OB_D11_Agent_Response) gdy plik
+	 * istnieje, oraz „Zatwierdź” (krok 4 zlecenia) gdy oferta ma już dokument.
 	 *
 	 * @param array $item Wiersz oferty.
 	 * @return string
 	 */
 	public function column_actions( array $item ) {
-		$offer_id  = (int) $item['id'];
-		$build_url = add_query_arg(
-			array(
-				'page'     => MP_Offer_Builder_Admin::PAGE_SLUG,
-				'view'     => 'build',
-				'offer_id' => $offer_id,
-			),
-			admin_url( 'admin.php' )
-		);
-		$label     = empty( $item['offer_number'] ) ? __( 'Dokończ', 'mp-offer-builder' ) : __( 'Edytuj', 'mp-offer-builder' );
+		$offer_id     = (int) $item['id'];
+		$is_draft     = MP_Offer_Builder_DB::STATUS_DRAFT === (string) $item['status'];
+		$has_document = ! empty( $item['offer_number'] ) && ! empty( $item['pdf_path'] );
 
-		$links   = array();
-		$links[] = '<a href="' . esc_url( $build_url ) . '">' . esc_html( $label ) . '</a>';
+		$links = array();
+
+		if ( $is_draft ) {
+			$build_url = add_query_arg(
+				array(
+					'page'     => MP_Offer_Builder_Admin::PAGE_SLUG,
+					'view'     => 'build',
+					'offer_id' => $offer_id,
+				),
+				admin_url( 'admin.php' )
+			);
+			$label     = empty( $item['offer_number'] ) ? __( 'Dokończ', 'mp-offer-builder' ) : __( 'Edytuj', 'mp-offer-builder' );
+
+			// Oferty zatwierdzonej nie da się już edytować (Dział 1 przyjmuje
+			// wyłącznie szkice), więc nie pokazujemy odnośnika prowadzącego
+			// wyłącznie do komunikatu o odmowie.
+			$links[] = '<a href="' . esc_url( $build_url ) . '">' . esc_html( $label ) . '</a>';
+		}
 
 		if ( ! empty( $item['pdf_path'] ) ) {
 			$pdf_url = add_query_arg(
@@ -147,6 +177,13 @@ class MP_Offer_Builder_List_Table extends WP_List_Table {
 				admin_url( 'admin-ajax.php' )
 			);
 			$links[] = '<a href="' . esc_url( $pdf_url ) . '">' . esc_html__( 'Pobierz PDF', 'mp-offer-builder' ) . '</a>';
+		}
+
+		if ( $is_draft && $has_document ) {
+			// Krok 4 zlecenia: dopiero to kliknięcie uruchamia wysyłkę do klienta
+			// i follow-upy po stronie modułu sprzedażowego.
+			$links[] = '<a href="' . esc_url( MP_Offer_Builder_Approval::action_url( $offer_id ) ) . '">'
+				. esc_html__( 'Zatwierdź', 'mp-offer-builder' ) . '</a>';
 		}
 
 		return implode( ' | ', $links );

@@ -224,6 +224,20 @@ class MP_Offer_Builder_Admin {
 			if ( ! MP_Offer_Builder_Download::can_download( $offer, get_current_user_id() ) ) {
 				wp_die( esc_html__( 'Brak dostępu do tej oferty.', 'mp-offer-builder' ), '', array( 'response' => 403 ) );
 			}
+			if ( MP_Offer_Builder_DB::STATUS_DRAFT !== (string) $offer['status'] ) {
+				/*
+				 * Oferta zatwierdzona jest zamrożona: PDF poszedł do klienta, a
+				 * plugin 3 prowadzi po niej proces sprzedażowy. Dział 1 pipeline'u
+				 * i tak odrzuciłby zapis (przyjmuje offer_id wyłącznie w statusie
+				 * draft), ale odbicie się dopiero PO wypełnieniu całego formularza
+				 * byłoby dla handlowca karą za cudzy błąd — mówimy od razu.
+				 */
+				wp_die(
+					esc_html__( 'Oferta jest już zatwierdzona i nie można jej edytować. Zmiany wprowadź, budując nową ofertę dla tego klienta.', 'mp-offer-builder' ),
+					'',
+					array( 'response' => 409 )
+				);
+			}
 		}
 
 		// Pozycje do wypełnienia formularza przy edycji (nazwa produktu dociągana
@@ -307,6 +321,35 @@ class MP_Offer_Builder_Admin {
 						</tr>
 					<?php endif; ?>
 				</table>
+
+				<?php
+				/*
+				 * Prośba klienta prosto z formularza (plugin 1). Bez tego bloku
+				 * handlowiec musiał otworzyć listę leadów w drugiej wtyczce i
+				 * przepisać treść ręcznie — zlecenie wymaga procesu „bez ręcznego
+				 * kopiowania danych". Tylko do odczytu i celowo NIE zamieniane na
+				 * pozycje oferty: to zdanie po polsku, nie koszyk.
+				 */
+				$lead_products = $offer && ! empty( $offer['lead_products'] ) ? (string) $offer['lead_products'] : '';
+				$lead_volume   = $offer && ! empty( $offer['lead_est_volume'] ) ? (string) $offer['lead_est_volume'] : '';
+				?>
+				<?php if ( '' !== $lead_products || '' !== $lead_volume ) : ?>
+					<h2><?php esc_html_e( 'Czego szukał klient (z formularza)', 'mp-offer-builder' ); ?></h2>
+					<table class="form-table">
+						<?php if ( '' !== $lead_products ) : ?>
+							<tr>
+								<th scope="row"><?php esc_html_e( 'Produkty / zakres zainteresowania', 'mp-offer-builder' ); ?></th>
+								<td><p class="description" style="white-space:pre-wrap;"><?php echo esc_html( $lead_products ); ?></p></td>
+							</tr>
+						<?php endif; ?>
+						<?php if ( '' !== $lead_volume ) : ?>
+							<tr>
+								<th scope="row"><?php esc_html_e( 'Przewidywany wolumen', 'mp-offer-builder' ); ?></th>
+								<td><p class="description"><?php echo esc_html( $lead_volume ); ?></p></td>
+							</tr>
+						<?php endif; ?>
+					</table>
+				<?php endif; ?>
 
 				<h2><?php esc_html_e( 'Wariant i język', 'mp-offer-builder' ); ?></h2>
 				<table class="form-table">

@@ -148,3 +148,48 @@ emitera); nagłówki ogólnowitrynowe (HSTS) to poziom serwera (readme).
   → cena regularna, przesunięcie strefy przez granicę roku → rok w numerze oferty,
   kolizja `request_id` → idempotentne przerwanie zapisu, `data_json` wersji po
   ponownej numeracji → właściwy numer. PHPCS/WPCS: 0 błędów/ostrzeżeń.
+
+## Wersja 1.1.0 — zgodność ze zleceniem (2026-07-29)
+
+Dwa braki wskazane w audycie zlecenia: prośba klienta nie docierała do ekranu
+budowy oferty (#3b) i nikt nie wystawiał zdarzenia `mp_offer_approved`, choć
+wtyczka 3 na nie czekała (#4, krok 4 zlecenia).
+
+Nowy plik: `tests/koncowe/zatwierdzenie-oferty.php` — **41/41 PASS** na żywym
+WordPressie (WP 7.0.2 + MariaDB 11.8.8, trzy wtyczki + WooCommerce naraz), dwa
+niezależne przebiegi.
+
+| Sekcja | Co sprawdza | Asercji |
+|---|---|---|
+| A | Produkty i wolumen z formularza trafiają do szkicu; reaktywacja odświeża opis; puste zdarzenie starszej wtyczki 1 niczego nie kasuje; brak opisu nie blokuje szkicu | 11 |
+| B | Odmowy: szkic bez numeru i PDF-a, oferta nieistniejąca; żadna odmowa nie wystawia zdarzenia | 4 |
+| C | Zatwierdzenie: status `approved`, zdarzenie **dokładnie raz**, komplet pól w payloadzie, wpis w dzienniku, powtórka bez drugiego zdarzenia | 13 |
+| D | Zamrożenie: pipeline odmawia edycji zatwierdzonej oferty; cudza i nieistniejąca oferta dają identyczny komunikat (brak wyroczni własności) | 4 |
+| E | Trzy wtyczki razem: wskaźnik w BD-3 przechodzi na `approved` (aktualizacja, nie duplikat), kwota przeliczona z groszy, proces w module sprzedażowym przechodzi na „oferta wysłana" | 9 |
+
+### Regresja po zmianach (wszystko na tej samej instalacji)
+
+| Zestaw | Wynik |
+|---|---|
+| Harness pipeline'u tej wtyczki | 110/110 |
+| Harness wtyczki 1 | 7/7 |
+| Regresja wtyczki 3 (14 zestawów) | 543/543 |
+| Scenariusze końcowe wtyczki 3 | 97/97 |
+| Bezpieczeństwo wtyczki 3 (S1–S12) | 98/98 |
+| Kompatybilność trzech wtyczek | 62/62 |
+| Bramka integracyjna P1→P2→P3 | 23/23 |
+| Relacja lead → oferta (wtyczka 1) | 22/22 |
+
+PHPCS/WPCS na plikach zmienionych w tej wersji: **0 błędów**.
+
+### Czego te testy NIE sprawdzają
+
+- Zatwierdzenia przez **przeglądarkę** (kliknięcie „Zatwierdź" w liście ofert).
+  Testowana jest warstwa dziedzinowa `approve()` oraz kontrola własności;
+  sam `admin_post` (nonce + uprawnienie + przekierowanie) wymaga żywej sesji
+  wp-admin i pozostaje do sprawdzenia ręcznego.
+- Wyglądu bloku „Czego szukał klient" na ekranie budowy oferty — sprawdzana
+  jest zawartość kolumn w bazie, nie render HTML.
+- Zachowania przy **równoległym** zatwierdzeniu z dwóch żądań. Jednokrotność
+  opiera się na warunku `WHERE status = 'draft'` w samym UPDATE (baza wybiera
+  zwycięzcę); test wymusza tę ścieżkę sekwencyjnie, nie współbieżnie.

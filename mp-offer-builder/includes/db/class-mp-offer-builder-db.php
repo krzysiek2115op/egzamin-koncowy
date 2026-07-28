@@ -27,10 +27,30 @@ class MP_Offer_Builder_DB {
 	/**
 	 * Wersja schematu bazy. Podbijamy przy KAŻDEJ zmianie struktury tabel.
 	 */
-	const DB_VERSION = '0.7.0';
+	const DB_VERSION = '0.8.0';
 
 	/** Nazwa opcji WordPress przechowującej aktualną wersję bazy. */
 	const DB_VERSION_OPTION = 'mp_offer_builder_db_version';
+
+	/**
+	 * Oferta w budowie: edytowalna, bez utrwalonego dokumentu.
+	 *
+	 * Słownik statusów DOKUMENTU oferty. To nie to samo, co statusy PROCESU
+	 * sprzedażowego (nowy → kontakt → oferta → negocjacje → sprzedaż), które
+	 * prowadzi plugin 3 w swojej tabeli — decyzja architektoniczna B zostaje
+	 * nienaruszona. Tutaj chodzi wyłącznie o cykl życia samego dokumentu.
+	 */
+	const STATUS_DRAFT = 'draft';
+
+	/**
+	 * Oferta zatwierdzona: dokument zamrożony, poszedł do klienta.
+	 *
+	 * Ten status jest w kodzie od dawna ZAKŁADANY — `MP_Offer_Builder_Lead_Listener::
+	 * on_lead_verified()` aktualizuje snapshot VAT tylko dla szkiców właśnie dlatego,
+	 * że oferta zatwierdzona ma stawkę utrwaloną razem z PDF-em. Brakowało samego
+	 * przejścia, które ten stan nadaje.
+	 */
+	const STATUS_APPROVED = 'approved';
 
 	/**
 	 * Nazwa tabeli szablonów ofert (np. wp_mp_ob_offer_templates).
@@ -136,6 +156,17 @@ class MP_Offer_Builder_DB {
 		// wszystko. Ustawiane przez Dział 10 (Agent 10.1) PRZY PIERWSZYM zapisie i
 		// zachowywane bez zmian przy kolejnych korektach (pierwszy handlowiec zostaje
 		// właścicielem na stałe).
+		// lead_products / lead_est_volume (DB_VERSION 0.8.0): to, o co klient POPROSIŁ
+		// w formularzu — wolny tekst, nie pozycje oferty. Plugin 1 zbiera te dwa pola
+		// ("Produkty / zakres zainteresowania", "Przewidywany wolumen") i od wersji 1.2.2
+		// przekazuje je w zdarzeniu mp_lead_created. Bez tych kolumn handlowiec musiał
+		// otworzyć listę leadów w pluginie 1 i PRZEPISAĆ treść do oferty — dokładnie to
+		// ręczne kopiowanie, którego zlecenie zabrania.
+		//
+		// Świadomie NIE zamieniamy tego na pozycje oferty: "500 szt. filtrów, może też
+		// obudowy" nie da się bezbłędnie zmapować na product_id, a pomyłka oznaczałaby
+		// PDF z ceną za nie ten towar. Tekst jest podpowiedzią dla człowieka; pozycje
+		// nadal wybiera handlowiec.
 		// lock_version (blokada optymistyczna, DB_VERSION 0.4.0): CELOWO ODRĘBNA od
 		// `version` (numer wersji BIZNESOWEJ oferty, część UNIQUE(offer_number,
 		// version)). `version` dla PIERWSZEGO ponumerowania draftu jest zawsze
@@ -157,6 +188,8 @@ class MP_Offer_Builder_DB {
 			client_nip varchar(20) DEFAULT NULL,
 			client_country char(2) DEFAULT NULL,
 			client_vat_status varchar(20) DEFAULT NULL,
+			lead_products text DEFAULT NULL,
+			lead_est_volume varchar(100) DEFAULT NULL,
 			net_grosze bigint(20) NOT NULL DEFAULT 0,
 			vat_grosze bigint(20) NOT NULL DEFAULT 0,
 			gross_grosze bigint(20) NOT NULL DEFAULT 0,
