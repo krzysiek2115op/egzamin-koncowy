@@ -26,6 +26,12 @@ formularzy (to MP Lead Intake) i nie buduje ofert (to MP Offer Builder).
 1. Wgraj katalog wtyczki do `wp-content/plugins/` (lub zainstaluj ZIP przez
    Wtyczki → Dodaj nową → Wyślij wtyczkę) i aktywuj.
 
+Wdrozenie produkcyjne wymaga dodatkowo ustawien spoza wtyczki: stalych
+`MP_HASH_PEPPER` i `MP_SW_LINK_KEY` w `wp-config.php`, systemowego crona,
+rekordow SPF/DKIM/DMARC oraz blokady katalogu z ofertami PDF. Pelna checklista:
+`docs/WDROZENIE.md`. Bez klucza `MP_SW_LINK_KEY` wtyczka celowo wstrzyma wysylke
+powiadomien do klientow.
+
 == Changelog ==
 
 = 0.1.0 =
