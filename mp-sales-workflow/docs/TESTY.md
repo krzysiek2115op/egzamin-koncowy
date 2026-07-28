@@ -4,7 +4,7 @@ Plik zbiorczy wymagany przez Golden Rule #3. Opisuje testy **wykonane**, nie
 planowane, z podaniem środowiska i tego, co każdy z nich naprawdę sprawdza.
 
 **Data ostatniego pełnego przebiegu:** 2026-07-28
-**Wersja wtyczki:** 1.0.0 · schemat bazy 0.3.0
+**Wersja wtyczki:** 1.1.0 · schemat bazy 0.3.0
 
 ---
 
@@ -28,7 +28,7 @@ połączeń sieciowych w trakcie obsługi żądania.
 
 Plik: `tests/koncowe/scenariusze-1-10.php` · uruchomienie: `wp eval-file …`
 
-**Wynik: 85 / 85 PASS. Dwa niezależne przebiegi, oba ALL_PASS** (drugi przebieg
+**Wynik: 97 / 97 PASS. Dwa niezależne przebiegi, oba ALL_PASS** (drugi przebieg
 potwierdza, że test nie zależy od stanu zostawionego przez pierwszy).
 
 | # | Scenariusz | Co realnie sprawdza | Kryterium |
@@ -37,11 +37,11 @@ potwierdza, że test nie zależy od stanu zostawionego przez pierwszy).
 | S2 | Lead przez trzy wtyczki | **Prawdziwy pipeline LP.1** (11 działów, z tokenem CSRF) → `mp_lead_created` → LP.2 zakłada szkic oferty → LP.3 zakłada proces. Dokładnie jeden lead, jeden proces | 5.1 |
 | S3 | Przypisanie handlowca | Lead z PL trafia do handlowca obsługującego PL; kraj bez obsługi (FR) nie zostaje bez opiekuna — działa awaryjne przekazanie | 5.4 |
 | S4 | Oferta z LP.2 | `mp_offer_created` przestawia status i zapisuje `offer_id`; ten sam typ zdarzenia **z kanału ręcznego odrzucony** | 5.1 |
-| S5 | E-mail po akceptacji | `mp_offer_approved` → kolejka → `wp_mail()` **po COMMIT**; adres z bazy LP.1, temat bez CR/LF, w treści podpisany link, brak odnośnika do `wp-admin`, zapisana wersja szablonu | **4.4** |
+| S5 | E-mail po akceptacji | `mp_offer_approved` → kolejka → `wp_mail()` **po COMMIT**; adres z bazy LP.1, temat bez CR/LF, w treści podpisany link, brak odnośnika do `wp-admin`, zapisana wersja szablonu. Dodatkowo **zatwierdzenie z pulpitu** (formularz POST, ten sam token sprawdzany dwa razy): status przechodzi na *oferta wysłana*, powiadomienie ląduje w kolejce, panel potwierdza operację; podrobiony token niczego nie zapisuje | **4.4** |
 | S6 | Podpisany link | HMAC-SHA256 (64 znaki hex), ważność ≤ 14 dni; podmiana podpisu, przesunięcie terminu i podstawienie innej oferty — każde unieważnia link | — |
 | S7 | Follow-up d+3 / d+7 | Zadania zaplanowane z wartownikiem; **zadanie z niepasującym wartownikiem nie zmienia procesu**; najwyżej jedno otwarte zadanie danego typu; zamiatanie poza kontekstem crona nic nie robi | **4.5** |
 | S8 | Role i zakres | Handlowiec: własne. Manager: zespół, bez całej firmy. Administrator: wszystko. **Cudzy proces = 404, identycznie jak nieistniejący**; właściciel nie do podmiany | **5.4** |
-| S9 | Dziennik | Zawiera zmianę statusu i wysyłkę powiadomienia; **bez adresu e-mail i bez IP**; każdy wpis zna sprawcę; wpis przeżywa nieistniejący proces | **5.5** |
+| S9 | Dziennik | Zawiera zmianę statusu i wysyłkę powiadomienia; **bez adresu e-mail i bez IP**; każdy wpis zna sprawcę; wpis przeżywa nieistniejący proces. Dziennik **widoczny w panelu**, a obcy użytkownik nie zobaczy cudzej historii | **5.5** |
 | S10 | Idempotencja i wyścigi | Powtórzony `event_id` nie zapisuje drugi raz i nie wysyła drugiego e-maila; jeden wiersz w rejestrze; zapis ze starym tokenem blokady rusza 0 wierszy; handlowiec nie przepisze sobie zespołu | 5.1 |
 
 ### Błąd znaleziony i naprawiony w trakcie tych testów
@@ -64,7 +64,7 @@ nadal nie wstrzyknie do koperty dowolnego klucza.
 
 Plik: `tests/koncowe/kompatybilnosc-3-wtyczek.php`
 
-**Wynik: 58 / 58 PASS.** Każda sekcja bada jedną przestrzeń nazw, w której
+**Wynik: 62 / 62 PASS.** Każda sekcja bada jedną przestrzeń nazw, w której
 wtyczki WordPressa realnie się zderzają.
 
 | Sekcja | Wynik |
@@ -73,7 +73,7 @@ wtyczki WordPressa realnie się zderzają.
 | 2. Tabele — trzy rozłączne zestawy (3 + 5 + 5), żadna nazwa się nie powtarza; `mp_offers` (LP.1) ≠ `mp_ob_offers` (LP.2) | PASS |
 | 3. Opcje `wp_options` — brak opcji `mp_*` poza trzema prefiksami wtyczek | PASS |
 | 4. Zadania cron — każde ma jednoznacznego właściciela | PASS |
-| 5. Role — rola handlowca jest **wspólna i tak ma być**; każda wtyczka dołożyła swoje uprawnienia, żadna nie skasowała cudzych; administrator zachował `manage_options`, `edit_posts`, `activate_plugins`, `read` | PASS |
+| 5. Role — obie role są **wspólne i tak ma być**; każda wtyczka dołożyła swoje uprawnienia, żadna nie skasowała cudzych; administrator zachował `manage_options`, `edit_posts`, `activate_plugins`, `read`. **Żadne dwie role `mp_*` nie mają tej samej nazwy wyświetlanej** — kontrola dołożona w v1.1.0, bo poprzednia wersja testu przepuściła dwa Managery sprzedaży | PASS |
 | 6. Haki integracyjne — LP.2 i LP.3 słuchają **tego samego** `mp_lead_created`, nie odbierając go sobie; LP.3 nie wpina się w wewnętrzne haki LP.1 | PASS |
 | 7. Punkty AJAX — brak zdublowanych akcji; jedyny publiczny to `mp_lead_intake_submit` (LP.1, formularz); punkt LP.3 **niedostępny dla niezalogowanych** | PASS |
 | 8. Menu panelu — jedna pozycja, bez nadpisywania | PASS |
