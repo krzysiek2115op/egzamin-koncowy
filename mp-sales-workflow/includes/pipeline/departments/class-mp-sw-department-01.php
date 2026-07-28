@@ -85,6 +85,31 @@ class MP_SW_D1 {
 
 		return isset( $map[ $type ] ) ? $map[ $type ] : array();
 	}
+
+	/**
+	 * Pola encji DOZWOLONE, ale nie wymagane dla danego typu zdarzenia.
+	 *
+	 * Koperta budowana jest od zera z zamknietej listy pol — inaczej wywolujacy
+	 * wstrzyknalby do niej dowolny klucz. Sama lista wymaganych nie wystarcza:
+	 * `mp_offer_created` z wtyczki 2 przychodzi jako `status.change` i niesie
+	 * `offer_id`, ktore przy filtrowaniu po samych wymaganych ginelo. Proces
+	 * przechodzil wtedy do statusu „oferta w przygotowaniu", nie zapamietujac,
+	 * KTOREJ oferty dotyczy — a `offer.approved`, ktore uzupelnialoby ten brak,
+	 * w tej wersji nie jest przez nikogo emitowane. Wykryte w tescie koncowym
+	 * S4/10 na zywym WordPressie.
+	 *
+	 * @param string $type Typ zdarzenia.
+	 * @return string[]
+	 */
+	public static function optional_entity_fields( $type ) {
+		$map = array(
+			MP_SW_Pipeline_Factory::EVENT_STATUS_CHANGE => array( 'offer_id' ),
+			MP_SW_Pipeline_Factory::EVENT_TASK_DUE      => array( 'offer_id' ),
+			MP_SW_Pipeline_Factory::EVENT_LEAD_CREATED  => array( 'offer_id' ),
+		);
+
+		return isset( $map[ $type ] ) ? $map[ $type ] : array();
+	}
 }
 
 /**
@@ -122,6 +147,21 @@ class MP_SW_D1_Agent_Contract extends MP_SW_Abstract_Agent {
 			}
 
 			$entity[ $field ] = (int) $value;
+		}
+
+		// Pola nieobowiazkowe: przepisywane TYLKO gdy sa i tylko z listy dla tego
+		// typu. Brak takiego pola nie jest bledem — puste `offer_id` przy recznej
+		// zmianie statusu to normalny przypadek.
+		foreach ( MP_SW_D1::optional_entity_fields( $type ) as $field ) {
+			if ( isset( $entity[ $field ] ) || ! isset( $raw_entity[ $field ] ) ) {
+				continue;
+			}
+
+			$value = $raw_entity[ $field ];
+
+			if ( is_numeric( $value ) && (int) $value > 0 ) {
+				$entity[ $field ] = (int) $value;
+			}
 		}
 
 		// --- Aktor ---
