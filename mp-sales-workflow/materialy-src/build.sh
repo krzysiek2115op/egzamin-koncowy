@@ -33,7 +33,10 @@ for d in instrukcja-instalacji-nietechniczna instrukcja-instalacji-techniczna ja
 done
 
 if [ "${1:-}" = "deploy" ]; then
-  DEST_REPO="../../paczka-klienta/materialy-p3"
+  # Ta sama sciezka co w Pluginie 1 i 2 (`paczka-klienta/materialy`). Kazda
+  # wtyczka siedzi na wlasnej galezi, wiec katalogi sie nie mieszaja, a klient
+  # dostaje w kazdej paczce identycznie ulozony komplet.
+  DEST_REPO="../../paczka-klienta/materialy"
   DEST_PULPIT="$HOME/Pulpit/mp-sales-workflow-materialy"
   echo "== Deploy → $DEST_REPO + $DEST_PULPIT =="
   mkdir -p "$DEST_REPO" "$DEST_PULPIT"
