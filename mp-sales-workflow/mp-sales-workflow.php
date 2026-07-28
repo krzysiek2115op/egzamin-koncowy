@@ -35,6 +35,34 @@ require_once MP_SALES_WORKFLOW_DIR . 'includes/class-mp-sw-templates.php';
 // --- Pipeline (9 działów LP.3) ---
 require_once MP_SALES_WORKFLOW_DIR . 'includes/pipeline/bootstrap.php';
 
+// --- Warstwa techniczna: wejście, harmonogram, kolejka, panel ---
+require_once MP_SALES_WORKFLOW_DIR . 'includes/class-mp-sw-events.php';
+require_once MP_SALES_WORKFLOW_DIR . 'includes/class-mp-sw-ajax.php';
+require_once MP_SALES_WORKFLOW_DIR . 'includes/class-mp-sw-queue.php';
+require_once MP_SALES_WORKFLOW_DIR . 'includes/class-mp-sw-cron.php';
+require_once MP_SALES_WORKFLOW_DIR . 'includes/class-mp-sw-hooks.php';
+require_once MP_SALES_WORKFLOW_DIR . 'includes/admin/class-mp-sw-admin.php';
+
+/**
+ * Wpina warstwę techniczną.
+ *
+ * Wszystko dzieje się na `init`, a nie przy ładowaniu pliku: role i tabele mogą
+ * jeszcze nie istnieć w chwili `require`, a nasłuch haków wtyczek 1 i 2 musi być
+ * gotowy zanim tamte cokolwiek wystawią.
+ *
+ * @return void
+ */
+function mp_sales_workflow_boot() {
+	MP_SW_Ajax::register();
+	MP_SW_Cron::register();
+	MP_SW_Hooks::register();
+
+	if ( is_admin() ) {
+		MP_SW_Admin::register();
+	}
+}
+add_action( 'init', 'mp_sales_workflow_boot' );
+
 /**
  * Aktywacja wtyczki — założenie tabel BD-1.
  *
@@ -58,8 +86,24 @@ function mp_sales_workflow_activate() {
 			esc_html__( 'MP Sales Workflow: nie udało się utworzyć ról (handlowiec, manager sprzedaży). Sprawdź uprawnienia i spróbuj ponownie.', 'mp-sales-workflow' )
 		);
 	}
+
+	MP_SW_Cron::schedule();
 }
 register_activation_hook( __FILE__, 'mp_sales_workflow_activate' );
+
+/**
+ * Dezaktywacja — sprzątamy po sobie w harmonogramie.
+ *
+ * Tabele i role ZOSTAJĄ: wyłączenie wtyczki nie jest tym samym co jej usunięcie,
+ * a skasowanie danych procesów przy zwykłym wyłączeniu byłoby nie do odwrócenia.
+ * Tym zajmuje się uninstall.php.
+ *
+ * @return void
+ */
+function mp_sales_workflow_deactivate() {
+	MP_SW_Cron::unschedule();
+}
+register_deactivation_hook( __FILE__, 'mp_sales_workflow_deactivate' );
 
 /**
  * Migracja schematu po aktualizacji plików wtyczki.
