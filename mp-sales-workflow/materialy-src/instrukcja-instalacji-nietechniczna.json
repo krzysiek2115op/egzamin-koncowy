@@ -1,0 +1,68 @@
+{
+  "title": "MP Sales Workflow — instrukcja instalacji",
+  "subtitle": "Dla osób nietechnicznych. Jak wgrać i włączyć wtyczkę krok po kroku, bez wiedzy programistycznej.",
+  "footer": "MP Sales Workflow v1.0.0 · instrukcja instalacji (nietechniczna)",
+  "accent": "2563eb",
+  "blocks": [
+    {"t":"h1","text":"Co to jest i co będzie potrzebne"},
+    {"t":"p","text":"MP Sales Workflow to wtyczka do WordPressa, która prowadzi sprzedaż od zapytania klienta do jej zamknięcia. Sama przydziela zapytanie handlowcowi, wysyła klientowi ofertę e-mailem, pilnuje przypomnień o kontakcie i zapisuje historię — kto, kiedy i co zmienił."},
+    {"t":"p","text":"To trzecia z trzech wtyczek. Pierwsza (MP Lead Intake) zbiera formularze od klientów, druga (MP Offer Builder) przygotowuje oferty PDF, a ta trzecia domyka proces sprzedaży. Same w sobie działają osobno, ale pełny efekt daje dopiero komplet."},
+    {"t":"p","text":"Potrzebujesz trzech rzeczy: (1) dostępu do panelu administracyjnego WordPressa (adres zwykle kończy się na /wp-admin), (2) pliku wtyczki mp-sales-workflow.zip, (3) osoby technicznej na jedną krótką czynność opisaną w kroku 6 — bez niej wtyczka się zainstaluje, ale nie wyśle klientom ani jednego e-maila."},
+
+    {"t":"note","title":"Zanim zaczniesz — jedna rzecz, której nie zrobisz sam","text":"Wtyczka wysyła klientom linki do ofert PDF. Żeby te linki dało się w ogóle utworzyć, w pliku konfiguracyjnym strony muszą znaleźć się dwa hasła zabezpieczające. Wpisuje je osoba techniczna — instrukcja dla niej jest w osobnym dokumencie „instrukcja instalacji (techniczna)”. To zajmuje kilka minut, ale bez tego kroku klienci nie dostaną ofert.","bg":"fef3c7","bc":"f59e0b"},
+
+    {"t":"h1","text":"Instalacja krok po kroku"},
+    {"t":"num","n":1,"text":"Zaloguj się do panelu WordPressa (Twój-adres/wp-admin) na konto administratora. Jeśli nie wiesz, czy Twoje konto jest administratorem — sprawdź, czy w menu po lewej widzisz pozycję „Wtyczki”. Jeśli jej nie ma, poproś o dostęp osobę, która zarządza stroną."},
+    {"t":"num","n":2,"text":"W menu po lewej wybierz Wtyczki → Dodaj nową, a potem przycisk „Wyślij wtyczkę na serwer” u góry ekranu."},
+    {"t":"num","n":3,"text":"Kliknij „Wybierz plik”, wskaż plik mp-sales-workflow.zip i naciśnij „Zainstaluj teraz”. Poczekaj, aż pojawi się komunikat o udanej instalacji — przy wolnym łączu może to potrwać kilkadziesiąt sekund."},
+    {"t":"num","n":4,"text":"Kliknij „Włącz wtyczkę”. Od tej chwili w menu po lewej pojawia się nowa pozycja „Procesy sprzedażowe”."},
+    {"t":"num","n":5,"text":"Wejdź w Procesy sprzedażowe. Zobaczysz pustą listę — to prawidłowo. Procesy pojawią się same, gdy klienci zaczną wysyłać zapytania."},
+    {"t":"num","n":6,"text":"Przekaż osobie technicznej dokument „instrukcja instalacji (techniczna)”. Musi ona wpisać dwa hasła zabezpieczające, ustawić wysyłkę poczty i zaplanować automatyczne zadania. Dopóki tego nie zrobi, wtyczka działa w panelu, ale nie wysyła e-maili do klientów."},
+
+    {"t":"h1","text":"Konta handlowców i managerów"},
+    {"t":"p","text":"Wtyczka zakłada przy włączeniu dwie nowe role użytkownika: „Handlowiec” i „Manager sprzedaży”. Nadajesz je zwykłym sposobem WordPressa."},
+    {"t":"num","n":1,"text":"Menu Użytkownicy → Dodaj nowego (albo wybierz istniejącą osobę i kliknij „Edytuj”)."},
+    {"t":"num","n":2,"text":"W polu „Rola” wybierz „Handlowiec” dla osób prowadzących sprzedaż albo „Manager sprzedaży” dla ich przełożonego."},
+    {"t":"num","n":3,"text":"Zapisz. Handlowiec od razu widzi w panelu wyłącznie własne procesy, manager — procesy swojego zespołu."},
+
+    {"t":"note","title":"Kto co widzi","text":"Handlowiec widzi tylko procesy przypisane do siebie. Manager widzi procesy swojego zespołu. Administrator widzi wszystko. Próba otwarcia cudzego procesu przez ręczne poprawienie adresu w przeglądarce kończy się komunikatem „nie znaleziono” — to zamierzone.","bg":"eef4ff","bc":"2563eb"},
+
+    {"t":"h1","text":"Przypisanie handlowca do kraju i języka"},
+    {"t":"p","text":"System sam wybiera handlowca do nowego zapytania — po kraju i języku klienta. Żeby wiedział, kto się czym zajmuje, uzupełnia się to w profilu użytkownika."},
+    {"t":"p","text":"To jedyne ustawienie, które warto przygotować przed startem. Jeśli go pominiesz, wszystkie zapytania trafią do managera — nic nie zginie, ale ktoś będzie musiał rozdzielać je ręcznie. Konkretne nazwy pól są w instrukcji technicznej; poproś osobę techniczną o ich jednorazowe uzupełnienie na podstawie listy: kto obsługuje który kraj, w jakim języku i do którego zespołu należy."},
+
+    {"t":"h1","text":"Jak sprawdzić, że wszystko działa"},
+    {"t":"p","text":"Najprostszy test to przejście drogi klienta od początku do końca. Zajmuje kilka minut i od razu pokazuje, czy komplet trzech wtyczek jest poprawnie ustawiony."},
+    {"t":"num","n":1,"text":"Wypełnij formularz na stronie jak zwykły klient — użyj własnego adresu e-mail."},
+    {"t":"num","n":2,"text":"Wejdź w Procesy sprzedażowe. Powinien pojawić się nowy proces z przypisanym handlowcem i statusem początkowym."},
+    {"t":"num","n":3,"text":"Przygotuj i zatwierdź ofertę dla tego zapytania (to robi wtyczka MP Offer Builder)."},
+    {"t":"num","n":4,"text":"Sprawdź swoją skrzynkę. Powinien przyjść e-mail z ofertą i odnośnikiem do pobrania PDF. Kliknij go — dokument ma się otworzyć."},
+    {"t":"num","n":5,"text":"Wróć do Procesów sprzedażowych i otwórz proces. Na dole zobaczysz dziennik: kto go założył, komu przypisano, kiedy wysłano powiadomienie."},
+
+    {"t":"note","title":"E-mail nie przyszedł?","text":"Sprawdź najpierw folder ze spamem. Jeśli tam też go nie ma, to prawie zawsze znaczy jedno z dwóch: nie wykonano kroku 6 (brak haseł zabezpieczających) albo strona nie ma ustawionej wysyłki poczty. Obie rzeczy naprawia osoba techniczna — przekaż jej instrukcję techniczną, rozdział „Poczta”.","bg":"fee2e2","bc":"dc2626"},
+
+    {"t":"h1","text":"Codzienna praca — co robi system, a co człowiek"},
+    {"t":"h2","text":"Co system robi sam"},
+    {"t":"bullet","text":"Zakłada proces sprzedażowy, gdy przyjdzie nowe zapytanie z formularza."},
+    {"t":"bullet","text":"Wybiera handlowca po kraju i języku klienta; gdy nikt nie pasuje albo osoba jest nieobecna — przekazuje managerowi."},
+    {"t":"bullet","text":"Wysyła klientowi e-mail z ofertą, a handlowcowi powiadomienie, że proces ruszył."},
+    {"t":"bullet","text":"Zakłada przypomnienia o kontakcie na 3. i 7. dzień i sam je wycofuje, gdy sprawa ruszy do przodu."},
+    {"t":"bullet","text":"Zapisuje w dzienniku każdą zmianę statusu i każde wysłane powiadomienie."},
+    {"t":"h2","text":"Co należy do handlowca"},
+    {"t":"bullet","text":"Kontakt z klientem — system przypomina o terminie, ale nie dzwoni ani nie pisze za nikogo."},
+    {"t":"bullet","text":"Przesuwanie procesu przez statusy: nowy → oferta → negocjacje → wygrana albo przegrana."},
+    {"t":"bullet","text":"Domknięcie procesu. Zamknięty proces zostaje w historii — nie znika i nie da się go „odkliknąć” po cichu."},
+
+    {"t":"h1","text":"Najczęstsze pytania"},
+    {"t":"h2","text":"Czy wtyczka usuwa dane, gdy ją wyłączę?"},
+    {"t":"p","text":"Nie. Wyłączenie, a nawet usunięcie wtyczki nie kasuje procesów ani dziennika. Dane znikają tylko wtedy, gdy osoba techniczna świadomie włączy specjalną opcję. To celowe zabezpieczenie — „usuń wtyczkę” bywa kliknięte przez pomyłkę."},
+    {"t":"h2","text":"Klient dostał link do oferty. Czy ktoś obcy może go otworzyć?"},
+    {"t":"p","text":"Link jest podpisany kryptograficznie i ważny 14 dni. Podmiana choćby jednego znaku w adresie unieważnia go. Osoba, która nie dostała linku od Was, nie zbuduje go sama — nie zna hasła zabezpieczającego wpisanego w kroku 6."},
+    {"t":"h2","text":"Dlaczego nie widzę procesów innych handlowców?"},
+    {"t":"p","text":"Bo Twoje konto ma rolę „Handlowiec”. Widok całego zespołu ma rola „Manager sprzedaży”, a widok całej firmy — administrator."},
+    {"t":"h2","text":"Czy mogę zmienić treść e-maili do klientów?"},
+    {"t":"p","text":"Treści są w szablonach wtyczki i zmienia je osoba techniczna. Każda wersja szablonu jest zapisywana przy wysyłce, więc zawsze wiadomo, na jakiej treści wysłano konkretną wiadomość."},
+    {"t":"h2","text":"Co, jeśli klient odpowie od razu, a przypomnienie już jest zaplanowane?"},
+    {"t":"p","text":"Przypomnienie wycofa się samo. Zadanie wykonuje się tylko wtedy, gdy proces nadal stoi w tym samym miejscu, w którym był przy jego planowaniu."}
+  ]
+}
