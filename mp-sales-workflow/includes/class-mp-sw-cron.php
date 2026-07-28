@@ -52,6 +52,23 @@ class MP_SW_Cron {
 		add_action( self::HOOK_SWEEP, array( __CLASS__, 'sweep_tasks' ) );
 		add_action( self::HOOK_RETENTION, array( __CLASS__, 'purge_events' ) );
 		add_action( MP_SW_D9_Emitter::CRON_QUEUE, array( __CLASS__, 'run_queue' ) );
+
+		/*
+		 * Samonaprawa harmonogramu. Do tej pory `schedule()` wolala WYLACZNIE
+		 * aktywacja wtyczki, wiec raz skasowane zadanie NIE WRACALO nigdy — a
+		 * skasowac je potrafi wtyczka do zarzadzania cronem („wyczysc wszystkie"),
+		 * `wp cron event delete`, albo odtworzenie bazy z kopii sprzed aktywacji.
+		 * Objawu nie widac: nie ma zadnego bledu, po prostu przestaja powstawac
+		 * zadania follow-up d+3/d+7 i nie dziala retencja. Cisza zamiast awarii
+		 * to najgorszy mozliwy wariant dla automatyzacji, ktora ma dzialac sama.
+		 *
+		 * Ta sama filozofia co `MP_Sales_Workflow_DB::maybe_upgrade()` na
+		 * `plugins_loaded`: nie zdajemy sie na hak aktywacji, bo on nie odpala
+		 * sie przy zwyklej podmianie plikow wtyczki. Koszt to dwa
+		 * `wp_next_scheduled()` — czytaja opcje `cron`, ktora WordPress i tak
+		 * trzyma wczytana (autoload), wiec bez dodatkowego zapytania do bazy.
+		 */
+		self::schedule();
 	}
 
 	/**

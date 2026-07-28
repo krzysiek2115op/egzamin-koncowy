@@ -4,7 +4,7 @@ Tags: sprzedaz, crm, workflow, follow-up
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,6 +33,22 @@ rekordow SPF/DKIM/DMARC oraz blokady katalogu z ofertami PDF. Pelna checklista:
 powiadomien do klientow.
 
 == Changelog ==
+
+= 1.1.1 =
+
+* SAMONAPRAWA HARMONOGRAMU. Zadania cykliczne (przeglad follow-upow, retencja)
+  zakladala WYLACZNIE aktywacja wtyczki, wiec raz skasowane NIE WRACALY nigdy.
+  Skasowac je potrafi wtyczka do zarzadzania cronem („wyczysc wszystkie"),
+  `wp cron event delete`, albo odtworzenie bazy z kopii sprzed aktywacji.
+  Objawu nie bylo widac: zaden blad, po prostu przestawaly powstawac zadania
+  follow-up d+3/d+7 i nie dzialala retencja. Teraz harmonogram odtwarza sie sam
+  przy kazdym zaladowaniu wtyczki — ta sama filozofia, co aktualizacja schematu
+  bazy na `plugins_loaded` (hak aktywacji nie odpala sie przy podmianie plikow).
+* Dzial 2 rozroznia oferte podana w KOPERCIE od numeru wzietego z wiersza
+  procesu. Twarda walidacja dotyczy tylko koperty (to jest wektor podszycia);
+  numer z procesu bywa nieaktualny, bo oferte da sie usunac w module ofertowym —
+  przy poprzednim zachowaniu handlowiec nie mogl oznaczyc sprzedazy jako
+  przegranej, bo pipeline odbijal sie o nieistniejacy dokument.
 
 = 1.1.0 =
 
