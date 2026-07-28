@@ -186,7 +186,16 @@ $GLOBALS['mp_z']['lines'][] = '=== SEKCJA C: zatwierdzenie kompletnej oferty ===
 // Gotowy dokument jako fixture: sposob, w jaki oferta dostala numer i PDF, jest
 // sprawdzany osobno (harness pipeline'u 110/110). Tutaj testujemy sam akt
 // zatwierdzenia, ktory o pochodzenie wiersza nie pyta.
-$numer = 'OF/2026/T' . $seria;
+/*
+ * Numer w formacie zgodnym z generatorem (OF/RRRR/NNNNNN) i w roku 2999.
+ * Wczesniej fixture uzywal 'OF/2026/T<seria>' — format niezgodny z reszta, a do
+ * tego w BIEZACYM roku. `get_last_offer_number_for_year()` bierze najwyzszy numer
+ * roku, wiec ten smiec stawal sie „ostatnim numerem" i realna oferta konczyla sie
+ * odmowa `malformed_last_number`. Kod zachowal sie poprawnie (odmowil zamiast
+ * zgadywac) — to test zatruwal przestrzen numerow. Rok 2999 jest poza filtrem
+ * biezacego roku, wiec nie ruszy sekwencji produkcyjnej.
+ */
+$numer = sprintf( 'OF/2999/%06d', $seria % 1000000 );
 $wpdb->update( // phpcs:ignore
 	$offers_t,
 	array(
@@ -313,7 +322,7 @@ if ( ! class_exists( 'MP_Lead_Intake_DB' ) || ! class_exists( 'MP_Sales_Workflow
 	$oferta3 = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$offers_t} WHERE lead_id = %d", $lead3 ), ARRAY_A ); // phpcs:ignore
 	mz_ok( is_array( $oferta3 ), 'E1: szkic dla leada-fixture powstal' );
 
-	$numer3 = 'OF/2026/E' . $seria;
+	$numer3 = sprintf( 'OF/2999/9%05d', $seria % 100000 );
 	$wpdb->update( // phpcs:ignore
 		$offers_t,
 		array(
