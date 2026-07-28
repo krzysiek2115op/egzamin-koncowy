@@ -92,8 +92,60 @@ class MP_OB_D7_Critic_Language extends MP_OB_Abstract_Critic {
  */
 class MP_OB_D7_Agent_Merge extends MP_OB_Abstract_Agent {
 
+	/**
+	 * Znaczniki, których na etapie scalenia NIE DA SIĘ jeszcze podstawić.
+	 *
+	 * Numer oferty powstaje w Dziale 8, a scalenie idzie w Dziale 7 — w tej
+	 * chwili numeru fizycznie nie ma. Kryterium odbioru wymaga jednak numeru
+	 * NA DOKUMENCIE (do tej pory trafiał wyłącznie do metadanych PDF i do nazwy
+	 * pliku, więc klient otwierał ofertę bez numeru na stronie).
+	 *
+	 * Rozwiązaniem jest znacznik odroczony: przechodzi przez bramkę „żaden
+	 * znacznik nie zostaje pusty" nietknięty, a wypełnia go Dział 9 tuż przed
+	 * renderem — i tam bramka domyka się już bez wyjątków. Alternatywa, czyli
+	 * przestawienie numeracji przed scalenie, ruszałaby sprawdzoną kolejność
+	 * działów dla jednego pola.
+	 */
+	const DEFERRED_MARKERS = array( 'offer_number' );
+
 	public function __construct() {
 		parent::__construct( '7.2', 'Agent 7.2 — scalenie', 'Podstawia dane klienta, pozycje, rabaty, sumy; liczby i daty w konwencji języka' );
+	}
+
+	/**
+	 * Znaczniki pozostałe w dokumencie, POMIJAJĄC odroczone.
+	 *
+	 * @param string $html Dokument po scaleniu.
+	 * @return array<int,string> Nazwy znaczników (bez nawiasów); pusta tablica = czysto.
+	 */
+	public static function pending_markers( $html ) {
+		if ( ! preg_match_all( '/\{\{([a-zA-Z0-9_]+)\}\}/', (string) $html, $found ) ) {
+			return array();
+		}
+
+		return array_values( array_diff( array_unique( $found[1] ), self::DEFERRED_MARKERS ) );
+	}
+
+	/**
+	 * Podstawia znaczniki odroczone (wywoływane przez Dział 9 po numeracji).
+	 *
+	 * @param string $html   Dokument po scaleniu.
+	 * @param array  $values Wartości wg nazwy znacznika.
+	 * @return string
+	 */
+	public static function fill_deferred( $html, array $values ) {
+		$html = (string) $html;
+
+		foreach ( self::DEFERRED_MARKERS as $marker ) {
+			if ( ! isset( $values[ $marker ] ) ) {
+				continue;
+			}
+			// Ta sama neutralizacja co przy danych klienta: wartość nie może
+			// udawać kolejnego znacznika ani wstrzyknąć się w szablon.
+			$html = str_replace( '{{' . $marker . '}}', self::esc_field( (string) $values[ $marker ] ), $html );
+		}
+
+		return $html;
 	}
 
 	/**
@@ -109,12 +161,31 @@ class MP_OB_D7_Agent_Merge extends MP_OB_Abstract_Agent {
 	public static function format_money( $grosze, $lang, $currency ) {
 		$amount = ( (int) $grosze ) / 100;
 
+		$number = null;
+
 		if ( class_exists( 'NumberFormatter' ) ) {
 			$locale    = 'pl' === $lang ? 'pl_PL' : 'en_US';
 			$formatter = new NumberFormatter( $locale, NumberFormatter::DECIMAL );
 			$formatter->setAttribute( NumberFormatter::FRACTION_DIGITS, 2 );
-			$number = $formatter->format( $amount );
-		} else {
+
+			/*
+			 * Samo `class_exists('NumberFormatter')` NIE WYSTARCZA. Rozszerzenie
+			 * intl bywa zbudowane z okrojonymi danymi ICU — wtedy żądana lokalizacja
+			 * po prostu nie istnieje, a NumberFormatter NIE zgłasza błędu: po cichu
+			 * używa innej (u nas `pl_PL` -> `en_US`). Skutek był widoczny dopiero na
+			 * gotowym dokumencie: polska oferta z kwotą „2,099.98 zł", czyli
+			 * angielskimi separatorami przy polskim symbolu waluty. Własny fallback
+			 * poniżej formatuje poprawnie, ale nigdy się nie uruchamiał.
+			 *
+			 * Pytamy więc formatter, jaką lokalizację NAPRAWDĘ dostał.
+			 */
+			$rozpoznana = (string) $formatter->getLocale( Locale::VALID_LOCALE );
+			if ( 0 === strpos( $rozpoznana, substr( $locale, 0, 2 ) ) ) {
+				$number = $formatter->format( $amount );
+			}
+		}
+
+		if ( null === $number ) {
 			// Fallback bez rozszerzenia intl — te same konwencje separatorów, WŁĄCZNIE
 			// z separatorem tysięcznym: NumberFormatter dla pl_PL zwraca twardą spację
 			// (U+00A0, NBSP), nie zwykłą spację (U+0020) — bez tego serwer bez intl
@@ -233,8 +304,9 @@ class MP_OB_D7_Agent_Merge extends MP_OB_Abstract_Agent {
 		// "żaden znacznik podstawienia nie zostaje pusty ani w nawiasach" — STOP
 		// jawny na pierwszym niepodstawionym znaczniku, zamiast wysłać handlowcowi
 		// dokument z widocznym "{{...}}".
-		if ( preg_match( '/\{\{[a-zA-Z0-9_]+\}\}/', $html, $leftover ) ) {
-			return MP_OB_Result::fail( sprintf( 'Niepodstawiony znacznik w szablonie: %s', $leftover[0] ), array( 'placeholder' => $leftover[0] ), 'unfilled_placeholder' );
+		$leftover = self::pending_markers( $html );
+		if ( $leftover ) {
+			return MP_OB_Result::fail( sprintf( 'Niepodstawiony znacznik w szablonie: {{%s}}', $leftover[0] ), array( 'placeholder' => '{{' . $leftover[0] . '}}' ), 'unfilled_placeholder' );
 		}
 
 		return MP_OB_Result::ok(
@@ -269,7 +341,9 @@ class MP_OB_D7_Critic_No_Placeholders extends MP_OB_Abstract_Critic {
 		$data = $agent_result->get_data();
 		$html = isset( $data['document']['html'] ) ? (string) $data['document']['html'] : '';
 
-		if ( '' === $html || false !== strpos( $html, '{{' ) ) {
+		// Znaczniki odroczone (numer oferty) sa tu DOZWOLONE — wypelnia je Dzial 9
+		// po numeracji i tam bramka domyka sie juz bez wyjatkow.
+		if ( '' === $html || MP_OB_D7_Agent_Merge::pending_markers( $html ) ) {
 			return MP_OB_Result::fail( 'Dokument pusty albo zawiera niepodstawiony znacznik.', array(), 'empty_or_unfilled_document' );
 		}
 

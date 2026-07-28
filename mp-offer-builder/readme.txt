@@ -4,7 +4,7 @@ Tags: oferty, pdf, woocommerce, cennik
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -59,6 +59,37 @@ RODO/GDPR:
 * Sugerowana treść polityki prywatności jest dodawana w Ustawienia → Prywatność.
 
 == Changelog ==
+
+= 1.2.0 =
+
+Kryterium odbioru 5.3 („PDF w jezyku polskim i angielskim z wlasciwymi cenami
+oraz numerem oferty") — dwie usterki znalezione przez odczytanie gotowego pliku,
+a nie samego kodu. Schemat bazy: 0.9.0, szablony: 1.1.0.
+
+* NUMER OFERTY NA DOKUMENCIE. Numer trafial wylacznie do metadanych PDF
+  (`addInfo('Title', ...)`) i do nazwy pliku — klient otwieral oferte i numeru
+  na stronie NIE WIDZIAL. Kontrola w Dziale 9 sprawdzala wlasnie metadane, wiec
+  luka przechodzila niezauwazona. Szablony PL/EN maja teraz numer w naglowku.
+* Wymagalo to pojecia ZNACZNIKA ODROCZONEGO: numer powstaje w Dziale 8, a
+  szablon scalany jest w Dziale 7 — w chwili scalania numeru fizycznie nie ma.
+  `{{offer_number}}` przechodzi przez bramke „zaden znacznik nie zostaje pusty"
+  nietkniety, a wypelnia go Dzial 9 tuz przed renderem i tam bramka domyka sie
+  juz bez wyjatkow. Alternatywa (numeracja przed scaleniem) ruszalaby sprawdzona
+  kolejnosc dzialow dla jednego pola.
+* Instalacje sprzed tej wersji dostaja nowy szablon przez aktualizacje: warunek
+  „wstaw, jesli nie ma wiersza w tym jezyku" nigdy by sie nie spelnil. Nadpisujemy
+  WYLACZNIE szablon o naszej nazwie domyslnej i starszej wersji — recznie
+  podmieniona tresc zostaje nietknieta.
+* FORMAT KWOT W POLSKIEJ OFERCIE. Polski PDF pokazywal „2,099.98 zl", czyli
+  angielskie separatory przy polskim symbolu waluty. Przyczyna byla podstepna:
+  rozszerzenie intl BYLO zaladowane, ale ICU nie mialo danych dla polskiego, a
+  NumberFormatter w takim wypadku NIE zglasza bledu — po cichu uzywa en_US.
+  Wlasny fallback (formatujacy poprawnie) nigdy sie nie uruchamial, bo warunek
+  sprawdzal tylko istnienie klasy. Teraz pytamy formatter, jaka lokalizacje
+  NAPRAWDE dostal.
+* Nowy test `tests/koncowe/pdf-pl-en-numer.php` (31/31) generuje obie oferty
+  pelnym pipelinem na zywym WooCommerce; tresc gotowych PDF-ow zweryfikowana
+  narzedziem pdftotext.
 
 = 1.1.0 =
 

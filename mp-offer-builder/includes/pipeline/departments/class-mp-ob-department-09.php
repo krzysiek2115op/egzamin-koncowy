@@ -63,6 +63,21 @@ class MP_OB_D9_Agent_Render extends MP_OB_Abstract_Agent {
 		}
 		$gross_grosze = (int) $context->get( 'gross_grosze', 0 );
 
+		/*
+		 * Numer oferty NA DOKUMENCIE (kryterium odbioru: „PDF ... z właściwymi
+		 * cenami oraz numerem oferty"). Do tej pory numer trafiał wyłącznie do
+		 * metadanych PDF i do nazwy pliku, więc klient otwierał ofertę bez numeru
+		 * na stronie. Podstawiamy tutaj, bo dopiero teraz numer istnieje — Dział 7
+		 * scala szablon PRZED numeracją i celowo zostawia znacznik odroczony.
+		 */
+		$html = MP_OB_D7_Agent_Merge::fill_deferred( $html, array( 'offer_number' => $offer_number ) );
+
+		// Bramka „żaden znacznik nie zostaje pusty" domyka się tutaj — po tym
+		// podstawieniu nie ma już powodu, dla którego cokolwiek miałoby zostać.
+		if ( false !== strpos( $html, '{{' ) ) {
+			return MP_OB_Result::fail( 'Dokument zawiera niepodstawiony znacznik tuż przed renderem.', array(), 'unfilled_placeholder' );
+		}
+
 		$options = new \Dompdf\Options();
 		$options->set( 'isRemoteEnabled', false ); // offline — bez pobierania zdalnych zasobów (SSRF).
 		$options->set( 'isPhpEnabled', false );        // SR3-05: bez wykonywania PHP w szablonie PDF.

@@ -193,3 +193,67 @@ PHPCS/WPCS na plikach zmienionych w tej wersji: **0 błędów**.
 - Zachowania przy **równoległym** zatwierdzeniu z dwóch żądań. Jednokrotność
   opiera się na warunku `WHERE status = 'draft'` w samym UPDATE (baza wybiera
   zwycięzcę); test wymusza tę ścieżkę sekwencyjnie, nie współbieżnie.
+
+## Wersja 1.2.0 — kryterium 5.3 zweryfikowane na gotowym pliku (2026-07-29)
+
+Kryterium odbioru mówi: „Generowanie PDF w języku polskim i angielskim
+z właściwymi cenami oraz numerem oferty". Sprawdzenie **treści wygenerowanego
+dokumentu** (a nie samego kodu) ujawniło dwie usterki — obie naprawione.
+
+Nowy plik: `tests/koncowe/pdf-pl-en-numer.php` — **31/31 PASS** na żywym
+WordPressie z WooCommerce (kraj PL, waluta PLN, VAT 23%, produkty proste).
+Generuje obie oferty pełnym pipelinem (11 działów, prawdziwy Dompdf), a treść
+gotowych PDF-ów odczytano narzędziem `pdftotext` po stronie hosta.
+
+### Usterka 1 — numeru oferty nie było na dokumencie
+
+Numer trafiał wyłącznie do **metadanych** PDF i do nazwy pliku. Kontrola
+w Dziale 9 (`contains_pdf_info_string`) sprawdzała właśnie metadane, więc brak
+przechodził niezauważony przez wszystkie dotychczasowe testy.
+
+Dowód po naprawie (`pdftotext`):
+
+```
+Oferta handlowa nr OF/2026/000005
+Commercial offer no. OF/2026/000006
+```
+
+### Usterka 2 — polska oferta z angielskim formatem kwot
+
+Polski dokument pokazywał `2,099.98 zł` — angielskie separatory przy polskim
+symbolu waluty. Przyczyna nie była oczywista: rozszerzenie `intl` **było**
+załadowane, ale ICU nie miało danych dla polskiego. `NumberFormatter` w takim
+przypadku **nie zgłasza błędu** — po cichu używa `en_US`:
+
+```
+pl_PL wynik: [2,099.98]   VALID_LOCALE: en_US   ICU: 78.1   dane "pl": NIE
+```
+
+Własny fallback formatował poprawnie (`2 099,98`), ale nigdy się nie uruchamiał,
+bo warunek sprawdzał wyłącznie `class_exists('NumberFormatter')`. Teraz pytamy
+formatter, jaką lokalizację naprawdę dostał.
+
+Dowód po naprawie: `450,50 zł` (PL) obok `450.50 PLN` (EN) w tych samych pozycjach.
+
+### Regresja po zmianach
+
+| Zestaw | Wynik |
+|---|---|
+| PDF PL/EN + numer (nowy) | 31/31 |
+| Harness pipeline'u tej wtyczki | 110/110 |
+| Zatwierdzenie oferty | 41/41 |
+| Regresja wtyczki 3 | 543/543 |
+| Scenariusze / bezpieczeństwo wtyczki 3 | 97/97, 98/98 |
+| Kompatybilność 3 wtyczek / bramka | 62/62, 23/23 |
+| Wtyczka 1: harness / relacja | 7/7, 22/22 |
+
+PHPCS na plikach zmienionych w tej wersji: **0 błędów, 0 ostrzeżeń**.
+
+### Czego ten test NIE sprawdza
+
+- Wyglądu dokumentu (układ, łamanie stron) — weryfikowana jest obecność numeru
+  i konwencja separatorów, nie typografia.
+- Zachowania na serwerze, gdzie ICU **ma** dane `pl` — tam idzie gałąź
+  `NumberFormatter`, a nasz fallback pozostaje nieużywany. Obie ścieżki dają tę
+  samą twardą spację (U+00A0) jako separator tysięcy, ale test na tym środowisku
+  przechodzi wyłącznie ścieżką fallbacku.

@@ -27,7 +27,39 @@ class MP_Offer_Builder_DB {
 	/**
 	 * Wersja schematu bazy. Podbijamy przy KAŻDEJ zmianie struktury tabel.
 	 */
-	const DB_VERSION = '0.8.0';
+	const DB_VERSION = '0.9.0';
+
+	/**
+	 * Wersja treści domyślnych szablonów oferty.
+	 *
+	 * Odrębna od `DB_VERSION`, bo dotyczy DANYCH, nie struktury tabel. Podbicie
+	 * uruchamia nadpisanie szablonów o tej samej nazwie domyślnej (patrz
+	 * `seed_default_templates()`), więc podbijaj TYLKO przy zmianie treści.
+	 */
+	const TEMPLATE_VERSION = '1.1.0';
+
+	/**
+	 * Znaczniki dostępne w szablonie oferty.
+	 *
+	 * `offer_number` jest ODROCZONY: numer powstaje w Dziale 8, czyli PO
+	 * scaleniu szablonu w Dziale 7, i podstawia go dopiero Dział 9 przed
+	 * renderem — patrz `MP_OB_D7_Agent_Merge::DEFERRED_MARKERS`.
+	 */
+	const TEMPLATE_VARIABLES = array(
+		'offer_number',
+		'client_name',
+		'client_email',
+		'client_nip',
+		'client_country',
+		'items_table',
+		'subtotal',
+		'discount_total',
+		'net_total',
+		'vat_total',
+		'gross_total',
+		'offer_date',
+		'tax_mechanism_note',
+	);
 
 	/** Nazwa opcji WordPress przechowującej aktualną wersję bazy. */
 	const DB_VERSION_OPTION = 'mp_offer_builder_db_version';
@@ -288,38 +320,46 @@ class MP_Offer_Builder_DB {
 		$table = self::templates_table();
 
 		foreach ( array( 'pl', 'en' ) as $lang ) {
-			$exists = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE lang = %s", $lang ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
-			if ( (int) $exists > 0 ) {
+			$nazwa = 'pl' === $lang ? 'Domyślny szablon oferty (PL)' : 'Default offer template (EN)';
+			$dane  = array(
+				'name'      => $nazwa,
+				'lang'      => $lang,
+				'content'   => self::default_template_content( $lang ),
+				'variables' => wp_json_encode( self::TEMPLATE_VARIABLES ),
+				'version'   => self::TEMPLATE_VERSION,
+				'status'    => 'active',
+			);
+
+			$istniejacy = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+				$wpdb->prepare( "SELECT id, name, version FROM {$table} WHERE lang = %s ORDER BY id ASC LIMIT 1", $lang ), // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				ARRAY_A
+			);
+
+			if ( ! is_array( $istniejacy ) ) {
+				$wpdb->insert( $table, $dane, array( '%s', '%s', '%s', '%s', '%s', '%s' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 				continue;
 			}
 
-			$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-				$table,
-				array(
-					'name'      => 'pl' === $lang ? 'Domyślny szablon oferty (PL)' : 'Default offer template (EN)',
-					'lang'      => $lang,
-					'content'   => self::default_template_content( $lang ),
-					'variables' => wp_json_encode(
-						array(
-							'client_name',
-							'client_email',
-							'client_nip',
-							'client_country',
-							'items_table',
-							'subtotal',
-							'discount_total',
-							'net_total',
-							'vat_total',
-							'gross_total',
-							'offer_date',
-							'tax_mechanism_note',
-						)
-					),
-					'version'   => '1.0.0',
-					'status'    => 'active',
-				),
-				array( '%s', '%s', '%s', '%s', '%s', '%s' )
-			);
+			/*
+			 * Aktualizacja szablonu NASZEGO, nie cudzego. Warunek: ta sama nazwa
+			 * domyślna i STARSZA wersja. Gdyby ktoś podmienił treść pod własną
+			 * nazwą, zostawiamy ją w spokoju — nadpisanie skasowałoby jego pracę
+			 * bez ostrzeżenia.
+			 *
+			 * Bez tej ścieżki instalacje sprzed 0.9.0 zostałyby z szablonem BEZ
+			 * numeru oferty na dokumencie: warunek „wstaw, jeśli nie ma wiersza
+			 * w tym języku" nigdy by się nie spełnił, a kryterium odbioru mówi
+			 * wprost o PDF „z numerem oferty".
+			 */
+			if ( $nazwa !== (string) $istniejacy['name'] ) {
+				continue;
+			}
+
+			if ( version_compare( (string) $istniejacy['version'], self::TEMPLATE_VERSION, '>=' ) ) {
+				continue;
+			}
+
+			$wpdb->update( $table, $dane, array( 'id' => (int) $istniejacy['id'] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		}
 	}
 
@@ -334,7 +374,7 @@ class MP_Offer_Builder_DB {
 	private static function default_template_content( $lang ) {
 		if ( 'en' === $lang ) {
 			return '<div style="font-family:\'DejaVu Sans\',sans-serif;font-size:12px;color:#222;">'
-				. '<h1 style="font-size:20px;margin:0 0 4px;">Commercial offer</h1>'
+				. '<h1 style="font-size:20px;margin:0 0 4px;">Commercial offer no. {{offer_number}}</h1>'
 				. '<p style="margin:0 0 16px;color:#666;">Date: {{offer_date}}</p>'
 				. '<h2 style="font-size:14px;border-bottom:1px solid #ccc;padding-bottom:4px;">Client</h2>'
 				. '<p style="margin:8px 0 16px;">{{client_name}}<br>VAT no.: {{client_nip}}<br>{{client_email}}<br>Country: {{client_country}}</p>'
@@ -352,7 +392,7 @@ class MP_Offer_Builder_DB {
 		}
 
 		return '<div style="font-family:\'DejaVu Sans\',sans-serif;font-size:12px;color:#222;">'
-			. '<h1 style="font-size:20px;margin:0 0 4px;">Oferta handlowa</h1>'
+			. '<h1 style="font-size:20px;margin:0 0 4px;">Oferta handlowa nr {{offer_number}}</h1>'
 			. '<p style="margin:0 0 16px;color:#666;">Data: {{offer_date}}</p>'
 			. '<h2 style="font-size:14px;border-bottom:1px solid #ccc;padding-bottom:4px;">Klient</h2>'
 			. '<p style="margin:8px 0 16px;">{{client_name}}<br>NIP: {{client_nip}}<br>{{client_email}}<br>Kraj: {{client_country}}</p>'
