@@ -296,6 +296,18 @@ class MP_OB_D10_Agent_Transaction extends MP_OB_Abstract_Agent {
 					// inny zapisał tę ofertę pomiędzy odczytem (Dział 2) a tym zapisem.
 					$update_where['lock_version'] = (int) $plan['expected_lock_version'];
 				}
+
+				/*
+				 * WARTOWNIK STATUSU. Blokada optymistyczna sama nie wystarcza:
+				 * zatwierdzenie oferty to inna sciezka zapisu (`approve()`), a
+				 * dopoki nie podbijalo `lock_version`, ten UPDATE trafial w
+				 * zatwierdzony wiersz i cofal go do szkicu — z podmienionym
+				 * plikiem, ktory klient juz dostal. Warunek na statusie mowi
+				 * wprost, czego pilnujemy, i broni tez przed kazda przyszla
+				 * sciezka, ktora o `lock_version` zapomni.
+				 */
+				$update_where['status'] = MP_Offer_Builder_DB::STATUS_DRAFT;
+
 				$update_result = $wpdb->update( MP_Offer_Builder_DB::offers_table(), $header, $update_where );
 				if ( 0 === $update_result ) {
 					// SR2-03: 0 zmienionych wierszy = WHERE nie trafił (blokada optymistyczna

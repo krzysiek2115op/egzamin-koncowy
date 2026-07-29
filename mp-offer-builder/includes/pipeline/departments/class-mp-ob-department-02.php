@@ -114,6 +114,31 @@ class MP_OB_D2_Agent_Prices extends MP_OB_Abstract_Agent {
 		$errors = array();
 		$prices = array();
 
+		/*
+		 * CENY BRUTTO W SKLEPIE. `get_regular_price()` i `get_price()` zwracaja
+		 * liczbe SUROWA — jej znaczenie zalezy od ustawienia „Ceny wprowadzone
+		 * z podatkiem" (`woocommerce_prices_include_tax`), typowo wlaczonego
+		 * w polskich sklepach. Dzial 6 traktuje te liczbe jako NETTO i dolicza
+		 * VAT, wiec przy cenach brutto oferta wychodzila drozsza o cala stawke:
+		 * 123,00 brutto -> netto 123,00 + VAT 28,29 = 151,29. Blad byl CICHY —
+		 * wszystkie bramki przechodzily, bo arytmetyka jest wewnetrznie spojna,
+		 * a rozjazd widac dopiero na dokumencie u klienta.
+		 *
+		 * `wc_get_price_excluding_tax()` zdejmuje podatek wg klasy podatkowej
+		 * produktu; przy sklepie z cenami netto zwraca te sama liczbe.
+		 */
+		$ceny_z_podatkiem = function_exists( 'wc_prices_include_tax' ) && wc_prices_include_tax();
+
+		if ( $ceny_z_podatkiem && ! function_exists( 'wc_get_price_excluding_tax' ) ) {
+			// Twardy FAIL zamiast liczenia dalej: milczace doliczenie VAT-u do ceny,
+			// ktora juz go zawiera, to blad na dokumencie handlowym.
+			return MP_OB_Result::fail(
+				'Sklep ma ceny wprowadzone z podatkiem, a WooCommerce nie udostępnia przeliczenia na netto.',
+				array(),
+				'tax_conversion_unavailable'
+			);
+		}
+
 		foreach ( $items as $i => $item ) {
 			$lookup_id = ! empty( $item['variation_id'] ) ? (int) $item['variation_id'] : (int) ( isset( $item['product_id'] ) ? $item['product_id'] : 0 );
 			$product   = $lookup_id > 0 ? wc_get_product( $lookup_id ) : false;
@@ -143,6 +168,26 @@ class MP_OB_D2_Agent_Prices extends MP_OB_Abstract_Agent {
 			$active    = $product->get_price();
 			$effective = ( '' !== (string) $active && is_numeric( $active ) ) ? (float) $active : (float) $regular;
 
+			// Sprowadzenie do NETTO na samej granicy odczytu — dalej caly pipeline
+			// pracuje juz na jednej, jednoznacznej jednostce.
+			if ( $ceny_z_podatkiem ) {
+				$regular = wc_get_price_excluding_tax(
+					$product,
+					array(
+						'price' => $regular,
+						'qty'   => 1,
+					)
+				);
+
+				$effective = (float) wc_get_price_excluding_tax(
+					$product,
+					array(
+						'price' => $effective,
+						'qty'   => 1,
+					)
+				);
+			}
+
 			// Cena UJEMNA nigdy nie jest poprawna (błędna konfiguracja WC) — jawny
 			// FAIL zamiast cichego ujemnego netto/VAT/brutto w ofercie. Cena 0 jest
 			// dopuszczona (legalna pozycja gratis: 0 netto → 0 VAT, arytmetyka spójna).
@@ -158,6 +203,10 @@ class MP_OB_D2_Agent_Prices extends MP_OB_Abstract_Agent {
 				'regular_price' => (float) $regular,
 				'sale_price'    => $on_sale ? $effective : null,
 				'on_sale'       => $on_sale,
+
+				// Slad w snapshocie: po latach musi byc widac, czy cena zrodlowa
+				// wymagala przeliczenia, czy byla juz netto.
+				'from_gross'    => $ceny_z_podatkiem,
 			);
 		}
 
@@ -165,7 +214,12 @@ class MP_OB_D2_Agent_Prices extends MP_OB_Abstract_Agent {
 			return MP_OB_Result::fail( 'Nieprawidłowa lub brakująca cena pozycji.', array( 'errors' => $errors ), 'incomplete_prices' );
 		}
 
-		return MP_OB_Result::ok( array( 'prices' => $prices ) );
+		return MP_OB_Result::ok(
+			array(
+				'prices'             => $prices,
+				'prices_include_tax' => $ceny_z_podatkiem,
+			)
+		);
 	}
 }
 

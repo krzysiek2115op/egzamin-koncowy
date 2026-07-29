@@ -371,4 +371,109 @@ if ( ! class_exists( 'MP_Lead_Intake_DB' ) || ! class_exists( 'MP_Sales_Workflow
 	mz_ok( 'offer_sent' === $status_procesu, 'E8: wtyczka 3 przesunela proces na „oferta wyslana" (krok 4 zlecenia)', 'jest: ' . $status_procesu );
 }
 
+$GLOBALS['mp_z']['lines'][] = '';
+$GLOBALS['mp_z']['lines'][] = '=== SEKCJA F: wyscig zatwierdzenie <-> zapis Dzialu 10 ===';
+
+/*
+ * Blad znaleziony w audycie koncowym. `approve()` nie podbijalo `lock_version`,
+ * a Dzial 10 nie mial `status` w warunku WHERE. Scenariusz:
+ *
+ *   Dzial 2 czyta lock_version = N, status = draft
+ *   -> pipeline liczy i renderuje PDF (setki milisekund)
+ *   -> w tym czasie handlowiec klika „Zatwierdz" (zdarzenie idzie do wtyczki 3,
+ *      klient dostaje dokument)
+ *   -> Dzial 10 zapisuje WHERE lock_version = N — TRAFIA, bo zatwierdzenie
+ *      tokena nie ruszylo — i cofa status do `draft`, podmieniajac plik JUZ
+ *      WYSLANY klientowi. Oferta wraca na liste jako szkic z aktywnym
+ *      przyciskiem, a drugie kliniecie wystawia `mp_offer_approved` PONOWNIE.
+ *
+ * Test odtwarza oba przebiegi: z nieaktualnym tokenem i z AKTUALNYM (ten drugi
+ * sprawdza sam wartownik statusu, bo token juz sie zgadza).
+ */
+$szkic_f = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$offers_t} WHERE id = %d", (int) $szkic2['id'] ), ARRAY_A ); // phpcs:ignore
+
+if ( ! is_array( $szkic_f ) ) {
+	$GLOBALS['mp_z']['lines'][] = '  [POMINIETO] brak szkicu do testu wyscigu';
+} else {
+	$numer_f = sprintf( 'OF/2999/%06d', ( $seria + 7 ) % 1000000 );
+	$pdf_f   = 'mp-offer-builder-private/wyscig-' . $seria . '.pdf';
+
+	$wpdb->update( // phpcs:ignore
+		$offers_t,
+		array(
+			'offer_number' => $numer_f,
+			'version'      => 1,
+			'lang'         => 'pl',
+			'net_grosze'   => 100000,
+			'vat_grosze'   => 23000,
+			'gross_grosze' => 123000,
+			'currency'     => 'PLN',
+			'pdf_path'     => $pdf_f,
+			'status'       => 'draft',
+		),
+		array( 'id' => (int) $szkic_f['id'] )
+	);
+
+	$id_f = (int) $szkic_f['id'];
+
+	// To odczytalby Dzial 2 na poczatku przebiegu.
+	$token_przed = (int) $wpdb->get_var( $wpdb->prepare( "SELECT lock_version FROM {$offers_t} WHERE id = %d", $id_f ) ); // phpcs:ignore
+
+	$wynik_f = MP_Offer_Builder_Approval::approve( $id_f, $handlowiec );
+	mz_ok( true === $wynik_f, 'F1: oferta zatwierdzona w trakcie „trwajacego" przebiegu', is_wp_error( $wynik_f ) ? $wynik_f->get_error_code() . ': ' . $wynik_f->get_error_message() : '' );
+
+	$token_po = (int) $wpdb->get_var( $wpdb->prepare( "SELECT lock_version FROM {$offers_t} WHERE id = %d", $id_f ) ); // phpcs:ignore
+	mz_ok( $token_po === $token_przed + 1, 'F2: zatwierdzenie PODBILO lock_version (inaczej jest niewidzialne dla blokady)', $token_przed . ' -> ' . $token_po );
+
+	/**
+	 * Plan zapisu taki, jaki zbudowalby Dzial 10 w trwajacym przebiegu.
+	 *
+	 * @param int    $id       Identyfikator oferty.
+	 * @param int    $token    Token odczytany przez Dzial 2.
+	 * @param string $numer    Numer oferty.
+	 * @param string $pdf      Sciezka dokumentu do zapisania.
+	 * @return array
+	 */
+	function mz_plan_f( $id, $token, $numer, $pdf ) {
+		return array(
+			'header'                => array(
+				'id'           => $id,
+				'lock_version' => $token + 1,
+				'offer_number' => $numer,
+				'version'      => 1,
+				'pdf_path'     => $pdf,
+				'updated_at'   => current_time( 'mysql' ),
+			),
+			'items'                 => array(
+				array(
+					'product_id'   => 1,
+					'variation_id' => 0,
+					'qty'          => 1,
+				),
+			),
+			'version'               => array( 'version' => 1 ),
+			'expected_lock_version' => $token,
+		);
+	}
+
+	$pdf_podmieniony = 'mp-offer-builder-private/PODMIENIONY-' . $seria . '.pdf';
+
+	// (a) Token NIEAKTUALNY — tak wyglada realny wyscig po poprawce.
+	$r_f = ( new MP_OB_D10_Agent_Transaction() )->run(
+		new MP_OB_Context( array( 'write_plan' => mz_plan_f( $id_f, $token_przed, $numer_f, $pdf_podmieniony ) ) )
+	);
+	mz_ok( ! $r_f->is_ok(), 'F3: zapis z nieaktualnym tokenem ODRZUCONY', 'kod: ' . $r_f->get_code() );
+	mz_ok( 'concurrent_modification' === $r_f->get_code(), 'F4: kod odmowy to concurrent_modification', $r_f->get_code() );
+
+	// (b) Token AKTUALNY, ale oferta jest juz zatwierdzona — broni wartownik statusu.
+	$r_f2 = ( new MP_OB_D10_Agent_Transaction() )->run(
+		new MP_OB_Context( array( 'write_plan' => mz_plan_f( $id_f, $token_po, $numer_f, $pdf_podmieniony ) ) )
+	);
+	mz_ok( ! $r_f2->is_ok(), 'F5: nawet z AKTUALNYM tokenem nie da sie nadpisac oferty zatwierdzonej', 'kod: ' . $r_f2->get_code() );
+
+	$po_wyscigu = $wpdb->get_row( $wpdb->prepare( "SELECT status, pdf_path FROM {$offers_t} WHERE id = %d", $id_f ), ARRAY_A ); // phpcs:ignore
+	mz_ok( is_array( $po_wyscigu ) && 'approved' === (string) $po_wyscigu['status'], 'F6: oferta NIE wrocila do stanu szkicu', is_array( $po_wyscigu ) ? (string) $po_wyscigu['status'] : '?' );
+	mz_ok( is_array( $po_wyscigu ) && $pdf_f === (string) $po_wyscigu['pdf_path'], 'F7: dokument wyslany klientowi NIE zostal podmieniony', is_array( $po_wyscigu ) ? (string) $po_wyscigu['pdf_path'] : '?' );
+}
+
 mz_dump();

@@ -120,12 +120,23 @@ class MP_Offer_Builder_Approval {
 		 * decyduje baza. Przy dwóch równoległych żądaniach dokładnie jedno dostanie
 		 * 1 zmieniony wiersz, więc zdarzenie wyjdzie dokładnie raz (ta sama zasada,
 		 * co wartownik statusu wewnątrz transakcji zapisu w pluginie 3).
+		 *
+		 * `lock_version` ROŚNIE TAKŻE TUTAJ. Bez tego zatwierdzenie było dla
+		 * blokady optymistycznej niewidzialne: Dział 2 czytał `lock_version = N`
+		 * i `status = draft`, pipeline liczył i renderował PDF (setki milisekund),
+		 * w tym czasie ktoś klikał „Zatwierdź", a Dział 10 zapisywał WHERE
+		 * `lock_version = N` — trafiał, cofał status do `draft` i podmieniał plik
+		 * JUŻ WYSŁANY klientowi. Oferta wracała na listę jako szkic z aktywnym
+		 * przyciskiem, więc drugie kliknięcie wystawiało `mp_offer_approved`
+		 * po raz drugi dla tego samego `offer_id` — wprost wbrew gwarancji
+		 * „dokładnie raz", której plugin 3 pilnuje po swojej stronie.
 		 */
 		$changed = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			MP_Offer_Builder_DB::offers_table(),
 			array(
-				'status'     => MP_Offer_Builder_DB::STATUS_APPROVED,
-				'updated_at' => current_time( 'mysql' ),
+				'status'       => MP_Offer_Builder_DB::STATUS_APPROVED,
+				'lock_version' => (int) $offer['lock_version'] + 1,
+				'updated_at'   => current_time( 'mysql' ),
 			),
 			array(
 				'id'     => $offer_id,
