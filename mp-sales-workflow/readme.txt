@@ -4,7 +4,7 @@ Tags: sprzedaz, crm, workflow, follow-up
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.2.0
+Stable tag: 1.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,6 +33,27 @@ rekordow SPF/DKIM/DMARC oraz blokady katalogu z ofertami PDF. Pelna checklista:
 powiadomien do klientow.
 
 == Changelog ==
+
+= 1.3.0 =
+
+* PODPISANY LINK DO OFERTY W OGOLE NIE DZIALAL. `MP_SW_Download::register()`
+  bylo wolane z wnetrza callbacka `init` (priorytet 10) i dopinalo handler na
+  priorytecie 5 — a WordPress pomija callback dodany na priorytecie juz
+  minietym. Klient klikal link z e-maila i dostawal zwykla strone. Ostatni krok
+  procesu „oferta zatwierdzona -> wysylka do klienta" byl martwy.
+* WYCIEK CUDZEJ OFERTY. Zapytanie `WHERE request_id = %s OR id = %d` z uchwytem
+  UUID rzutowanym na int trafialo w cudzy wiersz — klient z waznym, poprawnie
+  podpisanym linkiem dostawal dokument innej firmy. Naprawione RAZEM z punktem
+  wyzej, bo wyciek byl przez tamten blad zamaskowany.
+* Klient dostawal „oferte nr ." — numer oferty nigdy nie trafial z migawki do
+  wiersza procesu, a powiadomienia czytaly wylacznie stamtad.
+* RODO: anonimizacja kolejki filtrowala po kolumnie, ktorej nie ma w schemacie.
+  Zapytanie padalo po cichu, wiec zadanie usuniecia danych konczylo sie
+  „sukcesem", a adres klienta zostawal w bazie razem z trescia wiadomosci.
+* Zanonimizowany adres nie wraca juz z wtyczki 1 przy kolejnym powiadomieniu.
+* Zadanie follow-up, ktorego przypomnienie nie doszlo do handlowca, konczy sie
+  jako `undelivered`, a nie „wykonane".
+* Licencja GPL-2.0-or-later: pelny tekst w repozytorium i w paczce klienckiej.
 
 = 1.2.0 =
 
