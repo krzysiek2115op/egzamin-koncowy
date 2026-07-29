@@ -35,3 +35,45 @@ wtyczek WordPress). Prace nad każdą wtyczką prowadzimy na dedykowanym branchu
 - Praca nad wtyczką 2 toczy się na branchu `mp-offer-builder` — branch w pełni
   odizolowany (własny `composer.json`/`.phpcs.xml.dist`, nie dziedziczy z brancha 1).
 - Commity powstają automatycznie przy każdym większym kroku.
+
+## Licencja
+
+Cała automatyzacja — wszystkie trzy wtyczki wraz z materiałami klienckimi
+(diagramy, schematy baz danych, instrukcje) — jest wydana na licencji
+**GNU General Public License v2.0 lub późniejszej** (GPL-2.0-or-later).
+
+Pełny tekst licencji: plik [LICENSE](LICENSE) w korzeniu repozytorium oraz
+kopia w katalogu każdej wtyczki. Wersja online:
+<https://www.gnu.org/licenses/gpl-2.0.html>.
+
+Copyright (C) 2026 krzysiek2115op
+
+Ten program jest wolnym oprogramowaniem: możesz go rozprowadzać dalej i/lub
+modyfikować na warunkach GNU GPL wydanej przez Free Software Foundation —
+w wersji 2 licencji lub (według twojego wyboru) dowolnej późniejszej.
+Program rozpowszechniany jest w nadziei, że będzie użyteczny, ale **BEZ
+JAKIEJKOLWIEK GWARANCJI**, nawet domyślnej gwarancji PRZYDATNOŚCI HANDLOWEJ
+albo PRZYDATNOŚCI DO OKREŚLONYCH ZASTOSOWAŃ. Szczegóły w treści licencji.
+
+GPL-2.0 jest zgodna z licencją samego WordPressa i WooCommerce, więc wtyczki
+można rozpowszechniać razem z nimi bez dodatkowych warunków.
+
+### Biblioteki zewnętrzne dołączone do wtyczki 2
+
+Wtyczka `mp-offer-builder` zawiera w katalogu `vendor/` biblioteki potrzebne
+do generowania PDF. Każda zachowuje własną licencję:
+
+| Biblioteka | Licencja |
+|---|---|
+| `dompdf/dompdf` | LGPL-2.1 |
+| `dompdf/php-font-lib` | LGPL-2.1-or-later |
+| `dompdf/php-svg-lib` | LGPL-3.0-or-later |
+| `masterminds/html5` | MIT |
+| `sabberworm/php-css-parser` | MIT |
+| `thecodingmachine/safe` | MIT |
+
+**Dlaczego „lub późniejsza" ma tu znaczenie:** `php-svg-lib` jest na LGPL-3.0,
+która jest zgodna z GPL-3.0, ale nie z samą GPL-2.0. Ponieważ wtyczki są wydane
+jako GPL-2.0-**or-later**, odbiorca może przyjąć warunki GPL-3.0 i wtedy całość
+jest spójna prawnie. Gdyby licencja była „GPL-2.0 only", tej biblioteki nie dałoby
+się dołączyć zgodnie z prawem.
