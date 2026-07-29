@@ -155,6 +155,37 @@ class MP_Offer_Builder_Lead_Listener {
 		$got_lock = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, %d)', $lock_name, 5 ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
 		try {
 			return self::create_draft_for_lead( $lead_id, $payload );
+		} catch ( \Throwable $e ) {
+			/*
+			 * WYJATEK NIE MA PRAWA WYJSC POZA NASZ NASLUCH.
+			 *
+			 * WordPress nie izoluje subskrybentow: wyjatek rzucony tutaj leci przez
+			 * `do_action()` prosto do emitera, czyli do pipeline'u wtyczki 1. Tam
+			 * konczy sie ROLLBACK-iem i ponownym rzuceniem — lead ZNIKA, a klient
+			 * dostaje blad 500. Zepsuty modul ofertowy zatrzymywalby w ten sposob
+			 * cale przyjmowanie zgloszen, choc formularz i lead byly poprawne.
+			 *
+			 * Brak szkicu oferty to problem, ktory handlowiec naprawia jednym
+			 * kliknieciem; utracony lead to klient, ktory juz nie wroci.
+			 */
+			$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+				MP_Offer_Builder_DB::activity_log_table(),
+				array(
+					'offer_id'    => null,
+					'action'      => 'lead_listener_exception',
+					'description' => sprintf( 'Nie udalo sie zalozyc szkicu dla leada %d: %s', $lead_id, $e->getMessage() ),
+					'user_id'     => get_current_user_id() ? get_current_user_id() : null,
+					'meta_json'   => wp_json_encode(
+						array(
+							'lead_id'   => $lead_id,
+							'exception' => get_class( $e ),
+							'message'   => $e->getMessage(),
+						)
+					),
+				)
+			);
+
+			return false;
 		} finally {
 			if ( '1' === (string) $got_lock ) {
 				$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock_name ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
