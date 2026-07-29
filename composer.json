@@ -1,8 +1,8 @@
 {
     "name": "mp/egzamin-koncowy-dev",
     "description": "Wspolne narzedzia deweloperskie (PHPCS/WPCS) dla wtyczek MP tego repo (mp-lead-intake i kolejne) - uzywane lokalnie i w CI.",
-    "type": "project",
     "license": "proprietary",
+    "type": "project",
     "require-dev": {
         "wp-coding-standards/wpcs": "^3.1"
     },
