@@ -4,7 +4,7 @@ Tags: leads, formularz, b2b, nip, vat
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.2.3
+Stable tag: 1.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,25 @@ Pierwsza z trzech wtyczek procesu "formularz → oferta". Odpowiada za odbiór
 zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej bazy.
 
 == Changelog ==
+
+= 1.3.0 =
+
+* ZDARZENIE `mp_lead_created` SZLO WEWNATRZ OTWARTEJ TRANSAKCJI. Skutki byly
+  trzy: wtyczka 3 robila niejawny COMMIT naszej transakcji, nasz ROLLBACK
+  kasowal szkic oferty w bazie wtyczki 2, a wiersz leada trzymal blokade na
+  parze kraj+NIP przez caly czas pracy subskrybentow. Najgorszy przypadek:
+  wyjatek subskrybenta NISZCZYL leada — klient wypelnial poprawny formularz
+  i dostawal blad 500, bo cudzy modul mial usterke.
+* KASOWNIK I EKSPORTER DANYCH OSOBOWYCH (RODO). Wtyczka nie miala ich wcale,
+  a modul sprzedazowy czyta adres klienta na zywo z naszej tabeli — dane
+  usuniete po tamtej stronie wracaly stad przy kolejnym powiadomieniu.
+  Doszedl tez hak `mp_lead_anonymized`, ktorego wtyczka 3 nasluchiwala od dawna.
+* Deinstalacja nie zabiera juz rol wspoldzielonych z wtyczka 3 — wczesniej
+  usuniecie samej wtyczki 1 pozbawialo uprawnien wszystkich handlowcow
+  i managerow w calej instalacji.
+* Nasluch zdarzen oferty opakowany w try/catch: nasz wyjatek nie wywroci juz
+  wystawiania oferty w module ofertowym.
+* Licencja GPL-2.0-or-later: pelny tekst w repozytorium i w paczce klienckiej.
 
 = 1.2.3 =
 * Dział 2: dodana walidacja formatu telefonu i kraju (ISO 3166-1 alpha-2) — wcześniej
