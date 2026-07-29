@@ -1,6 +1,7 @@
 {
     "name": "krzysiek2115op/mp-sales-workflow",
     "description": "Dev tooling (PHPCS/WPCS) dla wtyczki MP Sales Workflow — branch mp-sales-workflow, niezalezny od pozostalych branchy.",
+    "license": "GPL-2.0-or-later",
     "type": "project",
     "require-dev": {
         "wp-coding-standards/wpcs": "^3.1"
