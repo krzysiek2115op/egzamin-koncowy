@@ -4,7 +4,7 @@ Tags: oferty, pdf, woocommerce, cennik
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.2.0
+Stable tag: 1.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -59,6 +59,21 @@ RODO/GDPR:
 * Sugerowana treść polityki prywatności jest dodawana w Ustawienia → Prywatność.
 
 == Changelog ==
+
+= 1.3.0 =
+
+* CENY BRUTTO Z WOOCOMMERCE BYLY LICZONE JAK NETTO. Sklep z ustawieniem „Ceny
+  wprowadzone z podatkiem" (typowa konfiguracja w Polsce) dostawal oferte
+  drozsza o cala stawke VAT: produkt 100,00 zl brutto trafial na dokument jako
+  netto 100,00 + VAT 23,00 = 123,00 zl. Blad byl CICHY — arytmetyka byla
+  wewnetrznie spojna, wiec wszystkie bramki jakosci przechodzily.
+* ZATWIERDZENIE OFERTY BYLO NIEWIDZIALNE DLA BLOKADY OPTYMISTYCZNEJ. Trwajacy
+  w tle przebieg nadpisywal oferte juz zatwierdzona i WYSLANA: cofal ja do
+  szkicu i podmienial PDF, ktory klient wlasnie dostal, a kolejne kliniecie
+  „Zatwierdz" wystawialo zdarzenie po raz drugi.
+* Wyjatek nasluchu leada nie wychodzi juz do wtyczki 1 — wczesniej awaria
+  modulu ofertowego niszczyla leada i konczyla sie bledem 500 dla klienta.
+* Licencja GPL-2.0-or-later: pelny tekst w repozytorium i w paczce klienckiej.
 
 = 1.2.0 =
 
