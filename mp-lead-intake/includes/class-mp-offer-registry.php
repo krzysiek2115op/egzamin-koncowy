@@ -42,8 +42,41 @@ class MP_Lead_Intake_Offer_Registry {
 	 * @return void
 	 */
 	public static function register() {
-		add_action( self::HOOK_CREATED, array( __CLASS__, 'on_offer_event' ), 10, 2 );
-		add_action( self::HOOK_APPROVED, array( __CLASS__, 'on_offer_event' ), 10, 2 );
+		add_action( self::HOOK_CREATED, array( __CLASS__, 'handle_offer_event' ), 10, 2 );
+		add_action( self::HOOK_APPROVED, array( __CLASS__, 'handle_offer_event' ), 10, 2 );
+	}
+
+	/**
+	 * Osłona nasłuchu: żaden nasz wyjątek nie wychodzi do modułu ofertowego.
+	 *
+	 * WordPress nie izoluje subskrybentów — wyjątek rzucony tutaj poleciałby
+	 * przez `do_action()` prosto w pipeline wtyczki 2, gdzie kończy się
+	 * ROLLBACK-iem. Znaczyłoby to, że nasz wskaźnik przy leadzie (rzecz
+	 * pomocnicza) potrafi wywrócić WYSTAWIENIE OFERTY (rzecz główna).
+	 * Zapisujemy więc ślad do dziennika i milkniemy.
+	 *
+	 * @param int   $offer_id Identyfikator oferty w module ofertowym.
+	 * @param array $payload  Dane oferty ze zdarzenia.
+	 * @return int Identyfikator wiersza w BD-3; 0 gdy nic nie zapisano.
+	 */
+	public static function handle_offer_event( $offer_id, $payload = array() ) {
+		try {
+			return self::on_offer_event( $offer_id, $payload );
+		} catch ( \Throwable $e ) {
+			global $wpdb;
+
+			$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+				MP_Lead_Intake_DB::activity_log_table(),
+				array(
+					'lead_id'     => isset( $payload['lead_id'] ) ? absint( $payload['lead_id'] ) : null,
+					'action'      => 'offer_registry_exception',
+					'description' => sprintf( 'Wyjątek przy zapisie wskaźnika oferty %d: %s', (int) $offer_id, $e->getMessage() ),
+					'created_at'  => current_time( 'mysql' ),
+				)
+			);
+
+			return 0;
+		}
 	}
 
 	/**

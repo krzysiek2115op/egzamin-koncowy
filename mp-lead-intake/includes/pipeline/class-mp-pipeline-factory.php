@@ -36,6 +36,14 @@ class MP_Pipeline_Factory {
 		// (brak osieroconego rekordu i brak trwałej blokady NIP).
 		$pipeline->set_transactional_from( 7 );
 
+		// ...i ZAMYKAMY ja po dziale 10, czyli po ostatnim zapisujacym. Dzial 11
+		// wystawia `mp_lead_created`, a subskrybenci (wtyczki 2 i 3) otwieraja
+		// wlasne transakcje, pisza do WLASNYCH baz i wykonuja dlugie operacje
+		// (render PDF, HTTP, kolejka poczty). Trzymanie ich wewnatrz naszej
+		// transakcji dawalo niejawny COMMIT, kasowanie wierszy w cudzej bazie
+		// przy naszym ROLLBACK i blokade na `uq_country_nip` przez caly ten czas.
+		$pipeline->set_transactional_until( 10 );
+
 		// Działy z realną logiką (krok 3).
 		$pipeline->add_department( MP_Department_01::build() );
 		$pipeline->add_department( MP_Department_02::build() );

@@ -68,8 +68,41 @@ class MP_Lead_Intake_Roles {
 	 * @return void
 	 */
 	public static function remove() {
-		remove_role( self::MANAGER );
-		remove_role( self::SALES );
+		/*
+		 * ROLE SA WSPOLDZIELONE Z MODULEM SPRZEDAZOWYM.
+		 *
+		 * `mp_manager_sprzedazy` i `mp_handlowiec` to te same slugi, ktorych
+		 * uzywa wtyczka 3 — ona swoje uprawnienia zdejmuje, ale rol NIE KASUJE
+		 * wlasnie z tego powodu. Bezwarunkowe `remove_role()` tutaj sprawialo,
+		 * ze odinstalowanie SAMEJ wtyczki 1 zabieralo definicje rol calej
+		 * instalacji: wszyscy handlowcy i managerowie traca uprawnienia, pulpit
+		 * sprzedazowy staje sie niedostepny, a lista ofert znika dla kazdego
+		 * poza administratorem. Odzysk dopiero po reaktywacji wtyczki 3.
+		 *
+		 * Dlatego: uprawnienia WLASNE zdejmujemy zawsze, a sama role kasujemy
+		 * tylko wtedy, gdy po ich zdjeciu nie zostalo w niej NIC — czyli nikt
+		 * inny jej nie uzywa. Regula opisuje sie sama i nie wymaga wiedzy
+		 * o tym, ktore wtyczki akurat sa zainstalowane.
+		 */
+		foreach ( array( self::MANAGER, self::SALES ) as $slug ) {
+			$rola = get_role( $slug );
+
+			if ( ! $rola ) {
+				continue;
+			}
+
+			foreach ( self::CAPS as $cap ) {
+				$rola->remove_cap( $cap );
+			}
+
+			// Ponowny odczyt: `remove_cap()` przepisuje opcje rol, a obiekt
+			// w pamieci potrafi nie odzwierciedlac stanu po zapisie.
+			$rola = get_role( $slug );
+
+			if ( $rola && empty( array_filter( (array) $rola->capabilities ) ) ) {
+				remove_role( $slug );
+			}
+		}
 
 		$admin = get_role( 'administrator' );
 		if ( $admin ) {

@@ -26,6 +26,9 @@ class MP_Pipeline {
 	/** @var int Od którego numeru działu obejmować zapisy jedną transakcją DB (0 = wyłączone). */
 	protected $transactional_from = 0;
 
+	/** @var int Po którym dziale ZAMKNĄĆ transakcję (0 = dopiero na końcu pipeline'u). */
+	protected $transactional_until = 0;
+
 	/**
 	 * @param MP_Pipeline_Logger|null $logger Logger błędów.
 	 */
@@ -44,6 +47,34 @@ class MP_Pipeline {
 	 */
 	public function set_transactional_from( $n ) {
 		$this->transactional_from = (int) $n;
+		return $this;
+	}
+
+	/**
+	 * Ustawia dział, PO KTÓRYM transakcja jest zamykana (COMMIT).
+	 *
+	 * Bez tego progu transakcja trwała do końca pipeline'u — a Dział 11 wystawia
+	 * `mp_lead_created` WEWNĄTRZ niej. Skutki były trzy i żaden nie był widoczny
+	 * z kodu samego pipeline'u:
+	 *
+	 *  1. Wtyczka 3 otwiera własną transakcję w swoim Dziale 8, co w MySQL robi
+	 *     NIEJAWNY COMMIT transakcji otwartej tutaj. Gwarancja „awaria działu 8/9
+	 *     wycofa też leada" przestawała obowiązywać w chwili instalacji wtyczki 3.
+	 *  2. Bez wtyczki 3 szkic oferty wtyczki 2 powstawał wewnątrz NASZEJ transakcji;
+	 *     nasz ROLLBACK kasował wiersz w CUDZEJ bazie, a tamta strona zdążyła już
+	 *     zwrócić `offer_id` wiersza, którego po chwili nie ma.
+	 *  3. Wiersz leada trzymał blokadę na `uq_country_nip` przez cały czas pracy
+	 *     subskrybentów — renderowanie PDF, wywołania HTTP, kolejkowanie poczty.
+	 *
+	 * Po zmianie zapisy działów 7–10 są nadal atomowe, a subskrybenci pracują na
+	 * danych JUŻ ZATWIERDZONYCH. Cena jest świadoma: awaria subskrybenta nie
+	 * wycofa leada — i dobrze, bo lead jest poprawny, a to integracja zawiodła.
+	 *
+	 * @param int $n Numer działu, po którym następuje COMMIT.
+	 * @return MP_Pipeline
+	 */
+	public function set_transactional_until( $n ) {
+		$this->transactional_until = (int) $n;
 		return $this;
 	}
 
@@ -87,6 +118,14 @@ class MP_Pipeline {
 				$context->set_current_department( $department->get_number() );
 
 				$result = $department->process( $context );
+
+				if ( $result->is_ok() && $in_transaction && $this->transactional_until > 0
+					&& $department->get_number() >= $this->transactional_until ) {
+					// Ostatni dział zapisujący ma za sobą — zamykamy transakcję TU,
+					// żeby emisja haka w Dziale 11 poszła na danych zatwierdzonych.
+					$wpdb->query( 'COMMIT' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+					$in_transaction = false;
+				}
 
 				if ( ! $result->is_ok() ) {
 					// STOP: najpierw ROLLBACK częściowych zapisów działów 7-9 (atomowość),
