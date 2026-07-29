@@ -100,13 +100,88 @@ $GLOBALS['mp_l']['lines'][] = '';
 $GLOBALS['mp_l']['lines'][] = '=== B. ROZWIAZYWANIE UCHWYTU (blad: OR id = %d wydawalo cudza oferte) ===';
 
 $tabela = $wpdb->prefix . 'mp_ob_offers';
+
+/*
+ * Test nie moze zalezec od tego, co zostawily po sobie inne zestawy — a te
+ * czyszcza tabele. Jesli nie ma gotowej oferty z uchwytem i dokumentem,
+ * zakladamy WLASNE: dwa wiersze (zeby „cudza oferta" byla dosloworna) i dwa
+ * male, prawdziwe pliki PDF w katalogu wysylek. Sprzatamy je na koncu.
+ */
+$uploads   = wp_get_upload_dir();
+$katalog   = trailingslashit( $uploads['basedir'] ) . 'mp-offer-builder-private';
+$sprzatanie = array(
+	'files'  => array(),
+	'offers' => array(),
+);
+
+/**
+ * Zaklada minimalny, poprawny plik PDF.
+ *
+ * @param string $sciezka Sciezka docelowa.
+ * @return bool
+ */
+function ml_pdf( $sciezka ) {
+	$tresc = "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
+		. "2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n"
+		. "3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\n"
+		. "trailer<</Root 1 0 R>>\n%%EOF\n";
+
+	return false !== file_put_contents( $sciezka, $tresc ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+}
+
 $oferta = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 	"SELECT id, request_id, pdf_path FROM {$tabela} WHERE request_id <> '' AND pdf_path <> '' ORDER BY id DESC LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	ARRAY_A
 );
 
+if ( ! is_array( $oferta ) || ! is_file( MP_SW_Download::resolve( (string) $oferta['request_id'] ) ) ) {
+	wp_mkdir_p( $katalog );
+	$stempel = wp_generate_password( 10, false );
+
+	foreach ( array( 'a', 'b' ) as $ktora ) {
+		$plik = $katalog . '/test-link-' . $ktora . '-' . $stempel . '.pdf';
+
+		if ( ! ml_pdf( $plik ) ) {
+			continue;
+		}
+
+		$sprzatanie['files'][] = $plik;
+
+		$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$tabela,
+			array(
+				'offer_number'  => 'OF/2999/L' . strtoupper( $ktora ) . $stempel,
+				'version'       => 1,
+				'lock_version'  => 1,
+				'status'        => 'approved',
+				'lang'          => 'pl',
+				'lead_id'       => 0,
+				'client_name'   => 'Test Linku ' . strtoupper( $ktora ),
+				'client_email'  => 'link' . $ktora . $stempel . '@example.test',
+				'currency'      => 'PLN',
+				'net_grosze'    => 0,
+				'vat_grosze'    => 0,
+				'gross_grosze'  => 0,
+				'pdf_path'      => $plik,
+				'request_id'    => wp_generate_uuid4(),
+				'created_at'    => current_time( 'mysql' ),
+				'updated_at'    => current_time( 'mysql' ),
+			)
+		);
+
+		if ( $wpdb->insert_id > 0 ) {
+			$sprzatanie['offers'][] = (int) $wpdb->insert_id;
+		}
+	}
+
+	$oferta = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		"SELECT id, request_id, pdf_path FROM {$tabela} WHERE request_id <> '' AND pdf_path <> '' ORDER BY id DESC LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		ARRAY_A
+	);
+}
+
 if ( ! is_array( $oferta ) ) {
-	ml_ok( false, 'w bazie jest oferta z `request_id` i `pdf_path` (wymagana do testu)' );
+	ml_ok( false, 'przygotowanie: jest oferta z `request_id` i `pdf_path`', $wpdb->last_error );
 	ml_dump();
 	return;
 }
@@ -263,6 +338,17 @@ if ( ! $run ) {
 	);
 
 	unlink( $rozruch ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+}
+
+// Sprzatanie po wlasnym fixture — test nie ma prawa zostawiac smieci.
+foreach ( $sprzatanie['offers'] as $id_do_usuniecia ) {
+	$wpdb->delete( $tabela, array( 'id' => $id_do_usuniecia ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+}
+
+foreach ( $sprzatanie['files'] as $plik_do_usuniecia ) {
+	if ( is_file( $plik_do_usuniecia ) ) {
+		unlink( $plik_do_usuniecia ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+	}
 }
 
 ml_dump();

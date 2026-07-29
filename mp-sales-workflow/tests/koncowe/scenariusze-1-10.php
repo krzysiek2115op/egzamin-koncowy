@@ -328,7 +328,31 @@ $flow_id  = is_array( $flow ) ? (int) $flow['id'] : 0;
 $offer_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$ob_t} WHERE lead_id = %d ORDER BY id DESC LIMIT 1", $lead_id ) ); // phpcs:ignore
 $status_before = is_array( $flow ) ? (string) $flow['status'] : '';
 
-do_action( 'mp_offer_created', $offer_id, array( 'lead_id' => $lead_id, 'offer_id' => $offer_id, 'offer_number' => 'OF/2026/000123' ) );
+/*
+ * Szkic zalozony przez nasluch `mp_lead_created` nie ma jeszcze numeru ani
+ * dokumentu — LP.2 nadaje je dopiero w swoim pipelinie. Zanim udamy zdarzenia
+ * „oferta powstala" i „oferta zatwierdzona", doprowadzamy wiersz do stanu,
+ * ktory LP.2 GWARANTUJE po swojej stronie: `MP_Offer_Builder_Approval::approve()`
+ * odmawia zatwierdzenia oferty bez `offer_number` i bez `pdf_path`. Bez tego
+ * test sprawdzalby sciezke, ktora w produkcji nie moze wystapic.
+ *
+ * Numer musi byc UNIKALNY (kolumna ma wiez `uq_offer_number_version`) i z roku,
+ * ktorego nie uzywa prawdziwa numeracja: numer testowy z biezacego roku stalby
+ * sie „ostatnim numerem roku" i zepsul wystawianie prawdziwych ofert.
+ */
+$numer_testowy = sprintf( 'OF/2999/S4%06d', $offer_id );
+
+$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	$ob_t,
+	array(
+		'offer_number' => $numer_testowy,
+		'pdf_path'     => 'mp-offer-builder-private/scenariusz-s4.pdf',
+	),
+	array( 'id' => $offer_id )
+);
+mp_ok( '' === (string) $wpdb->last_error, 'fixture: numer i dokument ustawione na ofercie', $wpdb->last_error );
+
+do_action( 'mp_offer_created', $offer_id, array( 'lead_id' => $lead_id, 'offer_id' => $offer_id, 'offer_number' => $numer_testowy ) );
 
 $flow_after = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$flow_t} WHERE id = %d", $flow_id ), ARRAY_A ); // phpcs:ignore
 mp_ok( is_array( $flow_after ) && (int) $flow_after['offer_id'] === $offer_id, 'proces zapamietal identyfikator oferty' );
@@ -366,6 +390,19 @@ if ( mp_ok( null !== $to_client, 'w kolejce jest wiadomosc do KLIENTA' ) ) {
 	mp_ok( '' !== (string) $to_client['subject'], 'wiadomosc ma temat' );
 	mp_ok( false === strpos( (string) $to_client['subject'], "\n" ) && false === strpos( (string) $to_client['subject'], "\r" ), 'temat bez znakow konca wiersza (anty-wstrzykniecie naglowka)' );
 	mp_ok( false !== strpos( (string) $to_client['body'], MP_SW_Download::ARG_SIGNATURE ), 'tresc zawiera PODPISANY link do oferty' );
+
+	/*
+	 * Do wersji 1.2.1 klient dostawal temat „Oferta" i tresc „przesylamy oferte
+	 * nr ." — Dzial 8 nie przepisywal numeru do wiersza procesu, a Dzial 7 czytal
+	 * WYLACZNIE stamtad. Krytyk „puste-pola" tego nie widzial, bo znacznik BYL
+	 * podmieniony, tylko na pusty ciag. Dlatego sprawdzamy sam numer, a nie
+	 * „czy zostal jakis {{znacznik}}".
+	 */
+	mp_ok( false !== strpos( (string) $to_client['subject'], $numer_testowy ), 'temat zawiera NUMER oferty', (string) $to_client['subject'] );
+	mp_ok( false !== strpos( (string) $to_client['body'], $numer_testowy ), 'tresc zawiera NUMER oferty' );
+
+	$numer_w_procesie = (string) $wpdb->get_var( $wpdb->prepare( "SELECT offer_number FROM {$flow_t} WHERE id = %d", $flow_id ) ); // phpcs:ignore
+	mp_ok( $numer_testowy === $numer_w_procesie, 'numer oferty zapisany w wierszu procesu (zrodlo dla przypomnien)', $numer_w_procesie );
 	mp_ok( false === strpos( (string) $to_client['body'], 'wp-admin' ), 'tresc do klienta NIE zawiera odnosnika do panelu' );
 	mp_ok( '' !== (string) $to_client['template_version'], 'zapisano wersje szablonu (kryt. K2.5)' );
 }

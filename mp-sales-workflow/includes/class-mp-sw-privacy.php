@@ -90,20 +90,31 @@ class MP_SW_Privacy {
 		);
 
 		/*
-		 * Kolejka: czyscimy adres, ale zostawiamy wiersze ze statusem, licznikiem
-		 * prob i wersja szablonu. Dzieki temu na pytanie "czy klient dostal ofertę
-		 * nr X" nadal da sie odpowiedzieć — bez trzymania adresu, ktory do
-		 * odpowiedzi nie jest potrzebny.
+		 * Kolejka: czyscimy adres, temat i tresc, ale zostawiamy wiersze ze
+		 * statusem, licznikiem prob i wersja szablonu. Dzieki temu na pytanie
+		 * „czy klient dostal oferte nr X" nadal da sie odpowiedziec — numer oferty
+		 * stoi w wierszu procesu, a powiadomienia wiaza sie z nim przez `flow_id`;
+		 * adres, nazwa firmy w temacie i pelna tresc do odpowiedzi nie sa potrzebne.
+		 *
+		 * WARUNEK PO `recipient_user_id IS NULL`, a nie po „audience".
+		 * Kolumny `audience` NIGDY NIE BYLO w DDL — istnieje wylacznie w tablicy
+		 * wiadomosci w pamieci Dzialu 7. `$wpdb->update()` z takim warunkiem padalo
+		 * po cichu (`false` -> `(int) false` -> 0), wiec zadanie usuniecia danych
+		 * konczylo sie „sukcesem", a adres klienta zostawal w kolejce razem z
+		 * nazwa firmy i cala trescia wiadomosci. `recipient_user_id` jest NULL
+		 * dokladnie dla klienta — pracownicy maja tam swoje konto WordPressa.
+		 *
+		 * Musi to byc zapytanie wprost: `$wpdb->update()` nie potrafi wyrazic
+		 * `IS NULL` w warunku.
 		 */
-		$changed += (int) $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-			MP_Sales_Workflow_DB::notifications_table(),
-			array(
-				'recipient'  => $placeholder,
-				'updated_at' => current_time( 'mysql', true ),
-			),
-			array(
-				'flow_id'  => $flow_id,
-				'audience' => MP_SW_D7_Notifier::AUDIENCE_CLIENT,
+		$notifications = MP_Sales_Workflow_DB::notifications_table();
+
+		$changed += (int) $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"UPDATE {$notifications} SET recipient = %s, subject = '', body = '', updated_at = %s WHERE flow_id = %d AND recipient_user_id IS NULL", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$placeholder,
+				current_time( 'mysql', true ),
+				$flow_id
 			)
 		);
 

@@ -48,6 +48,18 @@ class MP_SW_D6_Scheduler {
 	/** Zadanie nieaktualne: status procesu zmienił się przed terminem. */
 	const STATUS_CANCELLED = 'cancelled';
 
+	/**
+	 * Termin wypadł, ale przypomnienie NIE DOTARŁO do handlowca.
+	 *
+	 * Odkąd niedostarczalny adres wewnętrzny nie wywraca całego zdarzenia
+	 * (Agent 7.2), przypomnienie bywa pomijane — a zadanie domykało się mimo to
+	 * jako „wykonane". Powstawał najgorszy możliwy stan: system twierdzi, że
+	 * follow-up się odbył, a handlowiec nigdy się o nim nie dowiedział.
+	 * Osobny status domyka zadanie (cron nie wraca po nie w kółko) i zarazem
+	 * mówi prawdę o tym, co się stało.
+	 */
+	const STATUS_UNDELIVERED = 'undelivered';
+
 	/** Hak crona, pod którym wypada zadanie (rejestrowany po COMMIT). */
 	const CRON_HOOK = 'mp_sw_task_due';
 

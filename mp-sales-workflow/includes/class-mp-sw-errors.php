@@ -123,6 +123,7 @@ class MP_SW_Errors {
 			'version_conflict'          => self::E_CONFLICT,
 			'invalid_transition'        => self::E_TRANSITION,
 			'unresolved_markers'        => self::E_MAIL,
+			'empty_offer_number'        => self::E_OFFER_DOCUMENT,
 			'offer_document_missing'    => self::E_OFFER_DOCUMENT,
 			'invalid_recipient'         => self::E_MAIL,
 			'header_injection'          => self::E_MAIL,

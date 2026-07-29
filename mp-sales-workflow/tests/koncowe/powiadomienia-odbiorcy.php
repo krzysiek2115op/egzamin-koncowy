@@ -155,6 +155,55 @@ $blob = is_array( $wpis ) ? wp_json_encode( $wpis ) : '';
 mo_ok( 0 === preg_match( '/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i', (string) $blob ), 'A7: wpis dziennika NIE zawiera adresu e-mail (RODO)', (string) $blob );
 
 $GLOBALS['mp_o']['lines'][] = '';
+$GLOBALS['mp_o']['lines'][] = '=== C: follow-up bez dostarczonego przypomnienia NIE jest \'wykonany\' ===';
+
+/*
+ * Skutek uboczny poluzowania z sekcji A: skoro pominiete powiadomienie
+ * wewnetrzne nie wywraca zdarzenia, zadanie follow-up domykalo sie jako
+ * `done` — system twierdzil, ze przypomnienie sie odbylo, a handlowiec nigdy
+ * go nie zobaczyl. Od 1.2.2 takie zadanie konczy jako `undelivered`:
+ * zamkniete (cron nie wraca po nie w kolko), ale bez klamstwa o wykonaniu.
+ */
+$tasks_t = MP_Sales_Workflow_DB::tasks_table();
+$teraz   = current_time( 'mysql', true );
+
+$wpdb->insert( // phpcs:ignore
+	$tasks_t,
+	array(
+		'flow_id'      => $flow_id,
+		'type'         => MP_SW_D6_Scheduler::TYPE_D3,
+		'due_at'       => gmdate( 'Y-m-d H:i:s', time() - 3600 ),
+		'guard_status' => is_array( $proces ) ? (string) $proces['status'] : '',
+		'status'       => MP_SW_D6_Scheduler::STATUS_PENDING,
+		'assignee'     => $uid,
+		'open_key'     => 'test-c-' . $seria,
+		'created_at'   => $teraz,
+		'updated_at'   => $teraz,
+	)
+);
+$task_id = (int) $wpdb->insert_id;
+mo_ok( $task_id > 0, 'C1: zadanie follow-up po terminie wstawione', $wpdb->last_error );
+
+if ( ! defined( 'DOING_CRON' ) ) {
+	define( 'DOING_CRON', true );
+}
+
+MP_SW_Cron::sweep_tasks();
+
+$po = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$tasks_t} WHERE id = %d", $task_id ), ARRAY_A ); // phpcs:ignore
+mo_ok( is_array( $po ) && MP_SW_D6_Scheduler::STATUS_PENDING !== (string) $po['status'], 'C2: zadanie zostalo domkniete (cron nie bedzie po nie wracal)', is_array( $po ) ? (string) $po['status'] : '?' );
+mo_ok(
+	is_array( $po ) && MP_SW_D6_Scheduler::STATUS_UNDELIVERED === (string) $po['status'],
+	'C3: status mowi PRAWDE — przypomnienie nie dotarlo, wiec nie \'done\'',
+	is_array( $po ) ? (string) $po['status'] : '?'
+);
+
+$pominiete_c = (int) $wpdb->get_var( // phpcs:ignore
+	$wpdb->prepare( "SELECT COUNT(*) FROM {$act_t} WHERE flow_id = %d AND action = %s", $flow_id, MP_SW_D8_Writer::LOG_NOTIFICATION_SKIPPED )
+);
+mo_ok( $pominiete_c > 1, 'C4: pominiecie przypomnienia tez trafilo do dziennika', (string) $pominiete_c );
+
+$GLOBALS['mp_o']['lines'][] = '';
 $GLOBALS['mp_o']['lines'][] = '=== B: brak adresu KLIENTA nadal blokuje wysylke ===';
 
 /*

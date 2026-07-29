@@ -400,6 +400,19 @@ class MP_SW_D7_Agent_Content extends MP_SW_Abstract_Agent {
 		$messages = array();
 		$skipped  = array();
 
+		/*
+		 * Numer oferty: najpierw snapshot, dopiero potem wiersz procesu. Snapshot
+		 * pochodzi z ODCZYTU tabeli wtyczki 2 w tym przebiegu, więc jest świeższy
+		 * niż kolumna procesu — a przy pierwszej wysyłce kolumna jest jeszcze
+		 * pusta, bo Dział 8 zapisuje ją dopiero PO nas.
+		 */
+		$offer        = isset( $snapshot['offer'] ) ? (array) $snapshot['offer'] : array();
+		$offer_number = isset( $offer['offer_number'] ) ? trim( (string) $offer['offer_number'] ) : '';
+
+		if ( '' === $offer_number ) {
+			$offer_number = (string) self::pick( $row, 'offer_number', '' );
+		}
+
 		foreach ( $recipients as $recipient ) {
 			/*
 			 * Niedostarczalny adres WEWNĘTRZNY nie unieważnia zdarzenia.
@@ -446,7 +459,7 @@ class MP_SW_D7_Agent_Content extends MP_SW_Abstract_Agent {
 				'client_name'   => self::pick( $row, 'client_name', isset( $envelope['name'] ) ? $envelope['name'] : '' ),
 				'country'       => self::pick( $row, 'country', (string) $context->get( 'country', '' ) ),
 				'segment'       => self::pick( $row, 'segment', '' ),
-				'offer_number'  => self::pick( $row, 'offer_number', '' ),
+				'offer_number'  => $offer_number,
 				'sla_due_at'    => (string) $context->get( 'sla_due_at', isset( $row['sla_due_at'] ) ? $row['sla_due_at'] : '' ),
 				'status_from'   => isset( $transition['from'] ) ? (string) $transition['from'] : '',
 				'status_to'     => isset( $transition['to'] ) ? (string) $transition['to'] : '',
@@ -579,6 +592,22 @@ class MP_SW_D7_Critic_Empty_Fields extends MP_SW_Abstract_Critic {
 		$data     = $agent_result->get_data();
 		$messages = isset( $data['messages'] ) ? (array) $data['messages'] : array();
 
+		/*
+		 * Znacznik PODMIENIONY NA PUSTY CIĄG przechodził tędy niezauważony:
+		 * `unresolved_markers()` widzi tylko `{{…}}`, których nikt nie ruszył.
+		 * Dlatego numer oferty sprawdzamy osobno i wprost — wiadomość „przesyłamy
+		 * ofertę nr ." wygląda jak awaria firmy, a klient nie ma czym się
+		 * posłużyć w odpowiedzi.
+		 */
+		$snapshot = (array) $context->get( MP_SW_D2_Reader::SNAPSHOT_KEY, array() );
+		$offer    = isset( $snapshot['offer'] ) ? (array) $snapshot['offer'] : array();
+		$flow_row = isset( $snapshot['flow']['row'] ) ? (array) $snapshot['flow']['row'] : array();
+		$numer    = trim( (string) ( isset( $offer['offer_number'] ) ? $offer['offer_number'] : '' ) );
+
+		if ( '' === $numer ) {
+			$numer = trim( (string) ( isset( $flow_row['offer_number'] ) ? $flow_row['offer_number'] : '' ) );
+		}
+
 		foreach ( $messages as $message ) {
 			$unresolved = array_merge(
 				MP_SW_D7_Notifier::unresolved_markers( $message['subject'] ),
@@ -673,6 +702,20 @@ class MP_SW_D7_Critic_Empty_Fields extends MP_SW_Abstract_Critic {
 					__( 'Powiadomienie z plikiem w załączniku — dokument ma iść adresem.', 'mp-sales-workflow' ),
 					array( 'errors' => array( 'messages.attachments' ) ),
 					'attachment_not_allowed'
+				);
+			}
+
+			if ( MP_SW_Templates::TPL_OFFER_SENT === (string) $message['template'] && '' === $numer ) {
+				/*
+				 * Sprawdzane PO adresie i dokumencie celowo: gdy do klienta nie ma
+				 * jak dojść albo nie ma czego wysłać, to jest ważniejsza wiadomość
+				 * dla handlowca niż brak numeru. Kolejność kontroli decyduje o tym,
+				 * co człowiek zobaczy na ekranie.
+				 */
+				return MP_SW_Result::fail(
+					__( 'Wiadomość z ofertą nie ma numeru oferty — nie wysyłamy dokumentu bez identyfikacji.', 'mp-sales-workflow' ),
+					array( 'errors' => array( 'messages.offer_number' ) ),
+					'empty_offer_number'
 				);
 			}
 

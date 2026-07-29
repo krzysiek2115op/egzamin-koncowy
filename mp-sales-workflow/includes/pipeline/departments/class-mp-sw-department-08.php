@@ -214,6 +214,23 @@ class MP_SW_D8_Agent_Plan extends MP_SW_Abstract_Agent {
 			$data['offer_id'] = (int) $entity['offer_id'];
 		}
 
+		/*
+		 * Numer oferty przepisujemy ze SNAPSHOTU (Dział 2 czyta go po `offer_id`
+		 * z tabeli wtyczki 2), bo powiadomienia biorą go z wiersza procesu.
+		 * Dopóki go tu nie było, klient dostawał temat „Oferta" i treść
+		 * „przesyłamy ofertę nr ." — znacznik BYŁ podmieniony, tyle że na pusty
+		 * ciąg, więc krytyk 7.2 (szuka znaczników NIEpodmienionych) tego nie widział.
+		 *
+		 * Nadpisujemy wyłącznie wartością niepustą: cron i zdarzenia bez oferty
+		 * numeru nie niosą, a wyczyszczenie zepsułoby przypomnienia follow-up.
+		 */
+		$offer        = isset( $snapshot['offer'] ) ? (array) $snapshot['offer'] : array();
+		$offer_number = isset( $offer['offer_number'] ) ? trim( (string) $offer['offer_number'] ) : '';
+
+		if ( '' !== $offer_number ) {
+			$data['offer_number'] = $offer_number;
+		}
+
 		$lang    = isset( $event['lang'] ) ? (string) $event['lang'] : '';
 		$country = (string) $context->get( 'country', '' );
 
@@ -269,11 +286,40 @@ class MP_SW_D8_Agent_Plan extends MP_SW_Abstract_Agent {
 			);
 		}
 
+		/*
+		 * Czy przypomnienie faktycznie poszło? Zadanie follow-up wolno domknąć
+		 * jako WYKONANE tylko wtedy, gdy powiadomienie trafiło do kolejki.
+		 * Gdy jedyny odbiorca miał niedostarczalny adres, Agent 7.2 pomija
+		 * wiadomość (żeby nie wywracać całego zdarzenia) — i wtedy „wykonane"
+		 * byłoby nieprawdą wobec handlowca, który nic nie dostał.
+		 */
+		$kolejka = (array) $context->get( 'notifications', array() );
+		$poszlo  = false;
+		$odpadlo = false;
+
+		foreach ( $kolejka as $wiadomosc ) {
+			if ( MP_SW_Templates::TPL_FOLLOWUP_DUE === (string) $wiadomosc['template'] ) {
+				$poszlo = true;
+				break;
+			}
+		}
+
+		foreach ( (array) $context->get( 'skipped_notifications', array() ) as $pominieta ) {
+			if ( MP_SW_Templates::TPL_FOLLOWUP_DUE === (string) $pominieta['template'] ) {
+				$odpadlo = true;
+				break;
+			}
+		}
+
+		$status_po_terminie = ( ! $poszlo && $odpadlo )
+			? MP_SW_D6_Scheduler::STATUS_UNDELIVERED
+			: MP_SW_D6_Scheduler::STATUS_DONE;
+
 		foreach ( (array) $tasks['fire'] as $task ) {
 			$plan['tasks_close'][] = array(
 				'task_id' => (int) $task['task_id'],
 				'type'    => (string) $task['type'],
-				'status'  => MP_SW_D6_Scheduler::STATUS_DONE,
+				'status'  => $status_po_terminie,
 			);
 		}
 
