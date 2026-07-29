@@ -173,4 +173,120 @@ mr_ok( is_array( $pr ) && 'Nowy lead do obslugi' === (string) $pr['subject'], 't
 $wpdb->delete( $notif_t, array( 'flow_id' => $flow_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 $wpdb->delete( $flow_t, array( 'id' => $flow_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 
+$GLOBALS['mp_r']['lines'][] = '';
+$GLOBALS['mp_r']['lines'][] = '=== D. RODO PRZEZ GRANICE WTYCZEK (dane nie wracaja z LP.1) ===';
+
+/*
+ * Audyt koncowy: prawo do bycia zapomnianym konczylo sie na granicy wtyczki.
+ * LP.1 nie miala kasownika ani haka `mp_lead_anonymized`, a Dzial 2 LP.3 czyta
+ * adres klienta NA ZYWO z `wp_mp_leads` i daje mu PIERWSZENSTWO — wiec dane
+ * wyczyszczone po naszej stronie WRACALY stamtad przy kolejnym powiadomieniu.
+ */
+if ( ! class_exists( 'MP_Lead_Intake_Privacy' ) || ! class_exists( 'MP_Pipeline_Factory' ) ) {
+	$GLOBALS['mp_r']['lines'][] = '  [POMINIETO] wtyczka 1 nieaktywna — sekcja D wymaga obu';
+} else {
+	/**
+	 * Poprawny NIP (wagi 6,5,7,2,3,4,5,6,7).
+	 *
+	 * @param int $seed Ziarno.
+	 * @return string
+	 */
+	function mr_nip( $seed ) {
+		$wagi = array( 6, 5, 7, 2, 3, 4, 5, 6, 7 );
+
+		for ( $i = 0; $i < 200; $i++ ) {
+			$baza = str_pad( (string) ( ( $seed + $i ) % 1000000000 ), 9, '0', STR_PAD_LEFT );
+			$suma = 0;
+
+			for ( $k = 0; $k < 9; $k++ ) {
+				$suma += $wagi[ $k ] * (int) $baza[ $k ];
+			}
+
+			if ( 10 !== $suma % 11 ) {
+				return $baza . ( $suma % 11 );
+			}
+		}
+
+		return '1234563218';
+	}
+
+	$nip_d  = mr_nip( (int) ( microtime( true ) * 100 ) % 900000000 + 200000 );
+	$mail_d = 'rodo-granica-' . substr( $nip_d, 0, 6 ) . '@example.test';
+
+	$ctx_d = new MP_Context(
+		array(
+			'company_name'      => 'Do Zapomnienia Sp. z o.o.',
+			'nip'               => $nip_d,
+			'email'             => $mail_d,
+			'phone'             => '+48555222111',
+			'country'           => 'PL',
+			'segment'           => 'roboty',
+			'message'           => 'Prosze o oferte.',
+			'consent_rodo'      => true,
+			'consent_marketing' => false,
+			'mp_nonce'          => wp_create_nonce( 'mp_lead_intake' ),
+		)
+	);
+
+	$wynik_d = MP_Pipeline_Factory::make()->run( $ctx_d );
+	mr_ok( $wynik_d->is_ok(), 'D1: lead przeszedl przez LP.1', wp_json_encode( $wynik_d->get_errors() ) );
+
+	$leads_t = MP_Lead_Intake_DB::leads_table();
+	$lead_d  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$leads_t} WHERE nip = %s", $nip_d ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	$proces_d = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$flow_t} WHERE lead_id = %d", $lead_d ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+	mr_ok( $lead_d > 0, 'D2: lead w BD-3' );
+	mr_ok( is_array( $proces_d ), 'D3: proces sprzedazowy w BD-1' );
+	mr_ok( is_array( $proces_d ) && $mail_d === (string) $proces_d['client_email'], 'D4: proces zna adres klienta', is_array( $proces_d ) ? (string) $proces_d['client_email'] : '?' );
+
+	// Zadanie usuniecia danych — tak, jak zrobilby to administrator w panelu
+	// WordPressa: rdzen wola KAZDY zarejestrowany kasownik z tym samym adresem.
+	$kas_p1 = MP_Lead_Intake_Privacy::erase_by_email( $mail_d );
+	$kas_p3 = MP_SW_Privacy::erase_by_email( $mail_d );
+
+	mr_ok( ! empty( $kas_p1['items_removed'] ), 'D5: kasownik LP.1 zglasza usuniete dane (wczesniej LP.1 NIE MIALA kasownika)' );
+	mr_ok( is_array( $kas_p3 ), 'D6: kasownik LP.3 wykonany' );
+
+	$mail_po = (string) $wpdb->get_var( $wpdb->prepare( "SELECT email FROM {$leads_t} WHERE id = %d", $lead_d ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	mr_ok( $mail_po !== $mail_d, 'D7: adres usuniety takze w BD-3 (zrodle, z ktorego LP.3 czyta na zywo)', $mail_po );
+	mr_ok( MP_SW_Privacy::is_anonymized( $mail_po ), 'D8: w BD-3 stoi adres zastepczy', $mail_po );
+
+	$telefon_po = (string) $wpdb->get_var( $wpdb->prepare( "SELECT phone FROM {$leads_t} WHERE id = %d", $lead_d ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	mr_ok( '' === $telefon_po, 'D9: telefon tez usuniety', $telefon_po );
+
+	// SEDNO: kolejne zdarzenie nie ma prawa wskrzesic adresu.
+	$przed_kolejki = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$notif_t}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+	$oferta_d = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . $wpdb->prefix . 'mp_ob_offers WHERE lead_id = %d ORDER BY id DESC LIMIT 1', $lead_d ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+	if ( $oferta_d > 0 ) {
+		$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prefix . 'mp_ob_offers',
+			array(
+				'offer_number' => 'OF/2999/D' . $lead_d,
+				'pdf_path'     => 'mp-offer-builder-private/rodo-' . $lead_d . '.pdf',
+			),
+			array( 'id' => $oferta_d )
+		);
+
+		do_action( 'mp_offer_created', $oferta_d, array( 'lead_id' => $lead_d, 'offer_id' => $oferta_d ) );
+		do_action( 'mp_offer_approved', $oferta_d, array( 'lead_id' => $lead_d, 'offer_id' => $oferta_d ) );
+	}
+
+	$z_adresem = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$wpdb->prepare( "SELECT COUNT(*) FROM {$notif_t} WHERE recipient = %s", $mail_d )
+	);
+	mr_ok( 0 === $z_adresem, 'D10: po usunieciu danych ZADNE powiadomienie nie poszlo na stary adres', 'wierszy: ' . $z_adresem );
+
+	$po_kolejce = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$notif_t}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	$GLOBALS['mp_r']['lines'][] = '    (kolejka: ' . $przed_kolejki . ' -> ' . $po_kolejce . ')';
+
+	$proces_po = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$flow_t} WHERE lead_id = %d", $lead_d ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	mr_ok(
+		is_array( $proces_po ) && MP_SW_Privacy::is_anonymized( (string) $proces_po['client_email'] ),
+		'D11: adres w procesie NIE WROCIL z LP.1 przy kolejnym zdarzeniu',
+		is_array( $proces_po ) ? (string) $proces_po['client_email'] : '?'
+	);
+}
+
 mr_dump();

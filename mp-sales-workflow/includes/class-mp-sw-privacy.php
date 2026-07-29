@@ -33,6 +33,30 @@ class MP_SW_Privacy {
 	const PATTERN = 'deleted+%d@invalid';
 
 	/**
+	 * Czy adres jest już zastępczym adresem po anonimizacji.
+	 *
+	 * Jedno miejsce na tę wiedzę, bo pyta o nią także Dział 7: zanonimizowany
+	 * wiersz procesu nie może zostać nadpisany świeżym odczytem z tabeli leadów
+	 * wtyczki 1 — inaczej usunięty kontakt wracałby przy kolejnej wysyłce.
+	 *
+	 * Rozpoznajemy po domenie `@invalid` (RFC 2606 — zarezerwowana, nigdy nie
+	 * istnieje realnie), a nie po pełnym wzorcu z identyfikatorem: ten sam adres
+	 * zastępczy bywa kopiowany między wierszami przy migracjach.
+	 *
+	 * @param string $email Adres do sprawdzenia.
+	 * @return bool
+	 */
+	public static function is_anonymized( $email ) {
+		$email = strtolower( trim( (string) $email ) );
+
+		if ( '' === $email ) {
+			return false;
+		}
+
+		return (bool) preg_match( '/@invalid$/', $email );
+	}
+
+	/**
 	 * Wpina nasluch.
 	 *
 	 * @return void

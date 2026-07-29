@@ -276,6 +276,25 @@ class MP_SW_D7_Agent_Recipients extends MP_SW_Abstract_Agent {
 		$name  = isset( $lead['name'] ) ? (string) $lead['name'] : '';
 		$email = isset( $lead['email'] ) ? (string) $lead['email'] : '';
 
+		/*
+		 * ANONIMIZACJA JEST NIEODWRACALNA — TAKZE PRZEZ GRANICE WTYCZKI.
+		 *
+		 * Adres czytamy z tabeli leadow wtyczki 1 i dajemy mu pierwszenstwo
+		 * (inwariant I-3: koperta zdarzenia nie moze podstawic obcego odbiorcy).
+		 * Ale gdy proces zostal zanonimizowany na zadanie klienta, ta sama zasada
+		 * dzialala przeciwko niemu: przy nastepnym powiadomieniu adres WRACAL
+		 * z wtyczki 1 i wiadomosc szla na kontakt, ktory mial zniknac.
+		 *
+		 * Zanonimizowany wiersz procesu jest wiec sygnalem zatrzymania: zadne
+		 * zrodlo nie ma prawa go nadpisac.
+		 */
+		if ( MP_SW_Privacy::is_anonymized( isset( $row['client_email'] ) ? $row['client_email'] : '' ) ) {
+			return array(
+				'name'  => isset( $row['client_name'] ) ? (string) $row['client_name'] : '',
+				'email' => (string) $row['client_email'],
+			);
+		}
+
 		if ( '' === $name && isset( $row['client_name'] ) ) {
 			$name = (string) $row['client_name'];
 		}
