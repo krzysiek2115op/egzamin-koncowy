@@ -54,6 +54,15 @@ class MP_SW_Download {
 	/**
 	 * Wpina handler.
 	 *
+	 * MUSI byc wolane przy ladowaniu pliku wtyczki, a NIE z wnetrza callbacka
+	 * `init`. Callback dopiety na priorytecie nizszym niz aktualnie wykonywany
+	 * jest w tym przebiegu pomijany, a `init` odpala sie raz na zadanie — wiec
+	 * `maybe_serve()` nie wykonaloby sie nigdy i podpisany link do oferty
+	 * zwracalby zwykla strone.
+	 *
+	 * Priorytet 5 (przed reszta wtyczki) jest celowy: plik ma poleciec zanim
+	 * cokolwiek zdazy wyslac naglowki albo tresc.
+	 *
 	 * @return void
 	 */
 	public static function register() {
@@ -277,13 +286,27 @@ class MP_SW_Download {
 
 		if ( null === $path ) {
 			$table = $wpdb->prefix . 'mp_ob_offers';
-			$path  = (string) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-				$wpdb->prepare(
-					"SELECT pdf_path FROM {$table} WHERE request_id = %s OR id = %d LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-					(string) $handle,
-					(int) $handle
+
+			/*
+			 * Jedna gałąź, nigdy dwa warunki naraz. Uchwytem jest UUID,
+			 * a `(int) '120f3e8a-…'` daje 120 — warunek `OR id` trafiałby wtedy
+			 * w CUDZĄ ofertę i klient z własnym, poprawnie podpisanym linkiem
+			 * dostawałby dokument innej firmy. Podpis broni przed podrobieniem
+			 * uchwytu, nie przed rzutowaniem typu po stronie SQL.
+			 */
+			$path = ctype_digit( (string) $handle )
+				? (string) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+					$wpdb->prepare(
+						"SELECT pdf_path FROM {$table} WHERE id = %d LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						(int) $handle
+					)
 				)
-			);
+				: (string) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+					$wpdb->prepare(
+						"SELECT pdf_path FROM {$table} WHERE request_id = %s LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						(string) $handle
+					)
+				);
 		}
 
 		$path = (string) $path;
@@ -338,13 +361,21 @@ class MP_SW_Download {
 		global $wpdb;
 
 		$offers = $wpdb->prefix . 'mp_ob_offers';
-		$lead   = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-			$wpdb->prepare(
-				"SELECT lead_id FROM {$offers} WHERE request_id = %s OR id = %d LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				(string) $handle,
-				(int) $handle
+
+		// Rozdzielone jak w `resolve()` — patrz komentarz tam.
+		$lead = ctype_digit( (string) $handle )
+			? (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+				$wpdb->prepare(
+					"SELECT lead_id FROM {$offers} WHERE id = %d LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					(int) $handle
+				)
 			)
-		);
+			: (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+				$wpdb->prepare(
+					"SELECT lead_id FROM {$offers} WHERE request_id = %s LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					(string) $handle
+				)
+			);
 
 		if ( $lead < 1 ) {
 			return;

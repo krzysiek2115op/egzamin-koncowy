@@ -52,6 +52,15 @@ require_once MP_SALES_WORKFLOW_DIR . 'includes/class-mp-sw-cron.php';
 require_once MP_SALES_WORKFLOW_DIR . 'includes/class-mp-sw-hooks.php';
 require_once MP_SALES_WORKFLOW_DIR . 'includes/admin/class-mp-sw-admin.php';
 
+/*
+ * Wyjątek od reguły „wszystko z `boot()`": obsługa podpisanego linku do oferty
+ * musi wisieć na `init` z priorytetem NIŻSZYM niż `boot()`, a callback dopięty
+ * z wnętrza już wykonywanego `init` na niższym priorytecie zostałby w tym
+ * przebiegu pominięty — czyli nigdy by się nie wykonał. Dlatego wpinamy go
+ * przy ładowaniu pliku. Sama rejestracja niczego nie czyta z bazy.
+ */
+MP_SW_Download::register();
+
 /**
  * Wpina warstwę techniczną.
  *
@@ -66,7 +75,6 @@ function mp_sales_workflow_boot() {
 	MP_SW_Cron::register();
 	MP_SW_Hooks::register();
 	MP_SW_Meta_Guard::register();
-	MP_SW_Download::register();
 	MP_SW_Mailer::register();
 	MP_SW_Privacy::register();
 
