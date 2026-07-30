@@ -356,9 +356,20 @@ final class MP_AU_Dzial_02 {
 	public static function zbuduj(): MP_AU_Dzial {
 		$dzial = new MP_AU_Dzial( 2, 'Re-audyt' );
 
+		// Kolejnosc ma znaczenie merytoryczne: najpierw odsiewamy zgloszenia,
+		// ktore nie wskazuja istniejacego miejsca (2.2), bo nie ma sensu
+		// weryfikowac ich druga metoda ani pytac o nie modelu. Dopiero potem
+		// potwierdzamy to, co zostalo — i na samym koncu oceniamy sam werdykt.
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A22_Falszywe_Alarmy( '2.2', 'falszywe-alarmy' ), new MP_AU_K22_Falszywe_Alarmy( '2.2', 'zgloszenie-wskazuje-istniejace-miejsce' ) ) );
 		$dzial->dodaj( new MP_AU_Para( new MP_AU_A21_Druga_Metoda( '2.1', 'druga-metoda' ), new MP_AU_K21_Druga_Metoda( '2.1', 'bez-drugiego-dowodu-tylko-hipoteza' ) ) );
 		$dzial->dodaj( new MP_AU_Para( new MP_AU_A23_Zaleznosci( '2.3', 'graf-zaleznosci' ), new MP_AU_K23_Zaleznosci( '2.3', 'nie-naprawiaj-maskujacego-bez-maskowanego' ) ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A27_Martwe_Pola( '2.7', 'martwe-pola-audytu' ), new MP_AU_K27_Martwe_Pola( '2.7', 'bialych-plam-ma-nie-byc' ) ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A28_Regresja( '2.8', 'regresja-miedzy-przebiegami' ), new MP_AU_K28_Regresja( '2.8', 'ubylo-czy-sie-przesunelo' ) ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A26_Dowod_Naprawy( '2.6', 'dowod-naprawy' ), new MP_AU_K26_Dowod_Naprawy( '2.6', 'test-i-naprawa-razem' ), MP_AU_Para::PELNY ) );
 		$dzial->dodaj( new MP_AU_Para( new MP_AU_A25_Stabilizacja( '2.5', 'stabilizacja' ), new MP_AU_K25_Stabilizacja( '2.5', 'wynik-powtarzalny' ) ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A24_Powtarzalnosc( '2.4', 'powtarzalnosc' ), new MP_AU_K24_Powtarzalnosc( '2.4', 'ten-sam-stan-ten-sam-wynik' ), MP_AU_Para::PELNY ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A29_Sedzia( '2.9', 'drugi-sedzia' ), new MP_AU_K29_Sedzia( '2.9', 'model-kwestionuje-zgloszenia' ), MP_AU_Para::GLEBOKI ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A210_Werdykt( '2.10', 'audyt-werdyktu' ), new MP_AU_K210_Werdykt( '2.10', 'kazde-ustalenie-uniesie-swoj-ciezar' ) ) );
 
 		return $dzial;
 	}

@@ -217,13 +217,38 @@ final class MP_AU_Workspace {
 	}
 
 	/**
+	 * Sciezki plikow, ktore w tym przebiegu w ogole ktos przeczytal.
+	 *
+	 * Sluzy parze 2.7: plik, do ktorego nie zajrzala ZADNA para, jest martwym
+	 * polem audytu. Raport milczacy o takim pliku nie mowi „jest dobrze", tylko
+	 * „nie wiem" — i musi to powiedziec wprost.
+	 *
+	 * @return string[]
+	 */
+	public function odczytane(): array {
+		return array_keys( $this->cache );
+	}
+
+	/**
 	 * Sciezka wzgledna wobec korzenia worktree — do raportu.
 	 *
 	 * @param string $sciezka Sciezka bezwzgledna.
 	 * @return string
 	 */
 	public function wzgledna( string $sciezka ): string {
-		return ltrim( str_replace( $this->baza, '', $sciezka ), '/' );
+		$wzgledna = ltrim( str_replace( $this->baza, '', $sciezka ), '/' );
+
+		// Katalog worktree i katalog wtyczki nazywaja sie tak samo, wiec sciezka
+		// wychodzila jako „mp-offer-builder/mp-offer-builder/includes/...".
+		// Powtorzenie nie niesie zadnej informacji, a wyglada jak blad narzedzia
+		// — i pierwsze, co robi czytajacy, to podwaza caly raport.
+		$czesci = explode( '/', $wzgledna );
+
+		if ( count( $czesci ) > 1 && $czesci[0] === $czesci[1] ) {
+			array_shift( $czesci );
+		}
+
+		return implode( '/', $czesci );
 	}
 
 	/**

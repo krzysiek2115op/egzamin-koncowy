@@ -25,6 +25,9 @@ final class MP_AU_Raport {
 	/** @var array */
 	private $workspace;
 
+	/** @var array Metadane przebiegu: glebokosc, czas. */
+	private $meta = array();
+
 	/**
 	 * @param MP_AU_Kontekst $kontekst  Kontekst.
 	 * @param array          $przebiegi Przebiegi dzialow.
@@ -34,6 +37,29 @@ final class MP_AU_Raport {
 		$this->kontekst  = $kontekst;
 		$this->przebiegi = $przebiegi;
 		$this->workspace = $workspace;
+	}
+
+	/**
+	 * @param array $meta Metadane przebiegu.
+	 * @return void
+	 */
+	public function ustaw_przebieg( array $meta ): void {
+		$this->meta = $meta;
+	}
+
+	/**
+	 * Ile par pominieto z powodu zadanej glebokosci.
+	 *
+	 * @return int
+	 */
+	private function pominietych(): int {
+		$suma = 0;
+
+		foreach ( $this->przebiegi as $p ) {
+			$suma += (int) ( $p['bramka']['par_pominietych'] ?? 0 );
+		}
+
+		return $suma;
 	}
 
 	/**
@@ -85,15 +111,23 @@ final class MP_AU_Raport {
 			}
 		}
 
+		// Przebieg skrocony na zadanie uruchamiajacego. Werdykt dalej ma sens,
+		// ale musi niesc informacje, ZA CO nie odpowiada — inaczej „GO" po
+		// przebiegu szybkim czytaloby sie tak samo jak po pelnym.
+		$zastrzezenie = $this->pominietych() > 0
+			? ' [audyt skrocony: ' . $this->pominietych() . ' par pominietych na poziomie „'
+				. ( $this->meta['glebokosc'] ?? '?' ) . '"]'
+			: '';
+
 		if ( ! empty( $grupy[ MP_AU_Ustalenie::KRYTYCZNE ] ) ) {
-			return 'NO GO — ' . count( $grupy[ MP_AU_Ustalenie::KRYTYCZNE ] ) . ' ustalen krytycznych';
+			return 'NO GO — ' . count( $grupy[ MP_AU_Ustalenie::KRYTYCZNE ] ) . ' ustalen krytycznych' . $zastrzezenie;
 		}
 
 		if ( ! empty( $grupy[ MP_AU_Ustalenie::SREDNIE ] ) ) {
-			return 'GO WITH MINOR FIXES — ' . count( $grupy[ MP_AU_Ustalenie::SREDNIE ] ) . ' ustalen sredniej wagi';
+			return 'GO WITH MINOR FIXES — ' . count( $grupy[ MP_AU_Ustalenie::SREDNIE ] ) . ' ustalen sredniej wagi' . $zastrzezenie;
 		}
 
-		return 'GO';
+		return 'GO' . $zastrzezenie;
 	}
 
 	/**
@@ -107,6 +141,7 @@ final class MP_AU_Raport {
 
 		$dane = array(
 			'data'        => gmdate( 'c' ),
+			'przebieg'    => $this->meta,
 			'workspace'   => $this->workspace,
 			'model'       => array(
 				'tryb'      => $this->kontekst->model->tryb(),
@@ -184,8 +219,31 @@ final class MP_AU_Raport {
 			$out .= "Zadnych ustalen.\n\n";
 		}
 
-		$out .= 'odczytow plikow: ' . $this->kontekst->odczyty() . "\n";
+		$out .= "--- rozliczenie przebiegu ---\n";
+		$out .= 'glebokosc:         ' . ( $this->meta['glebokosc'] ?? '?' ) . "\n";
+		$out .= 'odczytow plikow:   ' . $this->kontekst->odczyty() . "\n";
 		$out .= 'zapytan do modelu: ' . $this->kontekst->model->ile_zapytan() . "\n";
+
+		foreach ( $this->przebiegi as $p ) {
+			$out .= sprintf(
+				"dzial %d:           %s s, par %d/%d%s\n",
+				$p['dzial'],
+				number_format( (float) $p['czas'], 1 ),
+				$p['bramka']['par_wykonanych'],
+				$p['bramka']['par_wszystkich'],
+				$p['bramka']['par_pominietych'] > 0 ? ' (' . $p['bramka']['par_pominietych'] . ' pominietych)' : ''
+			);
+		}
+
+		if ( isset( $this->meta['czas_total'] ) ) {
+			$out .= 'czas calkowity:    ' . number_format( (float) $this->meta['czas_total'], 1 ) . " s\n";
+		}
+
+		if ( $this->pominietych() > 0 ) {
+			$out .= "\nUWAGA: " . $this->pominietych() . " par NIE zostalo wykonanych na tym poziomie glebokosci.\n"
+				. "Pelny audyt: --glebokosc=gleboki\n";
+		}
+
 		$out .= "\nWERDYKT: " . $this->werdykt() . "\n";
 
 		return $out;

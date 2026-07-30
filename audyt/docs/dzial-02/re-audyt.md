@@ -106,22 +106,80 @@ błędy zniknęły, czy nie pojawiły się nowe, czy dawne naprawy nadal trzymaj
 Tryb jest parametrem przebiegu, nie osobnym kodem — inaczej oba tryby
 rozjechałyby się przy pierwszej zmianie.
 
-## Pary agent + krytyk w Dziale 2
+---
 
-| Para | Agent | Krytyk | Lekcja |
-|---|---|---|---|
-| 2.1 | odtwarza każde ustalenie **drugą metodą** | bez drugiego dowodu status najwyżej PRAWDOPODOBNE | 1 |
-| 2.2 | konfrontuje ustalenia z rejestrem znanych fałszywych alarmów i z kontekstem (celowe wyjątki, `phpcs:ignore` z uzasadnieniem) | fałszywy alarm nie może trafić do raportu jako błąd | 3 |
-| 2.3 | buduje graf zależności między ustaleniami | żaden maskujący błąd nie jest naprawiany bez maskowanego | 2 |
-| 2.4 | uruchamia każdy zestaw testów **dwukrotnie** | wynik musi być identyczny; rozbieżność = usterka audytu | 3 |
-| 2.5 | pętla stabilizacji: powtarza kontrole, aż zbiór ustaleń przestanie się zmieniać (twardy limit obiegów) | pętla, która nie zbiega, sama jest ustaleniem | — |
-| 2.6 | weryfikacja napraw metodą `git stash` | poprawka bez testu failującego bez niej = NIEPOTWIERDZONA | — |
+## Pary agent + krytyk w Dziale 2 — komplet 10
 
-## Granica automatu — powiedziane wprost
+Kolejność nie jest przypadkowa. Najpierw odsiewamy zgłoszenia, które nie
+wskazują istniejącego miejsca (2.2) — nie ma sensu weryfikować ich drugą metodą
+ani pytać o nie modelu. Potem potwierdzamy to, co zostało. Na samym końcu
+oceniamy **sam werdykt**.
 
-Pętla z pary 2.5 powtarza **sprawdzenia**, nie naprawy semantyczne. Automat
-stosuje wyłącznie poprawki dowodnie bezpieczne (formatowanie przez `phpcbf`,
-synchronizacja numeru wersji między czterema plikami). Wszystko, co wymaga
-decyzji „którą stronę naprawić", trafia do raportu jako propozycja z gotowym
-diffem. Uzasadnienie jest w lekcji 2: automat naprawiający „aż do zera błędów"
-otworzyłby 29.07 lukę bezpieczeństwa.
+| Para | Poziom | Agent zbiera | Krytyk rozstrzyga | Po co |
+|---|---|---|---|---|
+| 2.2 | S | dla każdego ustalenia: czy plik istnieje, czy linia mieści się w pliku, czy to nie komentarz, czy nie duplikat | zgłoszenie musi wskazywać istniejące miejsce | najtańsza kontrola całego re-audytu; wyłapuje błędy narzędzia, nie projektu |
+| 2.1 | S | próba potwierdzenia ustalenia **inną drogą** niż ta, którą je znaleziono | bez drugiego dowodu to tylko hipoteza | w pierwszym przebiegu odrzuciła 14 z 14 „krytycznych" |
+| 2.3 | S | graf sprzężeń: które ustalenie **maskuje** które | nie naprawiaj maskującego bez maskowanego | martwy endpoint maskował wyciek cudzych PDF-ów |
+| 2.7 | S | pliki, do których **nie zajrzała żadna para** | białych plam ma nie być | „zero ustaleń w pliku X" i „nikt nie otworzył pliku X" wyglądały identycznie |
+| 2.8 | S | porównanie z `raporty/raport-ostatni.json` sprzed tego przebiegu | ubyło czy tylko się przesunęło | jedyne pytanie, które ma sens po naprawie |
+| 2.6 | P | archeologia gitowa: czy test przyszedł w jednym commicie z naprawą | naprawa musi mieć ślad weryfikacji | osiem napraw z 29.07 potwierdzano ręcznie przez `git stash` |
+| 2.5 | S | pętla stabilizacji: powtarza **sprawdzenia** aż wynik przestanie się zmieniać (maks. 3 obiegi) | wynik ma być powtarzalny | patrz niżej: dlaczego pętla nie naprawia |
+| 2.4 | P | powtórzony przebieg **całego Działu 1** na tym samym stanie | ten sam stan = ten sam wynik | TEST-F2: nasz własny test dawał 10 FAIL przy drugim uruchomieniu bez zmiany w kodzie |
+| 2.9 | G | paczki ustaleń jako dossier dla **drugiego sędziego** | model ma zakwestionować cudze zgłoszenia | Dział 1 używa modelu do zgłaszania; tu ten sam mechanizm działa w przeciwną stronę |
+| 2.10 | S | ustalenia bez dowodu albo bez scenariusza awarii | każde ustalenie uniesie swój ciężar | zgłoszenie krytyczne bez dowodu blokowałoby wydanie samym brzmieniem |
+
+## Dlaczego pętla powtarza sprawdzenia, a nie naprawy
+
+To jest **decyzja projektowa, nie ograniczenie techniczne**, i wynika wprost
+z najdroższej lekcji tego projektu.
+
+Wyciek cudzych ofert (INT-K3) był **zamaskowany** przez to, że endpoint w ogóle
+się nie rejestrował (P3-K1). Automat naprawiający „aż do zera ustaleń" naprawiłby
+rejestrację jako pierwszą — bo to poprawka o jedną linię — i tym samym
+**udostępniłby klientom dokumenty innych firm**. Zero ustaleń w raporcie,
+katastrofa w produkcji.
+
+Dlatego:
+
+- **2.5 powtarza kontrole**, żeby sprawdzić, czy wynik jest stabilny. Nie zmienia
+  ani jednego znaku w projekcie.
+- **2.3 buduje graf sprzężeń** i przy każdym ustaleniu maskującym wypisuje wprost:
+  „naprawiać RAZEM z X".
+- **Poprawki semantyczne zostają przy człowieku.** Automat nie ma jak wiedzieć,
+  że naprawa A odsłania B — tę wiedzę niesie graf, a decyzję podejmuje ten, kto
+  odpowiada za wydanie.
+
+## Dlaczego 2.6 nie cofa napraw naprawdę
+
+Wzorcowy dowód, że test łapie błąd, wygląda tak: cofnij naprawę, uruchom test,
+zobacz FAIL, przywróć naprawę. Tak potwierdzono wszystkie osiem napraw z 29.07.
+
+Automat tego **nie robi i nie będzie robił**:
+
+- cofanie naprawy w repozytorium, na którym ktoś pracuje, to operacja niszcząca,
+- testy tego projektu wymagają żywego WordPressa z bazą — audyt nie ma prawa
+  zakładać, że one stoją.
+
+Zamiast udawać taką weryfikację, para sprawdza **ślad po niej w historii gita**:
+czy test przyszedł razem z naprawą, w jednym commicie.
+
+- **Co to dowodzi:** że autor miał oba pliki na biurku naraz.
+- **Czego NIE dowodzi:** że test faktycznie FAIL-ował przed naprawą.
+
+Ta granica jest wypisana w kodzie pary i w raporcie. Audyt, który obiecuje
+więcej, niż daje, jest gorszy od audytu, którego nie ma.
+
+## Bezpiecznik pary 2.2
+
+Para 2.2 ma prawo odrzucać ustalenia — i to jest jej zadanie. Ale gdy odrzuca
+**niemal wszystko** z powodu „pliku nie ma", to prawie na pewno zepsuło się
+odwzorowanie ścieżek w narzędziu, a nie cały Dział 1 naraz.
+
+Ten przypadek **wystąpił podczas budowy** tego działu: poprawka formatu ścieżek
+w raporcie sprawiła, że 2.2 skasowała **77 z 87 ustaleń**, a audyt wydał
+uspokajający werdykt na podstawie własnej awarii. Dlatego przy odsetku
+nieodnalezionych plików powyżej 50% para zgłasza **awarię narzędzia jako
+ustalenie krytyczne** i nie odrzuca niczego.
+
+To ta sama zasada, na której stoi cały pipeline, zastosowana do samego re-audytu:
+**kontrola, której nie dało się wykonać, nie ma prawa raportować sukcesu.**

@@ -955,19 +955,57 @@ final class MP_AU_K113_Wersje extends MP_AU_Krytyk {
 final class MP_AU_Dzial_01 {
 
 	/**
+	 * Sklada komplet 17 par.
+	 *
+	 * Kolejnosc nie jest przypadkowa: najpierw inwentarz i skladnia (bez nich
+	 * reszta ocenia niepelny albo niepoprawny kod), potem kontrole strukturalne,
+	 * na koncu te, ktore wymagaja narzedzi zewnetrznych i modelu. Dzieki temu
+	 * przebieg przerwany w polowie zdazyl juz powiedziec rzeczy najwazniejsze.
+	 *
 	 * @return MP_AU_Dzial
 	 */
 	public static function zbuduj(): MP_AU_Dzial {
 		$dzial = new MP_AU_Dzial( 1, 'Audyt calego projektu' );
 
+		// --- Fundament: co w ogole mamy i czy sie parsuje.
 		$dzial->dodaj( new MP_AU_Para( new MP_AU_A11_Inwentarz( '1.1', 'inwentarz' ), new MP_AU_K11_Pokrycie( '1.1', 'pokrycie' ) ) );
-		$dzial->dodaj( new MP_AU_Para( new MP_AU_A12_Skladnia( '1.2', 'skladnia' ), new MP_AU_K12_Skladnia( '1.2', 'zero-bledow-skladni' ) ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A12_Skladnia( '1.2', 'skladnia' ), new MP_AU_K12_Skladnia( '1.2', 'zero-bledow-skladni' ), MP_AU_Para::PELNY ) );
+
+		// --- Struktura i granice miedzy wtyczkami.
 		$dzial->dodaj( new MP_AU_Para( new MP_AU_A14_Kolizje( '1.4', 'kolizje-nazw' ), new MP_AU_K14_Kolizje( '1.4', 'przeciecia-puste' ) ) );
 		$dzial->dodaj( new MP_AU_Para( new MP_AU_A15_Kod_Kontra_DDL( '1.5', 'kod-kontra-DDL' ), new MP_AU_K15_Kod_Kontra_DDL( '1.5', 'kolumna-istnieje' ) ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A16_Kontrakty_Hakow( '1.6', 'kontrakty-hakow' ), new MP_AU_K16_Kontrakty_Hakow( '1.6', 'obie-strony-umowy-zgodne' ) ) );
 		$dzial->dodaj( new MP_AU_Para( new MP_AU_A17_Rejestracja_Hakow( '1.7', 'rejestracja-hakow' ), new MP_AU_K17_Rejestracja_Hakow( '1.7', 'hak-ma-szanse-sie-wykonac' ) ) );
+
+		// --- Dane, zapisy, wyscigi.
 		$dzial->dodaj( new MP_AU_Para( new MP_AU_A18_Wzorce_SQL( '1.8', 'wzorce-SQL' ), new MP_AU_K18_Wzorce_SQL( '1.8', 'warunek-jednoznaczny' ) ) );
 		$dzial->dodaj( new MP_AU_Para( new MP_AU_A110_Granice_Transakcji( '1.10', 'granice-transakcji' ), new MP_AU_K110_Granice_Transakcji( '1.10', 'zdarzenie-po-COMMIT' ) ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A118_Idempotencja( '1.18', 'idempotencja-i-blokada' ), new MP_AU_K118_Idempotencja( '1.18', 'zapis-sprawdza-stan-z-chwili-odczytu' ) ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A123_Statusy( '1.23', 'slownik-statusow' ), new MP_AU_K123_Statusy( '1.23', 'status-ze-slownika' ) ) );
+
+		// --- Szkoda dla uzytkownika: dostep, dane osobowe, pieniadze.
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A19_Bezpieczenstwo( '1.9', 'punkty-wejscia' ), new MP_AU_K19_Bezpieczenstwo( '1.9', 'kazdy-punkt-wejscia-broniony' ) ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A111_Rodo( '1.11', 'RODO' ), new MP_AU_K111_Rodo( '1.11', 'dane-znikaja-po-obu-stronach' ) ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A112_Pieniadze( '1.12', 'arytmetyka-pieniedzy' ), new MP_AU_K112_Pieniadze( '1.12', 'kwota-w-jednej-jednostce' ) ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A119_Obsluga_Bledow( '1.19', 'obsluga-bledow' ), new MP_AU_K119_Obsluga_Bledow( '1.19', 'porazka-musi-byc-widoczna' ) ) );
+
+		// --- Utrzymanie: wersje, cykl zycia, licencje, dokumentacja, i18n.
 		$dzial->dodaj( new MP_AU_Para( new MP_AU_A113_Wersje( '1.13', 'spojnosc-wersji' ), new MP_AU_K113_Wersje( '1.13', 'cztery-miejsca-zgodne' ) ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A121_Cykl_Zycia( '1.21', 'cykl-zycia' ), new MP_AU_K121_Cykl_Zycia( '1.21', 'wylaczenie-nie-niszczy-sasiada' ) ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A114_Licencje( '1.14', 'licencje' ), new MP_AU_K114_Licencje( '1.14', 'zgodna-z-zaleznosciami' ) ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A117_Dokumentacja( '1.17', 'dokumentacja' ), new MP_AU_K117_Dokumentacja( '1.17', 'jeden-plik-na-dzial' ) ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A120_I18n( '1.20', 'i18n' ), new MP_AU_K120_I18n( '1.20', 'domena-zgodna-ze-slugiem' ) ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A122_Martwy_Kod( '1.22', 'kod-nieuzywany' ), new MP_AU_K122_Martwy_Kod( '1.22', 'kod-ktory-nikogo-nie-obchodzi' ) ) );
+
+		// --- Audyt samych testow i dawnych bledow.
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A124_Jakosc_Testow( '1.24', 'jakosc-testow' ), new MP_AU_K124_Jakosc_Testow( '1.24', 'test-musi-umiec-nie-przejsc' ) ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A115_Rejestr( '1.15', 'rejestr-kontra-testy' ), new MP_AU_K115_Rejestr( '1.15', 'kazdy-dawny-blad-ma-test' ) ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A116_Wydajnosc( '1.16', 'zapytania-w-petli' ), new MP_AU_K116_Wydajnosc( '1.16', 'narzut-liniowy' ) ) );
+
+		// --- Narzedzia zewnetrzne i model: najdrozsze, wiec na koncu.
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A13_Phpcs( '1.3', 'PHPCS-WPCS' ), new MP_AU_K13_Phpcs( '1.3', 'zero-bledow-standardu' ), MP_AU_Para::PELNY ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A125_Semantyka( '1.25', 'semantyka-dzialow' ), new MP_AU_K125_Semantyka( '1.25', 'kod-robi-to-co-deklaruje' ), MP_AU_Para::GLEBOKI ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A126_Komunikaty( '1.26', 'komunikaty-dla-czlowieka' ), new MP_AU_K126_Komunikaty( '1.26', 'klient-nie-zobaczy-pustego-miejsca' ), MP_AU_Para::GLEBOKI ) );
 
 		return $dzial;
 	}

@@ -190,21 +190,33 @@ final class MP_AU_Model_Client {
 	 */
 	private function przez_cli( string $pytanie ): ?string {
 		$plik = $this->zapisz_dossier( $pytanie );
+		$out  = $plik . '.odpowiedz';
 
+		/*
+		 * Odpowiedz idzie do PLIKU, nie do potoku — i to nie jest kosmetyka.
+		 * Wersja z potokiem ZAWIESILA caly przebieg: `timeout` zabija proces
+		 * `claude`, ale jego potomek trzyma otwarty koniec potoku, wiec PHP czeka
+		 * na EOF, ktory nigdy nie przychodzi. Limit czasu istnial, a mimo to audyt
+		 * stal w miejscu — czyli dokladnie ten rodzaj awarii, ktory ten pipeline
+		 * ma wykrywac u innych.
+		 */
 		$wynik = $this->workspace->polecenie(
 			array(
 				'sh',
 				'-c',
-				'timeout ' . self::LIMIT_CZASU . ' ' . escapeshellarg( $this->binarka )
-					. ' -p --output-format text < ' . escapeshellarg( $plik ),
+				'timeout --kill-after=10 ' . self::LIMIT_CZASU . ' ' . escapeshellarg( $this->binarka )
+					. ' -p --output-format text < ' . escapeshellarg( $plik )
+					. ' > ' . escapeshellarg( $out ) . ' 2>/dev/null',
 			)
 		);
 
-		if ( 0 !== $wynik['kod'] ) {
+		if ( 0 !== $wynik['kod'] || ! is_readable( $out ) ) {
 			return null;
 		}
 
-		return $wynik['wyjscie'];
+		$odpowiedz = (string) file_get_contents( $out );
+
+		return '' === trim( $odpowiedz ) ? null : $odpowiedz;
 	}
 
 	/**

@@ -225,15 +225,53 @@ final class MP_AU_Kontekst {
 	/** @var string Tryb przebiegu: „audyt" albo „weryfikacja"/„potwierdzenie". */
 	public $tryb;
 
+	/** @var int Glebokosc przebiegu — patrz stale MP_AU_Para::SZYBKI/PELNY/GLEBOKI. */
+	public $glebokosc = 1;
+
+	/** @var float Znacznik startu przebiegu (do rozliczenia czasu). */
+	public $start;
+
 	/**
 	 * @param MP_AU_Workspace    $workspace Dostep do kodu trzech wtyczek.
 	 * @param MP_AU_Model_Client $model     Adapter modelu.
 	 * @param string             $tryb      Tryb przebiegu.
+	 * @param int                $glebokosc Glebokosc przebiegu.
 	 */
-	public function __construct( MP_AU_Workspace $workspace, MP_AU_Model_Client $model, string $tryb = 'audyt' ) {
+	public function __construct( MP_AU_Workspace $workspace, MP_AU_Model_Client $model, string $tryb = 'audyt', int $glebokosc = 1 ) {
 		$this->workspace = $workspace;
 		$this->model     = $model;
 		$this->tryb      = $tryb;
+		$this->glebokosc = $glebokosc;
+		$this->start     = microtime( true );
+	}
+
+	/**
+	 * Sekundy od startu przebiegu.
+	 *
+	 * @return float
+	 */
+	public function uplynelo(): float {
+		return round( microtime( true ) - $this->start, 2 );
+	}
+
+	/**
+	 * Ustalenia zgloszone przez wskazana pare.
+	 *
+	 * Dzial 2 pyta o to bez przerwy („co zglosila 1.9?"), a przegladanie calej
+	 * listy w kazdej parze re-audytu bylo by szumem w kazdym z nich.
+	 *
+	 * @param string $para Identyfikator pary.
+	 * @return MP_AU_Ustalenie[]
+	 */
+	public function ustalenia_pary( string $para ): array {
+		return array_values(
+			array_filter(
+				$this->ustalenia(),
+				static function ( MP_AU_Ustalenie $u ) use ( $para ) {
+					return $u->para === $para;
+				}
+			)
+		);
 	}
 
 	/**

@@ -175,6 +175,15 @@ abstract class MP_AU_Krytyk_Modelowy extends MP_AU_Krytyk {
  */
 final class MP_AU_Para {
 
+	/** Poziom: sama analiza statyczna, bez uruchamiania czegokolwiek. */
+	const SZYBKI = 1;
+
+	/** Poziom: dodatkowo narzedzia zewnetrzne (php -l, PHPCS, testy, git). */
+	const PELNY = 2;
+
+	/** Poziom: dodatkowo ocena modelu i petle powtarzalnosci. */
+	const GLEBOKI = 3;
+
 	/** @var MP_AU_Agent */
 	public $agent;
 
@@ -182,12 +191,26 @@ final class MP_AU_Para {
 	public $krytyk;
 
 	/**
+	 * Najnizszy poziom glebokosci, na ktorym ta para ma sens.
+	 *
+	 * Nie chodzi o „wazniejsze" i „mniej wazne" kontrole — wszystkie sa wazne.
+	 * Chodzi o KOSZT: para uruchamiajaca PHPCS na trzech wtyczkach trwa minuty,
+	 * a para grepujaca po skladni — sekundy. Przy commicie chcemy odpowiedzi
+	 * w minute; przed wydaniem chcemy kompletu, choćby trwal pol godziny.
+	 *
+	 * @var int
+	 */
+	public $poziom;
+
+	/**
 	 * @param MP_AU_Agent  $agent  Agent.
 	 * @param MP_AU_Krytyk $krytyk Krytyk.
+	 * @param int          $poziom Najnizszy poziom glebokosci.
 	 */
-	public function __construct( MP_AU_Agent $agent, MP_AU_Krytyk $krytyk ) {
+	public function __construct( MP_AU_Agent $agent, MP_AU_Krytyk $krytyk, int $poziom = self::SZYBKI ) {
 		$this->agent  = $agent;
 		$this->krytyk = $krytyk;
+		$this->poziom = $poziom;
 	}
 
 	/**
@@ -311,11 +334,36 @@ class MP_AU_Dzial {
 			'nazwa'       => $this->nazwa,
 			'pary'        => array(),
 			'nieocenione' => 0,
+			'pominiete'   => 0,
+			'czas'        => 0.0,
 		);
 
 		foreach ( $this->pary as $para ) {
+			// Para ponad zadana glebokoscia nie jest „zaliczona" — jest POMINIETA,
+			// i raport musi to powiedziec wprost. Skrocony audyt, ktory wyglada
+			// jak pelny, to dokladnie ten rodzaj falszywego „zielonego", przed
+			// ktorym broni sie caly ten pipeline.
+			if ( $para->poziom > $kontekst->glebokosc ) {
+				++$przebieg['pominiete'];
+
+				$przebieg['pary'][] = array(
+					'para'      => $para->agent->para(),
+					'nazwa'     => $para->agent->nazwa(),
+					'stan'      => 'pominieta',
+					'powod'     => 'wymaga glebokosci ' . $para->poziom . ', przebieg ma ' . $kontekst->glebokosc,
+					'ustalenia' => 0,
+					'czas'      => 0.0,
+				);
+
+				continue;
+			}
+
+			$start = microtime( true );
 			$wynik = $para->wykonaj( $kontekst );
+			$czas  = round( microtime( true ) - $start, 2 );
+
 			$kontekst->dopisz_ustalenia( $wynik->ustalenia );
+			$przebieg['czas'] += $czas;
 
 			if ( MP_AU_Wynik::NIEOCENIONE === $wynik->stan ) {
 				++$przebieg['nieocenione'];
@@ -327,8 +375,11 @@ class MP_AU_Dzial {
 				'stan'      => $wynik->stan,
 				'powod'     => $wynik->powod,
 				'ustalenia' => count( $wynik->ustalenia ),
+				'czas'      => $czas,
 			);
 		}
+
+		$przebieg['czas'] = round( $przebieg['czas'], 2 );
 
 		$przebieg['bramka'] = $this->bramka( $kontekst, $przebieg );
 
@@ -348,15 +399,23 @@ class MP_AU_Dzial {
 	protected function bramka( MP_AU_Kontekst $kontekst, array $przebieg ): array {
 		$wszystkie   = count( $przebieg['pary'] );
 		$nieocenione = (int) $przebieg['nieocenione'];
-		$pokrycie    = $wszystkie > 0 ? ( $wszystkie - $nieocenione ) / $wszystkie : 0.0;
+		$pominiete   = (int) $przebieg['pominiete'];
+		$wykonane    = $wszystkie - $nieocenione - $pominiete;
+		$pokrycie    = $wszystkie > 0 ? $wykonane / $wszystkie : 0.0;
 
 		return array(
-			'par_wykonanych' => $wszystkie - $nieocenione,
+			'par_wykonanych' => $wykonane,
+			'par_pominietych' => $pominiete,
 			'par_wszystkich' => $wszystkie,
 			'pokrycie'       => round( $pokrycie, 3 ),
 			// Prog 1.0 jest celowy: „prawie wszystko sprawdzone" to nie to samo,
 			// co „sprawdzone". Nizszy prog zachecalby do ignorowania brakow.
+			//
+			// Pominiecie z powodu glebokosci NIE psuje bramki — uzytkownik sam
+			// zazadal krotszego przebiegu i wie o tym. Psuje za to KOMPLETNOSC,
+			// ktora raport pokazuje osobno i ktora blokuje werdykt „GO".
 			'zaliczona'      => 0 === $nieocenione,
+			'kompletna'      => 0 === $nieocenione && 0 === $pominiete,
 		);
 	}
 }
