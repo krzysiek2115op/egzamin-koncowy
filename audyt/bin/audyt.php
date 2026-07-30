@@ -135,10 +135,41 @@ $przebiegi = array();
 $dzial_1   = MP_AU_Dzial_01::zbuduj();
 $dzial_2   = MP_AU_Dzial_02::zbuduj();
 
+/*
+ * Wznowienie z zapisanego raportu: wczytujemy ustalenia wczesniejszego przebiegu
+ * i uruchamiamy SAM Dzial 2. Sluzy dokladnie jednemu: gdy przebieg gleboki trwal
+ * dwie godziny, poprawka w re-audycie nie moze wymagac powtorzenia tych dwoch
+ * godzin. Dzial 1 sie wtedy nie wykonuje i raport mowi o tym wprost.
+ */
+$wznowienie = au_arg( 'z-raportu' );
+
+if ( '' !== $wznowienie ) {
+	if ( ! is_readable( $wznowienie ) ) {
+		fwrite( STDERR, "Nie mozna odczytac raportu: {$wznowienie}\n" );
+		exit( 2 );
+	}
+
+	$poprzedni = json_decode( (string) file_get_contents( $wznowienie ), true );
+	$wczytane  = array();
+
+	foreach ( (array) ( $poprzedni['ustalenia'] ?? array() ) as $wpis ) {
+		$wczytane[] = MP_AU_Ustalenie::z_tablicy( (array) $wpis );
+	}
+
+	$kontekst->dopisz_ustalenia( $wczytane );
+
+	echo 'wznowienie:   ' . count( $wczytane ) . ' ustalen z ' . $wznowienie . "\n";
+	echo "              Dzial 1 NIE zostanie wykonany w tym przebiegu.\n\n";
+
+	$dzialy = array( $dzial_2 );
+} else {
+	$dzialy = array( $dzial_1, $dzial_2 );
+}
+
 // Para 2.4 powtarza przebieg Dzialu 1, wiec potrzebuje samego obiektu dzialu.
 $kontekst->ustaw( 'dzial_1', $dzial_1 );
 
-foreach ( array( $dzial_1, $dzial_2 ) as $dzial ) {
+foreach ( $dzialy as $dzial ) {
 	echo '--- Dzial ' . $dzial->numer() . ': ' . $dzial->nazwa() . ' (' . $dzial->ile_par() . " par) ---\n";
 
 	$przebieg    = $dzial->uruchom( $kontekst );

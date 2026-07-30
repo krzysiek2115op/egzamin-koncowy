@@ -92,6 +92,33 @@ final class MP_AU_Ustalenie {
 	}
 
 	/**
+	 * Odtwarza ustalenie z zapisanego raportu.
+	 *
+	 * Pozwala uruchomic sam Dzial 2 na wynikach wczesniejszego przebiegu. Bez tego
+	 * kazda zmiana w re-audycie wymagalaby powtorzenia calego audytu — a przebieg
+	 * gleboki trwa godziny, wiec w praktyce znaczyloby to: nie poprawiaj Dzialu 2.
+	 *
+	 * @param array $dane Wpis z raportu JSON.
+	 * @return MP_AU_Ustalenie
+	 */
+	public static function z_tablicy( array $dane ): MP_AU_Ustalenie {
+		return new self(
+			(string) ( $dane['para'] ?? '?' ),
+			(string) ( $dane['opis'] ?? '' ),
+			(string) ( $dane['waga'] ?? self::SREDNIE ),
+			array(
+				'plik'       => (string) ( $dane['plik'] ?? '' ),
+				'linia'      => (int) ( $dane['linia'] ?? 0 ),
+				'dowod'      => (string) ( $dane['dowod'] ?? '' ),
+				'scenariusz' => (string) ( $dane['scenariusz'] ?? '' ),
+				'status'     => (string) ( $dane['status'] ?? self::PRAWDOPODOBNE ),
+				'maskuje'    => (array) ( $dane['maskuje'] ?? array() ),
+				'naprawa'    => (string) ( $dane['naprawa'] ?? '' ),
+			)
+		);
+	}
+
+	/**
 	 * Stabilny identyfikator ustalenia — ten sam problem w kolejnym przebiegu
 	 * musi dostac ten sam klucz, inaczej porownanie przebiegow nic nie da.
 	 *

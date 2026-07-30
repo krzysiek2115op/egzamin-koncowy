@@ -369,6 +369,7 @@ final class MP_AU_Dzial_02 {
 		$dzial->dodaj( new MP_AU_Para( new MP_AU_A25_Stabilizacja( '2.5', 'stabilizacja' ), new MP_AU_K25_Stabilizacja( '2.5', 'wynik-powtarzalny' ) ) );
 		$dzial->dodaj( new MP_AU_Para( new MP_AU_A24_Powtarzalnosc( '2.4', 'powtarzalnosc' ), new MP_AU_K24_Powtarzalnosc( '2.4', 'ten-sam-stan-ten-sam-wynik' ), MP_AU_Para::PELNY ) );
 		$dzial->dodaj( new MP_AU_Para( new MP_AU_A29_Sedzia( '2.9', 'drugi-sedzia' ), new MP_AU_K29_Sedzia( '2.9', 'model-kwestionuje-zgloszenia' ), MP_AU_Para::GLEBOKI ) );
+		$dzial->dodaj( new MP_AU_Para( new MP_AU_A211_Potwierdzenie( '2.11', 'potwierdzenie-ustalen-modelu' ), new MP_AU_K211_Potwierdzenie( '2.11', 'dwa-klucze-albo-zostaje-hipoteza' ), MP_AU_Para::GLEBOKI ) );
 		$dzial->dodaj( new MP_AU_Para( new MP_AU_A210_Werdykt( '2.10', 'audyt-werdyktu' ), new MP_AU_K210_Werdykt( '2.10', 'kazde-ustalenie-uniesie-swoj-ciezar' ) ) );
 
 		return $dzial;

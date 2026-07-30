@@ -820,7 +820,7 @@ final class MP_AU_K29_Sedzia extends MP_AU_Krytyk {
 				. '{"werdykty":[{"klucz":"","werdykt":"trzyma|watpliwe|odrzuc","uzasadnienie":""}]}' . "\n\n"
 				. "=== USTALENIA ===\n" . json_encode( $paczka, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
 
-			$odpowiedz = $kontekst->model->zapytaj( $pytanie );
+			$odpowiedz = $kontekst->model->zapytaj( $pytanie, true );
 
 			foreach ( (array) ( $odpowiedz['werdykty'] ?? array() ) as $w ) {
 				if ( empty( $w['klucz'] ) ) {
@@ -832,6 +832,12 @@ final class MP_AU_K29_Sedzia extends MP_AU_Krytyk {
 					'uzasadnienie' => (string) ( $w['uzasadnienie'] ?? '' ),
 				);
 			}
+		}
+
+		if ( empty( $werdykty ) ) {
+			return MP_AU_Wynik::nieocenione(
+				'Drugi sedzia nie zwrocil zadnego werdyktu — ocena NIE zostala wykonana.'
+			);
 		}
 
 		$licznik = array(
@@ -954,5 +960,290 @@ final class MP_AU_K210_Werdykt extends MP_AU_Krytyk {
 				'wagi'     => $od_agenta->dane['wagi'] ?? array(),
 			)
 		);
+	}
+}
+
+/* ==================================================================== 2.11 */
+
+/**
+ * A2.11 „potwierdzenie ustalen modelu" — dossier do DRUGIEJ, niezaleznej oceny.
+ *
+ * Po co ta para istnieje. Ocena modelu wchodzi do raportu zawsze jako
+ * `prawdopodobne` i nic w Dziale 2 nie potrafilo jej podniesc: pary 2.1 i 2.2
+ * sprawdzaja rzeczy mechaniczne (czy plik istnieje, czy kolumna wystepuje
+ * w DDL), a zdania w rodzaju „ten status klamie o tym, co sie stalo" nie maja
+ * mechanicznego odpowiednika. Ustalenie trafne i ustalenie zmyslone wygladaly
+ * wiec w raporcie tak samo.
+ *
+ * Ta para daje im drugi klucz. Agent wycina z pliku FRAGMENT wokol wskazanej
+ * linii i sprawdza mechanicznie, czy dowod cytowany przez model naprawde tam
+ * jest. Krytyk pokazuje ten sam fragment drugiemu modelowi — BEZ rozumowania
+ * pierwszego — i zadaje pytanie zamkniete.
+ */
+final class MP_AU_A211_Potwierdzenie extends MP_AU_Agent {
+
+	/** Pary, ktorych ustalenia pochodza od modelu. */
+	const PARY_MODELOWE = array( '1.25', '1.26' );
+
+	/** Ile wierszy kontekstu wokol wskazanej linii. */
+	const KONTEKST = 30;
+
+	/**
+	 * @param MP_AU_Kontekst $kontekst Kontekst.
+	 * @return MP_AU_Wynik
+	 */
+	public function zbierz( MP_AU_Kontekst $kontekst ): MP_AU_Wynik {
+		$do_potwierdzenia = array();
+
+		foreach ( $kontekst->ustalenia() as $u ) {
+			if ( ! in_array( $u->para, self::PARY_MODELOWE, true ) ) {
+				continue;
+			}
+
+			if ( MP_AU_Ustalenie::PRAWDOPODOBNE !== $u->status || '' === $u->plik ) {
+				continue;
+			}
+
+			$pelna = $this->pelna_sciezka( $kontekst, $u->plik );
+
+			if ( '' === $pelna ) {
+				continue;
+			}
+
+			$tresc   = $kontekst->workspace->tresc( $pelna, $kontekst );
+			$wiersze = explode( "\n", $tresc );
+			$srodek  = $u->linia > 0 ? $u->linia - 1 : 0;
+			$od      = max( 0, $srodek - self::KONTEKST );
+			$ile     = min( count( $wiersze ) - $od, 2 * self::KONTEKST + 1 );
+
+			$fragment = '';
+
+			foreach ( array_slice( $wiersze, $od, $ile ) as $indeks => $wiersz ) {
+				$fragment .= str_pad( (string) ( $od + $indeks + 1 ), 5, ' ', STR_PAD_LEFT ) . ': ' . $wiersz . "\n";
+			}
+
+			$do_potwierdzenia[] = array(
+				'klucz'    => $u->klucz(),
+				'opis'     => $u->opis,
+				'plik'     => $u->plik,
+				'linia'    => $u->linia,
+				'fragment' => $fragment,
+				// Klucz pierwszy, mechaniczny: czy cytat z dowodu naprawde
+				// wystepuje w pliku. Model potrafi zacytowac kod, ktorego nie ma.
+				'dowod_znaleziony' => $this->cytat_wystepuje( $u->dowod, $tresc ),
+			);
+		}
+
+		return MP_AU_Wynik::ok( array( 'do_potwierdzenia' => $do_potwierdzenia ) );
+	}
+
+	/**
+	 * Czy dowod (albo jego istotny fragment) wystepuje w tresci pliku.
+	 *
+	 * Porownanie po znormalizowanych bialych znakach — model przepisuje kod
+	 * z wlasnym wcieciem, a to nie jest powod, zeby uznac cytat za zmyslony.
+	 *
+	 * @param string $dowod Dowod z ustalenia.
+	 * @param string $tresc Tresc pliku.
+	 * @return bool
+	 */
+	private function cytat_wystepuje( string $dowod, string $tresc ): bool {
+		$dowod = trim( (string) preg_replace( '/\[\d\.\d+[^\]]*\][^\n]*/u', '', $dowod ) );
+
+		if ( strlen( $dowod ) < 12 ) {
+			return false;
+		}
+
+		$plik_n = (string) preg_replace( '/\s+/', ' ', $tresc );
+
+		// Bierzemy najdluzszy ciag wygladajacy na kod: nazwy funkcji, zmienne,
+		// wywolania. Zdanie po polsku nie jest cytatem i nie ma go w pliku.
+		if ( preg_match_all( '/[\$A-Za-z_][A-Za-z0-9_]*\s*(?:\(|->|::)[^,;\n]{0,60}/', $dowod, $t ) ) {
+			foreach ( $t[0] as $kandydat ) {
+				$kandydat = trim( (string) preg_replace( '/\s+/', ' ', $kandydat ) );
+
+				if ( strlen( $kandydat ) >= 8 && false !== strpos( $plik_n, $kandydat ) ) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * @param MP_AU_Kontekst $kontekst Kontekst.
+	 * @param string         $wzgledna Sciezka wzgledna.
+	 * @return string
+	 */
+	private function pelna_sciezka( MP_AU_Kontekst $kontekst, string $wzgledna ): string {
+		foreach ( $kontekst->workspace->branche() as $branch ) {
+			$katalog = $kontekst->workspace->katalog( $branch );
+
+			if ( '' === $katalog ) {
+				continue;
+			}
+
+			$reszta = (string) preg_replace( '#^' . preg_quote( $branch, '#' ) . '/#', '', $wzgledna );
+
+			foreach ( array( $katalog . '/' . $reszta, dirname( $katalog ) . '/' . $reszta ) as $kandydat ) {
+				if ( is_file( $kandydat ) ) {
+					return $kandydat;
+				}
+			}
+		}
+
+		return '';
+	}
+}
+
+/**
+ * K2.11 „dwa-klucze-albo-zostaje-hipoteza".
+ *
+ * ZASADY, KTORYCH TA PARA NIE MOZE ZLAMAC:
+ *
+ * 1. Awans dotyczy WYLACZNIE statusu weryfikacji. Waga ustalenia nie zmienia sie
+ *    nigdy — drugi model nie ma prawa uczynic czegos krytycznym.
+ * 2. Zaprzeczenie drugiego modelu NIE odrzuca ustalenia. Jedno „nie" nie jest
+ *    mocniejsze od cudzego „tak"; odrzucac wolno tylko na podstawie sprawdzenia
+ *    mechanicznego (para 2.2). Zaprzeczenie zostaje odnotowane w dowodzie.
+ * 3. Awans wymaga OBU kluczy naraz: cytat musi byc odnaleziony w pliku przez PHP
+ *    ORAZ drugi model musi potwierdzic, podajac cytat, ktory da sie odnalezc
+ *    w pokazanym fragmencie. Sam werdykt „tak" bez cytatu nie wystarcza.
+ * 4. Nic w tym pipeline nie zmienia kodu projektu. Zmienia sie wylacznie
+ *    wiarygodnosc zdania w raporcie.
+ */
+final class MP_AU_K211_Potwierdzenie extends MP_AU_Krytyk {
+
+	/** Ile ustalen w jednym pytaniu — fragmenty sa duze, wiec malo. */
+	const PACZKA = 3;
+
+	/**
+	 * @param MP_AU_Wynik    $od_agenta Wynik agenta.
+	 * @param MP_AU_Kontekst $kontekst  Kontekst.
+	 * @return MP_AU_Wynik
+	 */
+	public function ocen( MP_AU_Wynik $od_agenta, MP_AU_Kontekst $kontekst ): MP_AU_Wynik {
+		$lista = (array) ( $od_agenta->dane['do_potwierdzenia'] ?? array() );
+
+		if ( empty( $lista ) ) {
+			return MP_AU_Wynik::ok( array( 'do_oceny' => 0 ) );
+		}
+
+		if ( ! $kontekst->model->dostepny() ) {
+			return MP_AU_Wynik::nieocenione(
+				'Potwierdzenie ustalen modelu wymaga drugiej oceny: ' . $kontekst->model->powod_niedostepnosci()
+			);
+		}
+
+		$paczki = array_chunk( $lista, self::PACZKA );
+		$limit  = max( 1, (int) ceil( (int) $kontekst->pobierz( 'limit_modelu', 6 ) / self::PACZKA ) );
+		$paczki = array_slice( $paczki, 0, $limit );
+
+		$werdykty = array();
+
+		foreach ( $paczki as $paczka ) {
+			$odpowiedz = $kontekst->model->zapytaj( $this->pytanie( $paczka ), true );
+
+			foreach ( (array) ( $odpowiedz['werdykty'] ?? array() ) as $w ) {
+				if ( ! empty( $w['klucz'] ) ) {
+					$werdykty[ (string) $w['klucz'] ] = $w;
+				}
+			}
+		}
+
+		// Zero werdyktow przy niepustej paczce znaczy, ze model odpowiedzial
+		// w innym ksztalcie albo nie odpowiedzial wcale. To NIE jest wynik
+		// „nie ma czego potwierdzac" — to brak wyniku, i tak musi wygladac.
+		if ( empty( $werdykty ) ) {
+			return MP_AU_Wynik::nieocenione(
+				'Model nie zwrocil zadnego werdyktu dla ' . count( $paczki ) . ' paczek pary 2.11.'
+			);
+		}
+
+		$fragmenty = array();
+
+		foreach ( $lista as $pozycja ) {
+			$fragmenty[ $pozycja['klucz'] ] = $pozycja;
+		}
+
+		$licznik = array(
+			'ocenianych'   => count( $lista ),
+			'podniesione'  => 0,
+			'zakwestionowane' => 0,
+			'bez_zmiany'   => 0,
+		);
+
+		foreach ( $kontekst->ustalenia() as $u ) {
+			$w = $werdykty[ $u->klucz() ] ?? null;
+
+			if ( null === $w ) {
+				continue;
+			}
+
+			$pozycja = $fragmenty[ $u->klucz() ] ?? array();
+			$cytat   = trim( (string) ( $w['cytat'] ?? '' ) );
+
+			if ( empty( $w['potwierdzam'] ) ) {
+				$u->dowod .= "\n[2.11 druga ocena: NIE POTWIERDZA] " . MP_AU_Pomoc::skrot( (string) ( $w['uzasadnienie'] ?? '' ), 240 )
+					. '\n[2.11] Ustalenie ZOSTAJE jako hipoteza: jedno zaprzeczenie nie uniewaznia cudzego potwierdzenia.';
+				++$licznik['zakwestionowane'];
+				continue;
+			}
+
+			// Drugi klucz: cytat podany przez model musi dac sie odnalezc
+			// w pokazanym fragmencie. Bez tego „potwierdzam" jest samym slowem.
+			$cytat_w_kodzie = '' !== $cytat
+				&& strlen( $cytat ) >= 8
+				&& false !== strpos(
+					(string) preg_replace( '/\s+/', ' ', (string) ( $pozycja['fragment'] ?? '' ) ),
+					(string) preg_replace( '/\s+/', ' ', $cytat )
+				);
+
+			if ( ! empty( $pozycja['dowod_znaleziony'] ) && $cytat_w_kodzie ) {
+				$u->status = MP_AU_Ustalenie::POTWIERDZONE;
+				$u->dowod .= "\n[2.11 POTWIERDZONE dwoma kluczami] cytat odnaleziony w pliku przez PHP; "
+					. "druga, niezalezna ocena potwierdza i wskazuje: " . MP_AU_Pomoc::skrot( $cytat, 160 );
+				++$licznik['podniesione'];
+				continue;
+			}
+
+			$u->dowod .= "\n[2.11] Druga ocena potwierdza, ale brakuje drugiego klucza ("
+				. ( empty( $pozycja['dowod_znaleziony'] ) ? 'cytatu z dowodu nie ma w pliku' : 'cytat oceny nie wystepuje we fragmencie' )
+				. ') — zostaje hipoteza.';
+			++$licznik['bez_zmiany'];
+		}
+
+		return MP_AU_Wynik::ok( $licznik );
+	}
+
+	/**
+	 * Pytanie zamkniete o paczke ustalen.
+	 *
+	 * Drugi oceniajacy NIE dostaje rozumowania pierwszego — tylko sam zarzut
+	 * i kod. Pokazanie mu uzasadnienia zamienialoby niezalezna ocene w zgode.
+	 *
+	 * @param array $paczka Paczka ustalen z fragmentami.
+	 * @return string
+	 */
+	private function pytanie( array $paczka ): string {
+		$tekst = "Sprawdzasz ZARZUTY wobec kodu. Dla kazdego masz sam zarzut i fragment kodu.\n"
+			. "Nie masz uzasadnienia autora zarzutu — masz ocenic SAMODZIELNIE.\n\n"
+			. "Dla kazdego zarzutu odpowiedz:\n"
+			. "  potwierdzam: true  — TYLKO gdy widzisz to w pokazanym kodzie,\n"
+			. "  potwierdzam: false — gdy tego nie widac albo zarzut jest nietrafny,\n"
+			. "  cytat: DOSLOWNY fragment z pokazanego kodu, ktory to pokazuje\n"
+			. "         (przy false zostaw pusty; przy true cytat jest OBOWIAZKOWY\n"
+			. "          i musi wystepowac w kodzie znak w znak).\n\n"
+			. "ODPOWIEDZ WYLACZNIE JSON-em:\n"
+			. '{"werdykty":[{"klucz":"","potwierdzam":true,"cytat":"","uzasadnienie":""}]}' . "\n";
+
+		foreach ( $paczka as $pozycja ) {
+			$tekst .= "\n=== ZARZUT ===\nklucz: " . $pozycja['klucz'] . "\nplik: " . $pozycja['plik']
+				. "\nlinia: " . $pozycja['linia'] . "\ntresc: " . $pozycja['opis']
+				. "\n--- KOD ---\n" . $pozycja['fragment'] . "\n";
+		}
+
+		return $tekst;
 	}
 }

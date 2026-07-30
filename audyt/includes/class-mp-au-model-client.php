@@ -35,8 +35,23 @@ final class MP_AU_Model_Client {
 	/** Tryb: brak dostepu. */
 	const TRYB_BRAK = 'brak';
 
-	/** Limit czasu jednego zapytania (sekundy). */
-	const LIMIT_CZASU = 180;
+	/*
+	 * Limit czasu jednego zapytania. 180 s bylo za malo: dossier dzialu wazacego
+	 * 25 kB przechodzi w ~155 s, wiec margines wynosil kilkanascie sekund i kazde
+	 * chwilowe spowolnienie konczylo sie „brakiem odpowiedzi".
+	 */
+	const LIMIT_CZASU = 600;
+
+	/** Ile razy sprobowac zapytania, ktore wrocilo puste albo bledne. */
+	const PROBY = 2;
+
+	/*
+	 * Plik blokady. Dwa rownolegle wywolania `claude -p` konczyly sie „Execution
+	 * error" po obu stronach, a to samo dossier uruchomione samotnie przechodzilo
+	 * bez zarzutu. Zapytania ustawiaja sie wiec w kolejce — takze miedzy osobnymi
+	 * procesami audytu, bo blokada jest plikiem, nie zmienna.
+	 */
+	const BLOKADA = '/tmp/mp-au-model.lock';
 
 	/** @var string */
 	private $tryb = self::TRYB_BRAK;
@@ -135,14 +150,31 @@ final class MP_AU_Model_Client {
 	 * @param string $pytanie Pytanie z dossier.
 	 * @return array|null
 	 */
-	public function zapytaj( string $pytanie ): ?array {
+	public function zapytaj( string $pytanie, bool $wlasny_format = false ): ?array {
 		++$this->zapytania;
 
-		$pelne = $this->obudowa( $pytanie );
+		/*
+		 * `$wlasny_format` istnieje, bo obudowa narzucala format odpowiedzi
+		 * WSZYSTKIM pytaniom — takze tym, ktore pytaja o cos zupelnie innego.
+		 * Pary 2.9 i 2.11 zadaja pytania ZAMKNIETE i oczekuja ksztaltu
+		 * {"werdykty":[...]}, a dostawaly polecenie zwrocenia {"ustalenia":[...]}.
+		 * Model sluchal obudowy, krytyk dostawal zero werdyktow i raportowal OK.
+		 * Para „drugi sedzia" nie dzialala ANI RAZU, a wygladala na zaliczona —
+		 * czyli dokladnie ten falszywy PASS, ktorego ten pipeline zabrania.
+		 */
+		$pelne = $wlasny_format ? $pytanie : $this->obudowa( $pytanie );
 
 		switch ( $this->tryb ) {
 			case self::TRYB_CLI:
-				$odpowiedz = $this->przez_cli( $pelne );
+				$odpowiedz = null;
+
+				for ( $proba = 1; $proba <= self::PROBY && null === $odpowiedz; $proba++ ) {
+					if ( $proba > 1 ) {
+						sleep( 5 );
+					}
+
+					$odpowiedz = $this->przez_cli( $pelne );
+				}
 				break;
 
 			case self::TRYB_API:
@@ -204,7 +236,8 @@ final class MP_AU_Model_Client {
 			array(
 				'sh',
 				'-c',
-				'timeout --kill-after=10 ' . self::LIMIT_CZASU . ' ' . escapeshellarg( $this->binarka )
+				'flock ' . escapeshellarg( self::BLOKADA )
+					. ' timeout --kill-after=10 ' . self::LIMIT_CZASU . ' ' . escapeshellarg( $this->binarka )
 					. ' -p --output-format text < ' . escapeshellarg( $plik )
 					. ' > ' . escapeshellarg( $out ) . ' 2>/dev/null',
 			)
@@ -214,9 +247,16 @@ final class MP_AU_Model_Client {
 			return null;
 		}
 
-		$odpowiedz = (string) file_get_contents( $out );
+		$odpowiedz = trim( (string) file_get_contents( $out ) );
 
-		return '' === trim( $odpowiedz ) ? null : $odpowiedz;
+		// Narzedzie zewnetrzne bywa zawodne z powodow niemajacych nic wspolnego
+		// z pytaniem — `claude` potrafi zwrocic samo „Execution error". Pusta
+		// odpowiedz i komunikat bledu to NIE jest wynik i nie wolno go liczyc.
+		if ( '' === $odpowiedz || false === strpos( $odpowiedz, '{' ) ) {
+			return null;
+		}
+
+		return $odpowiedz;
 	}
 
 	/**
