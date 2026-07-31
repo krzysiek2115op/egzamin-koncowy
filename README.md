@@ -57,14 +57,19 @@ a gałąź `main` zbiera komplet — trzy wtyczki naraz.
 
 ## CI
 
-![MP Lead Intake CI](https://github.com/krzysiek2115op/egzamin-koncowy/actions/workflows/mp-lead-intake-ci.yml/badge.svg?branch=mp-lead-intake)
+![CI](https://github.com/krzysiek2115op/egzamin-koncowy/actions/workflows/ci.yml/badge.svg?branch=main)
 
-Przy każdym push/PR na branch `mp-lead-intake` GitHub Actions
-(`.github/workflows/mp-lead-intake-ci.yml`) uruchamia na PHP 7.4 i 8.3:
+Przy każdym push/PR na `main` (oraz na gałęzie wtyczek) GitHub Actions
+(`.github/workflows/ci.yml`) uruchamia na PHP 7.4 i 8.3:
 
-1. `php -l` — składnia wszystkich plików wtyczki,
-2. PHPCS/WPCS wg reguł z korzenia repo (`.phpcs.xml.dist`),
-3. `tests/process-harness/run-process.php` — 7 scenariuszy + niezmienniki procesu.
+1. `php -l` — składnia **wszystkich trzech wtyczek**, bez `vendor/`,
+2. PHPCS/WPCS wg wspólnych reguł z korzenia repo (`.phpcs.xml.dist`),
+3. `tests/process-harness/run-process.php` wtyczki 1 — 7 scenariuszy + niezmienniki,
+4. `tests/process-harness/run-process.php` wtyczki 2 — 110 niezmienników procesu.
+
+Testy wtyczki 3 oraz testy końcowe wtyczek 1 i 2 wymagają **żywego WordPressa
+z WooCommerce** (`wp eval-file`), więc nie są częścią CI — uruchamia się je
+w środowisku opisanym w [tools/test-env/README.md](tools/test-env/README.md).
 
 Zależności narzędzi dev (PHPCS/WPCS) są w `composer.json`/`composer.lock` w korzeniu
 repo — wspólne dla wszystkich 3 wtyczek/branchy, nie duplikowane per plugin.
@@ -177,70 +182,3 @@ która jest zgodna z GPL-3.0, ale nie z samą GPL-2.0. Ponieważ wtyczki są wyd
 jako GPL-2.0-**or-later**, odbiorca może przyjąć warunki GPL-3.0 i wtedy całość
 jest spójna prawnie. Gdyby licencja była „GPL-2.0 only", tej biblioteki nie dałoby
 się dołączyć zgodnie z prawem.
-
-## Audyt projektu — narzędzie własne
-
-Poza samymi wtyczkami repozytorium zawiera **narzędzie audytujące cały projekt
-naraz**: trzy wtyczki i trzy bazy danych. Nie jest wtyczką WordPress i nie trafia
-do klienta, więc żyje na osobnej gałęzi **`audyt-projektu`**, w katalogu `audyt/`.
-
-### Po co powstało
-
-Audyt końcowy z 29.07.2026 wykazał **8 błędów krytycznych** w kodzie, który
-przechodził komplet testów końcowych. To nie był przypadek: test potwierdza to,
-co autorowi przyszło do głowy sprawdzić, i nic ponadto. Narzędzie powstało po to,
-żeby szukać rzeczy, o których nikt nie pomyślał — i żeby dało się to powtórzyć
-przy każdej kolejnej zmianie, zamiast czytać 20 tysięcy linii od nowa.
-
-### Jak działa
-
-**37 par „agent + krytyk"** w dwóch działach:
-
-| Dział | Rola |
-|---|---|
-| 1 — Audyt (26 par) | szuka problemów; celowo nadgorliwy, woli zgłosić za dużo niż przeoczyć |
-| 2 — Re-audyt (11 par) | weryfikuje **każde** zgłoszenie drugą metodą, odsiewa fałszywe alarmy, ocenia sam werdykt |
-
-Agent zbiera dowody, krytyk je ocenia. Ustalenie, którego Dział 2 nie potwierdzi
-niezależnie, nie trafia do raportu jako fakt — dostaje status hipotezy razem
-z uzasadnieniem obu stron. Narzędzie wystawia `git worktree` trzech gałęzi
-i audytuje **czubki w repozytorium**, a nie to, co akurat leży na dysku.
-
-### Trzy głębokości
-
-| Poziom | Co dochodzi | Czas na tym repo |
-|---|---|---|
-| `szybki` | 22 pary analizy statycznej | ~1 s |
-| `pelny` | `php -l`, PHPCS/WPCS, archeologia gitowa, powtórzony przebieg Działu 1 | ~90 s |
-| `gleboki` | ocena modelu w parach 1.25, 1.26, 2.9 i 2.11 | ~45 min |
-
-```sh
-php audyt/bin/audyt.php --repo=/sciezka/do/repo --glebokosc=pelny
-```
-
-Kod wyjścia `1` przy ustaleniach krytycznych — nadaje się do CI. **Pominięcie pary
-nie jest jej zaliczeniem:** werdykt po skróconym przebiegu dostaje dopisek „audyt
-skrócony", żeby „GO" nie czytało się identycznie w obu przypadkach.
-
-### Rejestr znanych błędów
-
-`audyt/rejestr/znane-bledy.json` — **29 błędów, które w tym projekcie naprawdę
-wystąpiły**, każdy z klasą pomyłki, dowodem z kodu, skutkiem dla użytkownika
-i wskazaniem testu regresji (25 z 29 ma taki test; pozostałe 4 to pozycje otwarte
-i narzędziowe, wymienione w raporcie z nazwy). Para 1.15 sprawdza, czy każdy wpis
-nadal ma pokrycie — a para 2.6, czy test przyszedł razem z naprawą.
-
-### Wynik
-
-Ostatni przebieg (`--glebokosc=pelny`, 33 z 37 par): **WERDYKT GO** — zero ustaleń
-krytycznych, średnich i drobnych, 15 obserwacji.
-
-Uczciwa uwaga o ograniczeniu narzędzia, wynikająca z pomiaru na dwóch pełnych
-przebiegach głębokich: pary **1.25** i **1.26** pytają model, więc każdy przebieg
-próbkuje inny wycinek kodu (43 i 55 ustaleń, wspólnych 17). Są **generatorem
-hipotez**, nie listą defektów — każde ich zgłoszenie było weryfikowane ręcznie.
-Bramką odbioru są pary deterministyczne, których wynik był identyczny w każdym
-przebiegu.
-
-Raporty z kolejnych przebiegów leżą w `audyt/raport-*.txt` na gałęzi
-`audyt-projektu`, a szczegółowy opis narzędzia — w `audyt/README.md`.

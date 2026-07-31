@@ -18,10 +18,8 @@ Skrypt sam startuje kontener bazy, jeśli stoi zatrzymany (po restarcie maszyny)
 | Element | Ścieżka | Uwagi |
 |---|---|---|
 | Rdzeń WordPressa + WooCommerce | `~/mp-test-env/wp` | **poza `/tmp`** — `/tmp` to tmpfs, restart kasuje |
-| Wtyczka P1 | `~/mp-test-env/wt-p1` | drzewo robocze git, gałąź `mp-lead-intake` |
-| Wtyczka P2 | `~/mp-test-env/wt-p2` | drzewo robocze git, gałąź `mp-offer-builder` |
+| Wtyczki P1, P2, P3 | katalog repo | montowane **wszystkie trzy** z bieżącego drzewa roboczego |
 | Narzędzie audytowe | `~/mp-test-env/wt-audyt` | drzewo robocze git, gałąź `audyt-projektu` |
-| Wtyczka P3 | katalog repo | montowana wprost z bieżącej gałęzi |
 | Skrypty deweloperskie | `~/mp-test-env/scr` → `/scr` | `test-d1.php` … `test-sec.php`, `soak.php` |
 | PHPCS/WPCS, przenośny PHP | `~/mp-test-env/narzedzia` | odtworzenie: `docs`/pamięć projektu |
 | Baza | kontener podman `mp-sw-db` | MariaDB 11.8, `--network=none`, baza/użytkownik `wp`/`wp` |
@@ -42,7 +40,9 @@ git stash pop                              # naprawa wraca
 tools/test-env/wp.sh eval-file /scr/<test> # oczekiwany PASS
 ```
 
-Dla P1 i P2 to samo, tyle że `git -C ~/mp-test-env/wt-p1 stash push …`.
+Działa tak samo dla wszystkich trzech wtyczek — od scalenia gałęzi leżą w tym
+samym drzewie roboczym, więc `git stash push` na dowolnym pliku źródłowym
+natychmiast zmienia kod widziany przez testy.
 
 ## Stan odniesienia (31.07.2026, przed Grupą A)
 
@@ -71,6 +71,6 @@ Gdyby zniknął katalog `~/mp-test-env`:
 2. Rdzeń: rozpakować WordPressa do `~/mp-test-env/wp`, `wp-config.php` z
    `DB_HOST=127.0.0.1`, `DB_NAME/USER/PASSWORD = wp`; instalacja przez
    `tools/test-env/wp.sh core install …`; doinstalować WooCommerce.
-3. Drzewa robocze:
-   `git worktree add ~/mp-test-env/wt-p1 mp-lead-intake` (analogicznie `wt-p2`, `wt-audyt`).
+3. Drzewo robocze narzędzia audytowego (jedyne potrzebne — trzy wtyczki leżą
+   w katalogu repo): `git worktree add ~/mp-test-env/wt-audyt audyt-projektu`.
 4. Wtyczki aktywować: `tools/test-env/wp.sh plugin activate mp-lead-intake mp-offer-builder mp-sales-workflow woocommerce`.

@@ -19,6 +19,13 @@ SCR="${MP_SCR:-$ENV_DIR/scr}"
 DB_CT=mp-sw-db
 
 # Katalog repo — wyliczony ze ścieżki skryptu (nazwa katalogu repo ma spację na końcu).
+#
+# Wszystkie TRZY wtyczki montujemy z tego samego drzewa roboczego. Wcześniej
+# wtyczki 1 i 2 szły z osobnych worktree gałęzi (`wt-p1`, `wt-p2`), bo każda
+# żyła na własnej gałęzi. Po scaleniu do `main` leżą obok siebie — a montowanie
+# ich dalej z gałęzi znaczyłoby, że poprawka zrobiona na `main` jest dla testów
+# NIEWIDZIALNA, a wynik i tak wygląda na prawdziwy. To pułapka gorsza niż błąd:
+# test przechodzi, sprawdziwszy nie ten kod.
 SELF=$(readlink -f "$0")
 REPO=$(dirname "$(dirname "$(dirname "$SELF")")")
 
@@ -51,9 +58,9 @@ RC_FILE=$(mktemp)
 	podman run --rm --network="container:$DB_CT" --user root \
 		-v "$ENV_DIR/wp:/var/www/html:Z" \
 		-v "$SCR:/scr:Z" \
+		-v "$REPO/mp-lead-intake:/var/www/html/wp-content/plugins/mp-lead-intake:Z" \
+		-v "$REPO/mp-offer-builder:/var/www/html/wp-content/plugins/mp-offer-builder:Z" \
 		-v "$REPO/mp-sales-workflow:/var/www/html/wp-content/plugins/mp-sales-workflow:Z" \
-		-v "$ENV_DIR/wt-p1/mp-lead-intake:/var/www/html/wp-content/plugins/mp-lead-intake:Z" \
-		-v "$ENV_DIR/wt-p2/mp-offer-builder:/var/www/html/wp-content/plugins/mp-offer-builder:Z" \
 		docker.io/library/wordpress:cli --allow-root --path=/var/www/html "$@" 2>&1
 	echo $? >"$RC_FILE"
 } | grep -v 'level=error msg="User-selected' || true

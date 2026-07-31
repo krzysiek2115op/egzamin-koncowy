@@ -8,7 +8,7 @@
 # Użycie:
 #   ./build.sh          # buduje wszystko do ./out
 #   ./build.sh deploy   # dodatkowo kopiuje 9 gotowych plików do
-#                       #   ../../paczka-klienta/materialy  oraz
+#                       #   ../../paczka-klienta/mp-offer-builder/materialy  oraz
 #                       #   ~/Pulpit/mp-offer-builder-materialy
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -33,7 +33,12 @@ for d in instrukcja-instalacji-nietechniczna instrukcja-instalacji-techniczna ja
 done
 
 if [ "${1:-}" = "deploy" ]; then
-  DEST_REPO="../../paczka-klienta/materialy"
+  # Katalog paczki JEST nazwany slugiem wtyczki. Do scalenia galezi kazda
+  # wtyczka miala wlasne repo-galaz i wszystkie trzy pisaly do wspolnego
+  # `paczka-klienta/materialy` — po scaleniu ta sama sciezka oznaczalaby, ze
+  # trzy komplety materialow o identycznych nazwach plikow nadpisuja sie
+  # nawzajem, po cichu, bo `mkdir -p` sam utworzylby brakujacy katalog.
+  DEST_REPO="../../paczka-klienta/mp-offer-builder/materialy"
   DEST_PULPIT="$HOME/Pulpit/mp-offer-builder-materialy"
   echo "== Deploy → $DEST_REPO + $DEST_PULPIT =="
   mkdir -p "$DEST_REPO" "$DEST_PULPIT"

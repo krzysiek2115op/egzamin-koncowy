@@ -1,10 +1,16 @@
-name: MP Lead Intake CI
+# Bramka calego projektu: trzy wtyczki naraz.
+#
+# Poprzednia wersja tego pliku (mp-lead-intake-ci.yml) wyzwalala sie wylacznie
+# na galezi `mp-lead-intake` i sprawdzala wylacznie te jedna wtyczke. Po scaleniu
+# galezi do `main` zostawialo to komplet dostawy — 976 plikow, dwie trzecie kodu —
+# calkowicie bez kontroli, a wspolny `.phpcs.xml.dist` nie byl wykonywany nigdy.
+name: CI
 
 on:
   push:
-    branches: [ mp-lead-intake ]
+    branches: [ main, mp-lead-intake, mp-offer-builder, mp-sales-workflow ]
   pull_request:
-    branches: [ mp-lead-intake ]
+    branches: [ main ]
 
 jobs:
   test:
@@ -13,8 +19,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 7.4 = deklarowane minimum wtyczki (readme.txt "Requires PHP"), 8.3 = wersja
-        # deweloperska. Obie muszą przejść — inaczej deklaracja zgodności jest gołosłowna.
+        # 7.4 = deklarowane minimum wtyczek (readme.txt "Requires PHP"), 8.3 = wersja
+        # deweloperska. Obie musza przejsc — inaczej deklaracja zgodnosci jest goloslowna.
+        # dompdf dolaczony do wtyczki 2 dopuszcza ^7.1 || ^8.0, wiec obie wersje sa dla
+        # niego wazne.
         php: [ '7.4', '8.3' ]
     steps:
       - name: Checkout
@@ -30,11 +38,19 @@ jobs:
       - name: Install PHPCS / WPCS (composer.json w korzeniu repo)
         run: composer install --no-progress --prefer-dist
 
-      - name: PHP syntax check (php -l)
-        run: find mp-lead-intake -name '*.php' -print0 | xargs -0 -n1 -- php -l
+      # Vendor wtyczki 2 pominiety swiadomie: to cudzy kod (dompdf i zaleznosci),
+      # dolaczony do repozytorium jako zaleznosc runtime, nie nasz do poprawiania.
+      - name: PHP syntax check (php -l, trzy wtyczki)
+        run: |
+          find mp-lead-intake mp-offer-builder mp-sales-workflow \
+            -name '*.php' -not -path '*/vendor/*' -print0 \
+            | xargs -0 -n1 -- php -l
 
-      - name: PHPCS / WPCS (.phpcs.xml.dist w korzeniu repo)
+      - name: PHPCS / WPCS (wspolny .phpcs.xml.dist w korzeniu repo)
         run: vendor/bin/phpcs
 
-      - name: Weryfikacja procesu (7 scenariuszy + 25 niezmienników)
+      - name: Weryfikacja procesu — wtyczka 1
         run: php mp-lead-intake/tests/process-harness/run-process.php
+
+      - name: Weryfikacja procesu — wtyczka 2
+        run: php mp-offer-builder/tests/process-harness/run-process.php

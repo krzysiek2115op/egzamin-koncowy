@@ -49,7 +49,7 @@ Treść jest utrzymywana ręcznie w zgodzie z realnym kodem wtyczki v1.0.0:
 
 ```bash
 ./build.sh          # → ./out (9 plików)
-./build.sh deploy   # + kopia do ../../paczka-klienta/materialy-p3 i ~/Pulpit/mp-sales-workflow-materialy
+./build.sh deploy   # + kopia do ../../paczka-klienta/mp-sales-workflow/materialy i ~/Pulpit/mp-sales-workflow-materialy
 ```
 
 Wymagania: `node`, `rsvg-convert` (librsvg), czcionki DejaVu Sans w systemie.

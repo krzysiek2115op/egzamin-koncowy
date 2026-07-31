@@ -8,7 +8,7 @@
 # Użycie:
 #   ./build.sh          # buduje wszystko do ./out
 #   ./build.sh deploy   # dodatkowo kopiuje 9 gotowych plików do
-#                       #   ../../paczka-klienta/materialy-p3  oraz
+#                       #   ../../paczka-klienta/mp-sales-workflow/materialy  oraz
 #                       #   ~/Pulpit/mp-sales-workflow-materialy
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -33,10 +33,13 @@ for d in instrukcja-instalacji-nietechniczna instrukcja-instalacji-techniczna ja
 done
 
 if [ "${1:-}" = "deploy" ]; then
-  # Ta sama sciezka co w Pluginie 1 i 2 (`paczka-klienta/materialy`). Kazda
-  # wtyczka siedzi na wlasnej galezi, wiec katalogi sie nie mieszaja, a klient
-  # dostaje w kazdej paczce identycznie ulozony komplet.
-  DEST_REPO="../../paczka-klienta/materialy"
+  # Katalog paczki JEST nazwany slugiem wtyczki. Wczesniej stalo tu wspolne
+  # `paczka-klienta/materialy` z uzasadnieniem „kazda wtyczka siedzi na wlasnej
+  # galezi, wiec katalogi sie nie mieszaja". Po scaleniu galezi ta przeslanka
+  # przestala byc prawdziwa: nazwy plikow sa w trzech kompletach identyczne,
+  # wiec deploy nadpisywalby cudze materialy — i to bez bledu, bo `mkdir -p`
+  # sam utworzylby brakujacy katalog.
+  DEST_REPO="../../paczka-klienta/mp-sales-workflow/materialy"
   DEST_PULPIT="$HOME/Pulpit/mp-sales-workflow-materialy"
   echo "== Deploy → $DEST_REPO + $DEST_PULPIT =="
   mkdir -p "$DEST_REPO" "$DEST_PULPIT"

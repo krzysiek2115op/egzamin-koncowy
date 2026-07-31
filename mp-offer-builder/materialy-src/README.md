@@ -42,7 +42,7 @@ Treść jest utrzymywana ręcznie w zgodzie z realnym kodem wtyczki v1.0.3:
 
 ```bash
 ./build.sh          # → ./out (9 plików)
-./build.sh deploy   # + kopia do ../../paczka-klienta/materialy i ~/Pulpit/mp-offer-builder-materialy
+./build.sh deploy   # + kopia do ../../paczka-klienta/mp-offer-builder/materialy i ~/Pulpit/mp-offer-builder-materialy
 ```
 
 Wymagania: `node`, `rsvg-convert` (librsvg), czcionki DejaVu Sans w systemie.
