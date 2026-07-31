@@ -1,0 +1,289 @@
+# Audyt brancha `mp-lead-intake`
+
+> ⚠️ **Sekcje 1-5 poniżej opisują stan v1.0.0** (runda 1, 6 agentów, 13 poprawek). Od tego
+> czasu wtyczka przeszła **rundę 2** (v1.2.0 — async VAT/WP-Cron, transakcyjność 7-9, RODO,
+> rozszerzenie formularza; szczegóły `DEBUG-RAPORT.md` §16, nieudokumentowane tu w swoim
+> czasie), fix rate-limitu z testów manualnych (v1.2.1, `DEBUG-RAPORT.md` §17) oraz
+> **rundę 3** (v1.2.2 — patrz sekcja 6 niżej). Aktualny stan: `DEBUG-RAPORT.md`, `TESTY.md`,
+> sekcja 6 tego pliku.
+
+**Wtyczka:** MP Lead Intake v1.0.0 (WordPress, PHP 7.4+) — pierwszy element procesu formularz → oferta.
+**Zakres:** 38 plików PHP (~4000 linii): pipeline 11 działów (agent → krytyk → bramka QA), BD-3, warstwa AJAX/formularz.
+**Metoda (segmentowa):**
+1. Rozpoznanie + baseline `php -l` (38/38 czyste).
+2. 6 adversarialnych subagentów ("psy") na Opusie — każdy na wąskim wycinku, audyt A→Z (rdzeń, działy 1–3, 4–6, 7–9, 10–11 + krytycy, warstwa WP/bezpieczeństwo).
+3. Runtime-weryfikacja procesu pętlą `while` (harness poza WordPressem — `tests/process-harness/`).
+4. Triage: każde zgłoszenie zweryfikowane na kodzie.
+5. Fixowanie + re-audyt zmian osobnym psem-weryfikatorem (potwierdził 0 regresji, wskazał 2 dokrętki — naprawione).
+
+---
+
+## 1. Runtime — weryfikacja procesu (pętla `while`)
+
+Harness buduje pełny pipeline przez `MP_Pipeline_Factory` i pętlą `while` przepuszcza scenariusze formularz → lead. Poprawny NIP generowany samą funkcją wtyczki (`MP_D3_Agent_Nip::checksum_valid`).
+
+| Scenariusz | Wynik | STOP w dziale | Kod |
+|---|---|---|---|
+| happy_path (poprawne B2B) | ok, `lead_id` ustawione | przeszedł 11/11 | — |
+| empty_form | STOP | 2 (walidacja) | required_ok |
+| bad_nip (zła suma) | STOP | 3 (NIP) | nip_valid |
+| bad_email | STOP | 2 | email pusty po norm. |
+| no_rodo | STOP | 6 (zgody) | rodo_ok |
+| honeypot | STOP | 5 (antyspam) | antispam_ok |
+| bad_nonce | STOP | 5 (CSRF) | csrf_ok |
+| duplikat NIP (aktywny) | 1.ok / 2.STOP | 7 | dedup |
+| rate-limit (>5/min) | blok po 6. zgłoszeniu | 5 | — |
+
+**Niezmienniki (8/8 PASS):** jednokierunkowość (happy-path nie gubi kluczy) · domknięcie (`lead_id`) · log przy każdym STOP · hook `mp_lead_created` · `duration_ms` liczony poprawnie · duplikat aktywny STOP · **reaktywacja zarchiwizowanego NIP** · **pre-gate DoS (`over_limit`)**.
+
+**Wniosek:** rdzeń procesu jest spójny — happy-path i wszystkie ścieżki STOP działają zgodnie z kontraktem; dział 5 realnie weryfikuje nonce w pipeline (defense-in-depth ponad `check_ajax_referer` w handlerze).
+
+---
+
+## 2. Naprawione (13 poprawek)
+
+| Plik | Problem | Fix |
+|---|---|---|
+| dz.01 | dedup po SUROWYM NIP → „ślepnie" na klienta przy zapisie `123-456-32-18` | normalizacja `preg_replace('/\D+/','')` przed zapytaniem |
+| context `from_json` | round-trip gubił `errors`; brak walidacji `json_decode` | odtworzenie `errors` + guard `is_array` |
+| department `process` | brak twardego guardu na fail agenta; szczegóły błędów pól gubione | guard `!is_ok()` przed krytykiem + `data['errors']` do logu diagnostycznego |
+| dz.02 (2.3) | pusty NIP (same myślniki) przechodził; brak limitów długości | NIP wymagany + limity długości (email/company/phone) |
+| dz.02 (2.3) | `mb_strlen` bez guardu → fatal bez mbstring | helper `str_len()` z fallbackiem `strlen` |
+| dz.03 `checksum_valid` | placeholder `0000000000` przechodził; `^..$` dopuszczał `\n` | odrzucenie same-cyfry `(\d)\1{9}` + `\A..\z` |
+| dz.03 (3.2 VAT) | VIES `isValid=false` przy `MS_UNAVAILABLE` → odrzucenie legalnego leada (cache 24h) | STOP tylko przy jawnym `INVALID`, inaczej `null` bez cache |
+| dz.04 (4.2) | `strtolower` gubi `ł` → błędna segmentacja „USŁUGI" | `mb_strtolower(...,'UTF-8')` z guardem |
+| dz.09 + dz.11 | `duration_ms` zawsze 0/ujemny (rozjazd stref) | monotoniczny `started_ts = microtime(true)` |
+| dz.11 (11.3) | brak hooka integracyjnego dla pluginu 2/3 | `do_action('mp_lead_created', $lead_id, $payload)` |
+| dz.11 (11.3) | hook przekazywał `$context->all()` (nonce, honeypot, dane cudzych leadów) | wąski, świadomy `$payload` |
+| **ajax + dz.05** | **[WYS] rate-limit/honeypot PO kosztownych callach HTTP (dz.3) → DoS/amplifikacja** | **pre-gate honeypot + `over_limit()` w handlerze PRZED pipeline; dz.5 zostaje jako defense-in-depth (jedyny inkrement — brak podwójnego liczenia)** |
+| **db + dz.07** | **[WYS] zarchiwizowany (soft-delete) NIP blokował ponowne zgłoszenie (UNIQUE)** | **`get_archived_lead_by_nip()` + `reactivate_lead()`; dz.7 reaktywuje zamiast INSERT** |
+
+Po fixach: **php -l 38/38 OK**, **harness 7/7 scenariuszy + 8/8 niezmienników PASS**, re-audyt zmian: **0 regresji**.
+
+---
+
+## 3. Zrealizowane po audycie (kolejne iteracje)
+
+- **[WYS] Transakcyjność zapisów działów 7–9** — `MP_Pipeline::set_transactional_from(7)`: COMMIT na sukces, ROLLBACK na STOP przed logowaniem. Koniec osieroconych leadów. (commit `577f44f`)
+- **[ŚR] RODO — anonimizacja + retencja IP** — `anonymize_ip()` (truncacja) przy zapisie w loggerze/dz.8/dz.9; `purge_old_ip_addresses()` (dzienny cron, 90 dni); `anonymize_lead_ips()` (erasure on-demand). (commit `963423c`)
+
+## 4. Świadomie NIE naprawione — rekomendacje na później
+
+- **[NIS] `$wpdb->insert` bez `$format`** (dz.7/8/9, logger) — NIE SQLi (wartości przez `prepare`, klucze z kodu); ryzyko tylko typów w STRICT. Zostawione świadomie (zmienne `$data` grozi niedopasowaniem formatu).
+- **[NIS] `MP_Context::merge` bez ochrony kolizji kluczy** — harness potwierdził brak zgubień na happy-path; namespacing to większy refactor bez udowodnionej regresji.
+- **[NIS] Rate-limit: read-modify-write (nieatomowy) + klucz po `REMOTE_ADDR`** — miękki przy współbieżności; za proxy wspólny kubełek. Znane ograniczenie wzorca transientowego.
+- **[NIS] Dział 1 „martwe odczyty" — NAPRAWIONE w rundzie 4.**
+  `leads` (agent 1.1) JEST konsumowany — dedup w dz.7.1 reużywa go zamiast drugiego
+  zapytania. `offers`/`activity_log` (agenci 1.2/1.3) czytane były bez żadnego
+  konsumenta w całym repo — usunięte (patrz sekcja 7).
+- **[NIS] `code`/`errors` w odpowiedzi AJAX** — drobne ujawnienie etapu STOP (pre-gate DoS już zwraca generyczne `request_rejected`).
+
+---
+
+## 5. Potwierdzenia bezpieczeństwa (SPRAWDZONE-OK)
+
+- **SQLi:** wszystkie zapytania sparametryzowane (`prepare %s/%d`, `IN(...)` z `array_fill`+`absint`, `LIMIT %d`); nazwy tabel z `$wpdb->prefix` (kod), nie z wejścia.
+- **XSS:** JS wstawia odpowiedzi przez `textContent` (zero `innerHTML`); PHP przez `esc_html_e`/`esc_attr`.
+- **CSRF:** `check_ajax_referer(...,false)` fail-closed + `wp_send_json_error(403)` przed pipeline; nazwy akcji/pola spójne form↔ajax; dz.5 jako druga warstwa.
+- **Sanityzacja:** każde `$_POST`/`REMOTE_ADDR` przez `wp_unslash`+`sanitize_*`.
+- **Guard'y:** `ABSPATH` we wszystkich plikach; `WP_UNINSTALL_PLUGIN` w uninstall; poprawna kolejność `require_once` (bez fatala).
+- **Deinstalacja/FK:** DROP dzieci→rodzic, `ON DELETE RESTRICT`; throttling maili admina (15 min/dział).
+- **Struktura kontraktu:** każdy z 11 działów = pary {agent+krytyk} + dokładnie 1 bramka (1 QA agent + 1 QA krytyk); STOP jednokierunkowy.
+
+---
+
+## 6. Runda 3 — finalny audyt segmentowy (10 sub-agentów, 2026-07-22)
+
+**Metoda:** hierarchiczny podział na 10 niezależnych segmentów (rdzeń pipeline; działy
+1-3; 4-6; 7-9; 10-11 + spójność całościowa; AJAX+bezpieczeństwo; baza danych; worker VAT
+async+frontend; testy/CI/production-readiness; zgodność dokumentacji z kodem) — każdy z
+pełnym 10-wymiarowym przeglądem (architektura/SRP/zależności/bezpieczeństwo/wydajność/
+jakość/edge case'y/błędy logiczne/awarie/refaktoryzacja) + checklisty OWASP Top 10/ASVS/
+WPCS/PSR-12/SOLID/DRY/KISS. Segment 10-11 dodatkowo zrobił inwentaryzację wszystkich 11
+działów pod kątem kontraktu "N par agent+krytyk + dokładnie 1 bramka QA" — zero odchyleń.
+Łącznie ~110 znalezisk, część potwierdzona **niezależnie przez 2+ agentów** (silny sygnał
+realności — patrz pierwsza pozycja w tabeli niżej).
+
+### Naprawione w tej rundzie
+
+| Problem | Plik(i) | Fix |
+|---|---|---|
+| **[WYS] Race condition: reaktywacja zarchiwizowanego leada.** Dwa równoległe zgłoszenia (np. podwójny klik "wyślij") tego samego, zarchiwizowanego NIP mogły OBA "wygrać" (zwykły `UPDATE` bez blokady) — drugie cicho nadpisywało dane pierwszego i podwójnie odpalało hook `mp_lead_created`. Znalezione niezależnie przez 2 sub-agentów (segment 7-9 i segment 10-11) — sprzeczne z ówczesnym zapisem w §"Naprawione" wyżej ("reaktywacja bezpieczna" — prawdziwe tylko dla retry sekwencyjnego, nie wyścigu równoległego). | `class-mp-db.php` (`reactivate_lead`) | Atomowy claim (`UPDATE ... WHERE deleted_at IS NOT NULL`, sprawdzenie affected rows) PRZED nadpisaniem reszty danych — ten sam wzorzec co `insert_lead()`/`UNIQUE(nip)` dla świeżych zgłoszeń. Nowy niezmiennik harnessu #21. |
+| **[WYS] Cross-country kolizja NIP.** Klucz unikalności obejmował sam `nip`, nie `(country, nip)` — lokalny numer firmowy dwóch różnych krajów UE mógł się cyfrowo pokrywać. Gorszy przypadek: reaktywacja nadpisywałaby dane zupełnie obcej firmy z innego kraju pod tym samym ID. | `class-mp-db.php`, dz.1, dz.7 | `UNIQUE KEY uq_country_nip(country, nip)` (DB_VERSION 1.3.0→**1.4.0**), jawna migracja usuwająca stary `uq_nip` (dbDelta nie usuwa indeksów samodzielnie — bez tego stary klucz zostałby aktywny na już zainstalowanych bazach). `get_leads_by_nip()`/`get_archived_lead_by_nip()` przyjmują `$country`. Nowy niezmiennik #22. |
+| **[ŚR] Brak try/finally wokół transakcji dz.7-11.** Nieoczekiwany wyjątek/fatal (np. w przyszłym subskrybencie `do_action('mp_lead_created')` z pluginu 2/3) omijał ROLLBACK i log — klient dostawał nieprzechwycony fatal zamiast udokumentowanego generycznego JSON-a. | `class-mp-pipeline.php`, `class-mp-pipeline-logger.php`, `class-mp-ajax.php` | `try/catch(\Throwable)/finally`-owy ROLLBACK + nowa `MP_Pipeline_Logger::log_exception()` (log BD-3 + mail admina, jak `log_failure()`); `class-mp-ajax.php` łapie i gwarantuje kontrakt "zawsze JSON". |
+| **[ŚR] Aktywacja nie weryfikowała sukcesu `dbDelta()`.** Cicha porażka (np. brak uprawnień `CREATE TABLE` na hostingu) zostawała trwale oznaczona jako "zainstalowane poprawnie" — pierwszym objawem byłby nieczytelny błąd przy pierwszym zgłoszeniu formularza. | `class-mp-db.php`, `mp-lead-intake.php` | Nowa `MP_Lead_Intake_DB::tables_exist()`; `install()` zapisuje `DB_VERSION_OPTION` tylko gdy tabele faktycznie istnieją (inaczej `maybe_upgrade()` spróbuje ponownie); aktywacja przerywa się czytelnym `wp_die()` przy porażce. |
+| **[NIS] `readme.txt` nieaktualny.** `Stable tag: 1.0.0`, martwy tag `woocommerce` (brak jakiejkolwiek integracji), changelog urwany na 1.0.0 mimo 4 kolejnych wersji kodu. | `readme.txt` | Zaktualizowane Stable tag/Tags + dopisany changelog 1.2.0-1.2.2. |
+
+Wersja wtyczki: 1.2.1 → **1.2.2**. Wersja schematu bazy: 1.3.0 → **1.4.0**. Po fixach:
+`php -l` 45/45 czyste, PHPCS/WPCS 0 błędów, harness **7/7 scenariuszy + 22/22 niezmienników
+PASS** (dodano #21 i #22 pod nowe fixy; poprawiono też fixture niezmiennika #7, który
+"przechodził" wcześniej wyłącznie dzięki luce w starym stubie testowym — patrz commit).
+
+### Świadomie NIE naprawione w tej rundzie — rekomendacje na "dopracowywanie repozytorium"
+
+Reszta z ~110 znalezisk to Low/Medium bez natychmiastowego ryzyka bezpieczeństwa/integralności
+danych — świadomie udokumentowane jako rekomendacje na kolejną fazę, nie zaimplementowane teraz
+(6 z nich naprawione w rundzie 4, wiring WP-Cron domknięty w rundzie 5 — patrz sekcje 7-8 niżej):
+
+- **[ŚR] Walidacja pól formularza — NIP zakłada wyłącznie Polskę** (10 cyfr, suma kontrolna PL) mimo parametryzacji VIES per-kraj (format telefonu i kraju już naprawione — patrz sekcja 7). **Decyzja 2026-07-22:** świadomie zaakceptowane jako trwały zakres, uzgodniony z klientem — nie planowane do rozszerzenia, chyba że klient zmieni zdanie.
+- **[ŚR] `consent_version`** nie jest mechanicznie powiązane z realną wersją `docs/POLITYKA-PRYWATNOSCI-WZOR.md` — osłabia wartość dowodową zgody RODO przy sporze.
+- **[NIS]** Rate-limit: nieatomowy read-modify-write transientu (realne ryzyko rośnie tylko, gdy ktoś wyłączy domyślny tryb async filtrem `mp_lead_intake_async_verification`); regex wstrzykiwania linku do menu motywu może "osierocić" link przy niektórych strukturach zagnieżdżonych `<nav>`; i18n niekompletne (komunikaty AJAX nieopakowane w `__()`); dz.10 buduje odpowiedź, której `class-mp-ajax.php` nie konsumuje.
+
+**Naprawione w rundzie 6** (patrz sekcja 9): brak CI/CD; rate-limit za proxy/CDN
+(świadoma decyzja + udokumentowany fallback, nie kod — patrz sekcja 9).
+
+Pełna lista wszystkich ~110 znalezisk (ID, lokalizacja, przyczyna, ryzyko, rekomendacja z
+przykładem kodu, poziom pewności) — w transkrypcie audytu tej sesji; powyżej synteza tego,
+co ma realną wartość decyzyjną dla kolejnej fazy.
+
+### Ocena końcowa (runda 3, 2026-07-22)
+
+| Obszar | Ocena | Uzasadnienie |
+|---|---|---|
+| Bezpieczeństwo | 9/10 | Jedyny publiczny endpoint (AJAX) — 0 Critical/High na dedykowanym audycie OWASP Top 10; rate-limit fix z v1.2.1 potwierdzony niezależnie 3× w tej rundzie. Naprawione dziś: 2 realne luki integralności danych. |
+| Architektura | 8/10 | Kontrakt 11×(agent+krytyk+bramka) egzekwowany strukturalnie (type-hinty, nie konwencją) — zero odchyleń na 11/11 działów. Drobne: nazewnictwo dz.9, martwe wyjście dz.10. |
+| Wydajność | 8/10 | P-1 (async VAT) potwierdzone: 0 wywołań HTTP w ścieżce żądania. Drobny narzut: martwe odczyty dz.1.2/1.3, brak indeksu złożonego dla historii aktywności przy większej skali. |
+| Jakość kodu | 8/10 | PHPCS/WPCS 0 błędów na 45/45 plikach, `php -l` czyste. DRY: normalizacja NIP/kraju świadomie zduplikowana w kilku miejscach (dz.1 działa przed normalizującymi działami). |
+| Skalowalność | 7/10 | Brak CI, częściowe pokrycie testowe (wiring workera VAT, kilka działów tylko pośrednio) — ale sam proces (transakcyjność, idempotencja, async) zaprojektowany poprawnie pod wzrost ruchu. |
+| **Production Readiness** | **8/10** | Gotowe do dalszej pracy nad repozytorium; pozostałe luki (CI, pełne pokrycie testowe workera, walidacja pól) to rozsądny zakres kolejnej fazy, nie blokery. |
+
+## 7. Runda 4 — domknięcie znalezisk Low/Medium o niskim ryzyku (2026-07-22)
+
+Po rundzie 3 użytkownik zapytał, czy warto naprawić resztę odłożonych znalezisk. Ocena:
+tak dla wąskiego podzbioru — mały, dobrze zrozumiany diff, zero zmian schematu BD, zero
+zmian kontraktu pipeline (11×agent+krytyk+bramka bez zmian). Zakres CI/CD, pełnego wiringu
+WP-Cron w harnessie i przepisania regexa menu świadomie ODŁOŽONY jako osobne, większe zadania
+(patrz sekcja 6, akapit "Świadomie NIE naprawione").
+
+| Problem | Plik(i) | Fix |
+|---|---|---|
+| **[ŚR] Dział 1: `offers`/`activity_log` martwe odczyty** (2 zbędne SQL na każde zgłoszenie trafiające w istniejący NIP, zero konsumentów w repo). | `class-mp-department-01.php` | Usunięte `MP_D1_Agent_Fetch_Offers`/`MP_D1_Agent_Fetch_Activity` + odpowiadające pary krytyków; QA Agent 1 i docblock zawężone do `leads`. |
+| **[ŚR] Walidacja pól formularza — brak formatu telefonu; kraj niewalidowany w dz.2** (whitelist dopiero w dz.4 — dz.1/dz.3 chwilowo widziały surową, niezweryfikowaną wartość, w tym w wywołaniu VIES). | `class-mp-department-02.php` | Agent 2.3: telefon (gdy podany) musi pasować do `^[0-9+()\-\s]{6,}$`; kraj (gdy podany) musi być dwuliterowym `^[A-Z]{2}$` — inaczej `errors['phone']`/`errors['country']` i STOP w dz.2, zanim dz.3 zdąży użyć wartości w żądaniu HTTP. Puste pola nadal dopuszczalne (zgodnie z istniejącym domyślaniem PL w dz.4). |
+| **[ŚR] Segmentacja branżowa — fałszywe trafienie needle `'it'`** (2 znaki, bez granicy słowa, trafiało w "Architektura", "Kapitałowa"). | `class-mp-department-04.php` | Nowa `WORD_BOUNDARY_NEEDLES`; needle `'it'` dopasowywany przez `\bit\b` (Unicode), reszta needle bez zmian (świadomy podciąg, np. "produkc" łapie "producent"/"produkcja"). Zweryfikowane osobnym skryptem na 8 przypadkach (w tym "IT Solutions", "it-Consulting" → nadal poprawnie IT). |
+| **[NIS] `vat_checked_at`/`deleted_at` w workerze VAT — lokalny czas WP, nie GMT** (częściowy nawrót błędu stref czasowych naprawionego wcześniej dla `updated_at`). | `class-mp-vat-verifier.php`, `class-mp-department-07.php` | `current_time('mysql')` → `current_time('mysql', true)` w obu miejscach zapisujących `vat_checked_at` (worker + ścieżka synchroniczna dz.7 — ta sama kolumna, musiała być spójna) oraz w gałęzi soft-delete `deleted_at`. |
+| **[NIS] Honeypot zależny wyłącznie od zewnętrznego CSS** (brak ukrycia, gdyby arkusz stylów się nie załadował). | `class-mp-form.php` | Dodany atrybut `style` inline z tymi samymi regułami co `assets/css/mp-form.css` (`.mp-hp`) — defense in depth, bez zmiany zachowania przy normalnym ładowaniu CSS. |
+| **[NIS] Dz.9 nazwa "Rozpoczęcie procesu" myląca** (sugerowała start całego procesu; realnie czysta telemetria czasu, wykonywana PO utworzeniu leada w dz.7). | `class-mp-department-09.php` | Tytuł/slug/opis działu zmienione na "Telemetria startu obsługi" / `process-telemetry`, docblock pliku wyjaśnia kolejność względem dz.7/8. Pola funkcjonalne (`process_id`, `stage`, `process_started`, action `process_started` w logu) NIEZMIENIONE — to tylko warstwa opisowa, zero ryzyka dla konsumentów danych. |
+
+Wersja wtyczki: 1.2.2 → **1.2.3**. Wersja schematu bazy: bez zmian (**1.4.0** — żadna z
+poprawek nie dotyka DDL). Po fixach: `php -l` czyste na wszystkich zmienionych plikach,
+PHPCS/WPCS 0 błędów na 45/45, harness **7/7 scenariuszy + 22/22 niezmienników PASS** (bez
+zmian w samych niezmiennikach — te fixy nie wymagały nowych, tylko potwierdzenia braku
+regresji na istniejących).
+
+**Nadal świadomie NIE naprawione** (patrz zaktualizowana sekcja 6): CI/CD, regex menu,
+NIP-tylko-PL (świadoma decyzja, nie luka), `consent_version` niepowiązane z polityką
+prywatności, rate-limit nieatomowy, i18n AJAX niekompletne, martwe wyjście dz.10.
+
+## 8. Runda 5 — wiring WP-Cron w harnessie (2026-07-22)
+
+**Problem:** `add_action`/`do_action` w `tests/process-harness/wp-stubs.php` były no-opem
+(`do_action` tylko zliczał wywołania). Wszystkie niezmienniki ASYNC (12-22) wołały metody
+`MP_Lead_Intake_Vat_Verifier` (`run()`, `on_lead_created()`, `reconcile()`) WPROST, z
+pominięciem systemu hooków WP — więc `register()` (jedyne miejsce łączące `add_action` z
+tymi metodami) nigdy nie był faktycznie przetestowany. Literówka w nazwie hooka albo złym
+kształcie callbacku w `register()` przeszłaby niezauważona mimo 22/22 "PASS" — realny
+landmine pod pluginy 2/3, które planują użyć tego samego wzorca WP-Cron.
+
+**Fix (tylko `tests/`, zero zmian w kodzie produkcyjnym):**
+- `wp-stubs.php`: `add_action`/`do_action` przepisane na realny mini pub/sub (rejestr
+  `$GLOBALS['__mp_hooks']`, kolejność wg priorytetu, obcinanie argumentów wg
+  `$accepted_args` — jak prawdziwy WP).
+- `run-process.php`: nowa `fire_all_cron()` (symuluje dyspozytora WP-Cron — odpala
+  zaplanowane zdarzenia przez PRAWDZIWY `do_action()`).
+- 3 nowe niezmienniki **#23-25** — `register()` wołany PIERWSZY (i jedyny) raz, PO
+  wszystkich niezmiennikach 1-22 (zero wpływu na ich wynik): #23 `do_action('mp_lead_created')`
+  → realnie kolejkuje przez `on_lead_created()`; #24 `fire_all_cron()` → realnie wykonuje
+  `run()`; #25 `do_action(RECONCILE_HOOK)` → realnie wykonuje `reconcile()`.
+
+**Weryfikacja skuteczności:** celowo wstrzyknięta literówka w nazwie hooka w `register()`
+(`mp_lead_created` → `mp_lead_created_TYPO`) — niezmienniki #23/#24 poprawnie FAILują (a
+wcześniej, przed tym fixem, przeszłyby niezauważone). Zmiana cofnięta po weryfikacji.
+
+Harness: 7/7 scenariuszy + **25/25** niezmienników PASS (bez regresji na 1-22). PHPCS
+bez zmian (45/45 — `tests/` poza zakresem `.phpcs.xml.dist`). Wersja wtyczki BEZ ZMIAN
+(1.2.3) — to wyłącznie poprawa pokrycia testowego, nie zmiana zachowania produkcyjnego.
+
+## 9. Runda 6 — CI/CD i przegląd rate-limitu (2026-07-22)
+
+**CI/CD (GitHub Actions).** Dotąd `.phpcs.xml.dist` i harness istniały, ale nic nie
+uruchamiało ich automatycznie — regresja mogła wejść na branch bez wymuszenia testów.
+Nowy `.github/workflows/mp-lead-intake-ci.yml` (korzeń repo) na każdy push/PR do
+brancha `mp-lead-intake` uruchamia na **PHP 7.4 i 8.3** (matrix — 7.4 to deklarowane
+minimum w `readme.txt`, 8.3 to wersja deweloperska; obie muszą przejść, inaczej
+deklaracja zgodności jest gołosłowna): `php -l` na całej wtyczce, PHPCS/WPCS, i
+`tests/process-harness/run-process.php` (7 scenariuszy + 25 niezmienników). Nowy
+`composer.json`/`composer.lock` w korzeniu repo (zależności PHPCS/WPCS — wspólne dla
+przyszłych pluginów 2/3, nie duplikowane per branch); `composer.lock` świadomie
+odblokowany w `.gitignore` (był wcześniej ślepo wykluczony, zanim istniał jakikolwiek
+`composer.json`) — bez niego każdy przebieg CI mógłby ciągnąć inną wersję WPCS i zgłosić
+nowe błędy bez żadnej zmiany w kodzie wtyczki. Wszystkie 3 kroki zweryfikowane lokalnie
+przed pushem (świeży `composer install` + PHPCS + harness z repo root — identycznie jak
+zrobi to CI).
+
+**Rate-limit za proxy/CDN.** User potwierdził: produkcja na razie NIE stoi za
+CDN/reverse proxy — `REMOTE_ADDR` w `class-mp-department-05.php::client_ip()` jest więc
+dziś poprawnym źródłem IP klienta, kod bez zmian. Dopisany komentarz przy tej metodzie
+wyjaśniający WARUNEK, przy którym trzeba to zrewidować (produkcja za Cloudflare/load
+balancerem → `REMOTE_ADDR` stałby się adresem proxy, wspólnym dla całego ruchu, licznik
+zacząłby traktować wszystkich odwiedzających jako jednego klienta) oraz dlaczego zwykłe
+`X-Forwarded-For` NIE jest bezpiecznym zamiennikiem bez zweryfikowanego zaufanego proxy
+(klient może ten nagłówek dowolnie sfałszować). Świadomie NIE zaimplementowano kodu
+obsługi konkretnego dostawcy (Cloudflare itp.) — brak dziś realnego środowiska
+produkcyjnego, którego dotyczyłoby to ryzyko; implementacja "na zapas" byłaby zgadywaniem.
+
+Wersja wtyczki BEZ ZMIAN (1.2.3) — CI to infrastruktura repo, rate-limit to komentarz
+dokumentujący założenie, żadna z dwóch zmian nie modyfikuje zachowania w runtime.
+
+## 10. Runda 7 — re-audyt: git hygiene, kompletność deinstalacji, spójność diagramów (2026-07-23)
+
+Na życzenie użytkownika: (1) sprawdzenie czy git/`.gitignore` nie ukrywa/gubi plików w
+sposób mylący, (2) czy `uninstall.php` faktycznie usuwa WSZYSTKO bez śladu, (3) czy
+diagramy klienckie (`paczka-klienta/materialy/`) opisują AKTUALNY kod, nie stare wersje/
+zakresy.
+
+**(1) Git hygiene — CZYSTE.** `git status`/`git ls-files` bez rozjazdów; żaden plik
+`.php` wtyczki nie jest przypadkiem w `.gitignore`; treść `docs/AUDYT.md` (np. "agenty
+1.2/1.3 usunięte", "uq_country_nip w schemacie") zweryfikowana wprost przeciw kodowi —
+zgodna.
+
+**(2) `uninstall.php` — znaleziona i naprawiona luka.** Tabele BD-3, opcje (`DB_VERSION`,
+ID pod-strony, flaga menu), transienty (jeden LIKE po prefiksie `mp_` — łapie rate-limit/
+VIES/Białą listę/throttling maili razem), role i uprawnienia — wszystko usuwane
+symetrycznie do tworzenia. **Luka:** czyszczone były tylko 2 z 3 hooków crona
+(`mp_lead_intake_ip_retention`, `mp_lead_intake_vat_reconcile`) — brakowało
+`mp_lead_intake_verify_vat` (per-lead zdarzenie weryfikacji VAT). Lead ze statusem
+`pending` w momencie deinstalacji zostawiał wpis w opcji `cron` aż do przypadkowego
+odpalenia WP-Cron w przyszłości. Fix: dodane brakujące `wp_clear_scheduled_hook()`.
+
+**(3) Diagramy klienckie — potwierdzony realny dryf, nie tylko numer wersji.**
+Wizualna inspekcja (render PDF→PNG, nie tylko `pdftotext`) wykazała:
+- `schemat-bazy-danych.pdf` (obie strony): kolumna `nip` oznaczona jako `UNIQUE`, legenda
+  "Indeksy: uq_nip (UNIQUE)..." — **błąd treści**, nieaktualny od rundy 3 (fix
+  cross-country NIP, commit 6b27e96), gdzie klucz zmieniono na `uq_country_nip
+  (country, nip)`. Sam `nip` przestał być unikalny — diagram aktywnie wprowadzał w
+  błąd co do realnego działania bazy. Naprawione: usunięty błędny znacznik przy `nip`,
+  linia „Indeksy" poprawiona na `uq_country_nip (UNIQUE)`.
+- Numery wersji: `schemat-bazy-danych.pdf` (obie strony, było 1.2.1), `schemat-techniczny.pdf`
+  (badge, było 1.2.1), `instrukcja-instalacji-techniczna.pdf` (nagłówek, było v1.2.1) —
+  wszystkie zbite do **1.2.3**. `schemat-nietechniczny.pdf` i
+  `instrukcja-instalacji-nietechniczna.pdf` bez numerów wersji w treści — bez zmian.
+- Źródła `.drawio`: `schemat-bazy-danych.drawio` (`nip (UNIQUE)` → `nip`),
+  `schemat-techniczny.drawio` (tytuł strony `v1.1.0` → `v1.2.3`, był NIGDY wcześniej nie
+  zaktualizowany mimo poprzednich rund poprawek PDF). `schemat-nietechniczny.drawio` bez
+  zmian (bez numeru wersji, potwierdzone).
+- Kopia na Pulpicie (`~/Pulpit/mp-lead-intake-materialy/`) zsynchronizowana (`diff -rq`
+  czysty).
+
+Metoda: ten sam toolchain z wcześniejszych rund tej sesji (Node + pdf-lib, współrzędne z
+`pdftotext -bbox`, nowy box/tekst nałożony na stare miejsce) — każda poprawka renderowana
+do PNG i wizualnie zweryfikowana przed zapisem finalnym (2 iteracje na stronie 2
+`schemat-bazy-danych.pdf` — pierwsza wersja przepełniała ramkę tabeli i miała
+niedopasowaną wielkość czcionki, poprawione).
+
+`php -l` czyste na `uninstall.php`. Wersja wtyczki BEZ ZMIAN (1.2.3) — `uninstall.php`
+to jedna dodatkowa linia sprzątająca, reszta to wyłącznie materiały klienckie (PDF/drawio),
+nie kod wtyczki.
+
+---
+
+*Uruchomienie weryfikacji procesu:* `tests/process-harness/README.md`.

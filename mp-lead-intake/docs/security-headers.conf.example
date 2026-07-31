@@ -1,0 +1,32 @@
+# WZÓR: nagłówki bezpieczeństwa na poziomie serwera (ZALECANE produkcyjnie).
+# Ustawienie na serwerze jest pewniejsze niż z PHP i nie obciąża requestów.
+# CSP wymaga strojenia pod konkretny motyw/wtyczki (inline style/script).
+
+# ------------------------- NGINX -------------------------
+# W bloku server { } (najlepiej tylko dla HTTPS):
+#
+# add_header X-Content-Type-Options "nosniff" always;
+# add_header X-Frame-Options "SAMEORIGIN" always;
+# add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+# add_header Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(), usb=()" always;
+# add_header Cross-Origin-Opener-Policy "same-origin" always;
+# add_header Cross-Origin-Resource-Policy "same-origin" always;
+# add_header Origin-Agent-Cluster "?1" always;
+# add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;   # tylko HTTPS!
+# add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; upgrade-insecure-requests" always;
+
+# ------------------------- APACHE (.htaccess / vhost) -------------------------
+# <IfModule mod_headers.c>
+#   Header always set X-Content-Type-Options "nosniff"
+#   Header always set X-Frame-Options "SAMEORIGIN"
+#   Header always set Referrer-Policy "strict-origin-when-cross-origin"
+#   Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
+#   Header always set Cross-Origin-Opener-Policy "same-origin"
+#   Header always set Cross-Origin-Resource-Policy "same-origin"
+#   Header always set Origin-Agent-Cluster "?1"
+#   Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"   # tylko HTTPS!
+#   Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; upgrade-insecure-requests"
+# </IfModule>
+
+# Alternatywa bez serwera: define('MP_LEAD_INTAKE_SECURITY_HEADERS', true) w wp-config.php
+# (opt-in w tej wtyczce). Najpierw przetestuj CSP w trybie Report-Only!

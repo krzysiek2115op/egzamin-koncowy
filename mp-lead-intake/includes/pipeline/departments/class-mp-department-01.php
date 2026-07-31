@@ -1,0 +1,167 @@
+<?php
+/**
+ * Dział 1 — Pobranie danych z bazy (BD-3).
+ *
+ * Pobiera z BD-3 dane potrzebne dalej w pipeline: istniejące leady pasujące
+ * do zgłaszającej firmy (po NIP). Dział tylko CZYTA (żadnych zapisów).
+ *
+ * Zawartość pliku (1 plik = 1 dział):
+ *  - Agent 1.1              (pobranie leadów)
+ *  - Krytyk działu 1        (weryfikacja struktury wyniku agenta)
+ *  - QA Agent 1             (kontrola kompletności działu)
+ *  - MP_Department_01       (budowniczy działu)
+ *
+ * Źródła (oficjalne) — Golden Rule #2. Dokumentacja, którą "czytają" agenci/krytycy:
+ *  - docs/dzial-01/wordpress-wpdb-get_results.md
+ *  - docs/dzial-01/wordpress-wpdb-prepare.md
+ * Dane wyłącznie z BD-3 (wp_mp_leads) przez wpdb — bez danych zmyślonych/wtórnych.
+ * ZADANIE każdego agenta/krytyka jest przypisane do niego (patrz label/opis i metoda
+ * run() w klasach niżej), nie w dokumentacji.
+ *
+ * @package MP_Lead_Intake
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * Agent 1.1 — pobiera istniejące leady pasujące po NIP.
+ */
+class MP_D1_Agent_Fetch_Leads extends MP_Abstract_Agent {
+
+	public function __construct() {
+		parent::__construct( '1.1', 'Pobiera leady', 'Odczyt leadów pasujących po NIP z wp_mp_leads (bez zarchiwizowanych)' );
+	}
+
+	/**
+	 * @param MP_Context $context Kontekst.
+	 * @return MP_Result
+	 */
+	public function run( MP_Context $context ) {
+		// Normalizacja NIP do samych cyfr (jak w działach 2/3), bo w BD-3 NIP jest
+		// zapisany kanonicznie (10 cyfr). Bez tego zapis typu "123-456-32-18" nie
+		// trafiłby w istniejącego klienta i dział 1 „ślepłby" na jego historię.
+		$nip = preg_replace( '/\D+/', '', (string) $context->get( 'nip', '' ) );
+		// Ta sama normalizacja kraju co dział 4.1 (dział 1 działa PRZED nim, więc nie
+		// może reużyć jego wyniku) — klucz unikalności w BD-3 to (country, nip), nie
+		// sam nip (lokalne numery firmowe różnych krajów UE mogą się cyfrowo pokrywać).
+		$country = strtoupper( trim( (string) $context->get( 'country', '' ) ) );
+		if ( ! preg_match( '/^[A-Z]{2}$/', $country ) ) {
+			$country = 'PL';
+		}
+		$leads = ( '' === $nip ) ? array() : MP_Lead_Intake_DB::get_leads_by_nip( $nip, $country );
+
+		return MP_Result::ok( array( 'leads' => $leads ) );
+	}
+}
+
+/**
+ * Krytyk działu 1 — sprawdza, że agent zwrócił oczekiwany klucz jako tablicę.
+ */
+class MP_D1_Fetch_Critic extends MP_Abstract_Critic {
+
+	/** @var string Oczekiwany klucz w danych agenta (leads). */
+	protected $key;
+
+	/**
+	 * @param string $id    Identyfikator.
+	 * @param string $label Nazwa.
+	 * @param string $key   Oczekiwany klucz.
+	 */
+	public function __construct( $id, $label, $key ) {
+		parent::__construct( $id, $label );
+		$this->key = $key;
+	}
+
+	/**
+	 * @param MP_Result  $agent_result Wynik agenta.
+	 * @param MP_Context $context      Kontekst.
+	 * @return MP_Result
+	 */
+	public function review( MP_Result $agent_result, MP_Context $context ) {
+		unset( $context );
+
+		if ( ! $agent_result->is_ok() ) {
+			return $agent_result;
+		}
+
+		$data = $agent_result->get_data();
+		if ( ! array_key_exists( $this->key, $data ) || ! is_array( $data[ $this->key ] ) ) {
+			return MP_Result::fail(
+				sprintf( 'Brak lub zła struktura danych: %s', $this->key ),
+				array(),
+				'invalid_structure'
+			);
+		}
+
+		return MP_Result::ok( $data );
+	}
+}
+
+/**
+ * QA Agent 1 — sprawdza kompletność działu (leads).
+ */
+class MP_D1_QA_Agent extends MP_Abstract_Agent {
+
+	public function __construct() {
+		parent::__construct( 'QA1', 'QA Agent 1 — kontrola kompletności', 'Sprawdza, że pobrano leady' );
+	}
+
+	/**
+	 * @param MP_Context $context Kontekst.
+	 * @return MP_Result
+	 */
+	public function run( MP_Context $context ) {
+		$required = array( 'leads' );
+		$missing  = array();
+
+		foreach ( $required as $key ) {
+			if ( ! is_array( $context->get( $key ) ) ) {
+				$missing[] = $key;
+			}
+		}
+
+		if ( $missing ) {
+			return MP_Result::fail(
+				'Niekompletne dane działu 1: ' . implode( ', ', $missing ),
+				array( 'missing' => $missing ),
+				'incomplete'
+			);
+		}
+
+		return MP_Result::ok( array( 'd1_complete' => true ) );
+	}
+}
+
+/**
+ * Budowniczy działu 1.
+ */
+class MP_Department_01 {
+
+	/**
+	 * @return MP_Department
+	 */
+	public static function build() {
+		$pairs = array(
+			array(
+				'agent'  => new MP_D1_Agent_Fetch_Leads(),
+				'critic' => new MP_D1_Fetch_Critic( 'K1.1', 'Krytyk 1.1 — weryfikuje leady', 'leads' ),
+			),
+		);
+
+		$gate = new MP_Quality_Gate(
+			new MP_D1_QA_Agent(),
+			new MP_Accept_Critic( 'QAK1', 'QA Krytyk 1 — akceptuje lub odrzuca' )
+		);
+
+		return new MP_Department(
+			1,
+			'fetch-data',
+			'Pobranie danych z bazy (BD-3)',
+			'Pobranie wszystkich niezbędnych danych z BD-3 jednym strzałem (1 AJAX).',
+			$pairs,
+			$gate
+		);
+	}
+}
