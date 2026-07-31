@@ -4,7 +4,7 @@ Tags: sprzedaz, crm, workflow, follow-up
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.0
+Stable tag: 1.3.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,6 +33,29 @@ rekordow SPF/DKIM/DMARC oraz blokady katalogu z ofertami PDF. Pelna checklista:
 powiadomien do klientow.
 
 == Changelog ==
+
+= 1.3.1 =
+
+* Zadanie follow-up bylo domykane jako WYKONANE takze wtedy, gdy powiadomienia
+  nie bylo ani w kolejce, ani na liscie pominietych. Handlowiec nic nie
+  dostawal, a pulpit pokazywal zadanie jako zrobione i nikt do niego nie
+  wracal. Teraz o statusie decyduje dowod wyslania, nie dowod porazki.
+* Zlecenie przebiegu kolejki powiadomien zwracalo ten sam wynik przy „termin
+  juz stoi" i przy nieudanym zaplanowaniu. Drugi przypadek oznacza kolejke,
+  ktora nigdy nie ruszy — teraz jest osobnym stanem, trafia do dziennika
+  (`queue.schedule_failed`), a przeglad crona co 5 minut sam zamawia zalegla
+  kolejke.
+* `status.change` bez statusu docelowego konczyl sie POTWIERDZENIEM, mimo ze
+  status sie nie zmienial — a proces i tak byl zapisywany, wiec poprawiona
+  proba z tym samym kluczem zdarzenia odbijala sie jako powtorka. Teraz odmowa
+  400 (MP3-E121); zdarzenia bez statusu docelowego to wylacznie `task.due`
+  i podglad pulpitu.
+* Aktor zdarzenia recznego jest porownywany z zalogowanym uzytkownikiem.
+  Rozbieznosc = odmowa 403 przed jakimkolwiek zapisem, z wlasnym kodem bledu
+  (MP3-E102). Dziennik nie moze przypisac zmiany statusu komus, kto jej nie
+  wykonal. Zdarzenia systemowe i harmonogramu bez zmian.
+* Odmowa zostawiala w kontekscie zakres widoku podany w zadaniu. Sciezka
+  odmowy czysci go teraz razem z lista czlonkow zespolu.
 
 = 1.3.0 =
 
