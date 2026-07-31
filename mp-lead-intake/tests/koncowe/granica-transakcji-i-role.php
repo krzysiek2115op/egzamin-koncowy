@@ -19,6 +19,10 @@
  *    `mp_manager_sprzedazy` — te same, ktorych uzywa wtyczka 3. Usuniecie
  *    samej wtyczki 1 zabieralo uprawnienia calej instalacji.
  *
+ * Pilnuje wpisow z rejestru znanych bledow (audyt/rejestr/znane-bledy.json):
+ *   - INT-K1  Zdarzenie mp_lead_created wychodzilo w otwartej transakcji
+ *   - P1-K2   Deaktywacja kasowala role wspoldzielona z innymi wtyczkami
+ *
  * @package MP_Lead_Intake
  */
 

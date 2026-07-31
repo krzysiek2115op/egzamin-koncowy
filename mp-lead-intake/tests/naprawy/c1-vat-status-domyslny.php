@@ -15,6 +15,9 @@
  * Wartosc `'unknown'` jest w slowniku (uzywa jej weryfikator po wyczerpaniu
  * prob) i mowi prawde: nie wiadomo.
  *
+ * Pilnuje wpisow z rejestru znanych bledow (audyt/rejestr/znane-bledy.json):
+ *   - P1-C1  Domyslny vat_status w sygnale mp_lead_created brzmial 'checked'
+ *
  * @package MP_Lead_Intake
  */
 

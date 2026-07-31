@@ -1,6 +1,6 @@
 <!--
 ŹRÓDŁO OFICJALNE — standard ISO 3166-1 alpha-2 (kody krajów).
-Odniesienie: https://www.iso.org/iso-3166-country-codes.html
+Odniesienie: https://www.iso.org/iso-3166-country-codes.html (pobrano 2026-07-21)
 Dotyczy: Dział 4 — agent 4.1 (kod kraju).
 -->
 

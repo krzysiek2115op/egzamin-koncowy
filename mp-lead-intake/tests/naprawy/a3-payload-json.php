@@ -14,6 +14,9 @@
  * _wp_json_sanity_check() naprawia tylko kodowanie znakow) oraz przy strukturze
  * glebszej niz 512 poziomow.
  *
+ * Pilnuje wpisow z rejestru znanych bledow (audyt/rejestr/znane-bledy.json):
+ *   - P1-A3  wp_json_encode() bez sprawdzenia wyniku, result_ready z samego success
+ *
  * @package MP_Lead_Intake
  */
 
