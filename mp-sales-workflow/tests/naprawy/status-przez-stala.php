@@ -29,28 +29,28 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$mp_katalog = dirname( __DIR__, 2 );
-$mp_oks     = 0;
-$mp_fails   = 0;
+$mp_katalog          = dirname( __DIR__, 2 );
+$GLOBALS['mp_oks']   = 0;
+$GLOBALS['mp_fails'] = 0;
 
 /**
- * Wypisuje wynik pojedynczej asercji.
+ * Wypisuje wynik pojedynczej asercji i zlicza pass/fail.
  *
  * @param bool   $warunek Czy asercja przeszla.
  * @param string $opis    Opis asercji.
  * @return bool
  */
-$mp_sprawdz = function ( $warunek, $opis ) use ( &$mp_oks, &$mp_fails ) {
+function mp_sw_status_ok( $warunek, $opis ) {
 	if ( $warunek ) {
-		++$mp_oks;
+		++$GLOBALS['mp_oks'];
 		echo "  OK   {$opis}\n";
 	} else {
-		++$mp_fails;
+		++$GLOBALS['mp_fails'];
 		echo "  FAIL {$opis}\n";
 	}
 
 	return (bool) $warunek;
-};
+}
 
 /**
  * Zwraca liste plikow .php w katalogu (rekurencyjnie).
@@ -94,9 +94,9 @@ foreach ( $mp_zrodla as $mp_plik ) {
 	}
 }
 
-$mp_sprawdz( count( $mp_zrodla ) > 10, 'zrodla wtyczki sa widoczne (plikow: ' . count( $mp_zrodla ) . ')' );
-$mp_sprawdz( isset( $mp_slownik['done'] ), 'slownik zna „done"' );
-$mp_sprawdz( isset( $mp_slownik['new'] ), 'slownik zna „new" (status procesu)' );
+mp_sw_status_ok( count( $mp_zrodla ) > 10, 'zrodla wtyczki sa widoczne (plikow: ' . count( $mp_zrodla ) . ')' );
+mp_sw_status_ok( isset( $mp_slownik['done'] ), 'slownik zna „done"' );
+mp_sw_status_ok( isset( $mp_slownik['new'] ), 'slownik zna „new" (status procesu)' );
 
 echo "\n== B. brak napisow tam, gdzie jest stala ==\n";
 
@@ -121,18 +121,18 @@ foreach ( $mp_zle as $mp_opis ) {
 	echo "       {$mp_opis}\n";
 }
 
-$mp_sprawdz( empty( $mp_zle ), 'zaden zapis statusu nie uzywa napisu zamiast stalej (znaleziono: ' . count( $mp_zle ) . ')' );
+mp_sw_status_ok( empty( $mp_zle ), 'zaden zapis statusu nie uzywa napisu zamiast stalej (znaleziono: ' . count( $mp_zle ) . ')' );
 
 echo "\n== C. dwa slowniki zostaja osobno ==\n";
 
 $mp_ma_zdarzenia = defined( 'MP_Sales_Workflow_DB::EVENT_STATUS_DONE' );
 $mp_ma_zadania   = defined( 'MP_SW_D6_Scheduler::STATUS_DONE' );
 
-$mp_sprawdz( $mp_ma_zdarzenia, 'tabela zdarzen ma wlasna stala MP_Sales_Workflow_DB::EVENT_STATUS_DONE' );
-$mp_sprawdz( $mp_ma_zadania, 'tabela zadan ma wlasna stala MP_SW_D6_Scheduler::STATUS_DONE' );
+mp_sw_status_ok( $mp_ma_zdarzenia, 'tabela zdarzen ma wlasna stala MP_Sales_Workflow_DB::EVENT_STATUS_DONE' );
+mp_sw_status_ok( $mp_ma_zadania, 'tabela zadan ma wlasna stala MP_SW_D6_Scheduler::STATUS_DONE' );
 
 if ( $mp_ma_zdarzenia && $mp_ma_zadania ) {
-	$mp_sprawdz(
+	mp_sw_status_ok(
 		MP_Sales_Workflow_DB::EVENT_STATUS_DONE === MP_SW_D6_Scheduler::STATUS_DONE,
 		'obie maja dzis te sama wartosc — dlatego pomylka byla niewidoczna'
 	);
@@ -141,15 +141,15 @@ if ( $mp_ma_zdarzenia && $mp_ma_zadania ) {
 // Dzial 8 pisze do OBU tabel. Sprawdzamy, ze siega po wlasciwa stala do wlasciwej.
 $mp_d8 = (string) file_get_contents( $mp_katalog . '/includes/pipeline/departments/class-mp-sw-department-08.php' );
 
-$mp_sprawdz(
+mp_sw_status_ok(
 	false !== strpos( $mp_d8, 'MP_Sales_Workflow_DB::EVENT_STATUS_DONE' ),
 	'Dzial 8: wiersz zdarzenia bierze stala ze slownika zdarzen'
 );
-$mp_sprawdz(
+mp_sw_status_ok(
 	false !== strpos( $mp_d8, 'MP_SW_D6_Scheduler::STATUS_DONE' ),
 	'Dzial 8: wynik zadania nadal bierze stala ze slownika zadan'
 );
 
 echo "\n== PODSUMOWANIE ==\n";
-echo "OK: {$mp_oks}  FAIL: {$mp_fails}\n";
-echo ( 0 === $mp_fails ) ? "WYNIK: PASS\n" : "WYNIK: FAIL\n";
+echo "OK: {$GLOBALS['mp_oks']}  FAIL: {$GLOBALS['mp_fails']}\n";
+echo ( 0 === $GLOBALS['mp_fails'] ) ? "WYNIK: PASS\n" : "WYNIK: FAIL\n";
