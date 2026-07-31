@@ -258,6 +258,23 @@ class MP_OB_D2_Agent_Tax extends MP_OB_Abstract_Agent {
 		$products    = is_array( $context->get( 'products' ) ) ? $context->get( 'products' ) : array();
 		$tax_classes = array();
 		foreach ( $products as $product ) {
+			/*
+			 * Tylko pozycje OPODATKOWANE wnoszą wymóg stawki. Agent 2.1 zapisuje
+			 * `tax_status` właśnie po to (S3-02), a Agent 6.2 wyprowadza pozycje
+			 * 'none' do własnej klasy i jawnie zwalnia je z tego wymogu — więc
+			 * stawka dla klasy pozycji zwolnionej nigdy nie zostanie użyta.
+			 * Bez tego filtra usługa zwolniona z VAT w klasie bez skonfigurowanych
+			 * stawek (np. domyślna „Zero rate") wywracała CAŁY dział błędem
+			 * 'missing_tax_rate' i blokowała ofertę, w której wszystkie realnie
+			 * potrzebne stawki były na miejscu.
+			 *
+			 * Klasa używana także przez pozycję opodatkowaną nadal trafi do zbioru
+			 * — z tamtej pozycji.
+			 */
+			if ( isset( $product['tax_status'] ) && 'taxable' !== $product['tax_status'] ) {
+				continue;
+			}
+
 			$tax_classes[ isset( $product['tax_class'] ) ? $product['tax_class'] : '' ] = true;
 		}
 

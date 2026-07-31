@@ -144,6 +144,26 @@ class MP_Offer_Builder_Approval {
 			)
 		);
 
+		/*
+		 * `$wpdb->update()` zwraca DWIE różne rzeczy pod jednym warunkiem
+		 * `1 !== $changed`: `false` przy błędzie zapytania (zerwane połączenie,
+		 * zablokowana tabela, błąd SQL) i `0`, gdy żaden wiersz nie pasował
+		 * — czyli gdy ktoś zatwierdził tę ofertę pierwszy.
+		 *
+		 * Wrzucanie obu do kodu `already_approved` kończyło się tym, że przy
+		 * AWARII ZAPISU pracownik widział niebieską informację „nic się nie
+		 * zmieniło", uznawał sprawę za załatwioną i nie ponawiał akcji.
+		 * Tymczasem oferta zostawała szkicem, `mp_offer_approved` nigdy nie
+		 * wychodziło i plugin 3 nie zaczynał wysyłki. Komunikat mówił
+		 * dokładnie odwrotnie niż stan bazy.
+		 */
+		if ( false === $changed ) {
+			return new WP_Error(
+				'db_error',
+				__( 'Nie udało się zapisać zatwierdzenia — spróbuj ponownie za chwilę, a jeśli problem wraca, zgłoś to administratorowi.', 'mp-offer-builder' )
+			);
+		}
+
 		if ( 1 !== (int) $changed ) {
 			return new WP_Error(
 				'already_approved',
@@ -247,6 +267,9 @@ class MP_Offer_Builder_Approval {
 		$messages = array(
 			'ok'               => array( 'success', __( 'Oferta zatwierdzona. Moduł sprzedażowy przejmuje wysyłkę do klienta.', 'mp-offer-builder' ) ),
 			'already_approved' => array( 'info', __( 'Ta oferta była już zatwierdzona — nic się nie zmieniło.', 'mp-offer-builder' ) ),
+			// Poziom „error" jest tu istotą sprawy: zapis się NIE udał, więc
+			// komunikat nie może wyglądać jak potwierdzenie, że wszystko gra.
+			'db_error'         => array( 'error', __( 'Nie udało się zapisać zatwierdzenia — spróbuj ponownie za chwilę, a jeśli problem wraca, zgłoś to administratorowi.', 'mp-offer-builder' ) ),
 			'no_document'      => array( 'error', __( 'Oferta nie ma jeszcze numeru i pliku PDF — najpierw ją dokończ i wygeneruj dokument.', 'mp-offer-builder' ) ),
 			'offer_not_found'  => array( 'error', __( 'Oferta nie istnieje albo nie masz do niej dostępu.', 'mp-offer-builder' ) ),
 			'wrong_status'     => array( 'error', __( 'Oferta jest w stanie, z którego nie da się jej zatwierdzić.', 'mp-offer-builder' ) ),

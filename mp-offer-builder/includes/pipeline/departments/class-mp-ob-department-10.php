@@ -41,7 +41,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 
 	/** Jedyny dozwolony status z tego pipeline'u — plugin 3 włada dalszymi statusami (decyzja B). */
-	const ALLOWED_STATUSES = array( 'draft' );
+	const ALLOWED_STATUSES = array( MP_Offer_Builder_DB::STATUS_DRAFT );
 
 	/** Limity długości pól tekstowych — lustro schematu w class-mp-offer-builder-db.php. */
 	const FIELD_LIMITS = array(
@@ -61,6 +61,29 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 
 	public function __construct() {
 		parent::__construct( '10.1', 'Agent 10.1 — plan', 'Komplet operacji: nagłówek, pozycje, wersja (pełny stan data_json), dziennik' );
+	}
+
+	/**
+	 * Długość wartości pola w ZNAKACH — w tej samej jednostce, w której liczy DDL.
+	 *
+	 * `FIELD_LIMITS` to lustro schematu, a `varchar(191)` w utf8mb4 oznacza 191
+	 * ZNAKÓW, nie bajtów. Poprzednia wersja mierzyła `strlen()`, czyli bajty:
+	 * nazwa firmy ze 120 znaków, z których 80 to polskie znaki diakrytyczne
+	 * (2 bajty w UTF-8), dawała 200 i kończyła się odmową zapisu z komunikatem
+	 * „przekracza limit 191 znaków" — nieprawdziwym, bo znaków było 120.
+	 * Baza przyjęłaby ten wiersz bez obcięcia.
+	 *
+	 * `mb_strlen()` wymaga rozszerzenia mbstring. Nie jest ono obowiązkowe
+	 * w WordPressie, więc przy jego braku wracamy do `strlen()` — surowszego,
+	 * ale nigdy nie przepuszczającego wartości za długiej dla kolumny.
+	 *
+	 * @param string $wartosc Wartość pola.
+	 * @return int
+	 */
+	public static function dlugosc_znakow( $wartosc ) {
+		return function_exists( 'mb_strlen' )
+			? (int) mb_strlen( (string) $wartosc, 'UTF-8' )
+			: strlen( (string) $wartosc );
 	}
 
 	/**
@@ -179,7 +202,7 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 
 		$errors = array();
 		foreach ( self::FIELD_LIMITS as $field => $max ) {
-			if ( isset( $header[ $field ] ) && strlen( (string) $header[ $field ] ) > $max ) {
+			if ( isset( $header[ $field ] ) && self::dlugosc_znakow( (string) $header[ $field ] ) > $max ) {
 				$errors[] = array(
 					'field'   => "header.$field",
 					'message' => sprintf( 'Pole %s przekracza limit %d znaków (DDL).', $field, $max ),
