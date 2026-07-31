@@ -216,4 +216,21 @@ final class MP_AU_Pomoc {
 
 		return substr( $kod, $od );
 	}
+
+	/**
+	 * Czy pod wskazana sciezka lezy repozytorium git.
+	 *
+	 * W zwyklym klonie `.git` jest katalogiem, ale w worktree — PLIKIEM
+	 * ze wskaznikiem `gitdir: ...`. Sprawdzanie samego `is_dir()` odrzucalo
+	 * wiec dokladnie te forme repozytorium, w ktorej pracuje sie nad kilkoma
+	 * galeziami naraz — a wiec i te, z ktorej uruchamia sie audyt.
+	 *
+	 * @param string $sciezka Katalog do sprawdzenia.
+	 * @return bool
+	 */
+	public static function czy_repozytorium( string $sciezka ): bool {
+		$git = rtrim( $sciezka, '/' ) . '/.git';
+
+		return is_dir( $git ) || is_file( $git );
+	}
 }

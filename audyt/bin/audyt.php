@@ -79,10 +79,16 @@ function au_glebokosc( string $nazwa ): int {
 
 $repo = au_arg( 'repo', dirname( dirname( $korzen ) ) );
 
-if ( ! is_dir( $repo . '/.git' ) ) {
+if ( ! MP_AU_Pomoc::czy_repozytorium( $repo ) ) {
 	fwrite( STDERR, "Nie znaleziono repozytorium w: {$repo}\nUzyj --repo=SCIEZKA.\n" );
 	exit( 2 );
 }
+
+// Zrodlo kodu. Domyslnie trzy galezie wtyczek — tak bylo, zanim projekt zostal
+// scalony. Po scaleniu wlasciwym celem jest `--ref=refs/heads/main`: kod
+// produkcyjny lezy tam w calosci, a galezie opisuja juz stan historyczny.
+$ref = au_arg( 'ref' );
+$ref = '' === $ref ? null : $ref;
 
 $nazwa_glebokosci = au_arg( 'glebokosc', 'pelny' );
 $glebokosc        = au_glebokosc( $nazwa_glebokosci );
@@ -92,6 +98,7 @@ $start_calosci    = microtime( true );
 
 echo "=== AUDYT PROJEKTU: 3 wtyczki, 3 bazy danych ===\n";
 echo 'repozytorium: ' . $repo . "\n";
+echo 'zrodlo kodu:  ' . ( null === $ref ? 'trzy galezie wtyczek' : $ref . ' (jeden ref)' ) . "\n";
 echo 'glebokosc:    ' . $nazwa_glebokosci . ' (' . $glebokosc . '/3)';
 echo MP_AU_Para::GLEBOKI === $glebokosc
 	? " — komplet kontroli, z ocena modelu\n"
@@ -99,7 +106,7 @@ echo MP_AU_Para::GLEBOKI === $glebokosc
 		? " — z narzedziami zewnetrznymi, bez oceny modelu\n"
 		: " — tylko analiza statyczna\n" );
 
-$workspace  = new MP_AU_Workspace( $repo, $katalog_roboczy );
+$workspace  = new MP_AU_Workspace( $repo, $katalog_roboczy, $ref );
 $wystawione = $workspace->wystaw();
 
 foreach ( $wystawione as $branch => $info ) {

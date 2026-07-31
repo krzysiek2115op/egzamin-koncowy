@@ -42,6 +42,9 @@ final class MP_AU_Workspace {
 	/** @var array<string,string> Branch -> SHA czubka. */
 	private $czubki = array();
 
+	/** @var string|null Wspolny ref dla wszystkich wtyczek albo null. */
+	private $ref = null;
+
 	/** @var bool */
 	private $wystawione = false;
 
@@ -49,16 +52,23 @@ final class MP_AU_Workspace {
 	private $cache = array();
 
 	/**
-	 * @param string $repo Korzen repozytorium.
-	 * @param string $baza Katalog na worktree (tworzony, gdy nie istnieje).
+	 * @param string      $repo Korzen repozytorium.
+	 * @param string      $baza Katalog na worktree (tworzony, gdy nie istnieje).
+	 * @param string|null $ref  Jeden ref jako zrodlo wszystkich trzech wtyczek
+	 *                          (np. `refs/heads/main`). Bez tego kazda wtyczka
+	 *                          pochodzi z wlasnej galezi — tak dzialalo, zanim
+	 *                          galezie zostaly scalone.
 	 */
-	public function __construct( string $repo, string $baza ) {
+	public function __construct( string $repo, string $baza, ?string $ref = null ) {
 		$this->repo = rtrim( $repo, '/' );
 		$this->baza = rtrim( $baza, '/' );
+		$this->ref  = $ref;
 	}
 
 	/**
-	 * Wystawia worktree trzech branchy.
+	 * Wystawia worktree trzech branchy — albo trzy razy ten sam ref, gdy
+	 * wskazano go w konstruktorze (po scaleniu kod produkcyjny lezy na `main`,
+	 * a galezie wtyczek opisuja juz tylko stan historyczny).
 	 *
 	 * @return array Raport z wystawienia (branch -> sha albo blad).
 	 */
@@ -78,8 +88,10 @@ final class MP_AU_Workspace {
 				$this->polecenie( array( 'git', '-C', $this->repo, 'worktree', 'remove', '--force', $cel ) );
 			}
 
+			$zrodlo = null === $this->ref ? 'refs/heads/' . $branch : $this->ref;
+
 			$wynik = $this->polecenie(
-				array( 'git', '-C', $this->repo, 'worktree', 'add', '--detach', $cel, 'refs/heads/' . $branch )
+				array( 'git', '-C', $this->repo, 'worktree', 'add', '--detach', $cel, $zrodlo )
 			);
 
 			if ( 0 !== $wynik['kod'] ) {

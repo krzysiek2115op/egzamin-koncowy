@@ -388,6 +388,30 @@
       "test": "tests/naprawy/vies-brak-pola-isvalid.php",
       "para": "1.25",
       "lekcja": "Znaleziony PRZEZ audyt dopiero po naprawie P1-G1: to samo zabezpieczenie dostal agent 3.3, a 3.2 zostal pominiety. Naprawiajac klase bledu, przejdz WSZYSTKIE jej wystapienia — czwarte z rzedu w tym projekcie (P3-A1, P1-A3, P1-C1, P1-G1)."
+    },
+    {
+      "id": "AU-1",
+      "data": "2026-07-31",
+      "wtyczka": "audyt",
+      "tytul": "Audyt odmawial uruchomienia w worktree",
+      "klasa": "sprawdzanie-formy-repozytorium-tylko-jako-katalogu",
+      "plik": "audyt/bin/audyt.php",
+      "dowod": "is_dir( $repo . '/.git' ) — w worktree .git jest PLIKIEM ze wskaznikiem gitdir:",
+      "skutek": "Narzedzie konczylo sie bledem 'Nie znaleziono repozytorium' dokladnie w tej formie repozytorium, w ktorej pracuje sie nad kilkoma galeziami naraz — czyli tam, gdzie audyt jest najbardziej potrzebny.",
+      "test": "audyt/tests/audyt-na-main.php",
+      "para": "-"
+    },
+    {
+      "id": "AU-2",
+      "data": "2026-07-31",
+      "wtyczka": "audyt",
+      "tytul": "Audyt badal wylacznie trzy galezie wtyczek, wiec po scaleniu opisywal stan historyczny",
+      "klasa": "zrodlo-kodu-zaszyte-na-sztywno-w-narzedziu",
+      "plik": "audyt/includes/class-mp-au-workspace.php",
+      "dowod": "wystaw() wystawialo na sztywno refs/heads/<slug> dla kazdej z trzech wtyczek",
+      "skutek": "Po scaleniu do main kod produkcyjny lezy w jednym miejscu. Narzedzie nadal czytalo galezie, wiec kazda pozniejsza zmiana na main bylaby dla audytu niewidzialna — a werdykt GO dotyczylby nieaktualnego kodu.",
+      "test": "audyt/tests/audyt-na-main.php",
+      "para": "-"
     }
   ]
 }
