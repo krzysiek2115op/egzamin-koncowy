@@ -31,28 +31,28 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$mp_katalog = dirname( __DIR__, 2 );
-$mp_oks     = 0;
-$mp_fails   = 0;
+$mp_katalog                = dirname( __DIR__, 2 );
+$GLOBALS['mp_oks']   = 0;
+$GLOBALS['mp_fails'] = 0;
 
 /**
- * Wypisuje wynik pojedynczej asercji.
+ * Wypisuje wynik pojedynczej asercji i zlicza pass/fail.
  *
  * @param bool   $warunek Czy asercja przeszla.
  * @param string $opis    Opis asercji.
  * @return bool
  */
-$mp_sprawdz = function ( $warunek, $opis ) use ( &$mp_oks, &$mp_fails ) {
+function mp_ob_status_ok( $warunek, $opis ) {
 	if ( $warunek ) {
-		++$mp_oks;
+		++$GLOBALS['mp_oks'];
 		echo "  OK   {$opis}\n";
 	} else {
-		++$mp_fails;
+		++$GLOBALS['mp_fails'];
 		echo "  FAIL {$opis}\n";
 	}
 
 	return (bool) $warunek;
-};
+}
 
 /**
  * Zwraca liste plikow .php w katalogu (rekurencyjnie).
@@ -96,9 +96,9 @@ foreach ( $mp_zrodla as $mp_plik ) {
 	}
 }
 
-$mp_sprawdz( count( $mp_zrodla ) > 10, 'zrodla wtyczki sa widoczne (plikow: ' . count( $mp_zrodla ) . ')' );
-$mp_sprawdz( isset( $mp_slownik['draft'] ), 'slownik zna „draft" (stala: ' . ( $mp_slownik['draft'] ?? '-' ) . ')' );
-$mp_sprawdz( isset( $mp_slownik['approved'] ), 'slownik zna „approved"' );
+mp_ob_status_ok( count( $mp_zrodla ) > 10, 'zrodla wtyczki sa widoczne (plikow: ' . count( $mp_zrodla ) . ')' );
+mp_ob_status_ok( isset( $mp_slownik['draft'] ), 'slownik zna „draft" (stala: ' . ( $mp_slownik['draft'] ?? '-' ) . ')' );
+mp_ob_status_ok( isset( $mp_slownik['approved'] ), 'slownik zna „approved"' );
 
 echo "\n== B. brak napisow tam, gdzie jest stala ==\n";
 
@@ -132,7 +132,7 @@ foreach ( $mp_zle as $mp_opis ) {
 	echo "       {$mp_opis}\n";
 }
 
-$mp_sprawdz( empty( $mp_zle ), 'zaden zapis statusu nie uzywa napisu zamiast stalej (znaleziono: ' . count( $mp_zle ) . ')' );
+mp_ob_status_ok( empty( $mp_zle ), 'zaden zapis statusu nie uzywa napisu zamiast stalej (znaleziono: ' . count( $mp_zle ) . ')' );
 
 echo "\n== C. test nie siega poza slownik ==\n";
 
@@ -144,9 +144,9 @@ foreach ( $mp_napisy as $mp_n ) {
 	}
 }
 
-$mp_sprawdz( in_array( 'publish', $mp_poza, true ), '„publish" (status wpisu WP) zostaje napisem — poza slownikiem wtyczki' );
-$mp_sprawdz( in_array( 'active', $mp_poza, true ), '„active" (szablon oferty) zostaje napisem — nie ma dla niego stalej' );
+mp_ob_status_ok( in_array( 'publish', $mp_poza, true ), '„publish" (status wpisu WP) zostaje napisem — poza slownikiem wtyczki' );
+mp_ob_status_ok( in_array( 'active', $mp_poza, true ), '„active" (szablon oferty) zostaje napisem — nie ma dla niego stalej' );
 
 echo "\n== PODSUMOWANIE ==\n";
-echo "OK: {$mp_oks}  FAIL: {$mp_fails}\n";
-echo ( 0 === $mp_fails ) ? "WYNIK: PASS\n" : "WYNIK: FAIL\n";
+echo "OK: {$GLOBALS['mp_oks']}  FAIL: {$GLOBALS['mp_fails']}\n";
+echo ( 0 === $GLOBALS['mp_fails'] ) ? "WYNIK: PASS\n" : "WYNIK: FAIL\n";
