@@ -375,6 +375,19 @@
       "test": "tests/naprawy/kod-kraju-lista-iso.php",
       "para": "1.25",
       "lekcja": "Drugi sedzia twierdzil, ze Dzial 2 pada wczesniej na woocommerce_unavailable — ale to INNY warunek (class_exists('WC_Tax')) niz WC()->countries, ktore zapelnia sie dopiero na 'init'. Zabezpieczenie przed cichym 0% VAT nie moze zalezec od stanu bootstrapu sklepu."
+    },
+    {
+      "id": "P1-G2",
+      "data": "2026-07-31",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Odpowiedz VIES bez pola isValid traktowana jak „VAT niepoprawny",
+      "klasa": "brak-potwierdzenia-uznany-za-potwierdzenie",
+      "plik": "includes/pipeline/departments/class-mp-department-03.php",
+      "dowod": "$is_valid = ! empty( $body['isValid'] ) — brak sprawdzenia, czy pole w ogole przyszlo; lagodny fallback wymaga niepustego userError, wiec odpowiedzi bez obu pol nie lapal",
+      "skutek": "Odpowiedz HTTP 200 bez `isValid` i bez `userError` dawala vat_valid=false, vat_checked=true i zapis ZERA do cache na 24 h. Krytyk 3.2 zamienia taki wynik w twardy STOP `vat_invalid` — lead z poprawnym numerem VAT byl odrzucany przez cala dobe.",
+      "test": "tests/naprawy/vies-brak-pola-isvalid.php",
+      "para": "1.25",
+      "lekcja": "Znaleziony PRZEZ audyt dopiero po naprawie P1-G1: to samo zabezpieczenie dostal agent 3.3, a 3.2 zostal pominiety. Naprawiajac klase bledu, przejdz WSZYSTKIE jej wystapienia — czwarte z rzedu w tym projekcie (P3-A1, P1-A3, P1-C1, P1-G1)."
     }
   ]
 }
