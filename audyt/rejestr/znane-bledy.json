@@ -524,6 +524,58 @@
       "lekcja": "Ustalenie audytu opisuje kod w jednym miejscu, a skutek zalezy od calej sciezki. Zanim sie naprawia, trzeba uruchomic pelna sciezke — inaczej naprawa zgodna ze zgloszeniem bywa regresja.",
       "test": "tests/naprawy/odbiorcy-niekompletni.php",
       "para": "1.25"
+    },
+    {
+      "id": "P3-G4",
+      "data": "2026-08-01",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "Odmowy 4xx wychodzily do wywolujacego jako MP3-E500 „blad wewnetrzny\"",
+      "klasa": "zmiana-nazwy-przeprowadzona-po-jednej-stronie",
+      "plik": "includes/class-mp-sw-errors.php",
+      "dowod": "Slownik map() mial wpis `invalid_transition`, ktorego nikt nie emituje — Dzial 5 zglasza `illegal_transition` (department-05.php:271). Stala E_TRANSITION (MP3-E160) nie wychodzila wiec nigdy. To samo z `duplicate_event` (department-08.php:649). Obie odmowy niosa wlasny http_status 409.",
+      "skutek": "Wywolujacy dostawal sprzecznosc: HTTP 409 razem z kodem MP3-E500 i komunikatem „Operacja nie powiodla sie\". Zwykla, poprawna odmowa przejscia statusu i dzialajaca idempotencja wygladaly jak awaria serwera; panel nie mial jak pokazac wlasciwego komunikatu, bo rozpoznaje kod, nie tekst.",
+      "lekcja": "Martwy wpis w slowniku jest gorszy niz jego brak — wyglada jak dowod, ze sprawa jest obsluzona. Test skanuje tokenizerem caly katalog includes/ i zada, zeby KAZDA odmowa z wlasnym http_status 4xx miala kod w slowniku; kontr-asercje pilnuja, ze nieznane kody i inwarianty bramek nadal daja MP3-E500.",
+      "test": "tests/naprawy/kody-odmowy.php",
+      "para": "-"
+    },
+    {
+      "id": "P3-G5",
+      "data": "2026-08-01",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "Okno bezpiecznika poczty nigdy sie nie zamykalo",
+      "klasa": "TTL-odnawiany-przy-kazdym-zapisie-czyli-okno-bez-poczatku",
+      "plik": "includes/class-mp-sw-mailer.php",
+      "dowod": "allow_send() robilo set_transient(WINDOW_KEY, count+1, HOUR_IN_SECONDS) przy KAZDEJ wysylce. Transient nie mial jak wygasnac, dopoki cokolwiek wychodzilo, a licznik liczyl wszystkie wysylki od pierwszej, nie ostatnia godzine.",
+      "skutek": "Prog „200 na godzine\" byl w praktyce progiem „200 od poczatku ruchu\". Sklep wysylajacy spokojne 30 wiadomosci na godzine dostawal po siedmiu godzinach pracy zatrzymana kolejke, alarm o zalewie zdarzen, ktorego nie bylo, i wysylke stojaca do recznego wznowienia. Im lepiej szla sprzedaz, tym pewniej bezpiecznik ja przerywal.",
+      "lekcja": "Okno czasowe musi miec zapisany POCZATEK. Bez niego dlugosc okna rowna sie dlugosci przerwy w ruchu. Test steruje czasem przez pole `start`, a nie przez czekanie — godzinny test nie ma prawa trwac godziny.",
+      "test": "tests/naprawy/okno-bezpiecznika.php",
+      "para": "-"
+    },
+    {
+      "id": "P3-G6",
+      "data": "2026-08-01",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "Znacznik szablonu wykrywany, ale nigdy niepodstawiany",
+      "klasa": "dwie-definicje-tego-samego-pojecia-w-jednej-klasie",
+      "plik": "includes/pipeline/departments/class-mp-sw-department-07.php",
+      "dowod": "Wykrywanie: MARKER = '/\\{\\{\\s*([a-z0-9_]+)\\s*\\}\\}/i' (biale znaki dozwolone, wielkosc liter bez znaczenia). Podstawianie: str_replace('{{'.$key.'}}', ...) — doslowne i wrazliwe na wielkosc liter.",
+      "skutek": "Redaktor piszacy `Witaj {{ client_name }}` albo `{{Client_Name}}` uzywal skladni, ktora wtyczka UZNAJE za poprawna i ktorej nie podstawia. Krytyk K7.2 odrzucal cala koperte kodem unresolved_markers, przejscie statusu nie dochodzilo do skutku, a jedyna wskazowka brzmiala „szablon ma nierozwiazane znaczniki\" przy szablonie zgodnym z wlasnym wzorcem dzialu.",
+      "lekcja": "Przy okazji naprawy wyszla druga dziura, ktorej nie bylo w zgloszeniu: petla str_replace po kluczach przegladala tekst JUZ WSTAWIONY, wiec nazwa firmy z publicznego formularza mogla zawierac `{{link}}` i wskazac, co wtyczka podstawi w nastepnym kroku. Jeden preg_replace_callback zamyka oba przypadki.",
+      "test": "tests/naprawy/znaczniki-szablonu.php",
+      "para": "1.25"
+    },
+    {
+      "id": "P3-G7",
+      "data": "2026-08-01",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "Wtyczka zmieniala nadawce KAZDEGO maila witryny, takze resetu hasla",
+      "klasa": "filtr-globalny-uzyty-do-zadania-lokalnego",
+      "plik": "includes/class-mp-sw-mailer.php",
+      "dowod": "MP_SW_Mailer::register() wpinalo wp_mail_from i wp_mail_from_name na `init` i zostawialo je na cale zadanie. Oba filtry dostaja wylacznie adres domyslny — nie maja jak sprawdzic, czyja wiadomosc leci.",
+      "skutek": "Reset hasla, powiadomienie o komentarzu i wiadomosc z formularza kontaktowego wychodzily z adresu i nazwy wtyczki sprzedazowej. Odwrotnie tez: administrator, ktory wylaczy te wtyczke, traci dobranego pod SPF/DKIM nadawce we WSZYSTKICH mailach witryny — awaria pojawia sie w miejscu niezwiazanym z wylaczona wtyczka.",
+      "lekcja": "Test sprawdza PRZEBIEG kolejki, nie samo istnienie MP_SW_Mailer::send(): metoda mogla by istniec, a kolejka i tak wolac wp_mail() wprost.",
+      "test": "tests/naprawy/nadawca-poczty.php",
+      "para": "-"
     }
   ]
 }
