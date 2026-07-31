@@ -160,13 +160,47 @@ final class MP_AU_Raport {
 			),
 		);
 
-		file_put_contents(
-			$katalog . '/raport-' . gmdate( 'Ymd-His' ) . '.json',
-			(string) json_encode( $dane, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES )
-		);
+		$json = $this->do_json( $dane );
 
-		file_put_contents( $katalog . '/raport-ostatni.json', (string) json_encode( $dane, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) );
+		if ( '' !== $json ) {
+			file_put_contents( $katalog . '/raport-' . gmdate( 'Ymd-His' ) . '.json', $json );
+			file_put_contents( $katalog . '/raport-ostatni.json', $json );
+		}
 		file_put_contents( $katalog . '/raport-ostatni.txt', $this->podsumowanie_tekstowe() );
+	}
+
+	/**
+	 * Zamienia dane raportu na JSON — i NIE godzi sie na cichy pusty plik.
+	 *
+	 * Pierwsza wersja zapisywala `(string) json_encode(...)` wprost. Gdy w danych
+	 * pojawil sie bajt spoza UTF-8 (a pojawia sie: raport niesie cytaty z kodu
+	 * i odpowiedzi modelu), `json_encode()` zwracalo `false`, rzutowanie na napis
+	 * dawalo '' i na dysk szedl plik ZEROBAJTOWY. Werdykt byl policzony, tekst
+	 * raportu wypisany, a maszynowa wersja — po ktorej para 2.8 rozpoznaje
+	 * regresje — po prostu nie istniala. Bez sygnalu.
+	 *
+	 * To jest dokladnie ten sam blad, ktory ten audyt wytknal wtyczkom: zapis
+	 * bez sprawdzenia wyniku, konczacy sie meldunkiem sukcesu.
+	 *
+	 * @param array $dane Dane raportu.
+	 * @return string Pusty napis, gdy nie da sie zakodowac mimo podstawien.
+	 */
+	private function do_json( array $dane ): string {
+		$opcje = JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
+		$json  = json_encode( $dane, $opcje );
+
+		if ( false === $json ) {
+			// Drugie podejscie: zastapienie bajtow, ktorych nie da sie zakodowac.
+			// Lepiej stracic kilka znakow w cytacie niz caly raport maszynowy.
+			$json = json_encode( $dane, $opcje | JSON_INVALID_UTF8_SUBSTITUTE );
+		}
+
+		if ( false === $json ) {
+			fwrite( STDERR, "UWAGA: nie udalo sie zapisac raportu JSON (" . json_last_error_msg() . ").\n" );
+			return '';
+		}
+
+		return $json;
 	}
 
 	/**
@@ -198,6 +232,17 @@ final class MP_AU_Raport {
 				}
 
 				$out .= '        status: ' . $u->status . "\n";
+
+				/*
+				 * Dowod BYL pomijany w wersji tekstowej — a to wlasnie w nim zyje
+				 * caly slad weryfikacji: „potwierdzone dwoma kluczami", „druga
+				 * metoda", „falszywy alarm". Czytajacy widzial sam werdykt
+				 * `potwierdzone` bez mozliwosci sprawdzenia, na jakiej podstawie.
+				 * Ocena bez podstawy to opinia, nie ustalenie audytu.
+				 */
+				if ( '' !== trim( $u->dowod ) ) {
+					$out .= '        dowod: ' . $this->zawin( trim( $u->dowod ), 70, '                ' ) . "\n";
+				}
 
 				if ( '' !== $u->scenariusz ) {
 					$out .= '        skutek: ' . $this->zawin( $u->scenariusz, 70, '                ' ) . "\n";

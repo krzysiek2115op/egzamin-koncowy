@@ -53,6 +53,9 @@ final class MP_AU_Model_Client {
 	 */
 	const BLOKADA = '/tmp/mp-au-model.lock';
 
+	/** Najdluzsze dopuszczalne czekanie na zwolnienie blokady (sekundy). */
+	const LIMIT_BLOKADY = 900;
+
 	/** @var string */
 	private $tryb = self::TRYB_BRAK;
 
@@ -236,7 +239,12 @@ final class MP_AU_Model_Client {
 			array(
 				'sh',
 				'-c',
-				'flock ' . escapeshellarg( self::BLOKADA )
+				// `-w`: czekanie na blokade tez musi miec koniec. Bez tego jeden
+				// zawieszony proces zatrzymuje wszystkie pozostale bez limitu —
+				// i dokladnie to sie stalo: jedno wywolanie wisialo 11 godzin,
+				// trzymajac kolejke, a `timeout` go nie zdjal, bo maszyna byla
+				// uspiona i jego zegar nie chodzil.
+				'flock -w ' . self::LIMIT_BLOKADY . ' ' . escapeshellarg( self::BLOKADA )
 					. ' timeout --kill-after=10 ' . self::LIMIT_CZASU . ' ' . escapeshellarg( $this->binarka )
 					. ' -p --output-format text < ' . escapeshellarg( $plik )
 					. ' > ' . escapeshellarg( $out ) . ' 2>/dev/null',
