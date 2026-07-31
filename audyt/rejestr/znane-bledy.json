@@ -473,6 +473,30 @@
       "skutek": "Potwierdzone vat_valid=1 bylo nadpisywane przez null przy pierwszej nieudanej probie w tle: -30 pkt scoringu, vat_checked_at na NULL, po 5 probach status unknown. Wtyczka 2 nigdy nie zobaczyla 'valid', wiec odwrotne obciazenie (art. 196) stawalo sie nieosiagalne. Piate wystapienie tej klasy w projekcie.",
       "test": "tests/naprawy/vies-nie-nadpisuje-potwierdzonego.php",
       "para": "-"
+    },
+    {
+      "id": "P2-G7",
+      "data": "2026-08-01",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Pusta stawka VAT przechodzila bramke i dawala ciche 0% na dokumencie",
+      "klasa": "kontrola-sprawdzajaca-obecnosc-zamiast-poprawnosci-wartosci",
+      "plik": "includes/pipeline/departments/class-mp-ob-department-06.php",
+      "dowod": "Bramka missing_tax_rate: `! isset(...) || null === ...`. Wpis array('rate' => '') ma isset() prawdziwe i nie jest null, wiec przechodzil; nizej (float) '' = 0.0, a warunek 0.0 === $rate zerowal VAT calej klasy.",
+      "skutek": "Dokument handlowy w mechanizmie krajowym z 0% VAT, bez bledu i bez sladu w dzienniku. 'Brak stawki' i 'stawka rowna zero' to dwie rozne rzeczy — zero jest legalne, ale musi byc podane wprost jako liczba.",
+      "test": "tests/naprawy/audyt-gleboki.php",
+      "para": "1.25"
+    },
+    {
+      "id": "P1-G5",
+      "data": "2026-08-01",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Data zapytania do Bialej listy liczona w UTC zamiast w strefie witryny",
+      "klasa": "czas-uniwersalny-tam-gdzie-liczy-sie-doba-lokalna",
+      "plik": "includes/pipeline/departments/class-mp-department-03.php",
+      "dowod": "resolve_wl() i wl_cache_key() uzywaly gmdate('Y-m-d'); API zwraca statusVat NA DANY DZIEN.",
+      "skutek": "W polskiej strefie miedzy polnoca a 1:00/2:00 pytanie dotyczylo dnia POPRZEDNIEGO. Firma zarejestrowana jako podatnik VAT czynny od dzis dostawala status 'Niezarejestrowany' zapisany jako sprawdzony, a klucz cache utrwalal go na 12 godzin.",
+      "test": "tests/naprawy/biala-lista-niepelna-odpowiedz.php",
+      "para": "1.25"
     }
   ]
 }
