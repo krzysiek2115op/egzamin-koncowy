@@ -1,0 +1,225 @@
+=== WYNIK AUDYTU ===
+
+DROBNE (9):
+  [1.23] Status „draft" wpisany literalem, choc istnieje dla niego stala.
+        mp-offer-builder/includes/class-mp-offer-builder-lead-listener.php:109
+        status: prawdopodobne
+        dowod: 'status' => 'draft'
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Zmiana wartosci stalej ominie to miejsce. Rekord zostanie w stanie,
+                ktorego reszta kodu juz nie rozpoznaje.
+        naprawa: Uzyc stalej STATUS_* zamiast napisu.
+
+  [1.23] Status „draft" wpisany literalem, choc istnieje dla niego stala.
+        mp-offer-builder/includes/class-mp-offer-builder-lead-listener.php:250
+        status: prawdopodobne
+        dowod: 'status' => 'draft'
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Zmiana wartosci stalej ominie to miejsce. Rekord zostanie w stanie,
+                ktorego reszta kodu juz nie rozpoznaje.
+        naprawa: Uzyc stalej STATUS_* zamiast napisu.
+
+  [1.23] Status „draft" wpisany literalem, choc istnieje dla niego stala.
+        mp-offer-builder/includes/pipeline/departments/class-mp-ob-department-10.php:106
+        status: prawdopodobne
+        dowod: 'status' => 'draft'
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Zmiana wartosci stalej ominie to miejsce. Rekord zostanie w stanie,
+                ktorego reszta kodu juz nie rozpoznaje.
+        naprawa: Uzyc stalej STATUS_* zamiast napisu.
+
+  [1.23] Status „draft" wpisany literalem, choc istnieje dla niego stala.
+        mp-offer-builder/includes/pipeline/departments/class-mp-ob-department-11.php:84
+        status: prawdopodobne
+        dowod: 'status' => 'draft'
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Zmiana wartosci stalej ominie to miejsce. Rekord zostanie w stanie,
+                ktorego reszta kodu juz nie rozpoznaje.
+        naprawa: Uzyc stalej STATUS_* zamiast napisu.
+
+  [1.23] Status „done" wpisany literalem, choc istnieje dla niego stala.
+        mp-sales-workflow/includes/pipeline/departments/class-mp-sw-department-08.php:358
+        status: prawdopodobne
+        dowod: 'status' => 'done'
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Zmiana wartosci stalej ominie to miejsce. Rekord zostanie w stanie,
+                ktorego reszta kodu juz nie rozpoznaje.
+        naprawa: Uzyc stalej STATUS_* zamiast napisu.
+
+  [1.14] Licencja w naglowku i w composer.json brzmia inaczej.
+        mp-offer-builder/composer.json
+        status: prawdopodobne
+        dowod: naglowek: „GPL-2.0-or-later", composer: „proprietary"
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Dwa zrodla prawdy o licencji. Przy sporze nie wiadomo, ktore
+                obowiazuje.
+
+  [1.17] Dokumentacja cytuje zrodlo z adresem, ale bez daty pobrania.
+        mp-lead-intake/docs/dzial-04/iso-3166-1-kody-krajow.md
+        status: prawdopodobne
+        dowod: adresow: 1, dat pobrania: 0
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Strona zrodlowa zmieni sie i nie da sie ustalic, czy cytat byl wierny
+                w momencie pisania. Cytat bez daty jest niesprawdzalny.
+        naprawa: Dopisac „Pobrano: RRRR-MM-DD" przy kazdym adresie.
+
+  [1.15] Test dla bledu P1-K2 istnieje, ale nie widac w nim sladu tego bledu.
+        mp-lead-intake/tests/koncowe/granica-transakcji-i-role.php
+        status: prawdopodobne
+        dowod: W tresci testu brak identyfikatora bledu i slow z jego dowodu.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Prawdopodobnie test sprawdza cos innego w tym samym obszarze. Przy
+                nastepnym refaktorze ktos go uprosci, nie wiedzac, czego pilnowal.
+        naprawa: Dopisac w naglowku testu, ktory blad z rejestru on zabezpiecza.
+
+  [2.6] Test dla bledu P2-K2 nie przyszedl w jednym commicie z naprawa.
+        mp-offer-builder/tests/koncowe/zatwierdzenie-oferty.php
+        status: prawdopodobne
+        dowod: commit 7478b20 obejmuje 9 plikow, bez poprawianego zrodla
+        skutek: Nie ma sladu, ze ten test kiedykolwiek FAIL-owal na kodzie sprzed
+                naprawy. Moze wiec sprawdzac cos innego niz sadzimy — a wtedy nawrot
+                bledu przejdzie przez niego bez zatrzymania.
+        naprawa: Przy nastepnej naprawie: `git stash` zrodla, uruchomic test, potwierdzic FAIL, `git stash pop`, i dopiero wtedy commitowac oba pliki razem.
+
+OBSERWACJE (15):
+  [1.6] Zdarzenie „mp_lead_intake_after_form" wystawiane, ale nikt go nie slucha w projekcie.
+        mp-lead-intake/includes/class-mp-form.php:174
+        status: prawdopodobne
+        dowod: do_action w mp-lead-intake, zero add_action
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Albo to swiadomy punkt rozszerzen dla integratora (wtedy w porzadku i
+                powinno byc opisane w dokumentacji), albo odbiorca zginal przy
+                refaktorze.
+
+  [1.6] Zdarzenie „mp_lead_verified" wystawiane, ale nikt go nie slucha w projekcie.
+        mp-lead-intake/includes/class-mp-vat-verifier.php:232
+        status: prawdopodobne
+        dowod: do_action w mp-lead-intake, zero add_action
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Albo to swiadomy punkt rozszerzen dla integratora (wtedy w porzadku i
+                powinno byc opisane w dokumentacji), albo odbiorca zginal przy
+                refaktorze.
+
+  [1.6] Zdarzenie „mp_sw_queue_halted" wystawiane, ale nikt go nie slucha w projekcie.
+        mp-sales-workflow/includes/class-mp-sw-mailer.php:196
+        status: prawdopodobne
+        dowod: do_action w mp-sales-workflow, zero add_action
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Albo to swiadomy punkt rozszerzen dla integratora (wtedy w porzadku i
+                powinno byc opisane w dokumentacji), albo odbiorca zginal przy
+                refaktorze.
+
+  [1.6] Zdarzenie „mp_sw_flow_anonymized" wystawiane, ale nikt go nie slucha w projekcie.
+        mp-sales-workflow/includes/class-mp-sw-privacy.php:161
+        status: prawdopodobne
+        dowod: do_action w mp-sales-workflow, zero add_action
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Albo to swiadomy punkt rozszerzen dla integratora (wtedy w porzadku i
+                powinno byc opisane w dokumentacji), albo odbiorca zginal przy
+                refaktorze.
+
+  [1.6] Zdarzenie „mp_sw_notification_sent" wystawiane, ale nikt go nie slucha w projekcie.
+        mp-sales-workflow/includes/class-mp-sw-queue.php:184
+        status: prawdopodobne
+        dowod: do_action w mp-sales-workflow, zero add_action
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Albo to swiadomy punkt rozszerzen dla integratora (wtedy w porzadku i
+                powinno byc opisane w dokumentacji), albo odbiorca zginal przy
+                refaktorze.
+
+  [1.6] Zdarzenie „mp_sw_notification_failed" wystawiane, ale nikt go nie slucha w projekcie.
+        mp-sales-workflow/includes/class-mp-sw-queue.php:212
+        status: prawdopodobne
+        dowod: do_action w mp-sales-workflow, zero add_action
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Albo to swiadomy punkt rozszerzen dla integratora (wtedy w porzadku i
+                powinno byc opisane w dokumentacji), albo odbiorca zginal przy
+                refaktorze.
+
+  [1.24] Asercja oczekuje zera od wywolania — sprawdz, czy zero nie jest tez wynikiem awarii.
+        mp-sales-workflow/tests/security/scenariusze-s1-s12.php:561
+        status: prawdopodobne
+        dowod: chk( 0 === MP_SW_D7_Notifier::mail_attempts()
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Dokladnie ten ksztalt dal falszywy PASS w tym projekcie (TEST-F1):
+                straznik zwrocil zera, bo sie wywrocil, a test wlasnie zer oczekiwal.
+                Test powinien najpierw potwierdzic, ze sprawdzana droga w ogole sie
+                wykonala.
+        naprawa: Dolozyc asercje pozytywna (np. licznik wywolan > 0) przed asercja na zero.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-lead-intake/tests/index.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-lead-intake/tests/process-harness/bench.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-lead-intake/tests/process-harness/index.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-lead-intake/tests/process-harness/run-process.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-lead-intake/tests/process-harness/wp-stubs.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-offer-builder/tests/process-harness/run-process.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-offer-builder/tests/process-harness/wp-stubs.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-sales-workflow/tests/security/index.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+--- rozliczenie przebiegu ---
+glebokosc:         pelny
+odczytow plikow:   239
+zapytan do modelu: 0
+dzial 1:           42.5 s, par 24/26 (2 pominietych)
+dzial 2:           43.3 s, par 9/11 (2 pominietych)
+czas calkowity:    85.9 s
+
+UWAGA: 4 par NIE zostalo wykonanych na tym poziomie glebokosci.
+Pelny audyt: --glebokosc=gleboki
+
+WERDYKT: GO [audyt skrocony: 4 par pominietych na poziomie „pelny"]
