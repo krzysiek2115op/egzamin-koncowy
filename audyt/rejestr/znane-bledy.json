@@ -14,7 +14,7 @@
     "Jesli para nie istnieje, blad moze wrocic niezauwazony — para 1.15 to zglasza."
   ],
   "wersja": 1,
-  "zrodlo": "audyt enterprise 29.07.2026 + naprawy 29-30.07.2026 + Grupy A, B i C po audycie 31.07.2026 (wydanie 1.3.1) + ustalenia drobne 31.07.2026",
+  "zrodlo": "audyt enterprise 29.07.2026 + naprawy 29-30.07.2026 + Grupy A, B i C po audycie 31.07.2026 (wydanie 1.3.1) + ustalenia drobne 31.07.2026 + ustalenia z glebokiego przebiegu 31.07.2026",
   "bledy": [
     {
       "id": "P3-K1",
@@ -310,6 +310,45 @@
       "test": "tests/naprawy/status-przez-stala.php",
       "para": "1.23",
       "lekcja": "Ta sama wartosc w dwoch tabelach to nie ta sama stala. Wlascicielem jest klasa, ktora wlada schematem."
+    },
+    {
+      "id": "P2-G1",
+      "data": "2026-07-31",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Klasy podatkowe brane takze z pozycji zwolnionych z VAT",
+      "klasa": "wymog-wyliczony-z-danych-ktore-go-nie-dotycza",
+      "plik": "includes/pipeline/departments/class-mp-ob-department-02.php",
+      "dowod": "Agent 2.3 budowal zbior tax_class ze WSZYSTKICH pozycji, ignorujac tax_status zapisany przez Agenta 2.1",
+      "skutek": "Usluga zwolniona z VAT (tax_status='none') w klasie bez skonfigurowanych stawek — np. domyslna 'Zero rate' w swiezej instalacji WooCommerce — konczyla caly Dzial 2 bledem 'missing_tax_rate'. Handlowiec nie mogl wystawic oferty, w ktorej wszystkie realnie potrzebne stawki byly na miejscu, a stawka blokujaca i tak nigdy nie zostalaby uzyta (Dzial 6 traktuje 'none' jako 0%).",
+      "test": "tests/naprawy/audyt-gleboki.php",
+      "para": "1.25",
+      "lekcja": "Zanim wyliczysz wymog ze zbioru danych, sprawdz, ktore wiersze ten wymog w ogole obejmuje. Kod mial juz to pole (tax_status) i nikt go tu nie przeczytal."
+    },
+    {
+      "id": "P2-G2",
+      "data": "2026-07-31",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Limity pol mierzone w bajtach przy limitach z varchar(N) w znakach",
+      "klasa": "zla-jednostka-pomiaru",
+      "plik": "includes/pipeline/departments/class-mp-ob-department-10.php",
+      "dowod": "strlen( (string) $header[$field] ) > $max, gdzie FIELD_LIMITS to lustro varchar(191); varchar w utf8mb4 liczy ZNAKI",
+      "skutek": "Nazwa firmy ze 120 znakow, z czego 80 z polskimi ogonkami, to 200 bajtow. Baza przyjelaby ten wiersz bez obciecia, a Dzial 10 odrzucal zapis komunikatem 'przekracza limit 191 znakow' — nieprawdziwym, bo znakow bylo 120. Klient z dluga polska nazwa nie mogl dostac oferty.",
+      "test": "tests/naprawy/audyt-gleboki.php",
+      "para": "1.25",
+      "lekcja": "Limit przepisany ze schematu trzeba mierzyc w jednostce schematu. To ta sama klasa pomylki co ceny brutto/netto (P2-K3): dwie liczby w roznych jednostkach porownane wprost."
+    },
+    {
+      "id": "P2-G3",
+      "data": "2026-07-31",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Blad bazy przy zatwierdzaniu raportowany jako 'juz zatwierdzona'",
+      "klasa": "dwa-rozne-stany-pod-jednym-komunikatem",
+      "plik": "includes/class-mp-offer-builder-approval.php",
+      "dowod": "if ( 1 !== (int) $changed ) -> WP_Error('already_approved'); $wpdb->update() zwraca false przy bledzie zapytania i 0 przy braku pasujacego wiersza",
+      "skutek": "Przy awarii zapisu (zerwane polaczenie, zablokowana tabela, blad SQL) pracownik widzial NIEBIESKI komunikat informacyjny 'Ta oferta byla juz zatwierdzona — nic sie nie zmienilo'. Uznawal sprawe za zalatwiona i nie ponawial akcji. Oferta zostawala szkicem, mp_offer_approved nigdy nie wychodzilo, wtyczka 3 nie zaczynala wysylki, klient nie dostawal oferty.",
+      "test": "tests/naprawy/audyt-gleboki.php",
+      "para": "1.26",
+      "lekcja": "Awaria i przegrany wyscig to nie ten sam wynik. Komunikat, ktory brzmi jak potwierdzenie, przy awarii jest gorszy od braku komunikatu."
     }
   ]
 }
