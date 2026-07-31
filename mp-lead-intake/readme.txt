@@ -4,7 +4,7 @@ Tags: leads, formularz, b2b, nip, vat
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.3.0
+Stable tag: 1.3.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,18 @@ Pierwsza z trzech wtyczek procesu "formularz → oferta". Odpowiada za odbiór
 zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej bazy.
 
 == Changelog ==
+
+= 1.3.1 =
+
+* Wynik pipeline'u byl meldowany jako gotowy, nawet gdy odpowiedzi NIE DALO
+  SIE zakodowac do JSON-a — `wp_json_encode()` zwracalo `false`, a ta wartosc
+  szla dalej jako gotowa odpowiedz. Przegladarka dostawala puste cialo i nic
+  tego nie tlumaczylo. Teraz wynik jest gotowy tylko przy udanym kodowaniu.
+* Domyslny status weryfikacji VAT w sygnale `mp_lead_created` brzmial
+  „sprawdzone". Brak danych nie moze podawac sie za wynik weryfikacji, ktora
+  sie nie odbyla — wartoscia zastepcza jest teraz „nie wiadomo" (`unknown`).
+  Dzial 7 ustawia ten status przy kazdym przebiegu, wiec zmiana nie dotyka
+  zadnej dzisiejszej sciezki; chroni pierwsza, ktora Dzial 7 ominie.
 
 = 1.3.0 =
 
