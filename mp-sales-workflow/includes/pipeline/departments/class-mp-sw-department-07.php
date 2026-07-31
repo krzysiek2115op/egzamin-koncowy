@@ -126,18 +126,39 @@ class MP_SW_D7_Notifier {
 	/**
 	 * Podstawia zmienne w szablonie.
 	 *
+	 * JEDNO wyrazenie na znacznik — to samo, ktorym mierzy `unresolved_markers()`.
+	 * Wczesniej byly dwa: wzorzec MARKER dopuszczal biale znaki wokol nazwy i nie
+	 * zwracal uwagi na wielkosc liter, a podstawianie szlo doslownym
+	 * `str_replace( '{{' . $key . '}}', ... )`. Redaktor piszacy `{{ client_name }}`
+	 * uzywal wiec skladni, ktora wtyczka UZNAWALA za poprawna, ale ktorej nie
+	 * podstawiala — krytyk K7.2 odrzucal cala koperte i przejscie statusu nie
+	 * dochodzilo do skutku przy szablonie zgodnym z wlasnym wzorcem dzialu.
+	 *
+	 * Jeden przebieg zamiast petli po kluczach ma tez drugi skutek: tekst juz
+	 * WSTAWIONY nie jest przegladany po raz kolejny. Przy petli nazwa firmy
+	 * z publicznego formularza mogla zawierac `{{link}}` i wskazac, co wtyczka
+	 * podstawi w nastepnym kroku.
+	 *
+	 * Znacznik bez wartosci zostaje nietkniety — po to, zeby zobaczyl go krytyk.
+	 *
 	 * @param string $text Szablon.
 	 * @param array  $vars Zmienne.
 	 * @return string
 	 */
 	public static function render( $text, array $vars ) {
-		$out = (string) $text;
+		$out = preg_replace_callback(
+			self::MARKER,
+			static function ( $dopasowanie ) use ( $vars ) {
+				$klucz = strtolower( $dopasowanie[1] );
 
-		foreach ( $vars as $key => $value ) {
-			$out = str_replace( '{{' . $key . '}}', (string) $value, $out );
-		}
+				return array_key_exists( $klucz, $vars ) ? (string) $vars[ $klucz ] : $dopasowanie[0];
+			},
+			(string) $text
+		);
 
-		return $out;
+		// Blad wyrazenia (null) nie moze wyczyscic tresci — wtedy zostaje szablon
+		// z klamrami, ktory krytyk K7.2 i tak zatrzyma.
+		return null === $out ? (string) $text : $out;
 	}
 }
 
