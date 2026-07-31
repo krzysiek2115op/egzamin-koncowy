@@ -412,6 +412,19 @@
       "skutek": "Po scaleniu do main kod produkcyjny lezy w jednym miejscu. Narzedzie nadal czytalo galezie, wiec kazda pozniejsza zmiana na main bylaby dla audytu niewidzialna — a werdykt GO dotyczylby nieaktualnego kodu.",
       "test": "audyt/tests/audyt-na-main.php",
       "para": "-"
+    },
+    {
+      "id": "P2-G5",
+      "data": "2026-07-31",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Oferta zlozona wylacznie z pozycji zwolnionych z VAT byla odrzucana",
+      "klasa": "pusty-zbior-mylony-z-brakiem-danych",
+      "plik": "includes/pipeline/departments/class-mp-ob-department-02.php",
+      "dowod": "Krytyk K2.3 (MP_OB_Array_Critic) wymagal niepustego `tax_rates`, a bramka QA2 sprawdzala go przez empty(); po naprawie P2-G1 klasy pozycji zwolnionych nie trafiaja juz do zbioru, wiec przy samych zwolnieniach zbior jest pusty — i poprawny.",
+      "skutek": "Oferta na same uslugi zwolnione z VAT (art. 43 ustawy o VAT: szkolenia, uslugi medyczne, finansowe) zatrzymywala sie w Dziale 2 i nie powstawala w ogole. Regresja wprowadzona wlasna naprawa P2-G1 — naprawiajac jeden przypadek brzegowy, otworzylem drugi.",
+      "test": "tests/naprawy/audyt-gleboki.php",
+      "para": "-",
+      "maskowal": []
     }
   ]
 }
