@@ -340,8 +340,18 @@ final class MP_AU_A111_Rodo extends MP_AU_Agent {
 					}
 				}
 
+				/*
+				 * „anonim" wystepuje w tym projekcie WYLACZNIE w polskich
+				 * komentarzach, a te sa tu juz wygaszone przez `kod()`. W samym
+				 * kodzie stoi angielskie `anonymize_*` — przez „y", nie przez „i".
+				 * Skutek byl taki, ze plik z cala anonimizacja IP nie liczyl sie
+				 * jako plik RODO i para zglaszala wyczyszczona kolumne jako
+				 * niewyczyszczona. Falszywy alarm w RODO jest szczegolnie kosztowny:
+				 * kaze poprawiac coś, co dziala, i podwaza zaufanie do reszty raportu.
+				 */
 				$czy_rodo = false !== strpos( $tresc, 'wp_privacy_personal_data_erasers' )
-					|| false !== strpos( $tresc, 'anonim' )
+					|| false !== stripos( $tresc, 'anonim' )
+					|| false !== stripos( $tresc, 'anonym' )
 					|| false !== strpos( $tresc, 'Privacy' );
 
 				if ( false !== strpos( $tresc, 'wp_privacy_personal_data_erasers' ) ) {

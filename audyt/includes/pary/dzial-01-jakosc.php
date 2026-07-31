@@ -675,11 +675,23 @@ final class MP_AU_A124_Jakosc_Testow extends MP_AU_Agent {
 						$od    = (int) $t[0][ $indeks ][1];
 						$cialo = substr( $tresc, $od, 900 );
 
-						// Kazdy z trzech pipeline'ow ma wlasna konwencje asercji
-						// (`ml_ok`, `chk`, liczniki w tablicy globalnej). Rozpoznajemy
-						// je po tym, co robia: rozgalezienie na PASS i FAIL.
-						$ma_pass = false !== strpos( $cialo, "'pass'" ) || false !== strpos( $cialo, 'PASS' );
-						$ma_fail = false !== strpos( $cialo, "'fail'" ) || false !== strpos( $cialo, 'FAIL' );
+						/*
+						 * Kazdy z trzech pipeline'ow ma wlasna konwencje asercji
+						 * (`ml_ok`, `chk`, liczniki w tablicy globalnej). Rozpoznajemy
+						 * je po tym, co robia: rozgalezienie na sukces i porazke.
+						 *
+						 * Slownik musi obejmowac obie strony konwencji, nie tylko
+						 * slowo „pass": test bramki integracyjnej zbiera wyniki
+						 * w `$GLOBALS['mp_oks']` i `$GLOBALS['mp_fails']`, wiec
+						 * wersja szukajaca wylacznie „pass" uznawala plik z 23
+						 * asercjami za plik BEZ ANI JEDNEJ. To najgorszy mozliwy
+						 * rodzaj pomylki w tej parze — zarzuca testowi dokladnie to,
+						 * czego para ma pilnowac.
+						 */
+						$ma_pass = false !== stripos( $cialo, 'pass' )
+							|| preg_match( '/[\'"$_](?:oks?|sukces|success|passed)\b/i', $cialo );
+						$ma_fail = false !== stripos( $cialo, 'fail' )
+							|| preg_match( '/[\'"$_](?:bled(?:y|ow)?|blad|errors?)\b/i', $cialo );
 
 						if ( $ma_pass && $ma_fail ) {
 							$asercja = (string) $nazwa[0];

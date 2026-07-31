@@ -36,6 +36,33 @@ final class MP_AU_A112_Pieniadze extends MP_AU_Agent {
 	const NIE_KWOTY = array( 'rate', 'rates', 'percent', 'stawka', 'procent' );
 
 	/**
+	 * Czy rzutowanie jest krokiem przeliczenia kwoty NA GROSZE.
+	 *
+	 * Wzorzec `(int) round( (float) $cena * 100 )` to zalecana naprawa, a nie
+	 * blad: float zyje przez jedno mnozenie i konczy jako liczba calkowita,
+	 * wiec nie ma gdzie sie rozjechac. W tym projekcie jest to dodatkowo
+	 * sciezka ZAPASOWA — uzywana tylko tam, gdzie nie ma rozszerzenia BCMath,
+	 * wiec nie da sie jej zastapic niczym lepszym.
+	 *
+	 * Patrzymy na okolice trafienia, bo `round()` stoi PRZED rzutowaniem,
+	 * a mnozenie przez 100 — po nim.
+	 *
+	 * @param string $tresc  Kod pliku.
+	 * @param int    $offset Pozycja trafienia.
+	 * @return bool
+	 */
+	private function na_grosze( string $tresc, int $offset ): bool {
+		$przed = substr( $tresc, max( 0, $offset - 60 ), min( 60, $offset ) );
+		$po    = substr( $tresc, $offset, 120 );
+
+		if ( ! preg_match( '/\bround\s*\(|\bintval\s*\(|\(\s*int\s*\)/i', $przed ) ) {
+			return false;
+		}
+
+		return (bool) preg_match( '/\*\s*100\b|\*\s*self::[A-Z_]*GROSZ/i', $po );
+	}
+
+	/**
 	 * Czy trafienie dotyczy stawki, a nie kwoty.
 	 *
 	 * @param string $fragment Fragment kodu.
@@ -74,6 +101,14 @@ final class MP_AU_A112_Pieniadze extends MP_AU_Agent {
 						$linia = MP_AU_Pomoc::linia_offsetu( $tresc, (int) $trafienie[1] );
 
 						if ( MP_AU_Pomoc::wyciszone( $surowa, $linia ) || $this->stawka( (string) $trafienie[0] ) ) {
+							continue;
+						}
+
+						// Przejscie na grosze — `(int) round( (float) $cena * 100 )`.
+						// To jest WLASNIE naprawa zalecana przez te pare, a nie blad:
+						// float zyje przez jedno mnozenie i konczy jako liczba
+						// calkowita. Zgloszenie kazaloby poprawiac kod juz poprawny.
+						if ( $this->na_grosze( $tresc, (int) $trafienie[1] ) ) {
 							continue;
 						}
 
