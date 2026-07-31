@@ -37,3 +37,32 @@ kraj klienta jest w UE, INNY niż PL, ORAZ klient ma potwierdzony ważny numer V
 stawki VAT (mechanizm `domestic`), NIGDY cichym zerowaniem podatku bez podstawy
 prawnej. Klient spoza UE dostaje mechanizm `out_of_scope` (poza zakresem VAT UE) —
 to inna podstawa prawna niż odwrotne obciążenie, mimo tej samej stawki 0%.
+
+---
+
+# ISO 3166-1 alpha-2 — kody krajów (drugie źródło działu)
+
+Odniesienie: https://www.iso.org/iso-3166-country-codes.html (pobrano 2026-07-21)
+
+Ta sama norma, którą cytuje `mp-lead-intake/docs/dzial-04/iso-3166-1-kody-krajow.md`.
+Dopisana tutaj, bo Dział 6 rozstrzyga na jej podstawie **czy kod kraju w ogóle
+istnieje** — a od tego zależy, czy oferta dostanie 0% VAT.
+
+## Dlaczego lista jest wbudowana w kod, a nie brana z WooCommerce
+
+Kontrola „nieznanego kodu kraju" wykonywała się wcześniej tylko wtedy, gdy dostępne
+było `WC()->countries`. To inny warunek niż ten, który zapewnia Dział 2
+(`class_exists( 'WC_Tax' )`): `WC()->countries` zapełnia się dopiero na haku `init`.
+Zabezpieczenie przed cichym 0% VAT nie może zależeć od tego, jak daleko zaszedł
+bootstrap sklepu.
+
+Drugi powód: sklep może zawęzić listę krajów filtrem `woocommerce_countries`. Brak
+kodu na tej liście znaczy wtedy „ten sklep tam nie sprzedaje", a nie „taki kraj nie
+istnieje" — do rozstrzygania o istnieniu kraju ta lista się więc nie nadaje.
+
+## Zastosowanie w tym dziale
+
+Agent 6.1 odrzuca kod spoza normy błędem `unknown_country`. Literówka o poprawnym
+kształcie („DR" zamiast „DE") przechodziła wcześniej regex `^[A-Z]{2}$`, nie trafiała
+na listę UE i wpadała do gałęzi „poza UE": 0% VAT z podstawą prawną, która nie
+istnieje. Kod prawdziwego kraju spoza UE („US", „NO") nadal dostaje `out_of_scope`.

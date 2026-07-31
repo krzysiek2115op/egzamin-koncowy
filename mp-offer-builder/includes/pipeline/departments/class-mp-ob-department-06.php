@@ -63,6 +63,46 @@ class MP_OB_D6_Agent_Mechanism extends MP_OB_Abstract_Agent {
 		'SE',
 	);
 
+	/**
+	 * Kody krajów przypisane w ISO 3166-1 alpha-2.
+	 *
+	 * Źródło: https://www.iso.org/iso-3166-country-codes.html (pobrano 2026-07-21),
+	 * ta sama norma, którą cytuje mp-lead-intake/docs/dzial-04/iso-3166-1-kody-krajow.md.
+	 *
+	 * Lista jest WBUDOWANA, a nie brana z WooCommerce, i to jest sedno naprawy.
+	 * Poprzednio kontrola „nieznanego kodu kraju" wykonywała się wyłącznie wtedy,
+	 * gdy dostępne było `WC()->countries` — a to zupełnie inny warunek niż ten,
+	 * który gwarantuje Dział 2 (`class_exists( 'WC_Tax' )`), bo `WC()->countries`
+	 * zapełnia się dopiero na haku `init`. Zabezpieczenie przed cichym 0% VAT
+	 * nie może zależeć od tego, jak daleko zaszedł bootstrap sklepu.
+	 *
+	 * Lista WooCommerce nie nadaje się też na wzorzec z drugiego powodu: sklep
+	 * może ją zawęzić filtrem `woocommerce_countries`, więc brak kodu na tej
+	 * liście nie znaczy „taki kraj nie istnieje", tylko „ten sklep tam nie sprzedaje".
+	 *
+	 * @return string[]
+	 */
+	public static function iso_countries() {
+		static $kody = null;
+
+		if ( null === $kody ) {
+			$kody = explode(
+				' ',
+				'AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN '
+				. 'BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ '
+				. 'DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL '
+				. 'GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM '
+				. 'JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME '
+				. 'MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP '
+				. 'NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD '
+				. 'SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO '
+				. 'TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW'
+			);
+		}
+
+		return $kody;
+	}
+
 	public function __construct() {
 		parent::__construct( '6.1', 'Agent 6.1 — mechanizm', 'PL — stawka krajowa; UE z ważnym VAT — odwrotne obciążenie 0%; poza UE — poza zakresem VAT' );
 	}
@@ -91,17 +131,16 @@ class MP_OB_D6_Agent_Mechanism extends MP_OB_Abstract_Agent {
 
 		// S4-02: format to za mało — literówka/nieprzypisany kod ("DR" zamiast
 		// "DE") ma poprawny kształt, ale trafiał do gałęzi "poza UE" i dostawał
-		// CICHE 0% VAT. Weryfikujemy przynależność do kanonicznej listy krajów
-		// WooCommerce (gdy dostępna) — nieznany kod = jawny błąd, nie 0%.
-		if ( function_exists( 'WC' ) && is_object( WC() ) && isset( WC()->countries ) && method_exists( WC()->countries, 'get_countries' ) ) {
-			$known_countries = WC()->countries->get_countries();
-			if ( is_array( $known_countries ) && ! isset( $known_countries[ $country ] ) ) {
-				return MP_OB_Result::fail(
-					'Nieznany kod kraju klienta — nie występuje na liście krajów WooCommerce.',
-					array(),
-					'unknown_country'
-				);
-			}
+		// CICHE 0% VAT. Sprawdzenie idzie po WBUDOWANEJ liście ISO (patrz
+		// iso_countries()) i wykonuje się ZAWSZE — wcześniej siedziało pod
+		// warunkiem dostępności WC()->countries, więc akurat tam, gdzie sklep
+		// nie był jeszcze w pełni zainicjalizowany, zabezpieczenia nie było.
+		if ( ! in_array( $country, self::iso_countries(), true ) ) {
+			return MP_OB_Result::fail(
+				'Nieznany kod kraju klienta — nie występuje w normie ISO 3166-1 alpha-2.',
+				array(),
+				'unknown_country'
+			);
 		}
 
 		if ( 'PL' === $country ) {
