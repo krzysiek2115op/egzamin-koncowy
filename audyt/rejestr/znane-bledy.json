@@ -139,7 +139,7 @@
       "plik": "includes/class-mp-sw-cron.php",
       "dowod": "SELECT pending, potem UPDATE — bez warunku status w UPDATE",
       "skutek": "Dwa rownolegle przebiegi crona moga wyslac ten sam mail dwa razy.",
-      "test": "",
+      "test": "tests/naprawy/kolejka-klamra.php",
       "para": "1.18",
       "status": "otwarte"
     },
@@ -425,6 +425,54 @@
       "test": "tests/naprawy/audyt-gleboki.php",
       "para": "-",
       "maskowal": []
+    },
+    {
+      "id": "P3-G1",
+      "data": "2026-07-31",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "Anonimizacja RODO omijala powiadomienia do handlowca, a te nios nazwe klienta",
+      "klasa": "warunek-WHERE-zawezajacy-zakres-czyszczenia-danych",
+      "plik": "includes/class-mp-sw-privacy.php",
+      "dowod": "UPDATE czyscil temat i tresc tylko dla wierszy z recipient_user_id IS NULL; szablony TPL_LEAD_ASSIGNED/TPL_STATUS_CHANGED podstawiaja {{client_name}} w temat i tresc.",
+      "skutek": "Nazwa firmy klienta zostawala w tabeli powiadomien NA ZAWSZE (brak retencji), a zadanie usuniecia danych konczylo sie sukcesem. Test tego nie lapal, bo wstawial wiersz wewnetrzny z tematem bez nazwy klienta — testowal dane, ktore nigdy nie powstaja.",
+      "test": "tests/koncowe/rodo-anonimizacja.php",
+      "para": "-"
+    },
+    {
+      "id": "P2-G6",
+      "data": "2026-07-31",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Status podatkowy 'shipping' wpadal w szczeline miedzy Dzialem 2 a 6",
+      "klasa": "dwa-warunki-ktore-musza-byc-komplementarne-pisane-osobno",
+      "plik": "includes/pipeline/departments/class-mp-ob-department-02.php",
+      "dowod": "Dzial 2 pomijal kazdy status rozny od 'taxable', Dzial 6 zwalnial wylacznie 'none'. WooCommerce ma trzy statusy.",
+      "skutek": "Pozycja 'Tylko wysylka' dostawala VAT mimo braku stawki w snapshocie albo blokowala oferte bledem missing_tax_rate. Audyt zglosil to jako para 1.25/srednie ze statusem 'prawdopodobne' — przeoczone przy wyborze napraw.",
+      "test": "tests/naprawy/audyt-gleboki.php",
+      "para": "1.25"
+    },
+    {
+      "id": "P1-G3",
+      "data": "2026-07-31",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Pola segment i est_volume bez limitu dlugosci — zgloszenie przepadalo",
+      "klasa": "walidacja-nalozona-na-czesc-pol-tej-samej-klasy",
+      "plik": "includes/pipeline/departments/class-mp-department-02.php",
+      "dowod": "Limity byly dla company_name (255) i phone (30); segment i est_volume to tez varchar(100), bez zadnej kontroli.",
+      "skutek": "wpdb::process_fields() zwraca false zamiast zapisac obcieta wartosc, wiec dzial 7 konczyl sie insert_failed i ROLLBACK. Klient dostawal ogolny komunikat bez wskazania pola, wiec kazda kolejna proba z tym samym tekstem konczyla sie tak samo. Lead przepadal.",
+      "test": "tests/naprawy/limity-pol-formularza.php",
+      "para": "-"
+    },
+    {
+      "id": "P1-G4",
+      "data": "2026-07-31",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Weryfikator w tle kasowal potwierdzony vat_valid, gdy VIES nie odpowiedzial",
+      "klasa": "naprawa-klasy-bledu-zastosowana-tylko-w-jednym-z-miejsc",
+      "plik": "includes/class-mp-vat-verifier.php",
+      "dowod": "Biala lista miala fallback do wartosci z leada, VIES czytal wprost z odpowiedzi: array_key_exists('vat_valid',$vies) ? ... : null.",
+      "skutek": "Potwierdzone vat_valid=1 bylo nadpisywane przez null przy pierwszej nieudanej probie w tle: -30 pkt scoringu, vat_checked_at na NULL, po 5 probach status unknown. Wtyczka 2 nigdy nie zobaczyla 'valid', wiec odwrotne obciazenie (art. 196) stawalo sie nieosiagalne. Piate wystapienie tej klasy w projekcie.",
+      "test": "tests/naprawy/vies-nie-nadpisuje-potwierdzonego.php",
+      "para": "-"
     }
   ]
 }
