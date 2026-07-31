@@ -1,0 +1,943 @@
+=== AUDYT PROJEKTU: 3 wtyczki, 3 bazy danych ===
+repozytorium: /home/krzysiek/3 pluginy 3 bazy danych 
+glebokosc:    gleboki (3/3) — komplet kontroli, z ocena modelu
+  mp-lead-intake @ eb6f189 -> ok
+  mp-offer-builder @ 128345b -> ok
+  mp-sales-workflow @ 9e0ce1d -> ok
+model:        claude-cli
+
+--- Dzial 1: Audyt calego projektu (26 par) ---
+  [ OK ] 1.1   inwentarz                                          
+  [ OK ] 1.2   skladnia                                    20.5s  
+  [ OK ] 1.4   kolizje-nazw                                       
+  [BLAD] 1.5   kod-kontra-DDL                                     14 ustalen
+  [BLAD] 1.6   kontrakty-hakow                                    6 ustalen
+  [ OK ] 1.7   rejestracja-hakow                                  
+  [ OK ] 1.8   wzorce-SQL                                         
+  [ OK ] 1.10  granice-transakcji                                 
+  [ OK ] 1.18  idempotencja-i-blokada                             
+  [ OK ] 1.23  slownik-statusow                                   
+  [ OK ] 1.9   punkty-wejscia                                     
+  [BLAD] 1.11  RODO                                               2 ustalen
+  [ OK ] 1.12  arytmetyka-pieniedzy                               
+  [ OK ] 1.19  obsluga-bledow                                     
+  [ OK ] 1.13  spojnosc-wersji                                    
+  [BLAD] 1.21  cykl-zycia                                         2 ustalen
+  [ OK ] 1.14  licencje                                           
+  [BLAD] 1.17  dokumentacja                                       10 ustalen
+  [BLAD] 1.20  i18n                                               1 ustalen
+  [ OK ] 1.22  kod-nieuzywany                                     
+  [BLAD] 1.24  jakosc-testow                                      1 ustalen
+  [BLAD] 1.15  rejestr-kontra-testy                               4 ustalen
+  [ OK ] 1.16  zapytania-w-petli                                  
+  [ OK ] 1.3   PHPCS-WPCS                                  21.9s  
+  [BLAD] 1.25  semantyka-dzialow                        1,223.9s  16 ustalen
+  [BLAD] 1.26  komunikaty-dla-czlowieka                   763.5s  14 ustalen
+  bramka: 26/26 par wykonanych, pokrycie 100% -> ZALICZONA   [2029.8s]
+
+--- Dzial 2: Re-audyt (11 par) ---
+  [ OK ] 2.2   falszywe-alarmy                                    
+  [ OK ] 2.1   druga-metoda                                 0.3s  
+  [ OK ] 2.3   graf-zaleznosci                                    
+  [BLAD] 2.7   martwe-pola-audytu                                 8 ustalen
+  [ OK ] 2.8   regresja-miedzy-przebiegami                        
+  [ OK ] 2.6   dowod-naprawy                                0.1s  
+  [ OK ] 2.5   stabilizacja                                       
+  [ OK ] 2.4   powtarzalnosc                               41.7s  
+  [ OK ] 2.9   drugi-sedzia                               510.0s  
+  [ OK ] 2.11  potwierdzenie-ustalen-modelu               125.8s  
+  [ OK ] 2.10  audyt-werdyktu                                     
+  bramka: 11/11 par wykonanych, pokrycie 100% -> ZALICZONA   [678.0s]
+
+=== WYNIK AUDYTU ===
+
+SREDNIE (8):
+  [1.25] Agent 3.3: gdy odpowiedź Białej listy nie zawiera `result.subject.statusVat`, kod zapisuje `null` do transienta na 12 h i zwraca `company_status_checked => true` przy `company_status => null` — nieudane/niepełne rozstrzygnięcie jest raportowane jako sprawdzone, a odłożenie do tła (`company_status_pending`) zostaje zablokowane na 12 h.
+        mp-lead-intake/includes/pipeline/departments/class-mp-department-03.php:318
+        status: prawdopodobne
+        dowod: $status = isset( $body['result']['subject']['statusVat'] ) ?
+                $body['result']['subject']['statusVat'] : null;
+                set_transient( $cache_key, $status, 12 * HOUR_IN_SECONDS );
+                
+                return array(
+                	'company_status'         => $status,
+                	'company_status_checked' => true,
+                	'company_status_source'  => 'wl',
+                );
+                
+                oraz w run() (tryb async):
+                $cached = get_transient( self::wl_cache_key( $nip ) );
+                if ( false !== $cached ) { ... 'company_status_checked' => true ... }
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+                [2.9 drugi sedzia: trzyma] Kod potwierdzony
+                (class-mp-department-03.php:317-324). Mechanizm sie broni:
+                set_transient() z null zapisuje przez add_option()/prepare('%s') pusty
+                ciag, wiec get_transient() zwraca '' (nie false) i galaz cache-hit w
+                run() (l. 344-353) melduje company_status_checked=true bez zadnego
+                statusu, a company_status_pending juz nie powstanie do konca doby/12
+                h. Sasiedni Agent 3.2 (VIES) robi to poprawnie — cache'uje wylacznie
+                rozstrzygniete 1/0, a przy braku rozstrzygniecia zwraca checked=false
+                (l. 184-191, 301-315), wiec WL jest tu wyjatkiem, nie konwencja. Klasa
+                bledu ta sama co P3-A1/P1-A3/P1-C1 w rejestrze ('brak potwierdzenia
+                uznany za potwierdzenie'). Zastrzezenie do wagi: dla NIP-u faktycznie
+                spoza wykazu odpowiedz 200 bez 'subject' JEST rozstrzygnieciem, a
+                skutek (brak +20 pkt w scoringu, brak ponowienia w tle przez maks.
+                dobe) jest odwracalny — realny defekt to brak rozroznienia 'brak w
+                wykazie' od 'odpowiedz niepelna', wiec blizej drobnego niz sredniego.
+                [2.11 druga ocena: NIE POTWIERDZA] Kod celowo rozdziela awarie od
+                odpowiedzi: is_wp_error, kod != 200 i niepoprawny JSON zwracaja
+                company_status_checked => false i NIC nie cachuja. Do linii 317
+                dochodzi sie wylacznie po HTTP 200 z poprawna tablica JSON — a to w
+                API Bialej  […]\n[2.11] Ustalenie ZOSTAJE jako hipoteza: jedno
+                zaprzeczenie nie uniewaznia cudzego potwierdzenia.
+        skutek: NIP spoza wykazu albo chwilowa odpowiedź MF z HTTP 200, ale bez
+                obiektu `subject` (np. pusta koperta `result`): kod ustawia $status =
+                null, mimo to zwraca company_status_checked = true — czyli 'status
+                sprawdzony', choć żadnego statusu nie uzyskano. Jednocześnie null
+                trafia do cache na 12 h; przy odczycie `get_transient` nie zwraca
+                `false` (bez zewnętrznego object cache wartość zapisuje się jako
+                pusty string, z object cache jako null), więc warunek `false !==
+                $cached` uznaje to za trafienie i każdy kolejny lead z tym NIP-em
+                przez 12 h dostaje company_status_checked = true ze statusem
+                pustym/null, nigdy nie trafiając do ścieżki
+                `company_status_pending` i weryfikatora w tle. Operator widzi w
+                leadzie 'status firmy sprawdzony', mimo że Biała lista nigdy nie
+                zwróciła statusu, a ponowna próba nie nastąpi przez pół doby.
+        naprawa: Rozróżnić 'brak statusu' od 'status ustalony': zapisywać do cache i zwracać `company_status_checked => true` tylko gdy `$status` jest niepustym stringiem; w przeciwnym razie zwrócić `company_status => null, company_status_checked => false` (jak w gałęziach is_wp_error / non-200) i albo nie cache'ować wcale, albo zapisać krótkotrwały (np. 15 min) znacznik negatywny odróżnialny od realnego statusu, tak by weryfikator w tle mógł ponowić próbę.
+
+  [1.25] Kontrola "nieznanego kodu kraju" (S4-02) jest warunkowa — wykonuje sie tylko, gdy zaladowane jest WooCommerce. W srodowisku bez WC() zabezpieczenie znika i poprawnie sformatowany, ale nieistniejacy kod kraju trafia do galezi 'poza UE', dostajac ciche 0% VAT z falszywa podstawa prawna. Ten sam wejsciowy kontekst daje dwa rozne wyniki podatkowe zaleznie od tego, czy WC jest zainicjalizowane.
+        mp-offer-builder/includes/pipeline/departments/class-mp-ob-department-06.php:96
+        status: potwierdzone
+        dowod: `if ( function_exists( 'WC' ) && is_object( WC() ) && isset(
+                WC()->countries ) && method_exists( ... ) ) { ... }` — caly test
+                'unknown_country' jest w tym warunku; komentarz sam przyznaje '(gdy
+                dostepna)'. Rownoczesnie docblock pliku deklaruje: 'CZYSTA FUNKCJA na
+                kontekscie ... zero wywolan WC_* albo wpdb', czyli dzial jest
+                projektowany tak, by dzialac bez WC. Gdy warunek jest pominiety, kod
+                'DR' przechodzi regex `/^[A-Z]{2}$/`, nie jest w EU_COUNTRIES i wpada
+                do `else { $mechanism = 'out_of_scope'; $basis = 'Kraj spoza UE —
+                poza zakresem dyrektywy VAT.'; }`.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+                [2.9 drugi sedzia: watpliwe] Warunek jest cytowany wiernie
+                (class-mp-ob-department-06.php:96-105), ale scenariusz nie wynika z
+                dowodu. Pipeline to jedna sekwencja 01..11
+                (class-mp-ob-pipeline-factory.php:43-53), a Dzial 2 poprzedzajacy
+                Dzial 6 konczy sie twardym FAIL 'woocommerce_unavailable', gdy nie ma
+                function_exists('wc_get_product') / class_exists('WC_Tax')
+                (department-02.php:56-58, 116-118, 254-256). Zeby Dzial 6 w ogole sie
+                uruchomil, WooCommerce musi byc zaladowane, a WC()->countries jest
+                dostepne od haka 'init' — kazde realne wejscie (admin-ajax, REST,
+                WP-Cron) dziala po 'init'. Wskazana rozbieznosc wynikow istnieje wiec
+                tylko w tescie jednostkowym Dzialu 6 uruchamianym w izolacji, nie na
+                sciezce, ktora wypuszcza oferte do klienta. Dodatkowo docblock sam
+                deklaruje ten test jako opcjonalny ('gdy dostepna'), a bariera
+                podstawowa (format ISO 2 liter, l. 84-90) dziala bezwarunkowo.
+                Sensowna, ale to postulat wzmocnienia (wlasna lista krajow zamiast
+                listy WC), nie blad z realnym skutkiem podatkowym.
+                [2.11 POTWIERDZONE dwoma kluczami] cytat odnaleziony w pliku przez
+                PHP; druga, niezalezna ocena potwierdza i wskazuje: if (
+                function_exists( 'WC' ) && is_object( WC() ) && isset( WC()->countries
+                ) && method_exists( WC()->countries, 'get_countries' ) ) {
+        skutek: Klient ma w Dziale 1 kraj 'DR' (literowka zamiast 'DE'). Pipeline
+                uruchomiony w kontekscie, w ktorym WC() nie jest dostepne (WP-Cron,
+                REST przed bootstrapem WooCommerce, testy jednostkowe dzialu jako
+                'czystej funkcji', chwilowa deaktywacja WC). Guard sie nie wykonuje ->
+                tax_mechanism='out_of_scope', vat_grosze=0, gross=net, tax_basis 'Kraj
+                spoza UE'. Oferta wychodzi z 0% VAT i podstawa prawna, ktora nie
+                istnieje; QA6 to przepuszcza, bo net+0=gross. Sprzedawca zostaje z
+                nierozliczonym VAT-em krajowym.
+        naprawa: Walidowac kod kraju wobec statycznej listy ISO 3166-1 alpha-2 wbudowanej w dzial (ta sama, ktora cytuje komentarz przy EU_COUNTRIES: mp-lead-intake/docs/dzial-04/iso-3166-1-kody-krajow.md), a liste WC traktowac wylacznie jako dodatkowy filtr, gdy jest dostepna. Brak listy referencyjnej musi konczyc sie FAIL, nigdy galezia out_of_scope z 0%.
+
+  [1.25] Agent 2.3 buduje zbiór klas podatkowych ze WSZYSTKICH pozycji, ignorując zapisany przez Agenta 2.1 tax_status — pozycja zwolniona z VAT ('none') wymusza istnienie stawki dla swojej klasy i wywraca cały dział.
+        mp-offer-builder/includes/pipeline/departments/class-mp-ob-department-02.php:259
+        status: potwierdzone
+        dowod: foreach ( $products as $product ) { $tax_classes[ isset(
+                $product['tax_class'] ) ? $product['tax_class'] : '' ] = true; } —
+                brak filtra po tax_status, mimo że Agent 2.1 zapisuje to pole z
+                komentarzem S3-02: 'produkt none (zwolniony) NIE może dostać VAT wg
+                klasy (Dział 6 traktuje none jako 0%)'.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+                [2.9 drugi sedzia: trzyma] Potwierdzone i wewnetrznie sprzeczne w
+                obrebie jednego pipeline'u. Agent 2.1 celowo zapisuje tax_status z
+                komentarzem S3-02 (department-02.php:87-89), Agent 6.2 konsekwentnie
+                wyprowadza pozycje 'none' do klasy TAX_NONE i JAWNIE zwalnia ja z
+                wymogu stawki (department-06.php:210-226), a Agent 2.3 buduje zbior
+                klas z WSZYSTKICH produktow bez filtra po tax_status
+                (department-02.php:258-262) i traktuje pusty wynik
+                get_base_tax_rates() jako twardy FAIL 'missing_tax_rate' (l. 277-293).
+                Skutek: klasa, ktorej Dzial 6 nigdy nie uzyje, moze wywrocic caly
+                proces. Scenariusz realny — pozycja zwolniona przypisana do klasy
+                bez skonfigurowanych wierszy stawek (typowo 'Zero rate') blokuje
+                oferte, w ktorej wszystkie pozostale klasy sa poprawnie
+                skonfigurowane.
+                [2.11 POTWIERDZONE dwoma kluczami] cytat odnaleziony w pliku przez
+                PHP; druga, niezalezna ocena potwierdza i wskazuje: $tax_classes[
+                isset( $product['tax_class'] ) ? $product['tax_class'] : '' ] = true;
+        skutek: Oferta zawiera usługę zwolnioną z VAT (tax_status = 'none')
+                przypisaną do klasy bez skonfigurowanych stawek — np. domyślna
+                klasa 'Zero rate' w świeżej instalacji WooCommerce, która istnieje,
+                ale nie ma żadnego wiersza stawki. WC_Tax::get_base_tax_rates()
+                zwraca pustkę, Agent 2.3 dopisuje błąd i cały Dział 2 kończy
+                się FAIL 'missing_tax_rate', choć dla tej pozycji stawka nie jest w
+                ogóle potrzebna. Handlowiec nie może wystawić poprawnej oferty i
+                nie ma jak tego obejść inaczej niż konfiguracją stawki, która i
+                tak nie zostanie użyta.
+        naprawa: Przed dopisaniem klasy do zbioru pominąć pozycje nieopodatkowane: if ( isset( $product['tax_status'] ) && 'taxable' !== $product['tax_status'] ) { continue; } — klasa używana także przez pozycję opodatkowaną nadal trafi do zbioru z tamtej pozycji.
+
+  [1.25] Walidacja limitów pól w Agencie 10.1 mierzy BAJTY (strlen), a limity w FIELD_LIMITS pochodzą z definicji varchar(N), która w MySQL/utf8mb4 liczy ZNAKI — zła jednostka pomiaru.
+        mp-offer-builder/includes/pipeline/departments/class-mp-ob-department-10.php:184
+        status: prawdopodobne
+        dowod: const FIELD_LIMITS = array( 'client_name' => 191, ... ) — komentarz:
+                „lustro schematu w class-mp-offer-builder-db.php"; walidacja: `if (
+                isset( $header[ $field ] ) && strlen( (string) $header[ $field ] ) >
+                $max )` z komunikatem „Pole %s przekracza limit %d znaków (DDL)".
+                Wartość 191 to klasyczny limit indeksu utf8mb4 (767/4), a
+                dokumentacja działu wprost przywołuje `varchar(191)` dla
+                `client_name`. strlen() zwraca długość w bajtach, więc dla tekstu
+                polskiego (ą, ć, ę, ł, ń, ó, ś, ż, ź = 2 bajty w UTF-8) wynik
+                jest zawsze >= liczby znaków.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+                [2.9 drugi sedzia: trzyma] Jednostka pomiaru faktycznie sie nie
+                zgadza. FIELD_LIMITS to lustro DDL (department-10.php:46-60), a
+                schemat deklaruje client_name varchar(191) przy
+                $wpdb->get_charset_collate() (class-mp-offer-builder-db.php:147, 218)
+                — w utf8mb4 varchar liczy ZNAKI. Walidacja uzywa strlen(), czyli
+                BAJTOW (department-10.php:181-188), i sama nazywa limit 'znakami' w
+                komunikacie. Skutek jest jednostronny — nadmierna surowosc, wiec bez
+                ryzyka obciecia w bazie: falszywy FAIL 'ddl_violation' i nieudany
+                zapis oferty przy nazwie miesczacej sie w kolumnie. Realnie dotyczy
+                jednego pola (client_name; email/nip/currency/sha256/uuid sa ASCII) i
+                wymaga nazwy >191 bajtow przy <=191 znakach, wiec skutek jest waski
+                — waga blizsza drobnej niz sredniej. Poprawka: mb_strlen() na tych
+                polach.
+        skutek: Klient o nazwie firmy złożonej ze 120 znaków, z których 80 to
+                polskie znaki diakrytyczne (120 znaków = 200 bajtów). MySQL
+                zapisałby ten wiersz bez obcięcia (120 <= 191 znaków), ale Agent
+                10.1 liczy 200 > 191 i zwraca fail('ddl_violation'). Cały pipeline
+                pada, oferta nie zostaje zapisana, a handlowiec dostaje komunikat
+                „Pole client_name przekracza limit 191 znaków (DDL)", który jest
+                nieprawdziwy — nazwa ma 120 znaków. Ten sam efekt dotyczy
+                client_email i tax_mechanism/client_vat_status przy wartościach z
+                ogonkami.
+        naprawa: Mierzyć znaki, nie bajty: `mb_strlen( (string) $header[ $field ], 'UTF-8' )` (z fallbackiem na strlen, gdy brak mbstring). Jeśli intencją było pilnowanie bajtów, trzeba zmienić źródło limitów, bo DDL varchar(N) w utf8mb4 to N znaków, nie N bajtów.
+
+  [1.25] Agent 10.1 przy braku danych z Działu 5/6 po cichu wstawia do pozycji wartości 0 zamiast zgłosić błąd — plan przechodzi walidację i oferta zapisuje się jako sukces z pozycjami o cenie 0 przy niezerowych sumach w nagłówku.
+        mp-offer-builder/includes/pipeline/departments/class-mp-ob-department-10.php:148
+        status: prawdopodobne
+        dowod: `$lines = is_array( $context->get( 'lines' ) ) ? $context->get(
+                'lines' ) : array();` (autor jawnie dopuszcza brak tej struktury), a
+                następnie w pętli po $items: `'price_base_grosze' => (int) ( isset(
+                $lines[ $i ]['unit_grosze'] ) ? $lines[ $i ]['unit_grosze'] : 0 )`,
+                `'price_final_grosze' => (int) ( isset( $lines[ $i ]['line_grosze'] )
+                ? $lines[ $i ]['line_grosze'] : 0 )`, `'qty' => (int) ( isset(
+                $item['qty'] ) ? $item['qty'] : 0 )`, `'tax_rate' => isset(
+                $line_tax_rates[ $i ] ) ? ... : (float) $context->get( 'tax_rate', 0
+                )`. Lista $errors sprawdza wyłącznie długości pól, słownik
+                statusów i `empty( $item_rows )` — nie sprawdza ani niezerowości
+                pozycji, ani zgodności z net_grosze/vat_grosze/gross_grosze branymi
+                WPROST z kontekstu. Krytyk 10.1 sprawdza tylko obecność czterech
+                sekcji (`empty( $plan[ $section ] )`), a QA działu weryfikuje
+                „wiersze = plan", więc porównuje zapis do już zafałszowanego
+                planu.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+                [2.9 drugi sedzia: watpliwe] Cytat kodu zgodny (department-10.php:73,
+                141-151), ale scenariusz jest zablokowany wyzej i sam sobie przeczy.
+                $lines powstaje w Agencie 4.1 petla po $items i jest kluczowane
+                DOKLADNIE kluczami $items (department-04.php:60-70), Agent 4.2
+                dopisuje line_grosze po tych samych kluczach (l. 95-101), a krytycy
+                K4.1/K4.2 (MP_OB_Parity_Critic, 'lines') odrzucaja dzial, gdy
+                count(lines) != count(items) (class-mp-ob-parity-critic.php:48-50).
+                Nigdzie miedzy Dzialem 4 a 10 nie ma array_values()/przeindeksowania
+                ani $items, ani $lines. Ponadto gdyby lines rzeczywiscie brakowalo,
+                subtotal_grosze tez bylby 0 (department-04.php:94-101), wiec sytuacja
+                'pozycje po 0 przy niezerowych sumach naglowka' nie powstaje. Zostaje
+                uwaga projektowa: 0 jako cicha wartosc domyslna zamiast fail() jest
+                slabym zabezpieczeniem w glab — sensowna do poprawy, ale bez
+                osiagalnego skutku.
+        skutek: Kontekst dociera do Działu 10 bez klucza 'lines' albo z tablicą
+                $lines krótszą/inaczej kluczowaną niż $items (np. $items
+                przekazane z niesekwencyjnymi kluczami 0,2,3 po odfiltrowaniu pozycji,
+                a $lines przeindeksowane od zera). Dla każdego niedopasowanego
+                indeksu powstaje wiersz pozycji z price_base_grosze=0 i
+                price_final_grosze=0. Walidacja przechodzi (item_rows niepuste),
+                transakcja się commituje, dział raportuje SUKCES: w bazie leży
+                oferta, której nagłówek ma net/vat/gross z kontekstu (kwoty
+                prawdziwe, zgodne z PDF-em), a pozycje mają ceny 0. Plugin 3, który
+                czyta pozycje, widzi ofertę wartą 0 zł; rozbieżność nie zostanie
+                nigdy wykryta, bo żadna bramka nie porównuje sumy pozycji z
+                nagłówkiem.
+        naprawa: W pętli budującej $item_rows traktować brak `$lines[ $i ]['unit_grosze'] / ['line_grosze']` oraz brak qty jako błąd planu: dopisać wpis do `$errors` (np. field "items[$i]") zamiast podstawiać 0, i zwrócić fail('ddl_violation'). Dodatkowo dorzucić do walidacji kontrolę spójności: suma price_final_grosze pozycji minus rabat z Działu 5 musi równać się net_grosze nagłówka.
+
+  [1.26] Komunikat bledu dla NIP twierdzi konkretna przyczyne ('niepoprawna suma kontrolna'), ktora bywa nieprawdziwa: agent 3.1 odrzuca kazdy NIP zawierajacy znaki inne niz cyfry, zanim w ogole policzy sume kontrolna. Klient z poprawnym NIP-em wpisanym z myslnikami/spacjami/prefiksem kraju dostaje komunikat wskazujacy na bledny numer, a nie na format, i nie wie, co ma poprawic.
+        mp-lead-intake/includes/pipeline/departments/class-mp-department-03.php:71
+        status: prawdopodobne
+        dowod: W checksum_valid() pierwszy warunek to `if ( ! preg_match(
+                '/\A\d{10}\z/', (string) $nip ) ) { return false; }` — brak
+                normalizacji wejscia. W run() wynik trafia do `'errors' => $valid ?
+                array() : array( 'nip' => 'Niepoprawna suma kontrolna NIP' )`, wiec
+                kazda przyczyna odrzucenia (zly format, placeholder z jednakowych
+                cyfr, realnie zla suma) daje ten sam, jednoznacznie brzmiacy
+                komunikat. Ze ta sama wartosc kontekstu 'nip' potrafi zawierac znaki
+                niecyfrowe wynika z tego samego pliku: agenci 3.2 i 3.3 czytaja to
+                samo pole i defensywnie czyszcza je przez `preg_replace( '/\D+/', '',
+                (string) $context->get( 'nip', '' ) )`.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Klient wpisuje w formularzu NIP w typowym polskim zapisie
+                '123-456-32-18' (albo '1234563218 ' ze spacja koncowa, albo
+                'PL1234563218'). Agent 3.2/3.3 normalizuja to do 10 cyfr i traktuja
+                jako poprawny numer, a agent 3.1 zwraca nip_valid=false i komunikat
+                'Niepoprawna suma kontrolna NIP'; QA3 wymaga nip_valid, wiec lead
+                zostaje odrzucony. Klient widzi zarzut, ze jego NIP jest bledny, choc
+                numer jest poprawny — i nie ma w komunikacie zadnej wskazowki, ze
+                chodzi o myslniki.
+        naprawa: Znormalizowac wejscie przed walidacja (te sama regula co w 3.2/3.3: `preg_replace( '/\D+/', '', $nip )`, ewentualnie zdjac prefiks 'PL'), a komunikat rozdzielic wedlug rzeczywistej przyczyny: inny komunikat dla zlego formatu ('NIP powinien miec 10 cyfr — wpisz go bez myslnikow i spacji') i inny dla faktycznie niezgodnej sumy kontrolnej.
+
+  [1.26] Gałąź obsługi nieudanego UPDATE zwraca kod `already_approved`, choć trafia do niej także błąd bazy danych. Pracownik dostaje wtedy niebieski komunikat informacyjny „Ta oferta była już zatwierdzona — nic się nie zmieniło.", mimo że zatwierdzenie się nie zapisało, oferta dalej jest szkicem, a zdarzenie `mp_offer_approved` nie zostało wystawione.
+        mp-offer-builder/includes/class-mp-offer-builder-approval.php:147
+        status: prawdopodobne
+        dowod: `$changed = $wpdb->update( ... );` a następnie `if ( 1 !== (int)
+                $changed ) { return new WP_Error( 'already_approved', __( 'Ta oferta
+                była już zatwierdzona.' ) ); }`. W `notice()` ten sam kod jest
+                zmapowany na poziom nie-błędu: `'already_approved' => array( 'info',
+                __( 'Ta oferta była już zatwierdzona — nic się nie zmieniło.' )
+                )`. `$wpdb->update()` zwraca `false` przy błędzie zapytania i `0`,
+                gdy żaden wiersz nie pasował — obie wartości spełniają `1 !==
+                (int) $changed` i dają identyczny komunikat, choć oznaczają dwie
+                różne rzeczy: awarię zapisu i przegraną wyścigu.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Pracownik klika „Zatwierdź" na kompletnej ofercie (numer i PDF
+                są), ale zapis do BD-2 się nie udaje — zerwane połączenie,
+                zablokowana tabela, błąd SQL. `$wpdb->update()` zwraca `false`,
+                funkcja wraca z kodem `already_approved`, a po przekierowaniu na
+                listę ofert pracownik widzi komunikat typu „info": „Ta oferta
+                była już zatwierdzona — nic się nie zmieniło.". Uznaje sprawę
+                za załatwioną i nie ponawia akcji. W rzeczywistości oferta została
+                w statusie `draft`, `mp_offer_approved` nigdy nie poszło, plugin 3
+                nie rozpoczął wysyłki i klient nie dostaje oferty. Nic w
+                komunikacie nie sugeruje awarii, a wiersz na liście nadal pokazuje
+                szkic — pracownik widzi dwa sprzeczne stany i wierzy komunikatowi.
+        naprawa: Rozdzielić obie sytuacje po wykonaniu UPDATE: `if ( false === $changed ) { return new WP_Error( 'db_error', __( 'Nie udało się zapisać zatwierdzenia — spróbuj ponownie za chwilę, a jeśli problem wraca, zgłoś to administratorowi.' ) ); }` i dopiero `if ( 1 !== (int) $changed )` traktować jako `already_approved`. Do mapy w `notice()` dopisać wpis `'db_error' => array( 'error', ... )` z tym samym tekstem, żeby na liście pojawił się czerwony komunikat błędu, a nie informacja o braku zmian.
+
+  [1.26] Oba maile alarmowe do administratora identyfikuja wylacznie numer dzialu — nie zawieraja offer_id ani request_id, mimo ze log_exception() ma te wartosci pod reka i wpisuje je do tego samego rekordu BD-2.
+        mp-offer-builder/includes/pipeline/class-mp-ob-pipeline-logger.php:108
+        status: prawdopodobne
+        dowod: W log_exception() dwie linie wyzej powstaje wiersz z 'offer_id' =>
+                $context->get( 'offer_id' ) i 'request_id' => $context->get(
+                'request_id' ), a tresc maila to tylko sprintf( "Pipeline przerwany
+                wyjatkiem w dziale %d.\nTyp: %s\nKomunikat: %s\n", ... ). W
+                notify_admin() jest tak samo: temat '[MP Offer Builder] Blad w dziale
+                %d (%s)' i body 'Pipeline zatrzymany w dziale %d (%s). Kod / Bledy'
+                — metoda nie dostaje nawet $context, wiec nie moze podac oferty.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Sklep przetwarza kilkanascie ofert dziennie. O 14:12 pipeline
+                zatrzymuje sie w dziale 5 na ofercie #412. Pracownik dostaje maila
+                'Blad w dziale 5 (kalkulacja), Kod: E_VALIDATION' i nie wie, ktora
+                oferta stoi — musi recznie przegladac dziennik aktywnosci i
+                dopasowywac po znaczniku czasu. Gorzej: jesli w tych samych 15
+                minutach padnie druga oferta w tym samym dziale, ogranicznik
+                czestotliwosci wycina drugiego maila, wiec jeden otrzymany komunikat
+                sugeruje jeden incydent, a stoja dwie oferty.
+        naprawa: Dopisac do tematu/tresci obu maili identyfikatory: w log_exception() $context->get( 'offer_id' ) i $context->get( 'request_id' ); w log_failure() przekazac $context do notify_admin() (zmiana sygnatury) i wstawic te same pola. Gdy offer_id jest puste — wypisac jawnie 'oferta: nieznana', a nie pusty string.
+
+DROBNE (11):
+  [1.25] Agent 2.3 bierze z wyniku get_base_tax_rates() tylko pierwszą stawkę (reset), po cichu gubiąc pozostałe skonfigurowane stawki dla tej samej klasy.
+        mp-offer-builder/includes/pipeline/departments/class-mp-ob-department-02.php:283
+        status: prawdopodobne
+        dowod: $first = reset( $found ); $rates[ $tax_class ] = array( 'rate' =>
+                (float) $first['rate'], 'label' => (string) $first['label'] ); —
+                brak jakiejkolwiek kontroli count( $found ). Dokumentacja działu
+                deklaruje założenie 'jedna klasa podatkowa = jedna stawka', ale kod
+                tego założenia nie weryfikuje: pustą tablicę traktuje jako twardy
+                FAIL, a tablicę wieloelementową milcząco obcina.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+                [2.9 drugi sedzia: trzyma] Kod zgodny z dowodem co do istoty
+                (department-02.php:276-288; drobna niescislosc cytatu — sa tam
+                isset()/null, ale kontroli count($found) faktycznie brak). Asymetria
+                jest realna i wlasnie ona jest problemem: pusty wynik = twardy FAIL,
+                wynik wieloelementowy = ciche obciecie do pierwszego wiersza.
+                WC_Tax::get_base_tax_rates() zwraca wszystkie wiersze pasujace do
+                lokalizacji bazowej (m.in. stawki compound), a Dzial 6 liczy VAT
+                wylacznie z rates[tax_class]['rate'] (department-06.php:227-230), wiec
+                podatek wychodzi zanizony bez zadnego sygnalu. Zalozenie 'jedna klasa
+                = jedna stawka' jest udokumentowane, ale niezweryfikowane — a zasada
+                tego projektu jest odwrotna: brak danych ma dawac jawny blad, nie
+                cichy domysl. Waga 'drobne' adekwatna (konfiguracja spoza typowego
+                polskiego sklepu).
+        skutek: Sklep ma dla kraju bazowego dwie stawki w tej samej klasie (np. stawka
+                krajowa + druga, w tym compound — konfiguracja spotykana przy
+                podatkach federalny/regionalny). get_base_tax_rates() zwraca oba
+                wiersze, Dział 2 zapisuje wyłącznie pierwszy, więc Dział 6
+                policzy VAT z części należnej stawki i oferta wyjdzie do klienta z
+                zaniżonym podatkiem — bez błędu, bez ostrzeżenia, bo wynik
+                agenta to OK.
+        naprawa: Albo przekazać wszystkie zwrócone wiersze (z flagą compound) i zsumować je w Dziale 6, albo — skoro dokumentacja zakłada jedną stawkę na klasę — zgłaszać błąd przy count( $found ) > 1 zamiast obcinać.
+
+  [1.26] Numer dzialu 0 oznaczajacy "nieznany" trafia do tematu i tresci maila oraz do opisu w dzienniku jako zwykly numer dzialu — czlowiek czyta "dzial 0", ktory nie istnieje.
+        mp-lead-intake/includes/pipeline/class-mp-pipeline-logger.php:110
+        status: prawdopodobne
+        dowod: Docblock log_exception() jawnie deklaruje: "@param int $dept_num Numer
+                dzialu, w ktorym doszlo do awarii (0 = nieznany)". Ta sama zmienna
+                jest drukowana bez rozroznienia: sprintf( '[MP Lead Intake]
+                Nieoczekiwany wyjatek w pipeline (dzial %d)', (int) $dept_num ),
+                sprintf( "Pipeline przerwany wyjatkiem w dziale %d.\n...", (int)
+                $dept_num ) oraz sprintf( 'Nieoczekiwany wyjatek w dziale %d: %s',
+                (int) $dept_num, ... ) w opisie wpisu do dziennika.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Wyjatek leci w subskrybencie do_action('mp_lead_created') spoza
+                wtyczki — wywolujacy nie wie, w ktorym dziale, wiec przekazuje 0
+                (przypadek opisany wprost w docblocku). Administrator dostaje maila
+                "Nieoczekiwany wyjatek w pipeline (dzial 0)" i wpis w dzienniku
+                "Nieoczekiwany wyjatek w dziale 0". Szuka dzialu numer 0 w pipeline 11
+                dzialow, nie znajduje go i traci czas na ustalenie, czy to blad
+                numeracji, czy realny dzial — komunikat nie mowi, ze miejsce awarii
+                jest po prostu nieznane.
+        naprawa: Wyliczyc etykiete przed sprintf-em, np. $dept_label = ( (int) $dept_num > 0 ) ? sprintf( 'dziale %d', (int) $dept_num ) : 'nieznanym dziale'; i uzyc jej w temacie, tresci maila oraz w description wpisu pipeline_exception (%s zamiast %d).
+
+  [1.26] Wpis w dzienniku o niedostarczonym alarmie podaje przyczyne, ktorej kod nie ustalil: "serwer poczty odrzucil wiadomosc". wp_mail() zwraca false takze wtedy, gdy do zadnego serwera poczty nie doszlo.
+        mp-lead-intake/includes/pipeline/class-mp-pipeline-logger.php:116
+        status: prawdopodobne
+        dowod: $sent = wp_mail( ... ); if ( ! $sent ) { $this->log_alert_failure(
+                sprintf( 'Alarm o wyjatku w dziale %d NIE zostal wyslany — serwer
+                poczty odrzucil wiadomosc.', ... ) ); } oraz identyczne sformulowanie
+                w notify_admin(): 'Alarm o zatrzymaniu dzialu %d (%s) NIE zostal
+                wyslany — serwer poczty odrzucil wiadomosc.'. Jedyny fakt, jakim kod
+                dysponuje, to boolean false z wp_mail() — bez zadnej informacji o
+                przyczynie.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Na instalacji nie skonfigurowano SMTP albo wtyczka pocztowa
+                przechwytuje filtr 'pre_wp_mail'/'wp_mail' i zwraca false, wzglednie
+                PHPMailer rzuca wyjatek przed nawiazaniem polaczenia. Zadna wiadomosc
+                nie opuszcza serwera. Pracownik czytajacy dziennik widzi twierdzenie,
+                ze "serwer poczty odrzucil wiadomosc", idzie do logow serwera
+                pocztowego, nie znajduje tam ani jednej proby i albo uznaje dziennik
+                za niewiarygodny, albo diagnozuje nie ten element, ktory jest zepsuty.
+        naprawa: Opisac fakt zamiast domyslu, np. 'Alarm o zatrzymaniu dzialu %d (%s) NIE zostal wyslany — wp_mail() zwrocilo false, wiadomosc nie zostala przyjeta do wysylki. Sprawdz konfiguracje poczty/SMTP i wtyczki filtrujace wp_mail.' Ewentualnie dolozyc do meta_json komunikat z akcji 'wp_mail_failed' (WP_Error), jesli jest dostepny.
+
+  [1.26] Gdy opcja admin_email jest pusta, obie metody wychodza cicho — brak alarmu nie zostawia zadnego sladu w dzienniku, mimo ze klasa deklaruje odwrotna zasade.
+        mp-lead-intake/includes/pipeline/class-mp-pipeline-logger.php:104
+        status: prawdopodobne
+        dowod: W log_exception(): $to = get_option( 'admin_email' ); if ( ! $to ) {
+                return; } — identycznie w notify_admin(). Sciezka ta nie wola
+                log_alert_failure(), podczas gdy sciezka ! $sent ja wola. Docblock
+                log_alert_failure() deklaruje: "Slad musi wiec zostac tam, gdzie widac
+                go BEZ poczty: w dzienniku, obok wpisu, ktory ten alarm wywolal."
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Na instalacji wyczyszczono lub nigdy nie ustawiono admin_email (np. po
+                migracji bazy albo przy przenoszeniu srodowiska). Pipeline zatrzymuje
+                sie na leadzie, powstaje wpis 'pipeline_error', ale zaden alarm nie
+                wychodzi i dziennik o tym nie wspomina. Pracownik przegladajacy
+                dziennik widzi tylko blad pipeline i przyjmuje, ze administrator
+                zostal powiadomiony, a mail gdzies zaginal — awaria pozostaje bez
+                reakcji, bo nikt nie wie, ze powiadomienie w ogole nie mialo adresata.
+        naprawa: Przed obydwoma `return;` wywolac log_alert_failure() z opisem typu 'Alarm o zatrzymaniu dzialu %d (%s) NIE zostal wyslany — opcja admin_email jest pusta, brak adresata.' i odpowiednim meta.
+
+  [1.26] Wpis 'admin_alert_failed' nie niesie ani lead_id, ani request_id, wiec czytajacy nie potrafi powiazac niedostarczonego alarmu z konkretnym przebiegiem, ktorego dotyczyl.
+        mp-lead-intake/includes/pipeline/class-mp-pipeline-logger.php:147
+        status: prawdopodobne
+        dowod: log_alert_failure() wstawia 'lead_id' => null oraz 'meta_json' =>
+                wp_json_encode( $meta ), gdzie $meta z obu wywolan zawiera wylacznie
+                'alert', 'department' i ewentualnie 'code'. Dla porownania
+                log_failure() i log_exception() zapisuja 'lead_id' => $context->get(
+                'lead_id' ) i 'request_id' => $context->get( 'request_id' ). Komentarz
+                w metodzie uzasadnia pominiecie tylko adresu administratora i IP — o
+                lead_id nie mowi nic.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: W ciagu tego samego kwadransa dwa leady wchodza w pipeline; dzial 4
+                wywala sie na obu, wysylka alarmu dla pierwszego nie dochodzi. W
+                dzienniku sa dwa wpisy 'pipeline_error' z lead_id 412 i 413 oraz jeden
+                wpis 'admin_alert_failed' bez lead_id i bez request_id, mowiacy tylko
+                o dziale 4. Pracownik sprawdzajacy historie leada 412 (dziennik BD-3
+                jest prowadzony per lead) nie zobaczy przy nim informacji, ze alarm
+                nie wyszedl, a widzac sam wpis 'admin_alert_failed' nie ustali,
+                ktorego przebiegu dotyczyl.
+        naprawa: Przekazac kontekst do log_alert_failure() (dodatkowy parametr $lead_id / $request_id albo MP_Context) i zapisac 'lead_id' w kolumnie oraz 'request_id' w meta_json — tak jak robia to pozostale dwie metody.
+
+  [1.26] Tresc maila do administratora wstawia wynik wp_json_encode() bez sprawdzenia, czy kodowanie sie powiodlo — przy nieudanym kodowaniu wiadomosc konczy sie pustym "Bledy: ".
+        mp-lead-intake/includes/pipeline/class-mp-pipeline-logger.php:187
+        status: prawdopodobne
+        dowod: $body = sprintf( "Pipeline zatrzymany w dziale %d (%s).\nKod:
+                %s\nBledy: %s\n", ..., wp_json_encode( $result->get_errors() ) ); —
+                brak kontroli zwrotki. Ta sama funkcja bez kontroli buduje 'meta_json'
+                w log_failure() (tablica zawiera m.in. 'errors' i 'data').
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Lead wysyla formularz z polem zawierajacym bajty spoza UTF-8 (np.
+                wklejka z Windows-1250 przez zewnetrzny integrator), a komunikat bledu
+                krytyka cytuje wartosc tego pola. wp_json_encode() nie potrafi
+                zakodowac takiej tablicy i zwraca false, wiec sprintf wstawia pusty
+                ciag: administrator dostaje maila "Bledy: " bez zadnego szczegolu, a
+                rownolegly wpis w dzienniku ma puste meta_json (ta sama funkcja na
+                tych samych danych) — czyli tresc bledu przepada w obu miejscach
+                naraz i nie da sie ustalic, co zablokowalo leada.
+        naprawa: Zapisac wynik do zmiennej i podstawic zastepnik, np. $errors_txt = wp_json_encode( $result->get_errors() ); if ( false === $errors_txt ) { $errors_txt = '(nie udalo sie zserializowac listy bledow — sprawdz wpis w dzienniku aktywnosci)'; } — analogicznie zabezpieczyc meta_json.
+
+  [1.26] Puste pole NIP daje komunikat o niepoprawnej sumie kontrolnej zamiast informacji o brakujacej danej. Uzytkownik, ktory nic nie wpisal, czyta zarzut dotyczacy wartosci, ktorej nie podal.
+        mp-lead-intake/includes/pipeline/departments/class-mp-department-03.php:65
+        status: prawdopodobne
+        dowod: `$nip = (string) $context->get( 'nip', '' );` — przy braku pola
+                domyslna wartoscia jest pusty string. `checksum_valid( '' )` nie
+                przechodzi `preg_match( '/\A\d{10}\z/' )` i zwraca false, wiec run()
+                ustawia `'errors' => array( 'nip' => 'Niepoprawna suma kontrolna NIP'
+                )`. Ten sam plik pokazuje, ze pusty NIP jest przewidzianym stanem:
+                agenci 3.2 i 3.3 maja dla niego osobna galaz `if ( '' === $nip ) {
+                return MP_Result::ok( ... 'checked' => false ) }`, czyli nie traktuja
+                go jako bledu.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Klient wysyla formularz bez wypelnienia pola NIP (albo pole nie
+                zostalo przekazane do kontekstu). Zamiast komunikatu 'Podaj NIP'
+                dostaje 'Niepoprawna suma kontrolna NIP' — komunikat sugerujacy, ze
+                wpisana wartosc jest zla, podczas gdy zadnej wartosci nie ma, wiec
+                klient nie wie, ze ma po prostu uzupelnic pole.
+        naprawa: W run() agenta 3.1 rozroznic pusty NIP od NIP-u z bledna suma kontrolna i zwrocic dla pustego osobny komunikat, np. `'nip' => 'Podaj NIP (10 cyfr)'`, zgodnie z tym, jak pusty NIP obsluguja juz agenci 3.2 i 3.3.
+
+  [1.26] Wpis w dzienniku o nieudanym alarmie podaje jedna, zmyslona przyczyne ('serwer poczty odrzucil wiadomosc'), podczas gdy wp_mail() zwraca false takze z zupelnie innych powodow.
+        mp-offer-builder/includes/pipeline/class-mp-ob-pipeline-logger.php:113
+        status: prawdopodobne
+        dowod: if ( ! $sent ) { $this->log_alert_failure( sprintf( 'Alarm o wyjatku w
+                dziale %d NIE zostal wyslany — serwer poczty odrzucil wiadomosc.',
+                ... ) ); } — identycznie w notify_admin(). Kod ma do dyspozycji
+                tylko bool false z wp_mail(), a wp_mail() zwraca false rowniez gdy
+                filtr 'pre_wp_mail' przerwie wysylke, gdy adres odbiorcy jest
+                nieprawidlowy i zostanie odrzucony przed wysylka, albo gdy PHPMailer
+                rzuci wyjatek — a nie tylko gdy serwer poczty odrzuci wiadomosc.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Administrator wpisuje w Ustawieniach ogolnych bledny adres e-mail
+                (literowka w domenie) albo wtyczka SMTP blokuje wysylke swoim filtrem.
+                W dzienniku pojawia sie 'Alarm o zatrzymaniu dzialu 5 (kalkulacja) NIE
+                zostal wyslany — serwer poczty odrzucil wiadomosc.' Pracownik idzie
+                sprawdzac konfiguracje SMTP i logi serwera pocztowego, choc realna
+                przyczyna jest w polu admin_email albo w innej wtyczce; diagnoza z
+                dziennika kieruje go w zla strone.
+        naprawa: Zmienic opis na taki, ktory mowi tylko to, co wiadomo: 'Alarm o zatrzymaniu dzialu %d (%s) NIE zostal wyslany — wp_mail() zwrocilo blad. Sprawdz adres w Ustawienia > Ogolne oraz konfiguracje wysylki poczty.' Konkretna przyczyne (jesli jest) mozna dolozyc z hooka 'wp_mail_failed' do meta_json.
+
+  [1.26] $e->getMessage() jest wstawiane do opisu w dzienniku bez sprawdzenia, czy nie jest puste — przy wyjatku bez komunikatu wpis konczy sie dwukropkiem i niczym wiecej.
+        mp-offer-builder/includes/pipeline/class-mp-ob-pipeline-logger.php:81
+        status: prawdopodobne
+        dowod: 'description' => sprintf( 'Nieoczekiwany wyjatek w dziale %d: %s',
+                (int) $dept_num, $e->getMessage() ) — bez fallbacku. Throwable
+                skonstruowany bez argumentu (np. new RuntimeException()) ma
+                getMessage() === ''. Klasa wyjatku trafia tylko do meta_json
+                ('exception' => get_class( $e )), a nie do widocznego opisu. Ta sama
+                wartosc idzie do maila: "Komunikat: %s".
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Ktorys dzial rzuca wyjatek bez tresci (np. throw new
+                RuntimeException() jako sygnal przerwania). W dzienniku aktywnosci —
+                czyli na liscie, ktora pracownik oglada w panelu — pojawia sie
+                wiersz 'Nieoczekiwany wyjatek w dziale 4: ' i mail z linia
+                'Komunikat:' bez tresci. Z samego widocznego opisu nie da sie
+                stwierdzic, co sie stalo; trzeba otwierac surowy meta_json, zeby
+                dowiedziec sie chocby, jaka klasa wyjatku poleciala.
+        naprawa: Podstawic fallback przed sprintf: $msg = '' !== trim( (string) $e->getMessage() ) ? $e->getMessage() : get_class( $e ) . ' (bez komunikatu)'; i uzyc $msg zarowno w 'description', jak i w tresci maila.
+
+  [1.26] Gdy opcja admin_email jest pusta, obie sciezki koncza sie cichym return — nie powstaje zaden slad, ze alarm nie zostal do nikogo wyslany, choc dla nieudanej wysylki taki slad jest celowo zapisywany.
+        mp-offer-builder/includes/pipeline/class-mp-ob-pipeline-logger.php:101
+        status: prawdopodobne
+        dowod: $to = get_option( 'admin_email' ); if ( ! $to ) { return; } — w
+                log_exception() (linia 101) i w notify_admin() (linia 173).
+                Kilkanascie linii nizej ta sama metoda dla przypadku ! $sent wywoluje
+                log_alert_failure(), ktorego docblock uzasadnia: 'Slad musi wiec
+                zostac tam, gdzie widac go BEZ poczty'. Skutek obu galezi jest
+                identyczny — administrator nie dostaje alarmu — ale tylko jedna
+                zostawia wpis w dzienniku.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Na srodowisku, gdzie admin_email zostal wyczyszczony (migracja, import
+                bazy, skrypt konfiguracyjny), pipeline zatrzymuje sie w dziale 5. W
+                dzienniku jest tylko wiersz 'pipeline_error' — 'Blad w dziale 5'.
+                Pracownik przegladajacy dziennik zaklada, ze administrator dostal
+                powiadomienie i czeka na jego reakcje, podczas gdy zaden mail nigdzie
+                nie poszedl i nic o tym nie mowi.
+        naprawa: W obu miejscach zamiast samego return wywolac log_alert_failure( 'Alarm o ... NIE zostal wyslany — w Ustawienia > Ogolne nie ustawiono adresu e-mail administratora.', ... ), a dopiero potem wyjsc.
+
+  [1.26] Ogranicznik czestotliwosci dla wyjatkow jest wspolny dla calego pipeline'u (jeden klucz bez numeru dzialu), mimo ze temat maila obiecuje konkretny dzial — wyjatki w pozostalych dzialach nie generuja zadnego maila przez 15 minut.
+        mp-offer-builder/includes/pipeline/class-mp-ob-pipeline-logger.php:94
+        status: prawdopodobne
+        dowod: $throttle_key = 'mp_ob_notify_exception'; — bez sufiksu z $dept_num,
+                podczas gdy kontrolowana sciezka notify_admin() uzywa klucza per
+                dzial: $throttle_key = 'mp_ob_notify_' . $department->get_key(). Temat
+                maila brzmi '[MP Offer Builder] Nieoczekiwany wyjatek w pipeline
+                (dzial %d)'. Galaz z get_transient() konczy sie samym return — bez
+                wpisu, ze alarm zostal pominiety.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: 10:00 — wyjatek w dziale 2 (drobny, np. blad formatowania).
+                Administrator dostaje maila o dziale 2. 10:03 — wyjatek w dziale 7
+                (generowanie PDF oferty dla klienta). Transient jeszcze zyje, wiec
+                mail nie idzie i nic o tym nie informuje. Przez kwadrans jedyny sygnal
+                w skrzynce wskazuje na dzial 2, a powazniejsza awaria dzialu 7 jest
+                widoczna dopiero po recznym wejsciu do dziennika.
+        naprawa: Dodac numer dzialu do klucza: $throttle_key = 'mp_ob_notify_exception_' . (int) $dept_num; — analogicznie do notify_admin(). Zachowuje to ochrone przed lawina z jednego dzialu, a nie gasi alarmow z pozostalych.
+
+OBSERWACJE (24):
+  [1.6] Zdarzenie „mp_lead_intake_after_form" wystawiane, ale nikt go nie slucha w projekcie.
+        mp-lead-intake/includes/class-mp-form.php:174
+        status: prawdopodobne
+        dowod: do_action w mp-lead-intake, zero add_action
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Albo to swiadomy punkt rozszerzen dla integratora (wtedy w porzadku i
+                powinno byc opisane w dokumentacji), albo odbiorca zginal przy
+                refaktorze.
+
+  [1.6] Zdarzenie „mp_lead_verified" wystawiane, ale nikt go nie slucha w projekcie.
+        mp-lead-intake/includes/class-mp-vat-verifier.php:232
+        status: prawdopodobne
+        dowod: do_action w mp-lead-intake, zero add_action
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Albo to swiadomy punkt rozszerzen dla integratora (wtedy w porzadku i
+                powinno byc opisane w dokumentacji), albo odbiorca zginal przy
+                refaktorze.
+
+  [1.6] Zdarzenie „mp_sw_queue_halted" wystawiane, ale nikt go nie slucha w projekcie.
+        mp-sales-workflow/includes/class-mp-sw-mailer.php:196
+        status: prawdopodobne
+        dowod: do_action w mp-sales-workflow, zero add_action
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Albo to swiadomy punkt rozszerzen dla integratora (wtedy w porzadku i
+                powinno byc opisane w dokumentacji), albo odbiorca zginal przy
+                refaktorze.
+
+  [1.6] Zdarzenie „mp_sw_flow_anonymized" wystawiane, ale nikt go nie slucha w projekcie.
+        mp-sales-workflow/includes/class-mp-sw-privacy.php:161
+        status: prawdopodobne
+        dowod: do_action w mp-sales-workflow, zero add_action
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Albo to swiadomy punkt rozszerzen dla integratora (wtedy w porzadku i
+                powinno byc opisane w dokumentacji), albo odbiorca zginal przy
+                refaktorze.
+
+  [1.6] Zdarzenie „mp_sw_notification_sent" wystawiane, ale nikt go nie slucha w projekcie.
+        mp-sales-workflow/includes/class-mp-sw-queue.php:184
+        status: prawdopodobne
+        dowod: do_action w mp-sales-workflow, zero add_action
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Albo to swiadomy punkt rozszerzen dla integratora (wtedy w porzadku i
+                powinno byc opisane w dokumentacji), albo odbiorca zginal przy
+                refaktorze.
+
+  [1.6] Zdarzenie „mp_sw_notification_failed" wystawiane, ale nikt go nie slucha w projekcie.
+        mp-sales-workflow/includes/class-mp-sw-queue.php:212
+        status: prawdopodobne
+        dowod: do_action w mp-sales-workflow, zero add_action
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Albo to swiadomy punkt rozszerzen dla integratora (wtedy w porzadku i
+                powinno byc opisane w dokumentacji), albo odbiorca zginal przy
+                refaktorze.
+
+  [1.24] Asercja oczekuje zera od wywolania — sprawdz, czy zero nie jest tez wynikiem awarii.
+        mp-sales-workflow/tests/security/scenariusze-s1-s12.php:564
+        status: prawdopodobne
+        dowod: chk( 0 === MP_SW_D7_Notifier::mail_attempts()
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Dokladnie ten ksztalt dal falszywy PASS w tym projekcie (TEST-F1):
+                straznik zwrocil zera, bo sie wywrocil, a test wlasnie zer oczekiwal.
+                Test powinien najpierw potwierdzic, ze sprawdzana droga w ogole sie
+                wykonala.
+        naprawa: Dolozyc asercje pozytywna (np. licznik wywolan > 0) przed asercja na zero.
+
+  [1.25] Agent 3.2: trafienie w cache VIES zwraca uboższy zestaw danych niż świeże zapytanie — w transiencie przechowywane jest wyłącznie 1/0, więc `vat_name` znika, choć przy odpowiedzi z VIES jest przekazywane dalej.
+        mp-lead-intake/includes/pipeline/departments/class-mp-department-03.php:135
+        status: prawdopodobne
+        dowod: set_transient( $cache_key, $valid ? 1 : 0, DAY_IN_SECONDS );
+                ...
+                return array( 'vat_valid' => $valid, 'vat_checked' => true,
+                'vat_source' => 'vies', 'vat_name' => isset( $body['name'] ) ?
+                $body['name'] : null );
+                
+                vs. gałąź cache:
+                return array( 'vat_valid' => (bool) $cached, 'vat_checked' => true,
+                'vat_source' => 'cache' );
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+                [2.11 druga ocena: NIE POTWIERDZA] W pokazanym fragmencie nie ma ani
+                zapisu do transienta (set_transient dla VIES), ani galezi zwracajacej
+                swiezy wynik z vat_name — obie konczyny porownania sa poza kadrem
+                (kod urywa sie na linii 165). Rzutowanie (bool) $cached sugeruje ska
+                […]\n[2.11] Ustalenie ZOSTAJE jako hipoteza: jedno zaprzeczenie nie
+                uniewaznia cudzego potwierdzenia.
+        skutek: Dwa leady z tym samym NIP-em w ciągu 24 h: pierwszy (cache-miss, tryb
+                sync lub weryfikator w tle) dostaje w wyniku `vat_name` z VIES, drugi
+                (cache-hit) dostaje ten sam `vat_valid`, ale bez klucza `vat_name`.
+                Ten sam NIP daje więc dwa różne kształty danych wyjściowych
+                działu w zależności od tego, czy trafił w cache. Dossier nie
+                zawiera odbiorcy `vat_name`, więc realny skutek dalej w pipeline jest
+                niepotwierdzony — stąd waga 'obserwacja'; docblock resolve_vies
+                opisuje zresztą `vat_name` jako pole opcjonalne.
+        naprawa: Jeśli `vat_name` ma być używane dalej — cache'ować tablicę (`array( 'valid' => bool, 'name' => string|null )`) zamiast samego 1/0 i odtwarzać pełny kształt w gałęzi cache-hit. Jeśli nie ma odbiorcy — zostawić bez zmian, kontrakt dopuszcza brak tego pola.
+
+  [1.25] QA Agent 6 weryfikuje tozsamosc, ktora w sciezce sukcesu nie moze byc falszywa: gross_grosze jest w Agencie 6.2 wyliczane dokladnie jako net_grosze + vat_grosze (w obu galeziach), a QA6 sprawdza net+vat !== gross. Bramka jakosci nie kontroluje wiec niczego na temat poprawnosci samej kwoty VAT — w szczegolnosci nie wykrywa rozjechania sie podstawy opodatkowania z net_grosze.
+        mp-offer-builder/includes/pipeline/departments/class-mp-ob-department-06.php:311
+        status: prawdopodobne
+        dowod: Agent 6.2: `$gross_grosze = $net_grosze + $vat_grosze;` (galaz
+                domestic) oraz `$gross_grosze = $net_grosze;` przy `$vat_grosze = 0;`
+                (galaz reverse_charge/out_of_scope). QA6: `if ( $net + $vat !== $gross
+                ) { ... 'totals_mismatch' }`. Rownoczesnie net_grosze pochodzi z
+                `subtotal_grosze - discount_total` (kontekst Dzialow 4/5), a podstawa
+                VAT jest budowana niezaleznie z `$lines`: `$lg = isset(
+                $line['line_grosze'] ) ? (int) $line['line_grosze'] : 0;`. Nic nie
+                sprawdza, czy suma line_grosze rowna sie subtotal_grosze.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+                [2.11 druga ocena: NIE POTWIERDZA] W pokazanym fragmencie widac
+                wylacznie sprawdzenie QA6 ($net + $vat !== $gross) oraz koncowy return
+                Agenta 6.2 z gotowa tablica. Samo wyliczenie $gross_grosze (rzekomo
+                jako net+vat w obu galeziach) jest powyzej linii 281 i NIE zostalo
+                pokaz […]\n[2.11] Ustalenie ZOSTAJE jako hipoteza: jedno
+                zaprzeczenie nie uniewaznia cudzego potwierdzenia.
+        skutek: Koszyk mieszany 23% + 8%; jedna pozycja przychodzi z Dzialu 4 bez
+                klucza 'line_grosze' (albo lines sa przefiltrowane wzgledem
+                subtotal_grosze). Domyslne `$lg = 0` sprawia, ze ta pozycja nie
+                wchodzi do zadnej class_subtotal, wiec VAT jest liczony od podstawy
+                mniejszej niz net_grosze — podatek zanizony. gross nadal wychodzi
+                jako net+vat, wiec QA6 zwraca 'totals_consistent' => true i bramka
+                przepuszcza oferte z blednym VAT-em.
+        naprawa: Dodac do QA6 kontrole, ktore nie wynikaja z definicji gross: dla mechanizmu 'domestic' sprawdzic, ze suma line_grosze == subtotal_grosze oraz ze suma netto klas (class_subtotal - class_discount) == net_grosze; opcjonalnie, ze count(line_tax_rates) == count(lines).
+
+  [1.25] Mechanizm reverse_charge i towarzyszacy mu tax_basis cytuja art. 196 dyrektywy 2006/112/WE dla kazdej pozycji oferty, podczas gdy dokumentacja zrodlowa dzialu ogranicza ten artykul do uslug objetych art. 44. Dzial nie rozroznia uslug od towarow, wiec status prawny zapisany w ofercie moze nie odpowiadac temu, co faktycznie jest sprzedawane.
+        mp-offer-builder/includes/pipeline/departments/class-mp-ob-department-06.php:113
+        status: prawdopodobne
+        dowod: Kod: `if ( 'valid' === $vat_status ) { $mechanism = 'reverse_charge';
+                $basis = 'Dyrektywa 2006/112/WE art. 196 — odwrotne obciazenie,
+                wazny VAT UE.'; }` — decyzja opiera sie wylacznie na kraju i
+                vat_status. Dokumentacja dzialu cytuje art. 196: 'VAT shall be payable
+                by ... to whom the services referred to in Article 44 are supplied' i
+                objasnia: 'dla uslug objetych art. 44'. Jedyne cechy pozycji, jakich
+                uzywa dzial, to `$products[$i]['tax_class']` i
+                `$products[$i]['tax_status']` — nic o rodzaju swiadczenia.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+                [2.11 druga ocena: NIE POTWIERDZA] Widac tylko przypisanie stringa z
+                powolaniem na art. 196 w galezi UE + wazny VAT. Kluczowa czesc zarzutu
+                — ze dokumentacja zrodlowa dzialu ogranicza art. 196 do uslug z art.
+                44 — dotyczy dokumentu, ktorego w ogole nie pokazano. Rownie d
+                […]\n[2.11] Ustalenie ZOSTAJE jako hipoteza: jedno zaprzeczenie nie
+                uniewaznia cudzego potwierdzenia.
+        skutek: Oferta na towar fizyczny (produkt WooCommerce typu simple, wysylkowy)
+                dla firmy z DE z vat_status='valid'. Dzial ustawia reverse_charge, 0%
+                VAT i tax_basis wskazujacy art. 196; dokument dla klienta i zapis w
+                Dziale 10 podaja podstawe prawna, ktora nie obejmuje dostawy towarow
+                (dla WDT wlasciwy jest art. 138 i inne warunki dokumentacyjne).
+        naprawa: Albo rozroznic w kontekscie rodzaj pozycji (usluga/towar) i dobierac podstawe: art. 196 dla uslug, art. 138 dla wewnatrzwspolnotowej dostawy towarow; albo — jesli katalog zawiera wylacznie uslugi — zapisac to ograniczenie wprost w docs/dzial-06 i w docblocku dzialu, zeby zalozenie bylo jawne.
+
+  [1.25] Agent 2.1 deklaruje w swoim opisie filtrowanie po możliwości sprzedaży, ale is_purchasable() jest tylko zapisywane do snapshotu, nigdy sprawdzane.
+        mp-offer-builder/includes/pipeline/departments/class-mp-ob-department-02.php:75
+        status: prawdopodobne
+        dowod: Opis agenta: 'Produkty i warianty jedną partią przez oficjalne API
+                — tylko opublikowane i możliwe do sprzedaży'. Jedyny warunek
+                odrzucenia: if ( ! $product instanceof WC_Product || 'publish' !==
+                $product->get_status() ). Wynik is_purchasable() ląduje wyłącznie w
+                polu 'purchasable' => $product->is_purchasable() snapshotu.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+                [2.9 drugi sedzia: odrzuc] Falszywy alarm — wzorzec 'zapisane, nigdy
+                nieczytane' trafil w celowy podzial odpowiedzialnosci.
+                is_purchasable() JEST egzekwowane: Agent 3.1 odrzuca kazda pozycje,
+                dla ktorej empty($products[$i]['purchasable']), z FAIL
+                'items_not_matched' (class-mp-ob-department-03.php:50-60). To wynika
+                wprost z zasady 'JEDEN ODCZYT' (docblock department-02.php:14-19):
+                Dzial 2 wylacznie CZYTA i zamraza snapshot, a walidacja pozycji nalezy
+                do Dzialu 3. Konkluzja scenariusza ('pozycja trafia na dokument
+                handlowy') jest nieprawdziwa — pipeline pada dzial wczesniej.
+                Jedyne, co zostaje, to nieprecyzyjny opis agenta 2.1, czyli uwaga
+                redakcyjna, nie usterka.
+        skutek: Produkt opublikowany, z ustawioną ceną regularną, ale oznaczony
+                jako niesprzedawalny przez filtr woocommerce_is_purchasable (typowo
+                wtyczki od pozycji wycofanych z oferty / dostępnych tylko dla
+                wybranych ról) przechodzi Dział 2 bez błędu, bo status to
+                'publish', a cena istnieje, więc Agent 2.2 też go przepuszcza.
+                Pozycja trafia na dokument handlowy jako możliwa do kupienia, mimo
+                że sklep jej nie sprzeda.
+        naprawa: Albo dołożyć odrzucanie: ! $product->is_purchasable() jako kolejny warunek błędu 'invalid_products', albo poprawić opis agenta, żeby nie deklarował filtra, którego nie stosuje.
+
+  [1.25] Klucz snapshotu 'prices_include_tax' => true towarzyszy cenom, które zostały już przeliczone na netto — nazwa mówi coś nieprawdziwego o danych, obok których stoi.
+        mp-offer-builder/includes/pipeline/departments/class-mp-ob-department-02.php:233
+        status: prawdopodobne
+        dowod: return MP_OB_Result::ok( array( 'prices' => $prices,
+                'prices_include_tax' => $ceny_z_podatkiem ) ) — a wcześniej, gdy
+                $ceny_z_podatkiem jest true, każda cena przechodzi przez
+                wc_get_price_excluding_tax(), więc w 'prices' nie ma już podatku.
+                Flaga opisuje USTAWIENIE SKLEPU, nie zawartość pola obok.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Dział czytający snapshot i interpretujący 'prices_include_tax' =>
+                true dosłownie ('ceny w tym snapshocie zawierają podatek') odejmuje
+                VAT po raz drugi: 100,00 netto → 81,30, i oferta wychodzi zaniżona
+                o stawkę. Dossier nie zawiera kodu Działu 6, więc nie da się
+                potwierdzić, czy tak się dzieje — zgłoszone jako pułapka
+                nazewnicza, nie jako potwierdzony błąd.
+        naprawa: Nazwać klucz jednoznacznie wobec danych, tak jak zrobiono per pozycja polem 'from_gross' — np. 'source_prices_included_tax' albo 'prices_are_net' => true.
+
+  [1.25] Dossier jest urwane — Agent 2.5 (numeracja), QA Agent 2 i budowniczy MP_OB_Department_02 nie zostały ocenione.
+        mp-offer-builder/includes/pipeline/departments/class-mp-ob-department-02.php
+        status: prawdopodobne
+        dowod: Kod w dossier kończy się w połowie instrukcji: '$existing_version =
+                MP_Offer_Builder_DB::get_ma' — brakuje reszty Agenta 2.5, całego QA
+                Agenta 2 (deklarowana kontrola kompletności 5 sekcji snapshotu i
+                znacznik db_reads=1) oraz klasy działu rejestrującej agentów i
+                krytyków.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Pytanie audytu dotyczy m.in. 'danych przekazywanych dalej
+                niekompletnie' i statusu, który nie odpowiada rzeczywistości —
+                obie rzeczy rozstrzygają się właśnie w QA Agencie 2 (czy naprawdę
+                sprawdza wszystkie 5 sekcji) i w niedostępnej części Agenta 2.5
+                (kompletność sekcji 'numbering', zachowanie przy braku
+                wersji/właściciela). Uznanie Działu 2 za sprawdzony na podstawie
+                tego dossier byłoby ustaleniem bez pokrycia.
+        naprawa: Dostarczyć resztę pliku od miejsca urwania i powtórzyć ocenę dla Agenta 2.5, QA Agenta 2 oraz klasy MP_OB_Department_02.
+
+  [1.25] K5.2 („komplet-skutków") weryfikuje skutki przez ponowne wyliczenie ich tą samą funkcją i z tego samego źródła co agent A5.2, więc warunek rozbieżności nigdy nie będzie prawdziwy — bramka nie może zgłosić niezgodności.
+        mp-sales-workflow/includes/pipeline/departments/class-mp-sw-department-05.php:357
+        status: prawdopodobne
+        dowod: A5.2: `$transition = (array) $context->get( 'transition', array() );
+                $effects = empty( $transition['changes_status'] ) ? array() :
+                MP_SW_D5_Machine::effects_for( (string) $transition['to'] );`. K5.2:
+                `$transition = (array) $context->get( 'transition', array() );
+                $expected = empty( $transition['changes_status'] ) ? array() :
+                MP_SW_D5_Machine::effects_for( (string) $transition['to'] );`, a
+                następnie `$extra = array_diff( $effects, $expected ); $missing =
+                array_diff( $expected, $effects ); if ( ! empty( $extra ) || ! empty(
+                $missing ) ) { ... 'effects_mismatch' }`. Oba wyrażenia są
+                identyczne co do znaku: to samo wejście
+                (`$context->get('transition')`), ten sam warunek (`changes_status`) i
+                to samo wywołanie `effects_for()`. `array_diff` dwóch wyników tej
+                samej czystej funkcji o tym samym argumencie jest zawsze pusty.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Wejście: dowolne zdarzenie zmieniające status, np. `offer.approved`
+                przy `from = offer_draft`, `to = offer_sent`. Gdyby mapa
+                `effects_for()` była błędna (np. `offer_sent` bez
+                `schedule_followups`), A5.2 zwróci listę bez follow-upów, a K5.2
+                wyliczy dokładnie tę samą listę jako `$expected`, więc `$extra` i
+                `$missing` będą puste i bramka zgłosi „komplet skutków OK". Zły
+                skutek: kryt. 5.5 („każdy skutek ma pokrycie w regule przejścia")
+                raportuje PASS bez wykonania jakiejkolwiek weryfikacji — dziennik
+                audytu pokazuje sprawdzenie, którego nie było. Uwaga: przy obecnym
+                kodzie wynik działu pozostaje poprawny, dlatego waga jest tylko
+                obserwacyjna.
+        naprawa: Albo oprzeć `$expected` na niezależnym źródle niż wynik agenta i ta sama funkcja (np. odczytać `from`/`to` prosto z koperty zdarzenia i wiersza procesu i sprawdzić skutki wobec deklaracji z dokumentacji działu), albo — jeśli świadomie zostaje to strażnik regresji na wypadek rozjazdu A5.2 — udokumentować to wprost w komentarzu i dodać test, który podmienia wynik agenta i potwierdza, że `effects_mismatch` faktycznie się odpala.
+
+  [1.25] Blokada optymistyczna wyłącza się po cichu: gdy Dział 2 nie dostarczy `existing_lock_version` dla ISTNIEJĄCEJ oferty, `expected_lock_version` jest null, warunek w Agencie 10.2 nie dokłada lock_version do WHERE, a nowy lock_version jest resetowany do 1. Komentarz w kodzie twierdzi, że null zdarza się „tylko gdy to NOWA oferta" — kod tego nie gwarantuje.
+        mp-offer-builder/includes/pipeline/departments/class-mp-ob-department-10.php:218
+        status: prawdopodobne
+        dowod: `$existing_lock_version = isset( $numbering['existing_lock_version'] )
+                ? (int) $numbering['existing_lock_version'] : null;` oraz
+                `$new_lock_version = null !== $existing_lock_version ?
+                $existing_lock_version + 1 : 1;` — null powstaje ZAWSZE, gdy klucz
+                nie istnieje lub ma wartość NULL, niezależnie od $offer_id. Dalej:
+                `'expected_lock_version' => $offer_id > 0 ? $existing_lock_version :
+                null,` z komentarzem „null tylko gdy to NOWA oferta (offer_id=0,
+                wtedy INSERT, nic do zablokowania)" — to twierdzenie jest fałszywe
+                dla ścieżki offer_id>0 + brak odczytu. W Agencie 10.2: `if ( null
+                !== $plan['expected_lock_version'] ) { $update_where['lock_version'] =
+                (int) $plan['expected_lock_version']; }` — przy null WHERE zawiera
+                samo `id`, więc UPDATE trafia zawsze i deklarowana reguła „0
+                wierszy dotkniętych = ktoś inny zapisał" nie ma jak zadziałać.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+                [2.9 drugi sedzia: odrzuc] Teza 'kod tego nie gwarantuje' jest
+                sprawdzalnie nieprawdziwa — dowod ograniczono do Dzialu 10 i
+                pominieto producenta wartosci. Agent 2.5 dla ISTNIEJACEGO wiersza
+                ustawia existing_lock_version = isset($offer['lock_version']) ? (int)
+                : 1 (department-02.php:377), wiec brak klucza albo NULL daje 1, nigdy
+                null; sam schemat to zreszta wyklucza: lock_version int(10) unsigned
+                NOT NULL DEFAULT 1 (class-mp-offer-builder-db.php:214), a dbDelta
+                wypelnia stare wiersze wartoscia domyslna — 'draft sprzed kolumny
+                lock_version' z NULL-em nie istnieje. null powstaje wylacznie, gdy
+                get_offer() nic nie zwroci, czyli gdy wiersza NIE MA — wtedy nie ma
+                czego nadpisac. Scenariusz dwoch handlowcow jest zamkniety: obaj
+                czytaja te sama wartosc, pierwszy UPDATE ja podbija, drugi trafia w 0
+                wierszy i dostaje FAIL 'concurrent_modification'
+                (department-10.php:311-322). Do tego WHERE zawsze zawiera status =
+                STATUS_DRAFT jako druga, niezalezna bariere (l. 309).
+        skutek: Dokańczanie draftu (offer_id>0) utworzonego zanim kolumna
+                lock_version była wypełniana, albo odczyt w Dziale 2 nieobejmujący
+                tej kolumny (wartość NULL/brak klucza w $numbering). Dwóch
+                handlowców otwiera ten sam draft; obaj zapisują. Pierwszy UPDATE
+                ustawia lock_version=1, drugi UPDATE — bez warunku lock_version w
+                WHERE — trafia po samym id i nadpisuje nagłówek, pozycje i
+                ścieżkę PDF pierwszego. Obie sesje dostają wynik OK, żaden
+                konflikt nie jest zgłoszony, zmiany pierwszego handlowca znikają bez
+                śladu. Dodatkowo lock_version zapisanego wiersza cofa się do 1 z
+                wyższej wartości, więc kolejne zapisy dalej nie wykrywają kolizji.
+        naprawa: Rozdzielić dwa przypadki: dla `$offer_id > 0` brak `existing_lock_version` traktować jako błąd planu (fail, np. kod 'missing_lock_version') zamiast cichego null, albo wymusić odczyt kolumny w Dziale 2 i przyjąć 0 jako jawną wartość startową (`$new_lock_version = $existing_lock_version + 1` liczone od 0). W Agencie 10.2 warunek `null !== $plan['expected_lock_version']` zastąpić bezwarunkowym dodaniem lock_version do WHERE dla każdej ścieżki UPDATE. Poprawić komentarz przy 'expected_lock_version', bo obecnie opisuje niezaimplementowany niezmiennik.
+
+  [1.26] Komunikat sukcesu zapewnia, że wysyłką do klienta zajmie się moduł sprzedażowy, choć kod tego nie weryfikuje — `do_action()` nie zwraca informacji, czy ktokolwiek nasłuchuje.
+        mp-offer-builder/includes/class-mp-offer-builder-approval.php:248
+        status: prawdopodobne
+        dowod: `'ok' => array( 'success', __( 'Oferta zatwierdzona. Moduł
+                sprzedażowy przejmuje wysyłkę do klienta.' ) )` przy jedynym
+                punkcie emisji `do_action( self::HOOK, $offer_id, array( ... ) );` —
+                bez sprawdzenia `has_action( self::HOOK )` ani jakiejkolwiek kontroli
+                obecności pluginu 3 przed zwróceniem `true`.
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Plugin 3 jest wyłączony (np. na czas aktualizacji albo po awarii).
+                Pracownik zatwierdza ofertę: status zmienia się na `approved`,
+                oferta zostaje przez to zamknięta na edycję (Dział 1 przyjmuje
+                wyłącznie szkice), zdarzenie idzie w próżnię, a na ekranie
+                pojawia się zielony komunikat, że moduł sprzedażowy przejmuje
+                wysyłkę. Klient nigdy nie dostaje oferty, a pracownik nie ma powodu
+                tego sprawdzać.
+        naprawa: Uzależnić treść komunikatu od faktycznej obecności odbiorcy — przy `false === has_action( self::HOOK )` zwracać kod z ostrzeżeniem w rodzaju „Oferta zatwierdzona, ale żaden moduł nie odebrał zdarzenia wysyłki — sprawdź, czy wtyczka sprzedażowa jest aktywna" i dodać dla niego wpis `'warning'` w mapie `notice()`.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-lead-intake/tests/index.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-lead-intake/tests/process-harness/bench.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-lead-intake/tests/process-harness/index.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-lead-intake/tests/process-harness/run-process.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-lead-intake/tests/process-harness/wp-stubs.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-offer-builder/tests/process-harness/run-process.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-offer-builder/tests/process-harness/wp-stubs.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-sales-workflow/tests/security/index.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+--- rozliczenie przebiegu ---
+glebokosc:         gleboki
+odczytow plikow:   240
+zapytan do modelu: 15
+dzial 1:           2,029.8 s, par 26/26
+dzial 2:           678.0 s, par 11/11
+czas calkowity:    2,708.0 s
+
+WERDYKT: GO WITH MINOR FIXES — 8 ustalen sredniej wagi
