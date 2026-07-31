@@ -18,11 +18,15 @@ danych między formularzem, WooCommerce i pocztą.
 
 ## Wtyczki
 
-| # | Wtyczka | Branch | Opis |
-|---|---------|--------|------|
-| 1 | `mp-lead-intake` | `mp-lead-intake` | Przyjęcie i kwalifikacja lead-a z formularza |
-| 2 | `mp-offer-builder` | `mp-offer-builder` | Kalkulacja cenowa, integracja WooCommerce, oferty PDF |
-| 3 | `mp-sales-workflow` | `mp-sales-workflow` | Statusy procesu, handlowiec, powiadomienia, follow-up, dashboard |
+| # | Wtyczka | Wersja | Baza | Opis |
+|---|---------|--------|------|------|
+| 1 | `mp-lead-intake` | 1.3.3 | BD-3 | Przyjęcie i kwalifikacja lead-a z formularza |
+| 2 | `mp-offer-builder` | 1.3.3 | BD-2 | Kalkulacja cenowa, integracja WooCommerce, oferty PDF |
+| 3 | `mp-sales-workflow` | 1.3.3 | BD-1 | Statusy procesu, handlowiec, powiadomienia, follow-up, dashboard |
+
+Kolejność instalacji ma znaczenie: **1, potem 2, potem 3**. Wtyczka 2 nasłuchuje
+zdarzenia z wtyczki 1, a wtyczka 3 — zdarzeń z obu poprzednich. Gotowe paczki
+do wgrania są w [Releases](https://github.com/krzysiek2115op/egzamin-koncowy/releases).
 
 ## Struktura repozytorium
 
@@ -35,16 +39,24 @@ paczka-klienta/        materiały dla klienta, osobny komplet na wtyczkę
   ├─ mp-offer-builder/materialy/
   └─ mp-sales-workflow/materialy/
 tools/                 narzędzia deweloperskie (m.in. środowisko testowe)
+.github/workflows/     CI — trzy wtyczki na PHP 7.4 i 8.3
 .phpcs.xml.dist        wspólne reguły PHPCS/WPCS dla trzech wtyczek
+composer.json          narzędzia deweloperskie (PHPCS/WPCS) — NIE zależności wtyczek
+LICENSE                GPL-2.0-or-later
 ```
 
-Każda wtyczka mieszka we własnym katalogu w korzeniu repo (zgodnie z konwencją
-wtyczek WordPress). Prace nad każdą wtyczką prowadzone są na dedykowanym branchu,
-a gałąź `main` zbiera komplet — trzy wtyczki naraz.
+Każda wtyczka mieszka we własnym katalogu w korzeniu repo, zgodnie z konwencją
+wtyczek WordPress. Powstawały na osobnych gałęziach (`mp-lead-intake`,
+`mp-offer-builder`, `mp-sales-workflow`) i te gałęzie nadal istnieją jako zapis
+historii — ale od scalenia **źródłem prawdy jest `main`** i to on zawiera komplet.
+
+Narzędzie audytujące żyje osobno, na gałęzi `audyt-projektu`: nie jest wtyczką
+WordPressa i nie trafia do klienta, więc świadomie nie ma go w `main`.
 
 ## Workflow
 
-- Każda wtyczka ma dedykowany branch (tabela wyżej). Branche powstały jako
+- Każda wtyczka ma dedykowany branch (`mp-lead-intake`, `mp-offer-builder`,
+  `mp-sales-workflow`). Branche powstały jako
   **w pełni odizolowane** — własny `composer.json` i `.phpcs.xml.dist`, bez
   dziedziczenia kodu między nimi. Dzięki temu kod trzech wtyczek nie kolidował
   ze sobą przy scalaniu do `main` ani w jednym pliku.
@@ -99,8 +111,10 @@ przy każdej kolejnej zmianie, zamiast czytać 20 tysięcy linii od nowa.
 
 Agent zbiera dowody, krytyk je ocenia. Ustalenie, którego Dział 2 nie potwierdzi
 niezależnie, nie trafia do raportu jako fakt — dostaje status hipotezy razem
-z uzasadnieniem obu stron. Narzędzie wystawia `git worktree` trzech gałęzi
-i audytuje **czubki w repozytorium**, a nie to, co akurat leży na dysku.
+z uzasadnieniem obu stron. Narzędzie wystawia `git worktree` i audytuje
+**stan w repozytorium**, a nie to, co akurat leży na dysku — domyślnie trzy
+gałęzie wtyczek, a z przełącznikiem `--ref=refs/heads/main` scalonego `main`,
+czyli kod, który faktycznie idzie do wydania.
 
 ### Trzy głębokości
 
@@ -120,23 +134,37 @@ skrócony", żeby „GO" nie czytało się identycznie w obu przypadkach.
 
 ### Rejestr znanych błędów
 
-`audyt/rejestr/znane-bledy.json` — **29 błędów, które w tym projekcie naprawdę
+`audyt/rejestr/znane-bledy.json` — **36 błędów, które w tym projekcie naprawdę
 wystąpiły**, każdy z klasą pomyłki, dowodem z kodu, skutkiem dla użytkownika
-i wskazaniem testu regresji (25 z 29 ma taki test; pozostałe 4 to pozycje otwarte
-i narzędziowe, wymienione w raporcie z nazwy). Para 1.15 sprawdza, czy każdy wpis
-nadal ma pokrycie — a para 2.6, czy test przyszedł razem z naprawą.
+i wskazaniem testu regresji (33 z 36 mają taki test; pozostałe 3 to pozycje
+otwarte i narzędziowe, wymienione w raporcie z nazwy). Para 1.15 sprawdza, czy
+każdy wpis nadal ma pokrycie — a para 2.6, czy test przyszedł razem z naprawą.
 
 ### Wynik
 
 Ostatni przebieg (`--glebokosc=pelny`, 33 z 37 par): **WERDYKT GO** — zero ustaleń
-krytycznych, średnich i drobnych, 15 obserwacji.
+krytycznych, średnich i drobnych; 8 obserwacji, wszystkie z pary 2.7 („żadna para
+nie otworzyła tego pliku" — narzędzia testowe poza zakresem reguł).
 
-Uczciwa uwaga o ograniczeniu narzędzia, wynikająca z pomiaru na dwóch pełnych
+Uczciwa uwaga o ograniczeniu narzędzia, wynikająca z pomiaru na pełnych
 przebiegach głębokich: pary **1.25** i **1.26** pytają model, więc każdy przebieg
 próbkuje inny wycinek kodu (43 i 55 ustaleń, wspólnych 17). Są **generatorem
-hipotez**, nie listą defektów — każde ich zgłoszenie było weryfikowane ręcznie.
+hipotez**, nie listą defektów — każde ich zgłoszenie wymaga ręcznej weryfikacji.
 Bramką odbioru są pary deterministyczne, których wynik był identyczny w każdym
 przebiegu.
+
+Warto wiedzieć, do czego to prowadzi w praktyce. Ustalenia ze statusem
+`prawdopodobne` z tej warstwy zostały początkowo uznane za szum wynikający
+z owej niepowtarzalności — błędnie. Niepowtarzalne jest to, **czy** ustalenie się
+pojawi, a nie to, czy jest prawdziwe. Przegląd tej warstwy przeprowadzony
+31.07.2026 potwierdził testem sześć realnych defektów, w tym niepełną
+anonimizację RODO i możliwość dwukrotnej wysyłki tej samej oferty. Wszystkie
+zamknięte w wydaniu 1.3.3.
+
+Wniosek, który wart jest zapamiętania bardziej niż sam werdykt: **„GO" znaczy
+„nie wróciło nic, co już znamy"** — nie „nie ma błędów". Deterministyczne pary
+to siatka regresyjna zbudowana z historii pomyłek tego projektu; nie zastąpią
+czytania kodu ze zrozumieniem.
 
 Raporty z kolejnych przebiegów leżą w `audyt/raport-*.txt` na gałęzi
 `audyt-projektu`, a szczegółowy opis narzędzia — w `audyt/README.md`.
