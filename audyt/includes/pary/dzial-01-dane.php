@@ -426,6 +426,100 @@ final class MP_AU_K115_Rejestr extends MP_AU_Krytyk {
 final class MP_AU_A116_Wydajnosc extends MP_AU_Agent {
 
 	/**
+	 * Czy liczba obiegow petli jest ustalona W KODZIE, a nie przez dane.
+	 *
+	 * Narzut liniowy ma sens jako zarzut wtedy, gdy „liniowy" znaczy „rosnacy
+	 * razem z danymi". Petla po trzech nazwach tabel przy deinstalacji albo po
+	 * dwoch jezykach szablonu wykona dokladnie tyle zapytan, ile zapisal
+	 * programista — i zadne `WHERE ... IN` tego nie zmieni, bo to sa operacje
+	 * na ROZNYCH obiektach, nie odczyty tego samego ksztaltu.
+	 *
+	 * Rozpoznajemy dwa zapisy: tablice wprost w naglowku petli oraz wywolanie
+	 * metody z tego samego pliku, ktora zwraca tablice bez zmiennych.
+	 *
+	 * @param string $naglowek     Naglowek petli, np. "foreach ( self::tables() as $t".
+	 * @param string $tresc        Tresc calego pliku (kod bez komentarzy).
+	 * @param string $cialo_metody Cialo metody, w ktorej petla stoi.
+	 * @return bool
+	 */
+	private static function liczba_obiegow_z_kodu( string $naglowek, string $tresc, string $cialo_metody = '' ): bool {
+		// (1) Lista wypisana wprost w naglowku.
+		if ( preg_match( '/\b(?:foreach|for)\s*\(\s*(?:array\s*\(|\[)/i', $naglowek ) ) {
+			return true;
+		}
+
+		// (2) `for` z granica ze stalej albo z liczby — tyle obiegow, ile wpisano.
+		if ( preg_match( '/\bfor\s*\(/i', $naglowek )
+			&& preg_match( '/[<>]=?\s*(?:\d+|(?:self|static|[A-Z_][A-Z0-9_]*)::[A-Z_][A-Z0-9_]*)\s*;/', $naglowek ) ) {
+			return true;
+		}
+
+		// (3) Metoda z tego samego pliku zwracajaca liste wypisana wprost.
+		if ( preg_match( '/\bforeach\s*\(\s*(?:self|static)::([a-z_][a-z0-9_]*)\s*\(\s*\)/i', $naglowek, $t ) ) {
+			return self::lista_wprost( MP_AU_Pomoc::cialo_funkcji( $tresc, (string) $t[1] ) );
+		}
+
+		// (4) Zmienna, do ktorej tuz obok przypisano liste wypisana wprost.
+		if ( '' !== $cialo_metody && preg_match( '/\bforeach\s*\(\s*(\$[a-z_][a-z0-9_]*)\s+as\b/i', $naglowek, $t ) ) {
+			$wzorzec = '/' . preg_quote( (string) $t[1], '/' ) . '\s*=\s*(array\s*\(.*?\)\s*;|\[.*?\]\s*;)/s';
+
+			if ( preg_match( $wzorzec, $cialo_metody, $przypisanie ) ) {
+				return self::lista_wprost( (string) $przypisanie[1] );
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Czy tresc to lista wypisana wprost, bez udzialu danych.
+	 *
+	 * Tablica zbudowana z parametru albo z odczytu bazy NIE jest ustalona
+	 * w kodzie — liczy sie tylko lista, ktorej dlugosc widac w pliku.
+	 *
+	 * @param string $tresc Cialo metody albo prawa strona przypisania.
+	 * @return bool
+	 */
+	private static function lista_wprost( string $tresc ): bool {
+		if ( '' === $tresc ) {
+			return false;
+		}
+
+		if ( false === strpos( $tresc, 'array(' ) && false === strpos( $tresc, 'array (' ) && false === strpos( $tresc, '[' ) ) {
+			return false;
+		}
+
+		return ! preg_match( '/\$(?!this\b)[a-z_][a-z0-9_]*/i', $tresc ) && false === strpos( $tresc, 'get_results' );
+	}
+
+	/**
+	 * Czy petla wykonuje WYLACZNIE zapisy.
+	 *
+	 * N+1 to problem ODCZYTU: zamiast jednego zapytania o komplet lecą zapytania
+	 * o kazdy element z osobna. Zapis jest inny — kazdy wiersz to inne dane,
+	 * wiec instrukcji musi byc tyle, ile wierszy. Zalecenie tej pary („pobrac
+	 * komplet jednym zapytaniem, WHERE ... IN") do zapisu po prostu nie pasuje.
+	 *
+	 * W tym projekcie doszlo do tego drugie: kontrola wyniku POJEDYNCZEGO zapisu
+	 * jest celowa i opisana w kodzie (bez niej bramka jakosci sprawdzalaby sama
+	 * siebie, bo `affected_rows` roslby niezaleznie od tego, czy wiersz powstal).
+	 * Zamiana na jeden INSERT wielowierszowy odebralaby te kontrole — czyli rada
+	 * bylaby nie tylko nietrafiona, ale szkodliwa.
+	 *
+	 * Wystarczy JEDEN odczyt w petli, zeby ustalenie zostalo.
+	 *
+	 * @param string $cialo_petli Cialo petli (bez podpetli).
+	 * @return bool
+	 */
+	private static function tylko_zapisy( string $cialo_petli ): bool {
+		if ( preg_match( '/\$wpdb->(?:get_var|get_row|get_col|get_results)\s*\(|get_post_meta\s*\(|wc_get_product\s*\(|\$wpdb->query\s*\(\s*[\'"]?\s*SELECT/i', $cialo_petli ) ) {
+			return false;
+		}
+
+		return (bool) preg_match( '/\$wpdb->(?:insert|update|delete|replace)\s*\(|\$wpdb->query\s*\(/', $cialo_petli );
+	}
+
+	/**
 	 * @param MP_AU_Kontekst $kontekst Kontekst.
 	 * @return MP_AU_Wynik
 	 */
@@ -449,6 +543,19 @@ final class MP_AU_A116_Wydajnosc extends MP_AU_Agent {
 						continue;
 					}
 
+					$start    = (int) $trafienie[1];
+					$klamra   = strpos( $tresc, '{', $start );
+					$naglowek = false === $klamra ? '' : substr( $tresc, $start, $klamra - $start );
+
+					$poz_metody   = strrpos( substr( $tresc, 0, $start ), 'function ' );
+					$cialo_metody = false === $poz_metody ? '' : MP_AU_Pomoc::blok( $tresc, (int) $poz_metody );
+
+					// Liczba obiegow wpisana w kod (lista tabel, dwa jezyki szablonu,
+					// licznik prob) nie rosnie z danymi — a tylko o taki wzrost tu chodzi.
+					if ( self::liczba_obiegow_z_kodu( $naglowek, $tresc, $cialo_metody ) ) {
+						continue;
+					}
+
 					// Petla zagniezdzona liczylaby sie dwa razy; bierzemy tylko te,
 					// w ktorych zapytanie stoi bezposrednio, a nie w podpetli.
 					$bez_podpetli = preg_replace( '/\b(?:foreach|for|while)\s*\(.*$/s', '', $blok ) ?? $blok;
@@ -463,6 +570,11 @@ final class MP_AU_A116_Wydajnosc extends MP_AU_Agent {
 					);
 
 					if ( ! preg_match_all( '/\$wpdb->(get_var|get_row|get_col|get_results|query|insert|update|delete)\s*\(|get_post_meta\s*\(|wc_get_product\s*\(/', $bez_podpetli, $t2, PREG_OFFSET_CAPTURE ) ) {
+						continue;
+					}
+
+					// Petla samych zapisow nie jest N+1 — patrz opis metody.
+					if ( self::tylko_zapisy( $bez_podpetli ) ) {
 						continue;
 					}
 
