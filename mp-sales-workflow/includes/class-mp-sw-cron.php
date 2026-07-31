@@ -169,6 +169,24 @@ class MP_SW_Cron {
 			return $summary;
 		}
 
+		/*
+		 * SIEĆ BEZPIECZEŃSTWA KOLEJKI.
+		 *
+		 * Dział 9 zamawia przebieg kolejki zaraz po zapisie, ale harmonogram
+		 * potrafi odmówić (wtyczka przejmująca cron, wyłączony WP-Cron, blokada
+		 * zapisu opcji). Wtedy wiadomości leżą w bazie i nikt ich nie wyśle aż do
+		 * następnego zdarzenia w systemie — czyli w spokojnym tygodniu być może
+		 * nigdy. Przegląd i tak chodzi co 5 minut, więc sprawdzenie jednego
+		 * licznika jest tu najtańszym możliwym ratunkiem.
+		 *
+		 * Ta sama filozofia co samonaprawa harmonogramu w `register()`: cisza
+		 * zamiast awarii to najgorszy wariant dla automatyzacji, która ma
+		 * działać sama.
+		 */
+		if ( MP_SW_Queue::pending() > 0 && ! wp_next_scheduled( MP_SW_D9_Emitter::CRON_QUEUE ) ) {
+			wp_schedule_single_event( time() + 60, MP_SW_D9_Emitter::CRON_QUEUE );
+		}
+
 		$tasks = MP_Sales_Workflow_DB::tasks_table();
 		$flow  = MP_Sales_Workflow_DB::flow_table();
 		$now   = current_time( 'mysql', true );

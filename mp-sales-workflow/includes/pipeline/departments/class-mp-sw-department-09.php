@@ -42,6 +42,18 @@ class MP_SW_D9_Emitter {
 	/** Hak crona uruchamiający wysyłkę kolejki. */
 	const CRON_QUEUE = 'mp_sw_run_queue';
 
+	/** Przebieg kolejki zamówiony przez to zdarzenie. */
+	const SCHEDULE_NEW = 'zaplanowano';
+
+	/** Przebieg był już zamówiony wcześniej — stan całkowicie normalny. */
+	const SCHEDULE_EXISTS = 'juz_bylo';
+
+	/** Harmonogram odmówił przyjęcia terminu — kolejka sama nie ruszy. */
+	const SCHEDULE_FAILED = 'blad';
+
+	/** Wpis dziennika: nie udało się zamówić przebiegu kolejki. */
+	const LOG_SCHEDULE_FAILED = 'queue.schedule_failed';
+
 	/** @var array Wystawione zdarzenia: "event_id|hook" => liczba wywołań. */
 	protected static $fired = array();
 
@@ -105,14 +117,24 @@ class MP_SW_D9_Emitter {
 	 * procesu i dopiero po COMMIT. Wewnątrz zostawiłoby po wycofaniu termin do
 	 * wysyłki powiadomień, których w bazie już nie ma.
 	 *
-	 * @return bool Czy zlecenie zostało dodane teraz.
+	 * Zwracamy TRZY stany, nie dwa. Do wersji 1.3.0 wychodziło stąd `false` i
+	 * przy „termin już stoi", i przy nieudanym `wp_schedule_single_event()` —
+	 * a to dwie skrajnie różne sytuacje. Pierwsza jest normalna: przebieg jest
+	 * zamówiony, tylko nie przez nas. Druga oznacza kolejkę, która NIE RUSZY:
+	 * wiadomości leżą w bazie, nikt ich nie wyśle i nic o tym nie mówi.
+	 * Odmówić potrafi każda wtyczka przejmująca harmonogram (filtr
+	 * `pre_schedule_event`), wyłączony WP-Cron albo blokada zapisu opcji.
+	 *
+	 * @return string Jeden ze stanów: SCHEDULE_NEW, SCHEDULE_EXISTS, SCHEDULE_FAILED.
 	 */
 	public static function schedule_queue() {
 		if ( wp_next_scheduled( self::CRON_QUEUE ) ) {
-			return false;
+			return self::SCHEDULE_EXISTS;
 		}
 
-		return (bool) wp_schedule_single_event( time() + 60, self::CRON_QUEUE );
+		return wp_schedule_single_event( time() + 60, self::CRON_QUEUE )
+			? self::SCHEDULE_NEW
+			: self::SCHEDULE_FAILED;
 	}
 }
 
@@ -147,7 +169,7 @@ class MP_SW_D9_Agent_Events extends MP_SW_Abstract_Agent {
 		}
 
 		$dispatched = array();
-		$scheduled  = false;
+		$scheduled  = '';
 
 		if ( $writes > 0 ) {
 			$transition = (array) $context->get( 'transition', array() );
@@ -173,6 +195,19 @@ class MP_SW_D9_Agent_Events extends MP_SW_Abstract_Agent {
 				}
 
 				$scheduled = MP_SW_D9_Emitter::schedule_queue();
+
+				if ( MP_SW_D9_Emitter::SCHEDULE_FAILED === $scheduled ) {
+					/*
+					 * Zapis jest już zatwierdzony, więc odmowa całego zdarzenia
+					 * byłaby kłamstwem w drugą stronę: proces naprawdę ruszył,
+					 * a powiadomienia naprawdę czekają w kolejce. Zostaje
+					 * odnotowanie faktu tam, gdzie klient i tak zagląda —
+					 * w dzienniku procesu. Sieć bezpieczeństwa jest osobno:
+					 * przegląd crona co 5 minut widzi zaległą kolejkę i zamawia
+					 * przebieg jeszcze raz (MP_SW_Cron::sweep_tasks()).
+					 */
+					self::log_schedule_failure( $context, $event_id, count( $notifications ) );
+				}
 			}
 		}
 
@@ -181,6 +216,40 @@ class MP_SW_D9_Agent_Events extends MP_SW_Abstract_Agent {
 				'dispatched'      => $dispatched,
 				'queue_scheduled' => $scheduled,
 				'emit_times'      => MP_SW_D9_Emitter::times( MP_SW_D9_Emitter::HOOK_FLOW_UPDATED, $event_id ),
+			)
+		);
+	}
+
+	/**
+	 * Odnotowuje w dzienniku, że przebiegu kolejki nie udało się zamówić.
+	 *
+	 * Wpis powstaje POZA transakcją procesu — ta jest już zatwierdzona — więc
+	 * idzie tą samą drogą co wpis o pobraniu dokumentu w MP_SW_Download.
+	 * Bez adresu e-mail i bez IP: dziennik ma mówić, CO się nie udało, a nie
+	 * komu miało pójść (BLOK H, kryt. 5.5).
+	 *
+	 * @param MP_SW_Context $context  Kontekst przebiegu.
+	 * @param string        $event_id Identyfikator zdarzenia.
+	 * @param int           $count    Ile powiadomień czeka w kolejce.
+	 * @return void
+	 */
+	private static function log_schedule_failure( MP_SW_Context $context, $event_id, $count ) {
+		global $wpdb;
+
+		$flow_id = (int) $context->get( 'flow_id', 0 );
+
+		$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			MP_Sales_Workflow_DB::activity_table(),
+			array(
+				'event_id'   => '' !== (string) $event_id ? (string) $event_id : null,
+				'flow_id'    => $flow_id > 0 ? $flow_id : null,
+				'entity_ref' => 'queue',
+				'action'     => MP_SW_D9_Emitter::LOG_SCHEDULE_FAILED,
+				'old_value'  => null,
+				'new_value'  => (string) (int) $count,
+				'actor_type' => 'system',
+				'actor_id'   => null,
+				'created_at' => current_time( 'mysql', true ),
 			)
 		);
 	}

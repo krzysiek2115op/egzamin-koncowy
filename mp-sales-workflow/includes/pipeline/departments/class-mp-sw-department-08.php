@@ -311,9 +311,18 @@ class MP_SW_D8_Agent_Plan extends MP_SW_Abstract_Agent {
 			}
 		}
 
-		$status_po_terminie = ( ! $poszlo && $odpadlo )
-			? MP_SW_D6_Scheduler::STATUS_UNDELIVERED
-			: MP_SW_D6_Scheduler::STATUS_DONE;
+		/*
+		 * Pytamy o DOWÓD WYSŁANIA, nie o dowód porażki.
+		 *
+		 * Wcześniej warunek brzmiał `( ! $poszlo && $odpadlo )` — czyli „wykonane"
+		 * dostawał także trzeci przypadek: powiadomienia nie ma ani w kolejce, ani
+		 * na liście pominiętych. Taka luka nie jest hipotetyczna z punktu widzenia
+		 * pulpitu: handlowiec nic nie dostał, a zadanie znikało jako zrobione i
+		 * nikt do niego nie wracał. Brak potwierdzenia to nie jest potwierdzenie.
+		 */
+		$status_po_terminie = $poszlo
+			? MP_SW_D6_Scheduler::STATUS_DONE
+			: MP_SW_D6_Scheduler::STATUS_UNDELIVERED;
 
 		foreach ( (array) $tasks['fire'] as $task ) {
 			$plan['tasks_close'][] = array(
