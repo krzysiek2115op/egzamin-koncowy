@@ -14,7 +14,7 @@
     "Jesli para nie istnieje, blad moze wrocic niezauwazony — para 1.15 to zglasza."
   ],
   "wersja": 1,
-  "zrodlo": "audyt enterprise 29.07.2026 + naprawy 29-30.07.2026",
+  "zrodlo": "audyt enterprise 29.07.2026 + naprawy 29-30.07.2026 + Grupa A po audycie 31.07.2026",
   "bledy": [
     {
       "id": "P3-K1",
@@ -27,7 +27,9 @@
       "skutek": "Klient dostawal maila z linkiem, klikal i trafial na zwykla strone sklepu.",
       "test": "tests/koncowe/link-do-oferty.php",
       "para": "1.7",
-      "maskowal": [ "INT-K3" ]
+      "maskowal": [
+        "INT-K3"
+      ]
     },
     {
       "id": "INT-K3",
@@ -191,6 +193,45 @@
       "test": "",
       "para": "1.3",
       "lekcja": "Zanim zglosisz blad kodu, sprawdz, czy nie zglaszasz bledu WLASNEJ konfiguracji."
+    },
+    {
+      "id": "P3-A1",
+      "data": "2026-07-31",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "Zadanie follow-up domykane jako WYKONANE, gdy powiadomienia nie bylo w zadnej z list",
+      "klasa": "brak-potwierdzenia-uznany-za-potwierdzenie",
+      "plik": "includes/pipeline/departments/class-mp-sw-department-08.php",
+      "dowod": "( ! $poszlo && $odpadlo ) ? undelivered : done — trzeci przypadek (ani kolejka, ani lista pominietych) wpadal do done",
+      "skutek": "Handlowiec nie dostaje przypomnienia, pulpit pokazuje zadanie jako zrobione i nikt do niego nie wraca.",
+      "test": "mp-sales-workflow/tests/naprawy/grupa-a.php",
+      "para": "1.25",
+      "lekcja": "Pytaj o dowod SUKCESU, nie o dowod porazki. Dwa przypadki w ternary tam, gdzie stany sa trzy, zawsze komus przypisza zla wartosc domyslna."
+    },
+    {
+      "id": "P3-A2",
+      "data": "2026-07-31",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "schedule_queue() zwracalo false i przy 'termin juz stoi', i przy nieudanym zaplanowaniu",
+      "klasa": "dwa-rozne-stany-pod-jedna-wartoscia",
+      "plik": "includes/pipeline/departments/class-mp-sw-department-09.php",
+      "dowod": "wp_next_scheduled() -> return false; wp_schedule_single_event() -> (bool) — wywolujacy nie odroznial sytuacji normalnej od awarii",
+      "skutek": "Kolejka powiadomien nigdy nie rusza, wiadomosci leza w bazie, zaden komunikat o tym nie mowi.",
+      "test": "mp-sales-workflow/tests/naprawy/grupa-a.php",
+      "para": "1.25",
+      "lekcja": "Wartosc zwracana musi rozrozniac tyle stanow, ile ich jest. Do tego siec bezpieczenstwa: przeglad crona sam zamawia zalegla kolejke."
+    },
+    {
+      "id": "P1-A3",
+      "data": "2026-07-31",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "wp_json_encode() bez sprawdzenia wyniku, result_ready z samego success",
+      "klasa": "brak-potwierdzenia-uznany-za-potwierdzenie",
+      "plik": "includes/pipeline/departments/class-mp-department-10.php",
+      "dowod": "'response_json' => wp_json_encode( $r ) oraz 'result_ready' => ! empty( $r['success'] )",
+      "skutek": "Pipeline melduje sukces, trzymajac false zamiast odpowiedzi; przegladarka dostaje puste cialo bez wyjasnienia.",
+      "test": "mp-lead-intake/tests/naprawy/a3-payload-json.php",
+      "para": "1.25",
+      "lekcja": "Kazda funkcja rdzenia WordPressa, ktora moze zwrocic false, musi miec sprawdzony wynik — inaczej porazka przebiera sie za sukces."
     }
   ]
 }
