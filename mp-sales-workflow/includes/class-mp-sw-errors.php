@@ -64,6 +64,15 @@ class MP_SW_Errors {
 	/** Konflikt wersji wiersza — ktos zapisal przed nami. */
 	const E_CONFLICT = 'MP3-E150';
 
+	/**
+	 * Zdarzenie o tym `event_id` bylo juz obslugiwane.
+	 *
+	 * Wlasny kod, nie E_CONFLICT: konflikt wersji znaczy „odswiez i powtorz",
+	 * a tutaj powtarzac nie ma czego — praca zostala wykonana za pierwszym
+	 * razem. Wywolujacy ma zareagowac odwrotnie niz przy MP3-E150.
+	 */
+	const E_DUPLICATE = 'MP3-E151';
+
 	/** Przejscie statusu spoza maszyny stanow. */
 	const E_TRANSITION = 'MP3-E160';
 
@@ -126,7 +135,17 @@ class MP_SW_Errors {
 			'scope_from_request'        => self::E_SCOPE,
 			'operation_forbidden'       => self::E_CAPABILITY,
 			'version_conflict'          => self::E_CONFLICT,
-			'invalid_transition'        => self::E_TRANSITION,
+
+			/*
+			 * Nazwa reguly krytyka, nie nazwa zyczeniowa. Wpis brzmial wczesniej
+			 * `invalid_transition` i nie odpowiadal niczemu w kodzie — Dzial 5
+			 * emituje `illegal_transition`. Zmiana nazwy przeszla po jednej
+			 * stronie, wiec MP3-E160 nie wychodzilo nigdy, a zwykla odmowa 409
+			 * meldowala sie jako MP3-E500 „blad wewnetrzny". Martwy wpis w
+			 * slowniku wygladal przy tym jak dowod, ze wszystko jest obsluzone.
+			 */
+			'illegal_transition'        => self::E_TRANSITION,
+			'duplicate_event'           => self::E_DUPLICATE,
 			'unresolved_markers'        => self::E_MAIL,
 			'empty_offer_number'        => self::E_OFFER_DOCUMENT,
 			'offer_document_missing'    => self::E_OFFER_DOCUMENT,
@@ -181,6 +200,7 @@ class MP_SW_Errors {
 			self::E_NOT_FOUND      => __( 'Nie znaleziono procesu.', 'mp-sales-workflow' ),
 			self::E_SCOPE          => __( 'Zakres widoku poza uprawnieniami.', 'mp-sales-workflow' ),
 			self::E_CONFLICT       => __( 'Proces zmienił się w międzyczasie — odśwież i powtórz.', 'mp-sales-workflow' ),
+			self::E_DUPLICATE      => __( 'To zdarzenie zostało już obsłużone — nie powtarzamy pracy.', 'mp-sales-workflow' ),
 			self::E_TRANSITION     => __( 'Niedozwolone przejście statusu.', 'mp-sales-workflow' ),
 			self::E_MAIL           => __( 'Powiadomienie odrzucone przed wysyłką.', 'mp-sales-workflow' ),
 			self::E_OFFER_DOCUMENT => __( 'Oferta nie ma jeszcze gotowego dokumentu PDF — dokończ ją w module ofertowym i spróbuj ponownie.', 'mp-sales-workflow' ),
