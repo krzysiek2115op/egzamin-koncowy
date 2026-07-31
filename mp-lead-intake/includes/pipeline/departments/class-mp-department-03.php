@@ -165,6 +165,28 @@ class MP_D3_Agent_Vat extends MP_Abstract_Agent {
 			);
 		}
 
+		/*
+		 * Brak pola `isValid` to NIE jest „numer nieważny". Dokumentacja VIES
+		 * (docs/dzial-03/vies-rest-api.md) wymienia `isValid` i `userError` jako
+		 * osobne pola i nigdzie nie mówi, że nieobecność pierwszego coś rozstrzyga.
+		 *
+		 * Bez tego warunku odpowiedź 200 bez `isValid` i bez `userError` szła
+		 * dalej: `! empty( null )` dawało false, łagodny fallback poniżej jej nie
+		 * łapał (bo wymaga niepustego `$user_err`), więc kod zapisywał do cache
+		 * ZERO na 24 h i zwracał `vat_checked => true`. Krytyk 3.2 zamienia taki
+		 * wynik w twardy STOP `vat_invalid` — lead był odrzucany, i to przez całą
+		 * dobę, bo werdykt siedział w cache.
+		 *
+		 * Ta sama zasada co w agencie 3.3 przy Białej liście: „nie ustalono" to
+		 * nie to samo co „ustalono, że nie".
+		 */
+		if ( ! array_key_exists( 'isValid', $body ) ) {
+			return array(
+				'vat_valid'   => null,
+				'vat_checked' => false,
+			);
+		}
+
 		$is_valid = ! empty( $body['isValid'] );
 		$user_err = isset( $body['userError'] ) ? strtoupper( (string) $body['userError'] ) : '';
 
