@@ -349,6 +349,32 @@
       "test": "tests/naprawy/audyt-gleboki.php",
       "para": "1.26",
       "lekcja": "Awaria i przegrany wyscig to nie ten sam wynik. Komunikat, ktory brzmi jak potwierdzenie, przy awarii jest gorszy od braku komunikatu."
+    },
+    {
+      "id": "P1-G1",
+      "data": "2026-07-31",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Niepelna odpowiedz Bialej listy raportowana jako sprawdzony status",
+      "klasa": "brak-potwierdzenia-uznany-za-potwierdzenie",
+      "plik": "includes/pipeline/departments/class-mp-department-03.php",
+      "dowod": "$status = isset($body['result']['subject']['statusVat']) ? ... : null; set_transient($klucz, $status, 12h); return array('company_status_checked' => true)",
+      "skutek": "Przy HTTP 200 bez obiektu `subject` kod zwracal 'sprawdzone' bez zadnego statusu i wpisywal null do cache na 12 h. set_transient(klucz, null) zapisuje pusty ciag, wiec get_transient() oddaje '' i warunek `false !== $cached` uznaje to za TRAFIENIE — przez pol doby kazdy lead z tym NIP-em dostawal 'status sprawdzony' bez statusu i nigdy nie trafial do weryfikatora w tle.",
+      "test": "tests/naprawy/biala-lista-niepelna-odpowiedz.php",
+      "para": "1.25",
+      "lekcja": "Spor dwoch sedziow audytu rozstrzygnela dokumentacja API: statusVat przyjmuje takze 'Niezarejestrowany', wiec NIP spoza wykazu MA wlasny status. Brak `subject` nie jest rozstrzygnieciem. Ta sama klasa co P1-C1."
+    },
+    {
+      "id": "P2-G4",
+      "data": "2026-07-31",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Kontrola nieznanego kodu kraju zalezna od zaladowania WooCommerce",
+      "klasa": "zabezpieczenie-pod-warunkiem",
+      "plik": "includes/pipeline/departments/class-mp-ob-department-06.php",
+      "dowod": "caly test 'unknown_country' siedzial w `if ( function_exists('WC') && is_object(WC()) && isset(WC()->countries) ... )`",
+      "skutek": "Gdy warunek nie byl spelniony, literowka o poprawnym ksztalcie ('DR' zamiast 'DE') przechodzila regex, nie trafiala na liste UE i wpadala do galezi 'poza UE': 0% VAT z podstawa prawna, ktora nie istnieje. QA dzialu to przepuszczalo, bo netto + 0 = brutto.",
+      "test": "tests/naprawy/kod-kraju-lista-iso.php",
+      "para": "1.25",
+      "lekcja": "Drugi sedzia twierdzil, ze Dzial 2 pada wczesniej na woocommerce_unavailable — ale to INNY warunek (class_exists('WC_Tax')) niz WC()->countries, ktore zapelnia sie dopiero na 'init'. Zabezpieczenie przed cichym 0% VAT nie moze zalezec od stanu bootstrapu sklepu."
     }
   ]
 }
