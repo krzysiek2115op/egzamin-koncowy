@@ -4,7 +4,7 @@ Tags: oferty, pdf, woocommerce, cennik
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.0
+Stable tag: 1.3.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -59,6 +59,14 @@ RODO/GDPR:
 * Sugerowana treść polityki prywatności jest dodawana w Ustawienia → Prywatność.
 
 == Changelog ==
+
+= 1.3.1 =
+
+* BEZ ZMIAN W KODZIE tej wtyczki. Wersja podniesiona razem z pozostalymi
+  dwiema, zeby komplet mial jeden numer — naprawy 1.3.1 dotycza wtyczek
+  MP Lead Intake i MP Sales Workflow. Zgodnosc na stykach (haki
+  `mp_lead_created`, `mp_lead_verified`, `mp_offer_created`,
+  `mp_offer_approved`) sprawdzona testami integracyjnymi: 89/89.
 
 = 1.3.0 =
 
