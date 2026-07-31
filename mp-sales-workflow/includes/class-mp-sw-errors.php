@@ -28,6 +28,9 @@ class MP_SW_Errors {
 	/** Brak uprawnienia do operacji. */
 	const E_CAPABILITY = 'MP3-E101';
 
+	/** Aktor koperty nie jest zalogowanym uzytkownikiem (zdarzenie reczne). */
+	const E_ACTOR = 'MP3-E102';
+
 	/** Typ zdarzenia niedozwolony z tego kanalu (macierz pochodzenia). */
 	const E_ORIGIN = 'MP3-E110';
 
@@ -107,10 +110,12 @@ class MP_SW_Errors {
 			'bad_nonce'                 => self::E_NONCE,
 			'forbidden'                 => self::E_CAPABILITY,
 			'origin_forbidden'          => self::E_ORIGIN,
+			'actor_mismatch'            => self::E_ACTOR,
 			'cron_context_required'     => self::E_CRON_CONTEXT,
 			'invalid_event'             => self::E_SCHEMA,
 			'contract_failed'           => self::E_SCHEMA,
 			'incomplete_event'          => self::E_INCOMPLETE,
+			'missing_target_status'     => self::E_INCOMPLETE,
 			'payload_too_large'         => self::E_TOO_LARGE,
 			'unknown_field'             => self::E_UNKNOWN_FIELD,
 			'missing_idempotency_key'   => self::E_KEY_MISSING,
@@ -164,6 +169,7 @@ class MP_SW_Errors {
 		$messages = array(
 			self::E_NONCE          => __( 'Nieaktualny token żądania — odśwież stronę i spróbuj ponownie.', 'mp-sales-workflow' ),
 			self::E_CAPABILITY     => __( 'Brak uprawnień do tej operacji.', 'mp-sales-workflow' ),
+			self::E_ACTOR          => __( 'Zdarzenie podpisane innym użytkownikiem niż zalogowany.', 'mp-sales-workflow' ),
 			self::E_ORIGIN         => __( 'Zdarzenie tego typu nie może pochodzić z tego kanału.', 'mp-sales-workflow' ),
 			self::E_CRON_CONTEXT   => __( 'Zdarzenie harmonogramu poza przebiegiem harmonogramu.', 'mp-sales-workflow' ),
 			self::E_SCHEMA         => __( 'Zdarzenie niezgodne z kontraktem.', 'mp-sales-workflow' ),

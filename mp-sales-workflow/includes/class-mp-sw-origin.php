@@ -139,6 +139,38 @@ class MP_SW_Origin {
 			);
 		}
 
+		/*
+		 * TWARDA ZGODNOSC AKTORA (decyzja klienta z 31.07.2026).
+		 *
+		 * Zdarzenie reczne niesie w kopercie `actor.user_id` i to ta wartosc
+		 * trafiala do dziennika jako sprawca zmiany — nigdy nie porownana
+		 * z tym, kto jest naprawde zalogowany. Eskalacji uprawnien to nie
+		 * dawalo (te sprawdza `current_user_can()`), ale dziennik z kryterium
+		 * 5.5 ma odtwarzac historie, a historia z podstawionym sprawca jest
+		 * gorsza niz jej brak: wyglada wiarygodnie.
+		 *
+		 * Odmowa zapada TUTAJ, przed jakakolwiek praca pipeline'u, wiec
+		 * scenariusz „zero zmian w bazie" jest spelniony doslownie.
+		 *
+		 * Zrodla `system` i `cron` zostaja bez zmian: tam `user_id = 0`
+		 * oznacza aktora systemowego i tak ma byc. Wariant „w imieniu kogos"
+		 * (pole `actor.real_user_id` + osobne uprawnienie) zostal swiadomie
+		 * odlozony — dzis nie ma dla niego scenariusza biznesowego.
+		 */
+		if ( MP_SW_D1::SOURCE_MANUAL === (string) $source ) {
+			$actor    = isset( $envelope['actor'] ) ? (array) $envelope['actor'] : array();
+			$deklaro  = isset( $actor['user_id'] ) ? (int) $actor['user_id'] : 0;
+			$zalogowa = get_current_user_id();
+
+			if ( $deklaro !== $zalogowa ) {
+				return array(
+					'ok'     => false,
+					'code'   => 'actor_mismatch',
+					'reason' => 'actor',
+				);
+			}
+		}
+
 		return self::restrict( $type, $source, $envelope );
 	}
 

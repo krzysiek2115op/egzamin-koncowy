@@ -114,6 +114,23 @@ class MP_SW_D5_Machine {
 	}
 
 	/**
+	 * Typy zdarzeń, którym wolno nie mieć statusu docelowego.
+	 *
+	 * Lista zamknięta i wyliczona wprost. Wcześniej „brak statusu docelowego"
+	 * rozpoznawało się po pustym wyniku `target_status()`, więc `status.change`
+	 * z pustym `to_status` wyglądał dokładnie tak samo jak podgląd pulpitu —
+	 * i przechodził jako zdarzenie, które statusu nie rusza.
+	 *
+	 * @return string[]
+	 */
+	public static function statusless_events() {
+		return array(
+			MP_SW_Pipeline_Factory::EVENT_TASK_DUE,
+			MP_SW_Pipeline_Factory::EVENT_DASHBOARD_VIEW,
+		);
+	}
+
+	/**
 	 * Czy przejście jest dozwolone.
 	 *
 	 * Porównanie w trybie ścisłym: bez `$strict` PHP przed wersją 8.0 uznałby
@@ -154,6 +171,28 @@ class MP_SW_D5_Agent_Transition extends MP_SW_Abstract_Agent {
 			: MP_Sales_Workflow_DB::STATUS_NEW;
 
 		$to = MP_SW_D5_Machine::target_status( $type, $context->all() );
+
+		/*
+		 * Pusty status docelowy jest LEGALNY tylko dla zdarzeń, które statusu nie
+		 * ruszają z definicji. Dla `status.change` oznacza koperta niekompletną:
+		 * ktoś prosi o zmianę statusu, nie mówiąc na jaki.
+		 *
+		 * Wcześniej taka koperta szła gałęzią poniżej — z `allowed = true`.
+		 * Wywołujący dostawał sukces, a proces mimo to był zapisywany: token
+		 * blokady rósł i zdarzenie lądowało w rejestrze. Czyli nie tylko cisza
+		 * zamiast błędu, ale i zużyty klucz idempotencji, przez który POPRAWIONA
+		 * próba z tym samym `event_id` odbiłaby się jako powtórka.
+		 */
+		if ( '' === $to && ! in_array( $type, MP_SW_D5_Machine::statusless_events(), true ) ) {
+			return MP_SW_Result::fail(
+				__( 'Zmiana statusu bez statusu docelowego.', 'mp-sales-workflow' ),
+				array(
+					'errors'      => array( 'to_status' ),
+					'http_status' => 400,
+				),
+				'missing_target_status'
+			);
+		}
 
 		// Zdarzenie, które nie rusza statusu, jest legalne z definicji — nie ma
 		// przejścia do sprawdzenia.

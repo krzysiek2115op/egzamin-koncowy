@@ -123,6 +123,21 @@ class MP_SW_Events {
 	private static function refuse( array $origin, MP_SW_Context $context, array $envelope ) {
 		$entity = isset( $envelope['entity'] ) ? (array) $envelope['entity'] : array();
 
+		/*
+		 * Zakres widoku NIE moze przezyc odmowy.
+		 *
+		 * Kontekst powstaje z koperty, a koperta wolno niesie `scope` — to
+		 * ZADANIE zakresu, nie zakres. Przy udanym przebiegu Dzial 3 nadpisuje
+		 * ten klucz wartoscia policzona z uprawnien (surowa zostaje osobno, jako
+		 * `scope_requested`, i pilnuje jej krytyk „scope_from_request"). Przy
+		 * odmowie Dzial 3 nie rusza — wiec bez tego czyszczenia w kontekscie
+		 * zostawalaby wartosc wprost z zadania. Kazdy kod czytajacy `scope`
+		 * z kontekstu bez sprawdzenia, czy zdarzenie sie powiodlo, dostalby
+		 * zakres podany przez wywolujacego.
+		 */
+		$context->set( 'scope', '' );
+		$context->set( 'scope_members', array() );
+
 		MP_SW_Log::security(
 			MP_SW_Errors::code( $origin['code'] ),
 			array(
@@ -139,10 +154,16 @@ class MP_SW_Events {
 			)
 		);
 
+		/*
+		 * Komunikat bierzemy ze slownika kodow, a nie na sztywno: ta sama droga
+		 * odmowy obsluguje dzis dwa powody — zly kanal i aktora niezgodnego
+		 * z zalogowanym uzytkownikiem. Zdanie „nie moze pochodzic z tego kanalu"
+		 * przy tym drugim mowiloby nieprawde i wysylaloby szukajacego w zla strone.
+		 */
 		$result = MP_SW_Result::fail(
-			__( 'Zdarzenie tego typu nie może pochodzić z tego kanału.', 'mp-sales-workflow' ),
+			MP_SW_Errors::message( MP_SW_Errors::code( $origin['code'] ) ),
 			array(
-				'errors'      => array( 'source' ),
+				'errors'      => array( '' !== (string) $origin['reason'] ? (string) $origin['reason'] : 'source' ),
 				'http_status' => 403,
 			),
 			$origin['code']
