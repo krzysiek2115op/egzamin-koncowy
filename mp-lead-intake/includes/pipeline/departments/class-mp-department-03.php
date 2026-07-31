@@ -281,7 +281,11 @@ class MP_D3_Agent_Company_Status extends MP_Abstract_Agent {
 		$date      = gmdate( 'Y-m-d' );
 		$cache_key = self::wl_cache_key( $nip, $date );
 		$cached    = get_transient( $cache_key );
-		if ( false !== $cached ) {
+
+		// Pusta wartość w cache to NIE trafienie. Poza tym, że kod już jej tam
+		// nie wpisuje, wpisy z poprzedniej wersji mogą siedzieć w bazie jeszcze
+		// przez 12 h po aktualizacji — i bez tego warunku dalej udawałyby status.
+		if ( false !== $cached && '' !== trim( (string) $cached ) ) {
 			return array(
 				'company_status'         => $cached,
 				'company_status_checked' => true,
@@ -314,7 +318,33 @@ class MP_D3_Agent_Company_Status extends MP_Abstract_Agent {
 			);
 		}
 
-		$status = isset( $body['result']['subject']['statusVat'] ) ? $body['result']['subject']['statusVat'] : null;
+		$status = isset( $body['result']['subject']['statusVat'] )
+			? trim( (string) $body['result']['subject']['statusVat'] )
+			: '';
+
+		/*
+		 * „Nie ustalono" to nie to samo co „ustalono, że nie". Dokumentacja API
+		 * (docs/dzial-03/biala-lista-vat-api.md) wylicza trzy wartości
+		 * `statusVat`: „Czynny", „Zwolniony" i „Niezarejestrowany" — NIP spoza
+		 * wykazu dostaje więc WŁASNY status, a nie pustą odpowiedź. Brak
+		 * `subject` przy HTTP 200 nie jest rozstrzygnięciem, tylko odpowiedzią
+		 * niepełną, i tak trzeba ją traktować.
+		 *
+		 * Poprzednia wersja zwracała `checked => true` przy `status => null`
+		 * i wpisywała ten null do cache na 12 h. `set_transient( key, null )`
+		 * zapisuje pusty ciąg, więc `get_transient()` oddaje `''`, a warunek
+		 * `false !== $cached` uznaje to za TRAFIENIE: przez pół doby każdy lead
+		 * z tym NIP-em dostawał „status sprawdzony" bez statusu i nigdy nie
+		 * trafiał do weryfikatora w tle. Ta sama klasa błędu co P1-C1 —
+		 * wartość domyślna twierdząca więcej, niż wiemy.
+		 */
+		if ( '' === $status ) {
+			return array(
+				'company_status'         => null,
+				'company_status_checked' => false,
+			);
+		}
+
 		set_transient( $cache_key, $status, 12 * HOUR_IN_SECONDS );
 
 		return array(
@@ -341,8 +371,9 @@ class MP_D3_Agent_Company_Status extends MP_Abstract_Agent {
 
 		// Tryb async (domyślny): cache-hit wykorzystujemy, miss ODKŁADAMY do tła.
 		if ( MP_D3_Agent_Vat::async_enabled() ) {
+			// Ten sam warunek co w resolve_wl(): pusty wpis to nie trafienie.
 			$cached = get_transient( self::wl_cache_key( $nip ) );
-			if ( false !== $cached ) {
+			if ( false !== $cached && '' !== trim( (string) $cached ) ) {
 				return MP_Result::ok(
 					array(
 						'company_status'         => $cached,
