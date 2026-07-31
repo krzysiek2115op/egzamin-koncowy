@@ -157,15 +157,43 @@ class MP_SW_Mailer {
 			return false;
 		}
 
+		$teraz  = time();
 		$window = get_transient( self::WINDOW_KEY );
+		$start  = is_array( $window ) && isset( $window['start'] ) ? (int) $window['start'] : 0;
 		$count  = is_array( $window ) && isset( $window['count'] ) ? (int) $window['count'] : 0;
+
+		/*
+		 * OKNO MA POCZATEK, INACZEJ NIE JEST OKNEM.
+		 *
+		 * Wczesniej licznik szedl do transientu z pelnym TTL przy KAZDEJ wysylce.
+		 * Transient nie mial wiec jak wygasnac, dopoki cokolwiek wychodzilo,
+		 * a licznik liczyl nie ostatnia godzine, tylko wszystkie wysylki od
+		 * pierwszej. Prog „200 na godzine" stawal sie progiem „200 od poczatku
+		 * ruchu": sklep wysylajacy spokojne 30 wiadomosci na godzine dostawal
+		 * zatrzymana kolejke po siedmiu godzinach pracy i alarm o zalewie, ktorego
+		 * nie bylo. Im lepiej szla sprzedaz, tym pewniej bezpiecznik ja przerywal.
+		 *
+		 * Czas liczymy od `start`, a TTL to RESZTA godziny — dzieki temu okno
+		 * zamyka sie samo, niezaleznie od tego, czy ruch ustal.
+		 */
+		if ( $start <= 0 || ( $teraz - $start ) >= HOUR_IN_SECONDS ) {
+			$start = $teraz;
+			$count = 0;
+		}
 
 		if ( $count >= self::limit() ) {
 			self::trip( $count );
 			return false;
 		}
 
-		set_transient( self::WINDOW_KEY, array( 'count' => $count + 1 ), HOUR_IN_SECONDS );
+		set_transient(
+			self::WINDOW_KEY,
+			array(
+				'start' => $start,
+				'count' => $count + 1,
+			),
+			max( 1, HOUR_IN_SECONDS - ( $teraz - $start ) )
+		);
 
 		return true;
 	}
