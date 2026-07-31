@@ -14,6 +14,10 @@
  *     przypisac czyjas zmiane statusu komus innemu. Decyzja klienta z
  *     31.07.2026: TWARDA ZGODNOSC dla zdarzen recznych.
  *
+ * Pilnuje wpisow z rejestru znanych bledow (audyt/rejestr/znane-bledy.json):
+ *   - P3-B1  status.change bez to_status przechodzil jako zdarzenie nieruszajace statusu
+ *   - P3-B2  Aktor zdarzenia recznego brany z koperty, nigdy porownany z zalogowanym
+ *
  * @package MP_Sales_Workflow
  */
 

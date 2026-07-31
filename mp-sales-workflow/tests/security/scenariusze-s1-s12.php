@@ -2,6 +2,9 @@
 /**
  * Scenariusze bezpieczenstwa S1-S12 + raport inwariantow I-1..I-6.
  * Uruchamiane przez `wp eval-file`.
+ *
+ * Pilnuje wpisow z rejestru znanych bledow (audyt/rejestr/znane-bledy.json):
+ *   - P3-B3  Odmowa zostawiala w kontekscie surowy `scope` z zadania
  */
 
 global $wpdb;

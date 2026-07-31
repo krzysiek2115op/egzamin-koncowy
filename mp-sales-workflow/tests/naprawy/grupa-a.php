@@ -15,6 +15,10 @@
  *     kolejke, ktora NIGDY nie ruszy — a wywolujacy widzial to samo `false`,
  *     co przy sytuacji calkowicie normalnej.
  *
+ * Pilnuje wpisow z rejestru znanych bledow (audyt/rejestr/znane-bledy.json):
+ *   - P3-A1  Zadanie follow-up domykane jako WYKONANE, gdy powiadomienia nie bylo w zadnej z list
+ *   - P3-A2  schedule_queue() zwracalo false i przy 'termin juz stoi', i przy nieudanym zaplanowaniu
+ *
  * @package MP_Sales_Workflow
  */
 

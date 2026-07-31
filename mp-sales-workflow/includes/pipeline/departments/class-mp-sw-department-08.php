@@ -355,7 +355,7 @@ class MP_SW_D8_Agent_Plan extends MP_SW_Abstract_Agent {
 			'lead_id'    => $lead_id,
 			'offer_id'   => isset( $entity['offer_id'] ) ? (int) $entity['offer_id'] : null,
 			'actor_id'   => isset( $event['actor']['user_id'] ) ? (int) $event['actor']['user_id'] : 0,
-			'status'     => 'done',
+			'status'     => MP_Sales_Workflow_DB::EVENT_STATUS_DONE,
 			'trace_id'   => (string) $context->get( 'trace_id', $event_id ),
 			'created_at' => $now,
 			'updated_at' => $now,

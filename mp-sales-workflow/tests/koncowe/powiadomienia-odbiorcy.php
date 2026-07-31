@@ -14,6 +14,9 @@
  *  - klient bez adresu  -> odmowa (zdarzenie „wyslij oferte" traci sens),
  *  - pracownik bez adresu -> pominiecie tego powiadomienia + wpis w dzienniku.
  *
+ * Pilnuje wpisow z rejestru znanych bledow (audyt/rejestr/znane-bledy.json):
+ *   - P3-K3  Powiadomienia z pustym numerem oferty; anonimizacja nie zatrzymywala maili
+ *
  * @package MP_Sales_Workflow
  */
 

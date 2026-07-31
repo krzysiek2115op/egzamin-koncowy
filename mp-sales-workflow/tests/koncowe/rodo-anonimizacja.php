@@ -14,6 +14,9 @@
  * Test sprawdza SKUTEK w bazie, nie kod zwrotny — bo to wlasnie kod zwrotny
  * klamal.
  *
+ * Pilnuje wpisow z rejestru znanych bledow (audyt/rejestr/znane-bledy.json):
+ *   - P3-K2  Anonimizacja RODO nie czyscila powiadomien
+ *
  * @package MP_Sales_Workflow
  */
 

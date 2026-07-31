@@ -22,6 +22,10 @@
  *    czyli prawdziwy cykl zadania (`init` odpala sie tam dokladnie raz),
  *  - probuje rozwiazac uchwyt UUID-podobny, ktory rzutuje sie na istniejace `id`.
  *
+ * Pilnuje wpisow z rejestru znanych bledow (audyt/rejestr/znane-bledy.json):
+ *   - P3-K1   Handler podpisanego linku do oferty nie rejestrowal sie nigdy
+ *   - INT-K3  Pobranie oferty wydawalo PDF innej firmy
+ *
  * @package MP_Sales_Workflow
  */
 

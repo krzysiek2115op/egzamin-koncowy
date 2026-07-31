@@ -69,6 +69,19 @@ class MP_Sales_Workflow_DB {
 	const STATUS_LOST        = 'lost';
 
 	/**
+	 * Status wiersza w tabeli ZDARZEŃ (kolumna events.status, DEFAULT 'done').
+	 *
+	 * Osobna stała, choć wartość jest dziś taka sama jak `MP_SW_D6_Scheduler::
+	 * STATUS_DONE`. Tamten słownik opisuje cykl życia ZADANIA follow-up (pending
+	 * → done / cancelled / undelivered) i mieszka w innej tabeli. Te dwa stany
+	 * dzielą tylko słowo. Podpięcie Działu 8 pod stałą Działu 6 związałoby ze
+	 * sobą dwie niezależne tabele: zmiana nazwy statusu zadania po cichu
+	 * przepisałaby wiersze zdarzeń. Właścicielem wartości jest ta klasa, bo to
+	 * ona ustawia `DEFAULT 'done'` w schemacie.
+	 */
+	const EVENT_STATUS_DONE = 'done';
+
+	/**
 	 * Pełny słownik statusów procesu.
 	 *
 	 * @return string[]

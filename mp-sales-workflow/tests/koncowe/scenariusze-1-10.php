@@ -15,6 +15,9 @@
  * UWAGA (pulapka `wp eval-file`): kod wykonuje sie WEWNATRZ funkcji, wiec
  * zmienne z gory pliku nie sa globalne — licznik trzymamy w $GLOBALS.
  *
+ * Pilnuje wpisow z rejestru znanych bledow (audyt/rejestr/znane-bledy.json):
+ *   - TEST-F2  Test niepowtarzalny: staly numer oferty w danych testowych
+ *
  * @package MP_Sales_Workflow
  */
 
