@@ -57,6 +57,9 @@ require_once MP_OFFER_BUILDER_DIR . 'includes/db/class-mp-offer-builder-db.php';
 // --- Przechowywanie plików PDF (katalog prywatny — decyzja architektoniczna C) ---
 require_once MP_OFFER_BUILDER_DIR . 'includes/class-mp-offer-builder-storage.php';
 
+// Pobieranie produktow WooCommerce kompletem (bez zapytania na pozycje).
+require_once MP_OFFER_BUILDER_DIR . 'includes/class-mp-ob-products.php';
+
 // --- Warstwa pipeline (11 działów: agenci, krytycy, bramki jakości) ---
 require_once MP_OFFER_BUILDER_DIR . 'includes/pipeline/bootstrap.php';
 

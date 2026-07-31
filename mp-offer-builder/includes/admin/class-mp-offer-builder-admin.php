@@ -245,13 +245,15 @@ class MP_Offer_Builder_Admin {
 		// zapis i tak waliduje product_id niezależnie w Dziale 2/3).
 		$prefill_items = array();
 		if ( $offer ) {
-			foreach ( MP_Offer_Builder_DB::get_offer_items( $offer_id ) as $it ) {
-				$pid  = (int) $it['product_id'];
-				$name = '';
-				if ( function_exists( 'wc_get_product' ) ) {
-					$product = wc_get_product( $pid );
-					$name    = $product ? $product->get_name() : '';
-				}
+			$pozycje = MP_Offer_Builder_DB::get_offer_items( $offer_id );
+
+			// Nazwy produktow pobrane KOMPLETEM: wczesniej kazda pozycja oferty
+			// kosztowala osobny odczyt tylko po to, zeby wypelnic pole formularza.
+			$produkty = MP_OB_Products::map( wp_list_pluck( $pozycje, 'product_id' ) );
+
+			foreach ( $pozycje as $it ) {
+				$pid             = (int) $it['product_id'];
+				$name            = isset( $produkty[ $pid ] ) ? $produkty[ $pid ]->get_name() : '';
 				$prefill_items[] = array(
 					'product_id'   => $pid,
 					'variation_id' => null !== $it['variation_id'] ? (int) $it['variation_id'] : '',

@@ -61,9 +61,16 @@ class MP_OB_D2_Agent_Products extends MP_OB_Abstract_Agent {
 		$errors   = array();
 		$products = array();
 
+		/*
+		 * Produkty pobrane KOMPLETEM przed petla. Wczesniej kazda pozycja oferty
+		 * kosztowala osobny odczyt, wiec zamowienie hurtowe na 40 pozycji robilo
+		 * 40 zapytan tam, gdzie wystarcza dwa.
+		 */
+		$produkty = MP_OB_Products::for_items( $items );
+
 		foreach ( $items as $i => $item ) {
-			$lookup_id = ! empty( $item['variation_id'] ) ? (int) $item['variation_id'] : (int) ( isset( $item['product_id'] ) ? $item['product_id'] : 0 );
-			$product   = $lookup_id > 0 ? wc_get_product( $lookup_id ) : false;
+			$lookup_id = MP_OB_Products::lookup_id( (array) $item );
+			$product   = isset( $produkty[ $lookup_id ] ) ? $produkty[ $lookup_id ] : false;
 
 			if ( ! $product instanceof WC_Product || 'publish' !== $product->get_status() ) {
 				$errors[] = array(
@@ -139,9 +146,16 @@ class MP_OB_D2_Agent_Prices extends MP_OB_Abstract_Agent {
 			);
 		}
 
+		/*
+		 * Produkty pobrane KOMPLETEM przed petla. Wczesniej kazda pozycja oferty
+		 * kosztowala osobny odczyt, wiec zamowienie hurtowe na 40 pozycji robilo
+		 * 40 zapytan tam, gdzie wystarcza dwa.
+		 */
+		$produkty = MP_OB_Products::for_items( $items );
+
 		foreach ( $items as $i => $item ) {
-			$lookup_id = ! empty( $item['variation_id'] ) ? (int) $item['variation_id'] : (int) ( isset( $item['product_id'] ) ? $item['product_id'] : 0 );
-			$product   = $lookup_id > 0 ? wc_get_product( $lookup_id ) : false;
+			$lookup_id = MP_OB_Products::lookup_id( (array) $item );
+			$product   = isset( $produkty[ $lookup_id ] ) ? $produkty[ $lookup_id ] : false;
 
 			if ( ! $product instanceof WC_Product ) {
 				$errors[] = array(
