@@ -14,7 +14,7 @@
     "Jesli para nie istnieje, blad moze wrocic niezauwazony — para 1.15 to zglasza."
   ],
   "wersja": 1,
-  "zrodlo": "audyt enterprise 29.07.2026 + naprawy 29-30.07.2026 + Grupa A po audycie 31.07.2026",
+  "zrodlo": "audyt enterprise 29.07.2026 + naprawy 29-30.07.2026 + Grupy A i B po audycie 31.07.2026",
   "bledy": [
     {
       "id": "P3-K1",
@@ -232,6 +232,45 @@
       "test": "tests/naprawy/a3-payload-json.php",
       "para": "1.25",
       "lekcja": "Kazda funkcja rdzenia WordPressa, ktora moze zwrocic false, musi miec sprawdzony wynik — inaczej porazka przebiera sie za sukces."
+    },
+    {
+      "id": "P3-B1",
+      "data": "2026-07-31",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "status.change bez to_status przechodzil jako zdarzenie nieruszajace statusu",
+      "klasa": "brak-danych-wejsciowych-uznany-za-brak-potrzeby-dzialania",
+      "plik": "includes/pipeline/departments/class-mp-sw-department-05.php",
+      "dowod": "galaz `'' === $to` zwracala allowed=true dla KAZDEGO typu, takze status.change",
+      "skutek": "Wywolujacy dostawal sukces, status sie nie zmienial, a proces i tak byl zapisywany: token blokady rosl, event_id ladowal w rejestrze — poprawiona proba z tym samym kluczem odbijala sie jako powtorka.",
+      "test": "tests/naprawy/grupa-b.php",
+      "para": "1.25",
+      "lekcja": "Pusta wartosc znaczy co innego zaleznie od typu zdarzenia. Wyliczaj wyjatki lista zamknieta, nie rozpoznawaj ich po pustym wyniku."
+    },
+    {
+      "id": "P3-B2",
+      "data": "2026-07-31",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "Aktor zdarzenia recznego brany z koperty, nigdy porownany z zalogowanym",
+      "klasa": "dane-z-zadania-uzyte-jako-tozsamosc",
+      "plik": "includes/class-mp-sw-origin.php",
+      "dowod": "actor.user_id z koperty trafial do dziennika jako sprawca; brak porownania z get_current_user_id()",
+      "skutek": "Bez eskalacji uprawnien (te sprawdza current_user_can), ale dziennik z kryterium 5.5 moglby przypisac zmiane statusu komus innemu. Historia z podstawionym sprawca jest gorsza niz jej brak, bo wyglada wiarygodnie.",
+      "test": "tests/naprawy/grupa-b.php",
+      "para": "1.25",
+      "lekcja": "Tozsamosc bierz z sesji, nie z tresci zadania. Decyzja klienta 31.07.2026: twarda zgodnosc, odmowa 403 przed jakakolwiek praca."
+    },
+    {
+      "id": "P3-B3",
+      "data": "2026-07-31",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "Odmowa zostawiala w kontekscie surowy `scope` z zadania",
+      "klasa": "wartosc-z-zadania-przezywajaca-odmowe",
+      "plik": "includes/class-mp-sw-events.php",
+      "dowod": "MP_SW_Events::refuse() zwracal kontekst zbudowany z koperty; Dzial 3 nadpisuje `scope` dopiero przy udanym przebiegu",
+      "skutek": "Kod czytajacy `scope` z kontekstu bez sprawdzenia, czy zdarzenie sie powiodlo, dostawal zakres podany przez wywolujacego. Dotyczylo KAZDEJ odmowy, nie tylko nowej kontroli aktora.",
+      "test": "tests/security/scenariusze-s1-s12.php (S12)",
+      "para": "1.25",
+      "lekcja": "Sciezka odmowy tez zwraca obiekty. Wyczysc w niej wszystko, co przy powodzeniu policzylby pipeline."
     }
   ]
 }
