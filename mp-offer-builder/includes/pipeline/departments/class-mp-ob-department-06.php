@@ -263,7 +263,21 @@ class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 				if ( self::TAX_NONE === $tc ) {
 					continue; // klasa zwolniona (0%) nie wymaga skonfigurowanej stawki.
 				}
-				if ( ! isset( $tax_rates[ $tc ]['rate'] ) || null === $tax_rates[ $tc ]['rate'] ) {
+
+				/*
+				 * `is_numeric()`, a nie samo `isset()` plus kontrola `null`. Wpis
+				 * `array( 'rate' => '' )` — albo `false`, albo tekst — przechodził
+				 * poprzedni warunek: `isset()` jest wtedy prawdziwe, a wartość nie
+				 * jest `null`. Niżej `(float) ''` daje 0.0 i warunek `0.0 === $rate`
+				 * zerował VAT dla całej klasy. Wychodził dokument handlowy z cichym
+				 * 0% w mechanizmie krajowym — bez błędu i bez śladu w dzienniku.
+				 *
+				 * „Brak stawki" i „stawka równa zero" to dwie różne rzeczy. Zero
+				 * jest legalną stawką (eksport, klasa „Zero rate"), ale musi być
+				 * podane WPROST jako liczba; pusta wartość znaczy, że stawki nie ma
+				 * — i wtedy oferty nie wolno policzyć.
+				 */
+				if ( ! isset( $tax_rates[ $tc ]['rate'] ) || ! is_numeric( $tax_rates[ $tc ]['rate'] ) ) {
 					return MP_OB_Result::fail( 'Brak stawki VAT do naliczenia (mechanizm domestic).', array(), 'missing_tax_rate' );
 				}
 			}

@@ -278,7 +278,12 @@ class MP_D3_Agent_Company_Status extends MP_Abstract_Agent {
 	 */
 	public static function wl_cache_key( $nip, $date = '' ) {
 		if ( '' === $date ) {
-			$date = gmdate( 'Y-m-d' );
+			// Data w strefie WITRYNY, nie w UTC. Biala lista zwraca status NA DANY DZIEN,
+			// a w polskiej strefie (UTC+1/UTC+2) gmdate() miedzy polnoca a 1:00/2:00
+			// wskazuje jeszcze dzien poprzedni. Firma zarejestrowana jako podatnik VAT
+			// czynny od dzis dostawala wtedy status 'Niezarejestrowany' — stan na wczoraj —
+			// i taki wynik byl zapisywany jako sprawdzony, razem z kluczem cache na zla dobe.
+			$date = current_time( 'Y-m-d' );
 		}
 		return 'mp_wl_' . $nip . '_' . $date;
 	}
@@ -300,7 +305,9 @@ class MP_D3_Agent_Company_Status extends MP_Abstract_Agent {
 			);
 		}
 
-		$date      = gmdate( 'Y-m-d' );
+		// Ta sama doba co w zapytaniu wyzej — inaczej klucz cache i pytanie do API
+		// dotyczylyby roznych dni.
+		$date      = current_time( 'Y-m-d' );
 		$cache_key = self::wl_cache_key( $nip, $date );
 		$cached    = get_transient( $cache_key );
 

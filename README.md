@@ -134,9 +134,9 @@ skrócony", żeby „GO" nie czytało się identycznie w obu przypadkach.
 
 ### Rejestr znanych błędów
 
-`audyt/rejestr/znane-bledy.json` — **36 błędów, które w tym projekcie naprawdę
+`audyt/rejestr/znane-bledy.json` — **38 błędów, które w tym projekcie naprawdę
 wystąpiły**, każdy z klasą pomyłki, dowodem z kodu, skutkiem dla użytkownika
-i wskazaniem testu regresji (33 z 36 mają taki test; pozostałe 3 to pozycje
+i wskazaniem testu regresji (35 z 38 ma taki test; pozostałe 3 to pozycje
 otwarte i narzędziowe, wymienione w raporcie z nazwy). Para 1.15 sprawdza, czy
 każdy wpis nadal ma pokrycie — a para 2.6, czy test przyszedł razem z naprawą.
 

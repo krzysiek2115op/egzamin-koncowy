@@ -255,5 +255,57 @@ bl_ok( 'Czynny' === $dane2['company_status'], 'realny status z cache nadal jest 
 bl_ok( ! empty( $dane2['company_status_checked'] ), 'i liczy sie jako sprawdzony' );
 bl_ok( empty( $dane2['company_status_pending'] ), 'nic nie idzie do ponowienia' );
 
+/*
+ * P1-G5. Data zapytania do Bialej listy liczona w UTC zamiast w strefie witryny.
+ *
+ * API zwraca `statusVat` NA DANY DZIEN. W polskiej strefie (UTC+1/UTC+2)
+ * `gmdate('Y-m-d')` miedzy polnoca a 1:00/2:00 wskazuje jeszcze dzien poprzedni,
+ * wiec firma zarejestrowana jako podatnik VAT czynny od dzis dostawala status
+ * „Niezarejestrowany" — prawdziwy, ale na wczoraj — i wynik byl zapisywany jako
+ * sprawdzony. Klucz cache dotyczyl tej samej, zlej doby, wiec bledny status
+ * utrwalal sie na kolejne 12 godzin.
+ */
+$GLOBALS['mp_bl']['lines'][] = '';
+$GLOBALS['mp_bl']['lines'][] = '=== D. data pytania w strefie witryny, nie w UTC ===';
+
+$zrodlo_d3 = file_get_contents( dirname( dirname( __DIR__ ) ) . '/includes/pipeline/departments/class-mp-department-03.php' );
+
+bl_ok(
+	is_string( $zrodlo_d3 ) && false === strpos( $zrodlo_d3, "gmdate( 'Y-m-d' )" ),
+	'data nie jest juz liczona w UTC'
+);
+bl_ok(
+	is_string( $zrodlo_d3 ) && 2 === substr_count( $zrodlo_d3, "current_time( 'Y-m-d' )" ),
+	'obie daty — pytania do API i klucza cache — w strefie witryny',
+	'wystapien: ' . ( is_string( $zrodlo_d3 ) ? substr_count( $zrodlo_d3, "current_time( 'Y-m-d' )" ) : 0 )
+);
+
+/*
+ * Dowod, ze roznica jest realna — niezalezny od tego, ktora jest godzina.
+ * Bierzemy konkretna chwile: 31 grudnia 23:30 UTC. W strefie Europe/Warsaw to
+ * juz 1 stycznia. Gdyby zapytanie do API szlo z data UTC, dotyczyloby innej
+ * doby niz ta, w ktorej klient wysyla formularz.
+ *
+ * Strefa jest ustawiana na czas testu i przywracana — testowy WordPress stoi
+ * w UTC, wiec bez tego obie funkcje dawalyby te sama wartosc i test
+ * przechodzilby na pusto.
+ */
+$strefa_przed = get_option( 'timezone_string' );
+$offset_przed = get_option( 'gmt_offset' );
+update_option( 'timezone_string', 'Europe/Warsaw' );
+
+$chwila = mktime( 23, 30, 0, 12, 31, 2026 ) - ( (int) date( 'Z', mktime( 23, 30, 0, 12, 31, 2026 ) ) );
+$w_utc     = gmdate( 'Y-m-d', $chwila );
+$w_witynie = wp_date( 'Y-m-d', $chwila );
+
+bl_ok(
+	$w_utc !== $w_witynie,
+	'ta sama chwila to w UTC i w strefie witryny INNA data',
+	'UTC=' . $w_utc . ' witryna=' . $w_witynie
+);
+
+update_option( 'timezone_string', $strefa_przed );
+update_option( 'gmt_offset', $offset_przed );
+
 bl_wyczysc();
 remove_all_filters( 'pre_http_request' );

@@ -326,6 +326,65 @@ ag_ok(
 );
 
 /*
+ * A4 (P2-G7). Bramka `missing_tax_rate` przepuszczala PUSTA stawke.
+ *
+ * Warunek sprawdzal tylko brak klucza i `null`. Wpis `array( 'rate' => '' )`
+ * — albo `false`, albo `'abc'` — przechodzil: `isset()` prawda, wartosc nie
+ * jest `null`. Nizej `(float) ''` daje 0.0, a warunek `0.0 === $rate` zerowal
+ * VAT dla calej klasy. Efekt: dokument handlowy z cichym 0% VAT w mechanizmie
+ * krajowym, bez zadnego bledu i bez sladu w dzienniku.
+ *
+ * „Brak stawki" i „stawka rowna zero" to dwie rozne rzeczy. Zero jest legalna
+ * stawka i musi byc podane WPROST; pusty string znaczy, ze stawki nie ma.
+ */
+$GLOBALS['mp_ag']['lines'][] = '';
+$GLOBALS['mp_ag']['lines'][] = '=== A4. pusta stawka nie moze dac cichego 0% VAT ===';
+
+$zle = array( '', false, 'abc', array() );
+foreach ( $zle as $i => $wartosc ) {
+	$k = new MP_OB_Context(
+		array(
+			'subtotal_grosze' => 10000,
+			'discount_total'  => 0,
+			'tax_mechanism'   => 'domestic',
+			'lines'           => array( array( 'net_grosze' => 10000, 'tax_class' => '' ) ),
+			'products'        => array( array( 'tax_status' => 'taxable', 'tax_class' => '' ) ),
+			'tax_rates'       => array( '' => array( 'rate' => $wartosc ) ),
+		)
+	);
+	$w = ( new MP_OB_D6_Agent_Rounding() )->run( $k );
+	ag_ok(
+		! $w->is_ok() && 'missing_tax_rate' === $w->get_code(),
+		'stawka ' . var_export( $wartosc, true ) . ' jest odrzucana',
+		'ok=' . ( $w->is_ok() ? 'tak(BLAD)' : 'nie' ) . ' kod=' . $w->get_code()
+	);
+}
+
+/*
+ * KONTR-ASERCJE. Bez nich „naprawa" mogla by polegac na odrzucaniu wszystkiego,
+ * co nie jest dodatnia liczba — a wtedy legalna stawka 0% (np. eksport, klasa
+ * „Zero rate") przestalaby dzialac.
+ */
+foreach ( array( 0, 0.0, '0', '0.00', 23, '23.0000' ) as $wartosc ) {
+	$k = new MP_OB_Context(
+		array(
+			'subtotal_grosze' => 10000,
+			'discount_total'  => 0,
+			'tax_mechanism'   => 'domestic',
+			'lines'           => array( array( 'net_grosze' => 10000, 'tax_class' => '' ) ),
+			'products'        => array( array( 'tax_status' => 'taxable', 'tax_class' => '' ) ),
+			'tax_rates'       => array( '' => array( 'rate' => $wartosc ) ),
+		)
+	);
+	$w = ( new MP_OB_D6_Agent_Rounding() )->run( $k );
+	ag_ok(
+		'missing_tax_rate' !== $w->get_code(),
+		'liczbowa stawka ' . var_export( $wartosc, true ) . ' nadal przechodzi',
+		'kod=' . $w->get_code()
+	);
+}
+
+/*
  * Kontrola przeciwna, wspolna dla A i A2: gdy w tej samej klasie bez stawki
  * siedzi pozycja OPODATKOWANA, Dzial 2 ma nadal odmowic. Bez tej asercji obie
  * naprawy mogly by polegac na wylaczeniu kontroli — a wtedy oferta liczylaby
