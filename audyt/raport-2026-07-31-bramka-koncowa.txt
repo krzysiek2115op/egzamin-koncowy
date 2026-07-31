@@ -1,0 +1,199 @@
+=== AUDYT PROJEKTU: 3 wtyczki, 3 bazy danych ===
+repozytorium: /home/krzysiek/3 pluginy 3 bazy danych 
+glebokosc:    pelny (2/3) — z narzedziami zewnetrznymi, bez oceny modelu
+  mp-lead-intake @ b437bb4 -> ok
+  mp-offer-builder @ 1ea7903 -> ok
+  mp-sales-workflow @ 9e0ce1d -> ok
+model:        claude-cli
+
+--- Dzial 1: Audyt calego projektu (26 par) ---
+  [ OK ] 1.1   inwentarz                                          
+  [ OK ] 1.2   skladnia                                    21.3s  
+  [ OK ] 1.4   kolizje-nazw                                       
+  [BLAD] 1.5   kod-kontra-DDL                                     14 ustalen
+  [BLAD] 1.6   kontrakty-hakow                                    6 ustalen
+  [ OK ] 1.7   rejestracja-hakow                                  
+  [ OK ] 1.8   wzorce-SQL                                         
+  [ OK ] 1.10  granice-transakcji                                 
+  [ OK ] 1.18  idempotencja-i-blokada                             
+  [ OK ] 1.23  slownik-statusow                                   
+  [ OK ] 1.9   punkty-wejscia                                     
+  [BLAD] 1.11  RODO                                               2 ustalen
+  [ OK ] 1.12  arytmetyka-pieniedzy                               
+  [ OK ] 1.19  obsluga-bledow                                     
+  [ OK ] 1.13  spojnosc-wersji                                    
+  [BLAD] 1.21  cykl-zycia                                         2 ustalen
+  [ OK ] 1.14  licencje                                           
+  [BLAD] 1.17  dokumentacja                                       10 ustalen
+  [BLAD] 1.20  i18n                                               1 ustalen
+  [ OK ] 1.22  kod-nieuzywany                                     
+  [BLAD] 1.24  jakosc-testow                                      1 ustalen
+  [BLAD] 1.15  rejestr-kontra-testy                               4 ustalen
+  [ OK ] 1.16  zapytania-w-petli                                  
+  [ OK ] 1.3   PHPCS-WPCS                                  22.2s  
+  [POMI] 1.25  semantyka-dzialow                                  
+         powod: wymaga glebokosci 3, przebieg ma 2
+  [POMI] 1.26  komunikaty-dla-czlowieka                           
+         powod: wymaga glebokosci 3, przebieg ma 2
+  bramka: 24/26 par wykonanych, 2 pominietych, pokrycie 92% -> ZALICZONA   [43.6s]
+
+--- Dzial 2: Re-audyt (11 par) ---
+  [ OK ] 2.2   falszywe-alarmy                                    
+  [ OK ] 2.1   druga-metoda                                 0.6s  
+  [ OK ] 2.3   graf-zaleznosci                                    
+  [BLAD] 2.7   martwe-pola-audytu                                 8 ustalen
+  [ OK ] 2.8   regresja-miedzy-przebiegami                        
+  [ OK ] 2.6   dowod-naprawy                                0.4s  
+  [ OK ] 2.5   stabilizacja                                       
+  [ OK ] 2.4   powtarzalnosc                               43.6s  
+  [POMI] 2.9   drugi-sedzia                                       
+         powod: wymaga glebokosci 3, przebieg ma 2
+  [POMI] 2.11  potwierdzenie-ustalen-modelu                       
+         powod: wymaga glebokosci 3, przebieg ma 2
+  [ OK ] 2.10  audyt-werdyktu                                     
+  bramka: 9/11 par wykonanych, 2 pominietych, pokrycie 82% -> ZALICZONA   [44.6s]
+
+=== WYNIK AUDYTU ===
+
+OBSERWACJE (15):
+  [1.6] Zdarzenie „mp_lead_intake_after_form" wystawiane, ale nikt go nie slucha w projekcie.
+        mp-lead-intake/includes/class-mp-form.php:174
+        status: prawdopodobne
+        dowod: do_action w mp-lead-intake, zero add_action
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Albo to swiadomy punkt rozszerzen dla integratora (wtedy w porzadku i
+                powinno byc opisane w dokumentacji), albo odbiorca zginal przy
+                refaktorze.
+
+  [1.6] Zdarzenie „mp_lead_verified" wystawiane, ale nikt go nie slucha w projekcie.
+        mp-lead-intake/includes/class-mp-vat-verifier.php:232
+        status: prawdopodobne
+        dowod: do_action w mp-lead-intake, zero add_action
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Albo to swiadomy punkt rozszerzen dla integratora (wtedy w porzadku i
+                powinno byc opisane w dokumentacji), albo odbiorca zginal przy
+                refaktorze.
+
+  [1.6] Zdarzenie „mp_sw_queue_halted" wystawiane, ale nikt go nie slucha w projekcie.
+        mp-sales-workflow/includes/class-mp-sw-mailer.php:196
+        status: prawdopodobne
+        dowod: do_action w mp-sales-workflow, zero add_action
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Albo to swiadomy punkt rozszerzen dla integratora (wtedy w porzadku i
+                powinno byc opisane w dokumentacji), albo odbiorca zginal przy
+                refaktorze.
+
+  [1.6] Zdarzenie „mp_sw_flow_anonymized" wystawiane, ale nikt go nie slucha w projekcie.
+        mp-sales-workflow/includes/class-mp-sw-privacy.php:161
+        status: prawdopodobne
+        dowod: do_action w mp-sales-workflow, zero add_action
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Albo to swiadomy punkt rozszerzen dla integratora (wtedy w porzadku i
+                powinno byc opisane w dokumentacji), albo odbiorca zginal przy
+                refaktorze.
+
+  [1.6] Zdarzenie „mp_sw_notification_sent" wystawiane, ale nikt go nie slucha w projekcie.
+        mp-sales-workflow/includes/class-mp-sw-queue.php:184
+        status: prawdopodobne
+        dowod: do_action w mp-sales-workflow, zero add_action
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Albo to swiadomy punkt rozszerzen dla integratora (wtedy w porzadku i
+                powinno byc opisane w dokumentacji), albo odbiorca zginal przy
+                refaktorze.
+
+  [1.6] Zdarzenie „mp_sw_notification_failed" wystawiane, ale nikt go nie slucha w projekcie.
+        mp-sales-workflow/includes/class-mp-sw-queue.php:212
+        status: prawdopodobne
+        dowod: do_action w mp-sales-workflow, zero add_action
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Albo to swiadomy punkt rozszerzen dla integratora (wtedy w porzadku i
+                powinno byc opisane w dokumentacji), albo odbiorca zginal przy
+                refaktorze.
+
+  [1.24] Asercja oczekuje zera od wywolania — sprawdz, czy zero nie jest tez wynikiem awarii.
+        mp-sales-workflow/tests/security/scenariusze-s1-s12.php:564
+        status: prawdopodobne
+        dowod: chk( 0 === MP_SW_D7_Notifier::mail_attempts()
+                [2.2] miejsce potwierdzone niezaleznym odczytem pliku.
+        skutek: Dokladnie ten ksztalt dal falszywy PASS w tym projekcie (TEST-F1):
+                straznik zwrocil zera, bo sie wywrocil, a test wlasnie zer oczekiwal.
+                Test powinien najpierw potwierdzic, ze sprawdzana droga w ogole sie
+                wykonala.
+        naprawa: Dolozyc asercje pozytywna (np. licznik wywolan > 0) przed asercja na zero.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-lead-intake/tests/index.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-lead-intake/tests/process-harness/bench.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-lead-intake/tests/process-harness/index.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-lead-intake/tests/process-harness/run-process.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-lead-intake/tests/process-harness/wp-stubs.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-offer-builder/tests/process-harness/run-process.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-offer-builder/tests/process-harness/wp-stubs.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+  [2.7] Zadna para nie otworzyla tego pliku.
+        mp-sales-workflow/tests/security/index.php
+        status: potwierdzone
+        dowod: Plik nieobecny w rejestrze odczytow przebiegu.
+        skutek: Brak ustalen dla tego pliku NIE oznacza, ze jest poprawny — oznacza,
+                ze nikt do niego nie zajrzal. Raport bez tej informacji wprowadzalby w
+                blad.
+
+--- rozliczenie przebiegu ---
+glebokosc:         pelny
+odczytow plikow:   244
+zapytan do modelu: 0
+dzial 1:           43.6 s, par 24/26 (2 pominietych)
+dzial 2:           44.6 s, par 9/11 (2 pominietych)
+czas calkowity:    88.4 s
+
+UWAGA: 4 par NIE zostalo wykonanych na tym poziomie glebokosci.
+Pelny audyt: --glebokosc=gleboki
+
+WERDYKT: GO [audyt skrocony: 4 par pominietych na poziomie „pelny"]
