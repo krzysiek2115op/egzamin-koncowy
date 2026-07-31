@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LP.3 MP SALES WORKFLOW — diagram procesu zgodnie z zasadami</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0F172A; --ink2:#334155; --ink3:#64748B; --line:#CBD5E1; --line2:#E2E8F0;
+  --blue:#1D4ED8; --blued:#173FA8; --bluebg:#EAF0FE; --blueln:#9DB8F1;
+  --green:#16A34A; --greend:#15803D; --greenbg:#EBF9F0; --greenln:#8FD8AC;
+  --or:#EA580C; --ord:#C2410C; --orbg:#FFF3EA; --orln:#F5B183;
+  --gate:#C2410C; --gatebg:#FFF7ED; --gateln:#F0A265;
+  --viol:#7C3AED; --viold:#5B21B6; --violbg:#F5F0FE; --violln:#C9B2F5;
+  --red:#DC2626; --redbg:#FEF1F1; --redln:#F3A8A8;
+  --json:#1E3A8A; --jsonbg:#FFFFFF; --jsonln:#C3D0E8;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#E8ECF2;color:var(--ink);
+  font-family:'Inter',system-ui,-apple-system,Segoe UI,sans-serif;font-size:12px;line-height:1.4}
+.sheet{max-width:1600px;margin:0 auto;background:#fff;border:2px solid #0B1220;border-radius:14px;padding:16px 18px 14px}
+
+.head h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-.02em}
+.head .rules{margin:3px 0 12px;font-size:12.5px;font-weight:600;color:var(--ink2);letter-spacing:.01em}
+
+.grid{display:grid;grid-template-columns:224px 1fr 250px;gap:14px;align-items:start}
+
+/* ================= LEWA — BAZA ================= */
+.dbcol{display:flex;flex-direction:column;gap:8px}
+.dbhead{background:#1E3A8A;color:#fff;border-radius:9px 9px 0 0;padding:6px 10px;text-align:center;font-weight:800;font-size:12.5px;letter-spacing:.03em}
+.dbwrap{border:1.5px solid var(--blueln);border-radius:10px;overflow:hidden;background:#F8FAFF;display:flex;flex-direction:column;gap:7px;padding-bottom:8px}
+.dbid{display:flex;align-items:center;gap:8px;padding:7px 10px 0}
+.dbid b{color:var(--blue);font-size:15px;font-weight:900}
+.zone{margin:0 8px;font-family:var(--mono);font-size:8.8px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:#0E7490;background:#E5F5F9;border:1px solid #A5D8E4;border-radius:6px;padding:2px 7px;text-align:center}
+.zone.wr{color:#B03A2E;background:#FDEFEC;border-color:#EFB6AC}
+.tcard{margin:0 8px;border:1.5px solid var(--blueln);border-radius:8px;background:#fff;padding:5px 8px}
+.tcard.wr{border-color:#EFB6AC}
+.tcard b{display:block;font-family:var(--mono);font-size:10px;color:var(--blued);font-weight:700;margin-bottom:2px;word-break:break-all}
+.tcard.wr b{color:#B03A2E}
+.tcard span{display:block;font-family:var(--mono);font-size:8.6px;color:var(--ink3);line-height:1.5}
+.dbleg{margin:0 8px;border:1.5px solid var(--blueln);border-radius:8px;background:#fff;padding:5px 8px;font-size:9.3px;color:var(--ink2)}
+.dbleg b{display:block;font-family:var(--mono);font-size:8.6px;letter-spacing:.08em;text-transform:uppercase;color:var(--blued);margin-bottom:3px;text-align:center}
+.dbleg span{display:flex;align-items:center;gap:5px;margin:2px 0}
+.sq{width:9px;height:9px;border-radius:2px;display:inline-block;flex:0 0 auto}
+
+.ajaxcol{margin-top:2px;display:flex;flex-direction:column;align-items:center;gap:5px}
+.ajaxbadge{background:var(--blue);color:#fff;border-radius:8px;text-align:center;
+  font-weight:900;font-size:14.5px;padding:6px 22px;letter-spacing:.04em;box-shadow:0 2px 0 #143A9E}
+.ajaxnote{font-size:9.9px;color:var(--ink2);text-align:center;line-height:1.5;margin:0}
+.ajaxnote b{color:var(--blue);display:block;font-size:10.2px}
+.cronnote{border:1.5px dashed var(--gateln);border-radius:8px;background:var(--gatebg);
+  padding:5px 8px;font-size:9.3px;color:#7C3A12;line-height:1.45}
+.cronnote b{color:var(--ord)}
+
+/* ================= ŚRODEK — PIPELINE ================= */
+.pipehead{background:var(--green);color:#fff;border-radius:10px;padding:8px 12px;text-align:center;
+  font-size:15px;font-weight:900;letter-spacing:.02em}
+.cols{display:grid;grid-template-columns:148px 1fr 15px 1fr 15px 202px 172px;gap:6px;margin:8px 0 5px;padding:0 6px;
+  font-size:10.5px;font-weight:800;letter-spacing:.05em;color:var(--blued)}
+.cols div{text-align:center}
+.dept{border:1.6px solid var(--blueln);border-radius:12px;background:#fff;overflow:hidden}
+.drow{display:grid;grid-template-columns:148px 1fr 15px 1fr 15px 202px 172px;gap:6px;padding:8px;align-items:center}
+.dcell{display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px}
+.circ{width:24px;height:24px;border-radius:50%;background:var(--green);color:#fff;font-weight:900;
+  font-size:12px;display:flex;align-items:center;justify-content:center}
+.dname{font-size:11.3px;font-weight:800;line-height:1.25}
+.dico{margin-top:1px}
+.chip{font-family:var(--mono);font-size:8.2px;font-weight:700;letter-spacing:.03em;border-radius:5px;
+  padding:1px 5px;border:1px solid}
+.chip.b0{color:var(--ink3);border-color:var(--line);background:#F6F8FB}
+.chip.br{color:#0369A1;border-color:#7DD3FC;background:#E8F7FE}
+.chip.bw{color:#B91C1C;border-color:#FCA5A5;background:#FEECEC}
+.chip.zk{color:var(--viold);border-color:var(--violln);background:var(--violbg);font-weight:600}
+.stack{display:flex;flex-direction:column;gap:5px;min-width:0}
+.abox{background:#fff;border:1.6px solid var(--green);border-radius:9px;padding:4px 8px}
+.abox b{display:flex;align-items:center;gap:4px;font-size:9.8px;color:var(--greend);font-weight:800}
+.abox p{margin:1px 0 0;font-size:9.7px;color:var(--ink2);line-height:1.35}
+.kbox{background:#fff;border:1.6px solid var(--or);border-radius:9px;padding:4px 8px}
+.kbox b{display:flex;align-items:center;gap:4px;font-size:9.8px;color:var(--ord);font-weight:800}
+.kbox p{margin:1px 0 0;font-size:9.7px;color:var(--ink2);line-height:1.35}
+.arrcol{display:flex;flex-direction:column;gap:5px;align-items:center;justify-content:center}
+.arr{color:#94A3B8;font-size:11px;line-height:1}
+.arrmid{color:#94A3B8;font-size:13px;text-align:center}
+.jsonbox{background:var(--jsonbg);border:1.4px solid var(--jsonln);border-radius:9px;padding:5px 8px;
+  font-family:var(--mono);font-size:8.7px;color:var(--json);line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.opbox{display:flex;flex-direction:column;gap:3px}
+.opbox p{margin:0;font-size:9.6px;color:var(--ink2);line-height:1.35;text-align:left}
+.dok{font-family:var(--mono);font-size:8.2px;color:var(--viold);background:var(--violbg);
+  border:1px solid var(--violln);border-radius:5px;padding:2px 5px;line-height:1.4;word-break:break-word}
+.note{background:#FFFBF2;border-top:1px solid var(--gateln);font-size:9.5px;color:#7C3A12;padding:4px 10px}
+.note b{color:var(--ord)}
+.gatebar{background:var(--gatebg);border:1.6px solid var(--gateln);border-radius:9px;
+  padding:4px 12px;margin:7px 4px;text-align:center;color:var(--gate)}
+.gatebar b{font-size:11px;font-weight:800;letter-spacing:.02em}
+.gatebar small{display:block;font-family:var(--mono);font-size:8.6px;color:#B05A1E;font-weight:500;margin-top:1px}
+.gatebar em{font-style:normal;color:var(--greend);font-weight:900}
+.gatebar u{text-decoration:none;color:var(--red);font-weight:900}
+.dash{border:1.6px solid var(--violln);border-radius:11px;background:var(--violbg);padding:7px 12px;margin:8px 4px}
+.dash h3{margin:0 0 2px;font-size:11.8px;font-weight:900;color:var(--viold)}
+.dash p{margin:0;font-size:9.9px;color:#4C2F8F;line-height:1.45}
+.dash .m{font-family:var(--mono);font-size:9px}
+.downarr{text-align:center;color:#94A3B8;font-size:14px;margin:1px 0}
+.final{display:grid;grid-template-columns:1.35fr 1fr;gap:12px;margin:4px 4px 0}
+.finbox{border:2px solid var(--green);border-radius:12px;background:var(--greenbg);padding:10px 14px;
+  display:flex;align-items:center;gap:12px}
+.finbox h3{margin:0;font-size:14px;font-weight:900;color:#166534}
+.finbox p{margin:2px 0 0;font-size:10.3px;color:#1F5636}
+.retjson{border:1.5px solid var(--jsonln);border-radius:12px;background:#fff;padding:8px 12px}
+.retjson b{font-family:var(--mono);font-size:9.2px;letter-spacing:.07em;color:var(--json)}
+.retjson pre{margin:3px 0 0;font-family:var(--mono);font-size:9.3px;color:var(--json);white-space:pre-wrap}
+
+/* ================= PRAWA — PANELE ================= */
+.side{display:flex;flex-direction:column;gap:11px}
+.panel{border-radius:10px;border:1.8px solid;overflow:hidden;background:#fff}
+.panel h5{margin:0;padding:6px 10px;font-size:11.5px;font-weight:900;letter-spacing:.04em;text-align:center}
+.panel .bd{padding:7px 10px}
+.panel.zas{border-color:var(--violln)} .panel.zas h5{background:var(--violbg);color:var(--viold)}
+.panel.sch{border-color:var(--redln)} .panel.sch h5{background:var(--redbg);color:var(--red)}
+.panel.leg{border-color:var(--blueln)} .panel.leg h5{background:var(--bluebg);color:var(--blued)}
+.panel.kry{border-color:var(--greenln)} .panel.kry h5{background:var(--greenbg);color:var(--greend)}
+.ck{display:flex;gap:6px;align-items:flex-start;font-size:9.8px;color:var(--ink2);margin:3.5px 0;line-height:1.35}
+.ck::before{content:'✔';flex:0 0 14px;height:14px;border-radius:50%;background:var(--green);color:#fff;
+  font-size:9px;display:flex;align-items:center;justify-content:center;font-weight:900;margin-top:1px}
+.fl{display:grid;grid-template-columns:1fr 38px;gap:4px;align-items:center;margin:2px 0}
+.flowbox{border-radius:7px;padding:3px 8px;font-size:9.2px;font-weight:800;text-align:center}
+.fb-db{background:#fff;border:1.5px solid var(--blueln);color:var(--blued)}
+.fb-aj{background:var(--blue);border:1.5px solid var(--blue);color:#fff}
+.fb-a{background:#fff;border:1.5px solid var(--green);color:var(--greend)}
+.fb-k{background:#fff;border:1.5px solid var(--or);color:var(--ord)}
+.fb-g{background:var(--gatebg);border:1.5px solid var(--gateln);color:var(--gate)}
+.fb-j{background:#fff;border:1.5px solid var(--jsonln);color:var(--json)}
+.fb-n{background:var(--greenbg);border:1.5px solid var(--greenln);color:var(--greend)}
+.fb-w{background:var(--violbg);border:1.5px solid var(--violln);color:var(--viold)}
+.fb-q{background:#fff;border:1.5px dashed var(--gateln);color:var(--ord)}
+.fail{font-family:var(--mono);font-size:8.4px;color:var(--red);font-weight:800;text-align:left}
+.far{grid-column:1;text-align:center;color:#94A3B8;font-size:10px;line-height:1.05}
+.far small{font-size:8px;color:#94A3B8}
+.lgi{display:flex;gap:7px;align-items:center;font-size:9.6px;color:var(--ink2);margin:3.5px 0}
+
+/* ================= DÓŁ ================= */
+.bottomrow{display:grid;grid-template-columns:1fr 236px;gap:12px;margin-top:12px}
+.stripleg{border:1.5px solid var(--line);border-radius:10px;background:#fff;padding:7px 12px;
+  display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap}
+.sl{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:76px}
+.sl b{font-size:9.6px;font-weight:800;display:flex;align-items:center;gap:4px}
+.sl span{font-size:8.2px;color:var(--ink3)}
+.slarr{color:#94A3B8;font-size:12px}
+.statbox{border:1.5px solid var(--redln);border-radius:10px;background:#fff;padding:6px 10px}
+.statbox b{font-size:9.6px;font-weight:900;color:var(--ink)}
+.statbox div{display:flex;align-items:center;gap:6px;font-size:9.3px;color:var(--ink2);margin-top:3px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:0 0 auto}
+.docsrow{margin-top:10px;border:1.5px solid var(--violln);border-radius:10px;background:#FDFCFF;padding:7px 12px}
+.docsrow b{font-size:10.3px;font-weight:800;color:var(--viold)}
+.docsgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px 18px;margin-top:4px}
+.docsgrid div{font-size:9.2px;color:var(--ink2);line-height:1.4}
+.docsgrid i{font-style:normal;font-family:var(--mono);font-size:8.6px;color:var(--viold)}
+.foot{margin-top:8px;text-align:center;font-family:var(--mono);font-size:9px;color:var(--ink3)}
+
+@media (max-width:1180px){
+  .grid{grid-template-columns:1fr}
+  .cols{display:none}
+  .drow{grid-template-columns:1fr;gap:6px}
+  .arrcol,.arrmid{display:none}
+  .final,.bottomrow{grid-template-columns:1fr}
+}
+@media print{
+  body{background:#fff}
+  .sheet{max-width:none;border-width:1.5px}
+  .dept,.tcard,.panel,.finbox,.docsrow,.dash,.stripleg{break-inside:avoid}
+  @page{size:A2 landscape;margin:8mm}
+}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <div class="head">
+    <h1>LP.3 MP SALES WORKFLOW — DIAGRAM PROCESU ZGODNIE Z ZASADAMI</h1>
+    <p class="rules">1 AJAX (1 zdarzenie procesu = 1 żądanie) • PARY: AGENT Ax.y ↔ KRYTYK Kx.y • BRAMKI JAKOŚCI PO DZIAŁACH (1 + 1) • JSON • PIPELINE • BD-1 (rdzeń WordPressa: odczyt / strefa wtyczki: zapis)</p>
+  </div>
+
+  <div class="grid">
+
+    <!-- ============ LEWA ============ -->
+    <div class="dbcol">
+      <div class="dbwrap">
+        <div class="dbhead">BAZA DANYCH</div>
+        <div class="dbid">
+          <svg width="30" height="24" viewBox="0 0 34 26"><ellipse cx="17" cy="5" rx="14" ry="4.2" fill="none" stroke="#1D4ED8" stroke-width="2.2"/><path d="M3 5v16c0 2.4 6.3 4.3 14 4.3s14-1.9 14-4.3V5" fill="none" stroke="#1D4ED8" stroke-width="2.2"/><path d="M3 13c0 2.4 6.3 4.3 14 4.3s14-1.9 14-4.3" fill="none" stroke="#1D4ED8" stroke-width="1.6"/></svg>
+          <b>BD-1</b>
+        </div>
+        <div class="zone">rdzeń WordPressa — tylko odczyt w żądaniu</div>
+        <div class="tcard"><b>wp_users</b><span>· ID<br>· user_email<br>· display_name</span></div>
+        <div class="tcard"><b>wp_usermeta</b><span>· wp_capabilities (rola)<br>· mp_country · mp_team<br>· mp_lang · mp_scope (zakres)<br>· mp_absent (nieobecność)</span></div>
+        <div class="tcard"><b>wp_options → wp_user_roles</b><span>role: administrator ·<br>mp_manager · mp_handlowiec<br>rejestruje add_role()<br>przy aktywacji, nie w żądaniu</span></div>
+        <div class="zone wr">strefa wtyczki — zapis 1 transakcją</div>
+        <div class="tcard wr"><b>wp_mp_flow</b><span>· id · entity_ref (lead/oferta)<br>· status · assigned_user_id<br>· sla_due_at · updated_at</span></div>
+        <div class="tcard wr"><b>wp_mp_tasks</b><span>· id · flow_id · type (d3/d7)<br>· due_at · guard_status<br>· status · assignee</span></div>
+        <div class="tcard wr"><b>wp_mp_notifications</b><span>· id · flow_id · template · lang<br>· recipient · status (queued/sent/<br>failed) · attempts · sent_at</span></div>
+        <div class="tcard wr"><b>wp_mp_activity</b><span>· id · event_id · entity_ref<br>· action · old_value · new_value<br>· actor_type · actor_id · created_at</span></div>
+        <div class="dbleg">
+          <b>Legenda BD-1</b>
+          <span><span class="sq" style="background:#EAF0FE;border:1px solid #9DB8F1"></span> rdzeń WP (odczyt)</span>
+          <span><span class="sq" style="background:#FDEFEC;border:1px solid #EFB6AC"></span> dane wtyczki LP.3 (zapis)</span>
+          <span><span class="sq" style="background:#E5F5F9;border:1px solid #A5D8E4"></span> granica stref = granica ryzyka</span>
+        </div>
+      </div>
+
+      <div class="ajaxcol">
+        <div class="ajaxbadge">1 AJAX</div>
+        <p class="ajaxnote"><b>JEDYNE WEJŚCIE / WYJŚCIE</b>1 zdarzenie procesu = 1 żądanie JSON<br>1 strzał odczytu (Dział 2)<br>1 transakcja zapisu (Dział 8)<br>0 wywołań sieciowych w żądaniu —<br>e-mail wychodzi z kolejki PO COMMIT</p>
+      </div>
+
+      <div class="cronnote"><b>⏱ Zadania d+3 / d+7:</b> systemowy cron woła wp-cron.php i wchodzi <b>tym samym wejściem</b> jako zdarzenie <span style="font-family:var(--mono)">task.due</span>. WP-Cron sam z siebie odpala się tylko ruchem na stronie — stąd DISABLE_WP_CRON + crontab.</div>
+    </div>
+
+    <!-- ============ ŚRODEK ============ -->
+    <div>
+      <div class="pipehead">PIPELINE LP.3 — MP SALES WORKFLOW</div>
+      <div class="cols"><div>DZIAŁ</div><div>AGENT</div><div></div><div>KRYTYK</div><div></div><div>DANE (JSON)</div><div>OPERACJE</div></div>
+      <div id="pipe"></div>
+
+      <div class="dash">
+        <h3>TRYB DASHBOARD — zdarzenie <span class="m">dashboard.view</span> (zakres pkt 2: dashboard)</h3>
+        <p>Przechodzi Działy <b>1 → 2 → 3 → 9</b> i kończy z <span class="m">db_writes = 0</span>. Zwraca agregaty: lejek statusów, zadania po terminie, obciążenie zespołu, ostatnie wpisy dziennika. Zakres danych tnie rola aktora (kryt. 5.4): <b>handlowiec</b> — swoje procesy · <b>manager sprzedaży</b> — zespół · <b>administrator</b> — wszystko.</p>
+      </div>
+
+      <div class="downarr">▼</div>
+      <div class="final">
+        <div class="finbox">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 13h4M8 16h7"/><circle cx="17.5" cy="14.5" r="0.2" fill="#16A34A"/></svg>
+          <div>
+            <h3>WYNIK KOŃCOWY — PROCES OBSŁUŻONY: STATUS · PRZYPISANIE · ZADANIA · POWIADOMIENIA</h3>
+            <p>Status po dozwolonym przejściu, handlowiec z uzasadnieniem, zadania d+3/d+7 z wartownikiem statusu, e-maile w kolejce z ponowieniami — wysyłka poza żądaniem.</p>
+          </div>
+        </div>
+        <div class="retjson">
+          <b>ZWRACANE JSON</b>
+          <pre>{ "success": true,
+  "status": "oferta_wyslana",
+  "assigned_user_id": 14,
+  "tasks_planned": 2,
+  "notifications_queued": 2,
+  "trace_id": "9c2e41b7-…" }</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ PRAWA ============ -->
+    <div class="side">
+      <div class="panel zas"><h5>ZASADY PROCESU</h5><div class="bd">
+        <div class="ck">1 AJAX — jedno zdarzenie procesu, wejście/wyjście tylko JSON</div>
+        <div class="ck">Para: agent Ax.y ↔ krytyk Kx.y — nigdy osobno</div>
+        <div class="ck">W dziale tyle par, ile dział ma zadań</div>
+        <div class="ck">Bramka jakości PO każdym dziale: 1 agent + 1 krytyk</div>
+        <div class="ck">Rdzeń WP (users · usermeta · options) tylko do odczytu w żądaniu</div>
+        <div class="ck">Zapis tylko do wp_mp_* — jedną transakcją</div>
+        <div class="ck">1 odczyt · 1 zapis · 0 sieci — e-mail z kolejki po COMMIT</div>
+        <div class="ck">Role rejestrowane przy aktywacji wtyczki, nie w żądaniu</div>
+        <div class="ck">Timer d+3/d+7 wraca tym samym wejściem (idempotentnie)</div>
+        <div class="ck">Werdykty: PASS · PASS_WARN · FAIL_RETRY · FAIL_FATAL</div>
+      </div></div>
+
+      <div class="panel sch"><h5>SCHEMAT PRZEPŁYWU DANYCH</h5><div class="bd">
+        <div class="fl"><div class="flowbox fb-db">BD-1 (rdzeń WP — odczyt)</div><div></div></div>
+        <div class="fl"><div class="far">▼ <small>1 strzał</small></div><div></div></div>
+        <div class="fl"><div class="flowbox fb-aj">1 AJAX (zdarzenie JSON)</div><div></div></div>
+        <div class="fl"><div class="far">▼</div><div></div></div>
+        <div class="fl"><div class="flowbox fb-a">AGENT (Wykonanie)</div><div class="fail">FAIL</div></div>
+        <div class="fl"><div class="far">▼</div><div></div></div>
+        <div class="fl"><div class="flowbox fb-k">KRYTYK (Kontrola pary)</div><div class="fail">FAIL</div></div>
+        <div class="fl"><div class="far">▼</div><div></div></div>
+        <div class="fl"><div class="flowbox fb-g">BRAMKA JAKOŚCI (QA)</div><div class="fail">FAIL</div></div>
+        <div class="fl"><div class="far">▼ <small>PASS</small></div><div></div></div>
+        <div class="fl"><div class="flowbox fb-j">JSON (Przekazanie danych)</div><div></div></div>
+        <div class="fl"><div class="far">▼</div><div></div></div>
+        <div class="fl"><div class="flowbox fb-n">NASTĘPNY DZIAŁ (Pipeline)</div><div></div></div>
+        <div class="fl"><div class="far">▼ <small>Dział 8</small></div><div></div></div>
+        <div class="fl"><div class="flowbox fb-db" style="border-color:#EFB6AC;color:#B03A2E">ZAPIS — 1 TRANSAKCJA (strefa wtyczki)</div><div></div></div>
+        <div class="fl"><div class="far">▼ <small>po COMMIT</small></div><div></div></div>
+        <div class="fl"><div class="flowbox fb-q">KOLEJKA E-MAIL (wp_mail + ponowienia)</div><div></div></div>
+        <div class="fl"><div class="far">▼</div><div></div></div>
+        <div class="fl"><div class="flowbox fb-w">WYNIK KOŃCOWY (proces obsłużony)</div><div></div></div>
+        <div class="fl"><div class="far" style="margin-top:2px">⏱ <small>cron d+3/d+7 → z powrotem na wejście</small></div><div></div></div>
+        <div style="font-size:8.6px;color:var(--red);font-family:var(--mono);text-align:right;margin-top:2px">FAIL_FATAL → ROLLBACK + kod + dziennik<br>FAIL_RETRY → ponowienie (maks. 2)</div>
+      </div></div>
+
+      <div class="panel leg"><h5>LEGENDA SCHEMATU</h5><div class="bd">
+        <div class="lgi"><span class="sq" style="background:#1E3A8A"></span> Źródło / Wyjście danych (BD-1)</div>
+        <div class="lgi"><span class="sq" style="background:#fff;border:1.5px solid var(--green)"></span> Agent (Wykonanie)</div>
+        <div class="lgi"><span class="sq" style="background:#fff;border:1.5px solid var(--or)"></span> Krytyk (Kontrola pary 1:1)</div>
+        <div class="lgi"><span class="sq" style="background:var(--gatebg);border:1.5px solid var(--gateln)"></span> Bramka jakości (QA działu)</div>
+        <div class="lgi"><span class="sq" style="background:#fff;border:1.5px solid var(--jsonln)"></span> JSON (Przepływ danych)</div>
+        <div class="lgi"><span class="sq" style="background:var(--greenbg);border:1.5px solid var(--greenln)"></span> Pipeline (Kontynuacja)</div>
+        <div class="lgi"><span class="sq" style="background:var(--violbg);border:1.5px solid var(--violln)"></span> Wynik końcowy / tryb dashboard</div>
+        <div class="lgi"><span style="font-size:11px">⏱</span> Timer — cron wraca na wejście</div>
+      </div></div>
+
+      <div class="panel kry"><h5>KRYTERIA ODBIORU LP.3</h5><div class="bd">
+        <div class="ck">Przypisany właściwy handlowiec: kraj × język × zakres obsługi</div>
+        <div class="ck">Działające role: administrator · manager sprzedaży · handlowiec (5.4)</div>
+        <div class="ck">Statusy zmieniane tylko po dozwolonych przejściach</div>
+        <div class="ck">E-mail do klienta po akceptacji oferty (aut. 4.4)</div>
+        <div class="ck">Follow-up d+3 i d+7 tylko przy niezmienionym statusie (aut. 4.5)</div>
+        <div class="ck">Dziennik odtwarza historię statusów i wysyłek (5.5)</div>
+        <div class="ck">Dashboard przycięty rolą aktora</div>
+        <div class="ck">Dane tylko JSON, przez 1 AJAX</div>
+        <div class="ck">Wysyłka poza żądaniem — kolejka z ponowieniami</div>
+        <div class="ck">Wszystkie bramki jakości = PASS · min. 10 scenariuszy (5.1)</div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ============ DÓŁ ============ -->
+  <div class="bottomrow">
+    <div class="stripleg">
+      <div class="sl"><b><svg width="15" height="12" viewBox="0 0 34 26"><ellipse cx="17" cy="5" rx="14" ry="4.2" fill="#1E3A8A"/><path d="M3 5v16c0 2.4 6.3 4.3 14 4.3s14-1.9 14-4.3V5" fill="none" stroke="#1E3A8A" stroke-width="3"/></svg> BD-1</b><span>(Dane źródłowe)</span></div>
+      <span class="slarr">→</span>
+      <div class="sl"><b style="color:var(--blue)">1 AJAX</b><span>(Wejście/Wyjście)</span></div>
+      <span class="slarr">→</span>
+      <div class="sl"><b style="color:var(--greend)">AGENT</b><span>(Wykonanie)</span></div>
+      <span class="slarr">→</span>
+      <div class="sl"><b style="color:var(--ord)">KRYTYK</b><span>(Kontrola)</span></div>
+      <span class="slarr">→</span>
+      <div class="sl"><b style="color:var(--gate)">BRAMKA JAKOŚCI</b><span>(QA)</span></div>
+      <span class="slarr">→</span>
+      <div class="sl"><b style="color:var(--json)">JSON</b><span>(Przekazanie)</span></div>
+      <span class="slarr">→</span>
+      <div class="sl"><b style="color:var(--greend)">NASTĘPNY DZIAŁ</b><span>(Kontynuacja)</span></div>
+    </div>
+    <div class="statbox">
+      <b>STATUS BRAMKI</b>
+      <div><span class="dot" style="background:var(--green)"></span> PASS — Przejście dalej</div>
+      <div><span class="dot" style="background:var(--red)"></span> FAIL — Zatrzymanie / ponowienie</div>
+    </div>
+  </div>
+
+  <div class="docsrow">
+    <b>DOKUMENTACJA ŹRÓDŁOWA (oryginalna, na dział)</b>
+    <div class="docsgrid">
+      <div>D1 · JSON Schema 2020-12 + WP REST permission_callback + Nonces — <i>json-schema.org · developer.wordpress.org</i></div>
+      <div>D2 · WP_User_Query (meta_query) + Working with User Metadata — <i>developer.wordpress.org/reference/classes/wp_user_query/ · /plugins/users/working-with-user-metadata/</i></div>
+      <div>D3 · Roles and Capabilities + current_user_can() — <i>developer.wordpress.org/plugins/users/roles-and-capabilities/</i></div>
+      <div>D4 · reguły przypisania wg zlecenia (kraj × język × zakres, rotacja) + usermeta mp_* — <i>konfiguracja wtyczki</i></div>
+      <div>D5 · maszyna statusów — słownik przejść, wersjonowany — <i>zlecenie: statusy procesu · kryt. 5.5</i></div>
+      <div>D6 · WP-Cron + systemowy harmonogram — <i>developer.wordpress.org/plugins/cron/hooking-wp-cron-into-the-system-task-scheduler/</i></div>
+      <div>D7 · wp_mail() + filtry wp_mail_from / phpmailer_init + dostarczalność SPF/DKIM — <i>developer.wordpress.org/reference/functions/wp_mail/ · /advanced-administration/server/mail/</i></div>
+      <div>D8 · dbDelta() + MySQL START TRANSACTION / COMMIT — <i>developer.wordpress.org/reference/functions/dbdelta/ · dev.mysql.com</i></div>
+      <div>D9 · do_action + wp_send_json_success + Action Scheduler — <i>developer.wordpress.org/plugins/hooks/actions/ · actionscheduler.org</i></div>
+      <div>Zasada dbDelta: dwie spacje po PRIMARY KEY · KEY zamiast INDEX · pola w osobnych liniach</div>
+      <div>WP-Cron: pseudo-cron odpalany ruchem na stronie → DISABLE_WP_CRON + crontab na wp-cron.php</div>
+      <div>wp_mail: PHPMailer, domyślnie mail() PHP → produkcyjnie SMTP przez phpmailer_init + SPF/DKIM</div>
+    </div>
+  </div>
+
+  <div class="foot">LP.3 MP Sales Workflow + BD-1 · 9 działów · 25 par w działach · 9 bramek jakości · 34 agentów + 34 krytyków · rewizja 2.0 · 27.07.2026 · Automatyzacje WordPress — Mariusz Perzyński</div>
+</div>
+
+<script>
+const IC = {
+ shield:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>',
+ users:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.3"/><path d="M15.5 14.3c2.7.4 4.5 2.4 4.5 5.7"/></svg>',
+ lock:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.2"/></svg>',
+ target:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.4" fill="#16A34A"/></svg>',
+ cycle:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 13.6-5.7L20 8"/><path d="M20 3v5h-5"/><path d="M20 12a8 8 0 0 1-13.6 5.7L4 16"/><path d="M4 21v-5h5"/></svg>',
+ clock:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/></svg>',
+ mail:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/></svg>',
+ save:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="7.5" ry="3"/><path d="M4.5 6v12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V6"/><path d="M4.5 12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3"/></svg>',
+ send:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L10 14"/><path d="M21 3l-7 18-3.5-7.5L3 10z"/></svg>'
+};
+
+const D = [
+{n:1,ico:'shield',nm:'BRAMA I KONTRAKT ZDARZENIA',badge:'b0',zk:'zdarzenie procesu · tylko JSON',
+ pairs:[
+  ['kontrakt','Waliduje JSON zdarzenia: typ ze słownika (lead.created · offer.approved · status.change · task.due · dashboard.view), encja, aktor','schemat-zdarzenia','Typ spoza słownika = 422; komplet błędów naraz'],
+  ['źródło','Zdarzenie systemowe (hook), timer (cron) albo ręczne od handlowca / managera — ręczne z nonce i uprawnieniem','kto-woła','Wywołanie ręczne bez uprawnień = 403 przed pracą'],
+  ['idempotencja','event_id (UUID) na zdarzenie; timer d+3 wykonany dokładnie raz','klucz-idempotencji','Ten sam event_id nigdy nie obsłuży zdarzenia dwa razy']
+ ],
+ json:'{ "event": {\n  "type": "offer.approved",\n  "entity": { "lead_id": 812,\n   "offer_id": 57 },\n  "actor": { "user_id": 14 },\n  "lang": "en" },\n  "event_id": "9c2e…" }',
+ ops:['Słownik typów zdarzeń','Uprawnienia przy wywołaniu ręcznym','Klucz idempotencji na zdarzenie'],
+ dok:'dok: JSON Schema 2020-12 · WP REST permission_callback · Nonces',
+ gate:['komplet zdarzenia: typ + encja + aktor','brak któregokolwiek = 422 z listą pól'],
+ note:''},
+
+{n:2,ico:'users',nm:'STRZAŁ ODCZYTU — BD-1',badge:'br',zk:'BD-1 (pkt 3): role · kraj · zespół · język',
+ pairs:[
+  ['handlowcy','Mapa zespołu jedną partią: WP_User_Query z meta_query po mp_country, mp_team, mp_lang, mp_scope, mp_absent','kompletność-mapy','Handlowiec bez kompletu meta trafia na listę braków, nie znika po cichu'],
+  ['role','Definicje ról z wp_options (wp_user_roles): administrator · mp_manager · mp_handlowiec','role-istnieją','Brak którejkolwiek roli = FAIL_FATAL — kryterium 5.4 nie zadziała'],
+  ['stan procesu','Bieżący status, przypisanie i otwarte zadania z wp_mp_flow i wp_mp_tasks','świeżość-stanu','Stan czytany raz; wersja wiersza (updated_at) idzie do koperty'],
+  ['obciążenie','Ostatnie przypisania per handlowiec z wp_mp_flow — podkładka pod rotację','sprawiedliwość-rotacji','Rotacja liczona z danych, nie z pamięci procesu'],
+  ['szablony','Szablony powiadomień pl/en z wersją, mapowane na typy zdarzeń','wersja-szablonu','Szablon bez wersji jest nieodtwarzalny w dzienniku wysyłek']
+ ],
+ json:'{ "snapshot": {\n  "reps": [ { "id": 14,\n   "country": "PL", "team": "PL-1",\n   "lang": "pl", "scope":\n   "Produkcja", "absent": false } ],\n  "roles": [ "administrator",\n   "mp_manager", "mp_handlowiec" ],\n  "flow": { "status":\n   "oferta_robocza",\n   "assigned": 14 },\n  "load": { "14": "2026-07-20" },\n  "templates": { "offer_sent":\n   { "pl": "1.2", "en": "1.2" } } },\n  "db_reads": 1 }',
+ ops:['Jeden strzał: rdzeń WP + strefa wtyczki','Zamrożenie snapshotu w pamięci','Działy 3–7 = czyste funkcje'],
+ dok:'dok: WP_User_Query (meta_query) · Working with User Metadata',
+ gate:['jeden-odczyt: db_reads = 1, pięć sekcji snapshotu','brak sekcji = FAIL_FATAL'],
+ note:'<b>Rdzeń WP tylko do odczytu:</b> meta mp_* ustawia administrator w profilu użytkownika (poza pipeline). Stan rotacji liczony ze strefy wtyczki — żadnych zapisów do usermeta w żądaniu.'},
+
+{n:3,ico:'lock',nm:'UPRAWNIENIA I ZAKRES ROLI',badge:'b0',zk:'kryt. 5.4: role i uprawnienia',
+ pairs:[
+  ['aktor','current_user_can() wobec operacji: zmiana statusu, ręczne przypisanie, wgląd w dashboard','prawo-do-operacji','Operacja spoza uprawnień roli = 403, nigdy ciche zawężenie'],
+  ['zakres','Przycina widoczność: handlowiec — swoje procesy · manager — zespół · administrator — wszystko','cięcie-zakresu','Zakres liczony z roli i mp_team ze snapshotu, nie z parametru żądania']
+ ],
+ json:'{ "actor_role": "mp_manager",\n  "allowed": true,\n  "scope": "team:PL-1" }',
+ ops:['current_user_can na operację','Zakres danych wg roli i zespołu'],
+ dok:'dok: Roles and Capabilities · current_user_can()',
+ gate:['zakres-roli: operacja i widok dozwolone dla aktora','parametr żądania nigdy nie rozszerza zakresu'],
+ note:'<b>Kryterium 5.4 w praktyce:</b> role rejestruje add_role() przy aktywacji wtyczki (definicje w wp_options → wp_user_roles). W żądaniu wyłącznie sprawdzanie — zero zapisu ról.'},
+
+{n:4,ico:'target',nm:'PRZYPISANIE HANDLOWCA',badge:'b0',zk:'pkt 2: przypisanie handlowca · aut. 4.2',
+ pairs:[
+  ['dobór','Kandydaci z mapy: kraj zdarzenia × język × zakres obsługi (segment); nieobecni odpadają','dopasowanie-kandydata','Kandydat musi istnieć w snapshocie i mieć rolę mp_handlowiec'],
+  ['rotacja','Z kandydatów wygrywa najdawniej przypisany; brak kandydata → zespół zapasowy z flagą','pokrycie','Proces nigdy nie zostaje bez właściciela — fallback zamiast pustki'],
+  ['uzasadnienie','reason zapisany słownie (kraj, język, zakres, rotacja) + termin reakcji sla_due_at','odtwarzalność-decyzji','To samo zdarzenie i ten sam snapshot dają to samo przypisanie']
+ ],
+ json:'{ "assignment": {\n  "user_id": 14,\n  "reason": "country=PL ·\n   lang=pl · scope=Produkcja\n   · rotacja",\n  "sla_due_at":\n   "2026-07-28T12:00:00Z",\n  "fallback": false } }',
+ ops:['Dobór: kraj × język × zakres','Rotacja po ostatnim przypisaniu','Fallback zespołu przy braku kandydata'],
+ dok:'dok: reguły wg zlecenia + usermeta mp_* (konfiguracja)',
+ gate:['pokrycie-przypisania: zawsze ktoś przypisany','pusty właściciel = FAIL_FATAL'],
+ note:''},
+
+{n:5,ico:'cycle',nm:'MASZYNA STATUSÓW',badge:'b0',zk:'pkt 2: statusy procesu',
+ pairs:[
+  ['przejście','Sprawdza przejście w słowniku: nowy → przypisany → oferta_robocza → oferta_wyslana → negocjacje → wygrany / przegrany','legalność-przejścia','Przejście spoza słownika = odmowa z kodem, stan bez zmian'],
+  ['skutki','Wylicza skutki przejścia: nowe SLA, zamknięcie oczekujących zadań, powiadomienia do wysłania','komplet-skutków','Każdy skutek ma pokrycie w regule przejścia — nic „przy okazji”']
+ ],
+ json:'{ "transition": {\n  "from": "oferta_robocza",\n  "to": "oferta_wyslana",\n  "allowed": true,\n  "machine_version": "v3" },\n  "effects": [\n  "schedule_followups",\n  "notify_client",\n  "close_tasks" ] }',
+ ops:['Słownik dozwolonych przejść (wersjonowany)','Skutki przejścia wyliczone jawnie'],
+ dok:'dok: maszyna stanów wg zlecenia · kryt. 5.5',
+ gate:['legalność-przejścia + komplet skutków','stan zmienia się tylko przez maszynę, nigdy wprost'],
+ note:''},
+
+{n:6,ico:'clock',nm:'ZADANIA FOLLOW-UP',badge:'b0',zk:'pkt 2: zadania follow-up · aut. 4.5',
+ pairs:[
+  ['harmonogram','Planuje zadania d+3 i d+7 od wysłania oferty, z wartownikiem: guard_status = oferta_wyslana','warunek-4.5','Zadanie aktywuje się TYLKO gdy status niezmieniony — dosłownie wg zlecenia'],
+  ['deduplikacja','Jedno otwarte zadanie danego typu na proces; zmiana statusu anuluje oczekujące','brak-duplikatów-zadań','Ponowione zdarzenie nie tworzy drugiej pary zadań (event_id)']
+ ],
+ json:'{ "tasks": [\n  { "type": "followup_d3",\n   "due_at": "+3d",\n   "guard": "oferta_wyslana" },\n  { "type": "followup_d7",\n   "due_at": "+7d",\n   "guard": "oferta_wyslana" } ] }',
+ ops:['d+3 i d+7 z wartownikiem statusu','Zmiana statusu anuluje oczekujące','Wykonanie: cron → zdarzenie task.due'],
+ dok:'dok: WP-Cron → systemowy harmonogram (Plugin Handbook)',
+ gate:['warunek-4.5 + brak duplikatów zadań','zadanie bez wartownika statusu = FAIL'],
+ note:'<b>Z dokumentacji WP-Cron:</b> to pseudo-cron odpalany ruchem na stronie — bez odwiedzin zadania d+3/d+7 nie wykonają się na czas. Podręcznik wtyczek zaleca DISABLE_WP_CRON i wywołanie wp-cron.php z systemowego crontaba.'},
+
+{n:7,ico:'mail',nm:'POWIADOMIENIA E-MAIL',badge:'b0',zk:'pkt 2: powiadomienia e-mail · aut. 4.4',
+ pairs:[
+  ['adresaci','Typ zdarzenia → odbiorcy i szablon: klient (język procesu) po akceptacji oferty; handlowiec (pl) przy przypisaniu i follow-upie','dobór-szablonu','Brak szablonu w języku odbiorcy = FAIL, nie ciche pl'],
+  ['treść','Podstawia zmienne (numer oferty, adres PDF ze zdarzenia, terminy); wersja szablonu do dziennika','puste-pola','Żaden znacznik nie zostaje pusty; załącznik jako adres, nie plik w pętli'],
+  ['kolejka','Wiersze queued w wp_mp_notifications — wysyłka wp_mail dopiero z kolejki, z ponowieniami i licznikiem prób','zero-wysyłki-w-żądaniu','W pipeline żadnego SMTP; status sent/failed uzupełnia kolejka']
+ ],
+ json:'{ "notifications": [\n  { "to": "client",\n   "template": "offer_sent",\n   "lang": "en",\n   "vars_ok": true },\n  { "to": "rep:14",\n   "template": "assigned",\n   "lang": "pl" } ],\n  "send":\n  "queued_after_commit" }',
+ ops:['Klient wg języka procesu, handlowiec pl','Kolejka z ponowieniami (maks. 3)','Wysyłka PO COMMIT, poza żądaniem'],
+ dok:'dok: wp_mail() · wp_mail_from · phpmailer_init',
+ gate:['kompletność-powiadomień: szablon + język + zmienne','wysyłka w żądaniu = FAIL (łamie 1 AJAX)'],
+ note:'<b>Z dokumentacji wp_mail():</b> funkcja używa PHPMailera, domyślnie mail() PHP — nadawca przez filtr wp_mail_from, produkcyjnie SMTP przez phpmailer_init + SPF/DKIM (podręcznik „Mail”). Zwrócone true nie oznacza doręczenia — stąd statusy i ponowienia w kolejce.'},
+
+{n:8,ico:'save',nm:'ZAPIS — JEDNA TRANSAKCJA',badge:'bw',zk:'pkt 2: dziennik aktywności · kryt. 5.5',
+ pairs:[
+  ['plan','Komplet operacji: wp_mp_flow (status + przypisanie), wp_mp_tasks, wp_mp_notifications (queued), wp_mp_activity','zgodność-z-DDL','Statusy ze słownika, długości w limitach, każda operacja ma wiersz dziennika'],
+  ['transakcja','START TRANSACTION → operacje → COMMIT; konflikt wersji wiersza (updated_at) → FAIL_RETRY; inny błąd → ROLLBACK','jeden-zapis','db_writes = 1; nie istnieje status bez wpisu w dzienniku'],
+  ['dziennik','Wpisy z old_value → new_value: status.changed · lead.assigned · task.planned · notification.queued','odtwarzalność','Historię statusów i wysyłek odtwarza sam dziennik — kryterium 5.5']
+ ],
+ json:'{ "tx": "commit",\n  "flow_id": 301,\n  "tasks_created": 2,\n  "notifications_queued": 2,\n  "activity_rows": 4,\n  "db_writes": 1 }',
+ ops:['Jedna transakcja: flow + zadania + kolejka + dziennik','Konflikt wersji = ponowienie od Działu 2','Po ROLLBACK kolejka pusta'],
+ dok:'dok: dbDelta() · MySQL START TRANSACTION / COMMIT',
+ gate:['atomowość: wiersze = plan','żadnych rekordów częściowych i e-maili-widm'],
+ note:'<b>dbDelta():</b> dwie spacje po PRIMARY KEY, słowo KEY zamiast INDEX, każde pole w osobnej linii, zero pustych linii.'},
+
+{n:9,ico:'send',nm:'WYJŚCIE I URUCHOMIENIE KOLEJKI',badge:'b0',zk:'aut. 4.4: wysyłka po akceptacji',
+ pairs:[
+  ['zdarzenia','Po COMMIT: mp_flow_updated (dokładnie raz) + zlecenie kolejki wysyłki przez harmonogram zadań','jednokrotność','Nic nie wychodzi przed COMMIT — inaczej e-mail o stanie, którego nie ma'],
+  ['odpowiedź','JSON: status, przypisanie, liczba zadań i powiadomień, trace_id; kod HTTP wg wyniku','zakres-odpowiedzi','Tylko dane tego procesu, przycięte zakresem roli aktora']
+ ],
+ json:'{ "success": true,\n  "status": "oferta_wyslana",\n  "assigned_user_id": 14,\n  "tasks_planned": 2,\n  "notifications_queued": 2,\n  "trace_id": "9c2e…" }',
+ ops:['Zdarzenie po COMMIT, dokładnie raz','Kolejka rusza poza żądaniem','Wyjście tylko JSON + trace_id'],
+ dok:'dok: do_action · wp_send_json_success · Action Scheduler',
+ gate:['tylko-json + zdarzenia po COMMIT','nic nie wisi w żądaniu po odpowiedzi'],
+ note:''}
+];
+
+const BLBL = {b0:'0 ZAPYTAŃ', br:'1 ODCZYT', bw:'1 ZAPIS'};
+
+let out = '';
+D.forEach((d) => {
+  const ab = d.pairs.map((p,k)=>`<div class="abox"><b><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#15803D" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="7.5" r="3.6"/><path d="M4.5 20c0-4 3.3-6.6 7.5-6.6s7.5 2.6 7.5 6.6"/></svg>AGENT A${d.n}.${k+1} · ${p[0]}</b><p>${p[1]}</p></div>`).join('');
+  const ar1 = d.pairs.map(()=>`<span class="arr">▶</span>`).join('');
+  const kb = d.pairs.map((p,k)=>`<div class="kbox"><b><svg width="12" height="12" viewBox="0 0 24 24" fill="#EA580C"><path d="M12 2.5l2.6 5.9 6.4.6-4.8 4.2 1.4 6.3-5.6-3.3-5.6 3.3 1.4-6.3L3 9l6.4-.6z"/></svg>KRYTYK K${d.n}.${k+1} · ${p[2]}</b><p>${p[3]}</p></div>`).join('');
+
+  out += `
+  <div class="dept">
+    <div class="drow">
+      <div class="dcell">
+        <span class="circ">${d.n}</span>
+        <span class="dname">${d.nm}</span>
+        <span class="dico">${IC[d.ico]}</span>
+        <span class="chip ${d.badge}">${BLBL[d.badge]}</span>
+        <span class="chip zk">${d.zk}</span>
+        <span class="chip b0">${d.pairs.length} par A↔K</span>
+      </div>
+      <div class="stack">${ab}</div>
+      <div class="arrcol">${ar1}</div>
+      <div class="stack">${kb}</div>
+      <div class="arrmid">▶</div>
+      <div class="jsonbox">${d.json}</div>
+      <div class="opbox">${d.ops.map(o=>`<p>${o}</p>`).join('')}<span class="dok">${d.dok}</span></div>
+    </div>
+    ${d.note?`<div class="note">${d.note}</div>`:''}
+  </div>
+  <div class="gatebar">
+    <b>BRAMKA JAKOŚCI ${d.n} — QA AGENT + QA KRYTYK → <em>PASS</em> / <u>FAIL</u></b>
+    <small>sprawdza: ${d.gate[0]} · ${d.gate[1]}</small>
+  </div>`;
+});
+document.getElementById('pipe').innerHTML = out;
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "mp-sales-workflow-materialy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Źródła materiałów klienckich P3 (MP Sales Workflow) — generatory schematów draw.io/SVG i renderer PDF instrukcji.",
+  "type": "commonjs",
+  "scripts": {
+    "build": "./build.sh"
+  },
+  "dependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
+    "pdf-lib": "^1.17.1"
+  }
+}
