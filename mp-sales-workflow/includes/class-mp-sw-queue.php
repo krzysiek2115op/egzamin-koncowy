@@ -100,11 +100,61 @@ class MP_SW_Queue {
 				continue;
 			}
 
+			/*
+			 * Przejecie zadania PRZED wysylka. Bez tego dwa rownolegle przebiegi
+			 * crona dostawaly z powyzszego SELECT-a te sama paczke i wysylaly
+			 * kazda wiadomosc dwa razy (P3-S1). WP-Cron nie ma pojedynczego
+			 * procesu, a jego blokada `doing_cron` trwa 60 sekund — przy wolnym
+			 * SMTP paczka 20 wiadomosci idzie dluzej.
+			 */
+			if ( ! self::claim( (int) $row['id'], (int) $row['attempts'] ) ) {
+				++$summary['blocked'];
+				continue;
+			}
+
+			// Licznik podbila juz klamra — send_one() dostaje wiersz po przejeciu.
+			$row['attempts'] = (int) $row['attempts'] + 1;
+
 			$outcome = self::send_one( $row );
 			++$summary[ $outcome ];
 		}
 
 		return $summary;
+	}
+
+	/**
+	 * Przejmuje wiersz kolejki na wylacznosc.
+	 *
+	 * Tabela powiadomien nie ma kolumny na token, wiec klamra jest OPTYMISTYCZNA:
+	 * licznik prob pelni role wersji wiersza, a warunek `attempts = <odczytana>`
+	 * przepusci tylko jeden z rownoleglych przebiegow. Kto podbil licznik, ten
+	 * wysyla; pozostali dostaja `false` i pomijaja wiersz. Ten sam wzorzec, co
+	 * `lock_version` przy zmianie statusu procesu.
+	 *
+	 * Inkrementacja jest tu celowo POLACZONA z przejeciem. Gdyby licznik rosl
+	 * osobno — jak wczesniej, w `send_one()` — przejecie i oznaczenie nadal
+	 * bylyby dwiema operacjami, czyli tym samym bledem, tylko wezszym.
+	 *
+	 * @param int $id       Identyfikator wiersza.
+	 * @param int $attempts Liczba prob ODCZYTANA przez ten przebieg.
+	 * @return bool Czy udalo sie przejac.
+	 */
+	public static function claim( $id, $attempts ) {
+		global $wpdb;
+
+		$table = MP_Sales_Workflow_DB::notifications_table();
+
+		$zajete = $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- nazwa tabeli pochodzi ze stalej klasy.
+				"UPDATE {$table} SET attempts = attempts + 1, updated_at = %s WHERE id = %d AND attempts = %d",
+				current_time( 'mysql', true ),
+				(int) $id,
+				(int) $attempts
+			)
+		);
+
+		return 1 === (int) $zajete;
 	}
 
 	/**
@@ -116,25 +166,21 @@ class MP_SW_Queue {
 	private static function send_one( array $row ) {
 		global $wpdb;
 
-		$table    = MP_Sales_Workflow_DB::notifications_table();
-		$id       = (int) $row['id'];
-		$attempts = (int) $row['attempts'] + 1;
-		$now      = current_time( 'mysql', true );
+		$table = MP_Sales_Workflow_DB::notifications_table();
+		$id    = (int) $row['id'];
+		$now   = current_time( 'mysql', true );
 
 		/*
-		 * Licznik prób rośnie PRZED wysyłką. Gdyby rósł po niej, przerwanie
-		 * procesu w trakcie (limit czasu, restart) zostawiłoby wiersz z
-		 * niezmienionym licznikiem i kolejny przebieg próbowałby w nieskończoność
-		 * — a adresat mógł już dostać wiadomość.
+		 * Licznik prób rośnie PRZED wysyłką — ale robi to teraz `claim()`, jedną
+		 * instrukcją razem z przejęciem wiersza. Powód pozostaje ten sam co
+		 * wcześniej: gdyby licznik rósł po wysyłce, przerwanie procesu w trakcie
+		 * (limit czasu, restart) zostawiłoby wiersz z niezmienionym licznikiem
+		 * i kolejny przebieg próbowałby w nieskończoność, a adresat mógł już
+		 * dostać wiadomość. Doszedł drugi powód: dopóki podbicie było osobnym
+		 * zapisem, dwa równoległe przebiegi zdążyły wejść między odczyt a zapis
+		 * i wysłać to samo dwa razy (P3-S1).
 		 */
-		$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-			$table,
-			array(
-				'attempts'   => $attempts,
-				'updated_at' => $now,
-			),
-			array( 'id' => $id )
-		);
+		$attempts = (int) $row['attempts'];
 
 		/*
 		 * Nagłówki budowane WYŁĄCZNIE jako tablica stałych — nigdy przez sklejanie

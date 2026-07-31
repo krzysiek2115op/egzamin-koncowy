@@ -248,7 +248,7 @@ class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 			foreach ( $lines as $i => $line ) {
 				// S3-02: produkt ze statusem 'none' (zwolniony z VAT) trafia do
 				// odrębnej klasy 0% — NIE dostaje stawki wg tax_class.
-				$is_exempt = isset( $products[ $i ]['tax_status'] ) && 'none' === $products[ $i ]['tax_status'];
+				$is_exempt = MP_OB_Products::zwolniona_z_vat( (array) $products[ $i ] );
 				$tc        = $is_exempt ? self::TAX_NONE : ( isset( $products[ $i ]['tax_class'] ) ? (string) $products[ $i ]['tax_class'] : '' );
 				$lg        = isset( $line['line_grosze'] ) ? (int) $line['line_grosze'] : 0;
 				if ( ! isset( $class_subtotal[ $tc ] ) ) {
@@ -298,7 +298,7 @@ class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 
 			// Stawka per pozycja (do zapisu w Dziale 10) — wg klasy danej pozycji.
 			foreach ( $lines as $i => $line ) {
-				$is_exempt            = isset( $products[ $i ]['tax_status'] ) && 'none' === $products[ $i ]['tax_status'];
+				$is_exempt            = MP_OB_Products::zwolniona_z_vat( (array) $products[ $i ] );
 				$tc                   = $is_exempt ? self::TAX_NONE : ( isset( $products[ $i ]['tax_class'] ) ? (string) $products[ $i ]['tax_class'] : '' );
 				$line_tax_rates[ $i ] = ( self::TAX_NONE === $tc ) ? 0.0 : (float) $tax_rates[ $tc ]['rate'];
 			}

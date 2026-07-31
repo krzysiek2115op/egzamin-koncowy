@@ -271,7 +271,7 @@ class MP_OB_D2_Agent_Tax extends MP_OB_Abstract_Agent {
 			 * Klasa używana także przez pozycję opodatkowaną nadal trafi do zbioru
 			 * — z tamtej pozycji.
 			 */
-			if ( isset( $product['tax_status'] ) && 'taxable' !== $product['tax_status'] ) {
+			if ( MP_OB_Products::zwolniona_z_vat( (array) $product ) ) {
 				continue;
 			}
 

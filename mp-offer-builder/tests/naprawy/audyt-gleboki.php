@@ -277,6 +277,55 @@ if ( $w21z->is_ok() ) {
 }
 
 /*
+ * A3 (P2-G6). „Tylko wysylka" (`tax_status = 'shipping'`) wpadalo w szczeline
+ * miedzy dzialami.
+ *
+ * WooCommerce ma TRZY statusy podatkowe: 'taxable', 'shipping', 'none'.
+ * Dzial 2 pomijal przy zbieraniu stawek KAZDY status rozny od 'taxable',
+ * a Dzial 6 zwalnial z VAT wylacznie 'none'. Pozycja 'shipping' trafiala
+ * wiec miedzy nie: klasa bez stawki w snapshocie, a mimo to naliczana stawka
+ * — albo STOP `missing_tax_rate` na ofercie, ktorej nic nie brakowalo.
+ *
+ * Poprawka nie polega na dopisaniu 'shipping' w drugim miejscu, tylko na
+ * usunieciu drugiego miejsca: oba dzialy pytaja teraz TEN SAM predykat.
+ * Dwa warunki, ktore musza byc komplementarne, nie moga byc pisane osobno —
+ * to wlasnie ta klasa bledu.
+ */
+$GLOBALS['mp_ag']['lines'][] = '';
+$GLOBALS['mp_ag']['lines'][] = '=== A3. status "shipping" nie wpada w szczeline ===';
+
+ag_ok(
+	method_exists( 'MP_OB_Products', 'zwolniona_z_vat' ),
+	'istnieje jeden wspolny predykat zwolnienia'
+);
+
+if ( method_exists( 'MP_OB_Products', 'zwolniona_z_vat' ) ) {
+	ag_ok( true === MP_OB_Products::zwolniona_z_vat( array( 'tax_status' => 'none' ) ), "'none' jest zwolniony" );
+	ag_ok( true === MP_OB_Products::zwolniona_z_vat( array( 'tax_status' => 'shipping' ) ), "'shipping' tez jest zwolniony" );
+
+	// Kontr-asercja: predykat nie moze zwalniac wszystkiego.
+	ag_ok( false === MP_OB_Products::zwolniona_z_vat( array( 'tax_status' => 'taxable' ) ), "'taxable' NIE jest zwolniony" );
+	ag_ok( false === MP_OB_Products::zwolniona_z_vat( array() ), 'brak statusu = opodatkowany (bezpieczniejsza strona)' );
+}
+
+// Oba dzialy musza pytac ten sam predykat — inaczej znowu sie rozjada.
+$d2 = file_get_contents( dirname( dirname( __DIR__ ) ) . '/includes/pipeline/departments/class-mp-ob-department-02.php' );
+$d6 = file_get_contents( dirname( dirname( __DIR__ ) ) . '/includes/pipeline/departments/class-mp-ob-department-06.php' );
+
+ag_ok(
+	is_string( $d2 ) && false !== strpos( $d2, 'MP_OB_Products::zwolniona_z_vat' ),
+	'Dzial 2 pyta wspolny predykat'
+);
+ag_ok(
+	is_string( $d6 ) && false !== strpos( $d6, 'MP_OB_Products::zwolniona_z_vat' ),
+	'Dzial 6 pyta wspolny predykat'
+);
+ag_ok(
+	is_string( $d6 ) && false === strpos( $d6, "'none' === $products" ),
+	'Dzial 6 nie ma juz wlasnego porownania ze statusem'
+);
+
+/*
  * Kontrola przeciwna, wspolna dla A i A2: gdy w tej samej klasie bez stawki
  * siedzi pozycja OPODATKOWANA, Dzial 2 ma nadal odmowic. Bez tej asercji obie
  * naprawy mogly by polegac na wylaczeniu kontroli — a wtedy oferta liczylaby

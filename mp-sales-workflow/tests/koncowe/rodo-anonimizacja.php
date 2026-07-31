@@ -132,8 +132,12 @@ $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		'lang'              => 'pl',
 		'recipient'         => 'handlowiec' . $lead_id . '@firma.test',
 		'recipient_user_id' => $pracownik > 0 ? $pracownik : 1,
-		'subject'           => 'Nowy lead do obslugi',
-		'body'              => 'Przydzielono Ci nowy proces sprzedazowy.',
+		// Temat i tresc DOKLADNIE takie, jakie produkuje szablon TPL_LEAD_ASSIGNED
+		// (MP_SW_Templates: 'Nowy lead: {{client_name}}' + 'Klient: {{client_name}}').
+		// Wczesniej stal tu tekst bez nazwy klienta i test „potwierdzal", ze wiersz
+		// wewnetrzny wolno zostawic nietkniety — na danych, ktore nigdy nie powstaja.
+		'subject'           => 'Nowy lead: Firma Do Usuniecia',
+		'body'              => "Przypisano Ci nowy proces sprzedazowy.\n\nKlient: Firma Do Usuniecia\nKraj: PL",
 		'status'            => 'sent',
 		'attempts'          => 1,
 		'created_at'        => $now,
@@ -170,7 +174,27 @@ mr_ok(
 	'powiadomienie do PRACOWNIKA nietkniete (to nie sa dane klienta)',
 	is_array( $pr ) ? $pr['recipient'] : '?'
 );
-mr_ok( is_array( $pr ) && 'Nowy lead do obslugi' === (string) $pr['subject'], 'temat powiadomienia wewnetrznego nietkniety' );
+/*
+ * Adres PRACOWNIKA zostaje — to dane firmowe, nie dane klienta, a wiersz jest
+ * sladem wysylki. Ale temat i tresc powiadomienia wewnetrznego nios nazwe
+ * KLIENTA (szablon podstawia {{client_name}}), wiec musza zostac wyczyszczone
+ * tak samo jak w powiadomieniu do klienta. Inaczej nazwa firmy zostaje w bazie
+ * na zawsze — tabela powiadomien nie ma retencji.
+ */
+mr_ok(
+	is_array( $pr ) && false === strpos( (string) $pr['subject'], 'Firma Do Usuniecia' ),
+	'nazwa klienta usunieta z TEMATU powiadomienia wewnetrznego',
+	is_array( $pr ) ? (string) $pr['subject'] : '?'
+);
+mr_ok(
+	is_array( $pr ) && false === strpos( (string) $pr['body'], 'Firma Do Usuniecia' ),
+	'nazwa klienta usunieta z TRESCI powiadomienia wewnetrznego',
+	is_array( $pr ) ? substr( (string) $pr['body'], 0, 80 ) : '?'
+);
+mr_ok(
+	is_array( $pr ) && 'sent' === (string) $pr['status'],
+	'status wysylki powiadomienia wewnetrznego zachowany (historia zostaje)'
+);
 
 // Sprzatanie — test nie ma prawa zostawiac smieci w bazie klienta.
 $wpdb->delete( $notif_t, array( 'flow_id' => $flow_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery

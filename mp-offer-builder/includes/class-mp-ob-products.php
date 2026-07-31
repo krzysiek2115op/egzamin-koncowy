@@ -41,6 +41,34 @@ class MP_OB_Products {
 	 * @param int[] $ids Identyfikatory produktów lub wariantów.
 	 * @return array<int,WC_Product> Mapa `id => produkt`; brakujące pomijane.
 	 */
+	/**
+	 * Czy pozycja jest zwolniona z VAT wg statusu podatkowego WooCommerce.
+	 *
+	 * WooCommerce zna trzy statusy: 'taxable', 'shipping' i 'none'. Opodatkowana
+	 * jest wylacznie cena pozycji 'taxable'. 'none' to zwolnienie wprost,
+	 * a 'shipping' („Tylko wysylka") znaczy, ze podatek dotyczy kosztu wysylki,
+	 * nie ceny produktu — a oferta wysylki nie sprzedaje, wiec dla niej ta
+	 * pozycja tez idzie z zerowa stawka.
+	 *
+	 * Predykat jest JEDEN, bo pytaja o niego dwa dzialy: Dzial 2 decyduje, dla
+	 * ktorych klas pobrac stawki, a Dzial 6 — ktorym pozycjom naliczyc VAT. Gdy
+	 * kazdy mial wlasny warunek, przestaly byc komplementarne: Dzial 2 pomijal
+	 * wszystko rozne od 'taxable', Dzial 6 zwalnial tylko 'none', a pozycja
+	 * 'shipping' wpadala w szczeline miedzy nimi.
+	 *
+	 * Brak statusu traktujemy jako opodatkowany — bezpieczniejsza strona bledu
+	 * to naliczyc VAT i dostac odmowe z powodu braku stawki, niz po cichu
+	 * wystawic dokument z zaniżonym podatkiem.
+	 *
+	 * @param array $product Pozycja ze snapshotu Dzialu 2.
+	 * @return bool
+	 */
+	public static function zwolniona_z_vat( array $product ) {
+		$status = isset( $product['tax_status'] ) ? (string) $product['tax_status'] : 'taxable';
+
+		return 'none' === $status || 'shipping' === $status;
+	}
+
 	public static function map( array $ids ) {
 		$ids = array_values( array_unique( array_filter( array_map( 'intval', $ids ) ) ) );
 

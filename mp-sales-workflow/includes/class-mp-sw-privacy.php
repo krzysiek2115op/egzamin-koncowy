@@ -142,6 +142,25 @@ class MP_SW_Privacy {
 			)
 		);
 
+		/*
+		 * Powiadomienia WEWNETRZNE (do handlowca) tez nios dane klienta: szablony
+		 * podstawiaja {{client_name}} i w temat, i w tresc — „Nowy lead: <nazwa>",
+		 * „Zmiana statusu: <nazwa>", „Przypomnienie: <nazwa>". Warunek powyzej
+		 * omija te wiersze, bo maja w `recipient_user_id` konto WordPressa, wiec
+		 * nazwa firmy klienta zostawala w bazie NA ZAWSZE — tabela powiadomien
+		 * nie ma retencji, a zadanie usuniecia danych konczylo sie „sukcesem".
+		 *
+		 * Adresu pracownika NIE ruszamy: to dane firmowe, nie dane klienta,
+		 * a wiersz ma zostac sladem wysylki (kryt. 5.5 — historia zostaje).
+		 */
+		$changed += (int) $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"UPDATE {$notifications} SET subject = '', body = '', updated_at = %s WHERE flow_id = %d AND recipient_user_id IS NOT NULL", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				current_time( 'mysql', true ),
+				$flow_id
+			)
+		);
+
 		MP_SW_Log::notice(
 			'MP3-E000',
 			array(
