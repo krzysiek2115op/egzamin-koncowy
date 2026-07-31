@@ -13,6 +13,10 @@
  *  - cel biznesowy: proces „bez recznego kopiowania danych" — produkty i wolumen
  *    podane przez klienta nie docieraly do ekranu budowy oferty.
  *
+ * Pilnuje wpisow z rejestru znanych bledow (audyt/rejestr/znane-bledy.json):
+ *   - P2-K1  Zatwierdzenie oferty nie podbijalo lock_version
+ *   - P2-K2  Dzial 10 nadpisywal oferte juz zatwierdzona
+ *
  * @package MP_Offer_Builder
  */
 

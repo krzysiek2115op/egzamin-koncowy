@@ -81,7 +81,7 @@ class MP_OB_D11_Agent_Event extends MP_OB_Abstract_Agent {
 				'offer_id'     => $offer_id,
 				'offer_number' => $offer_number,
 				'version'      => $version,
-				'status'       => 'draft',
+				'status'       => MP_Offer_Builder_DB::STATUS_DRAFT,
 				'client_name'  => isset( $client['name'] ) ? (string) $client['name'] : '',
 				'gross_grosze' => (int) $context->get( 'gross_grosze', 0 ),
 				'currency'     => (string) $context->get( 'currency', 'PLN' ),
@@ -185,7 +185,7 @@ class MP_OB_D11_Agent_Response extends MP_OB_Abstract_Agent {
 					'offer_number' => $offer_number,
 					'version'      => $version,
 					'pdf_url'      => $pdf_url,
-					'status'       => 'draft',
+					'status'       => MP_Offer_Builder_DB::STATUS_DRAFT,
 					'trace_id'     => $trace_id,
 				),
 			)

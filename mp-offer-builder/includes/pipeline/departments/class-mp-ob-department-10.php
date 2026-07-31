@@ -103,7 +103,7 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 		$header = array(
 			'offer_number'      => $offer_number,
 			'version'           => $version,
-			'status'            => 'draft',
+			'status'            => MP_Offer_Builder_DB::STATUS_DRAFT,
 			'lang'              => (string) $context->get( 'lang', '' ),
 			'client_name'       => isset( $client['name'] ) ? (string) $client['name'] : '',
 			'client_email'      => isset( $client['email'] ) ? (string) $client['email'] : '',

@@ -2,7 +2,7 @@
     "name": "mp/offer-builder",
     "description": "Zaleznosci runtime wtyczki MP Offer Builder (Dzial 9 - Render PDF).",
     "type": "wordpress-plugin",
-    "license": "proprietary",
+    "license": "GPL-2.0-or-later",
     "require": {
         "php": ">=7.4",
         "dompdf/dompdf": "^3.1"

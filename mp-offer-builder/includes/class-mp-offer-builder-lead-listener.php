@@ -106,7 +106,7 @@ class MP_Offer_Builder_Lead_Listener {
 			array( 'client_vat_status' => $vat_status ),
 			array(
 				'id'     => $draft_id,
-				'status' => 'draft',
+				'status' => MP_Offer_Builder_DB::STATUS_DRAFT,
 			)
 		);
 
@@ -236,7 +236,7 @@ class MP_Offer_Builder_Lead_Listener {
 					$request,
 					array(
 						'id'     => (int) $existing,
-						'status' => 'draft',
+						'status' => MP_Offer_Builder_DB::STATUS_DRAFT,
 					)
 				);
 			}
@@ -247,7 +247,7 @@ class MP_Offer_Builder_Lead_Listener {
 		$inserted = $wpdb->insert(
 			$offers_table,
 			$request + array(
-				'status'            => 'draft',
+				'status'            => MP_Offer_Builder_DB::STATUS_DRAFT,
 				'lead_id'           => $lead_id,
 				// S2-02: każde pole przycięte do limitu kolumny (lustro FIELD_LIMITS w Dziale 10)
 				// — za długa wartość z P1 pod strict-mode wywaliłaby INSERT i draft cicho by nie

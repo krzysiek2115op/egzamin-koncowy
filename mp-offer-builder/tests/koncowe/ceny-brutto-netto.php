@@ -19,6 +19,9 @@
  * Sprawdzana wlasnosc jest prosta i niezalezna od stawki VAT: gdy sklep podaje
  * ceny brutto, kwota BRUTTO na ofercie musi sie zgadzac z cena ze sklepu.
  *
+ * Pilnuje wpisow z rejestru znanych bledow (audyt/rejestr/znane-bledy.json):
+ *   - P2-K3  Ceny brutto brane jak netto — oferta drozsza o 23%
+ *
  * @package MP_Offer_Builder
  */
 
