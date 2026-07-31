@@ -102,10 +102,53 @@ class MP_OB_Pipeline_Logger {
 			return;
 		}
 
-		wp_mail(
+		$sent = wp_mail(
 			$to,
 			sprintf( '[MP Offer Builder] Nieoczekiwany wyjątek w pipeline (dział %d)', (int) $dept_num ),
 			sprintf( "Pipeline przerwany wyjątkiem w dziale %d.\nTyp: %s\nKomunikat: %s\n", (int) $dept_num, get_class( $e ), $e->getMessage() )
+		);
+
+		if ( ! $sent ) {
+			$this->log_alert_failure(
+				sprintf( 'Alarm o wyjątku w dziale %d NIE został wysłany — serwer poczty odrzucił wiadomość.', (int) $dept_num ),
+				array(
+					'alert'      => 'pipeline_exception',
+					'department' => (int) $dept_num,
+				)
+			);
+		}
+	}
+
+	/**
+	 * Odnotowuje, że alarm do administratora nie doszedł.
+	 *
+	 * Alarmu o nieudanym alarmie nie da się wysłać pocztą — a zepsuta poczta
+	 * jest najbardziej prawdopodobnym powodem, dla którego pierwszy nie dotarł.
+	 * Ślad musi więc zostać tam, gdzie widać go BEZ poczty: w dzienniku, obok
+	 * wpisu, który ten alarm wywołał.
+	 *
+	 * Ogranicznika częstotliwości nie zwalniamy: to limit tempa, a nie znacznik
+	 * sukcesu. Przy trwale zepsutym SMTP ponawianie przy każdym błędzie
+	 * zamieniłoby jedną wiadomość na kwadrans w lawinę.
+	 *
+	 * @param string $description Co dokładnie nie doszło.
+	 * @param array  $meta        Dodatkowe fakty do `meta_json`.
+	 * @return void
+	 */
+	protected function log_alert_failure( $description, array $meta = array() ) {
+		global $wpdb;
+
+		$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			MP_Offer_Builder_DB::activity_log_table(),
+			array(
+				'offer_id'    => null,
+				'action'      => 'admin_alert_failed',
+				'description' => (string) $description,
+				// Bez adresu administratora: dziennik ma mowic, CO nie doszlo,
+				// a nie do kogo mialo pojsc.
+				'user_id'     => null,
+				'meta_json'   => wp_json_encode( $meta ),
+			)
 		);
 	}
 
@@ -140,6 +183,21 @@ class MP_OB_Pipeline_Logger {
 			wp_json_encode( $result->get_errors() )
 		);
 
-		wp_mail( $to, $subject, $body );
+		$sent = wp_mail( $to, $subject, $body );
+
+		if ( ! $sent ) {
+			$this->log_alert_failure(
+				sprintf(
+					'Alarm o zatrzymaniu działu %d (%s) NIE został wysłany — serwer poczty odrzucił wiadomość.',
+					$department->get_number(),
+					$department->get_key()
+				),
+				array(
+					'alert'      => 'pipeline_error',
+					'department' => $department->get_number(),
+					'code'       => $result->get_code(),
+				)
+			);
+		}
 	}
 }
