@@ -385,6 +385,21 @@ final class MP_AU_K24_Powtarzalnosc extends MP_AU_Krytyk {
  * Czego NIE udowadnia: ze test faktycznie FAIL-owal przed naprawa.
  * Ta granica jest wypisana wprost, bo audyt, ktory obiecuje wiecej niz daje,
  * jest gorszy od audytu, ktorego nie ma.
+ *
+ * ZAWEZENIE (31.07.2026). Pierwsza wersja pytala o commit, ktory plik testu
+ * UTWORZYL. To dawalo falszywy alarm wszedzie tam, gdzie jeden plik testu
+ * pilnuje kilku bledow — a tak jest w tym projekcie, bo testy sa grupowane
+ * tematycznie, nie po jednym na blad. Przykladem P2-K2: test
+ * `zatwierdzenie-oferty.php` powstal przy naprawie P2-K1 (commit 7478b20),
+ * a sekcje dla P2-K2 dopisano w commicie 8f650d3 — razem z poprawka Dzialu 10.
+ * Slad istnial, para patrzyla nie w ten commit. Przy takim ukladzie DRUGI
+ * i kazdy kolejny blad w pliku byl z gory skazany na ustalenie, niezaleznie
+ * od tego, jak starannie go naprawiono.
+ *
+ * Teraz para przeglada WSZYSTKIE commity dotykajace pliku testu i szuka
+ * takiego, ktory dotyka rowniez poprawianego zrodla. Sila dowodu sie nie
+ * zmienia — to nadal tylko „oba pliki byly na biurku naraz" — ale pytanie
+ * jest zadane o wlasciwa zmiane.
  */
 final class MP_AU_A26_Dowod_Naprawy extends MP_AU_Agent {
 
@@ -413,34 +428,38 @@ final class MP_AU_A26_Dowod_Naprawy extends MP_AU_Agent {
 				continue;
 			}
 
-			// Commit, ktory wprowadzil plik testu.
+			// Wszystkie commity dotykajace pliku testu — od najnowszego.
 			$log = $kontekst->workspace->polecenie(
-				array( 'git', '-C', $katalog, 'log', '--diff-filter=A', '--format=%H', '--', $test )
+				array( 'git', '-C', $katalog, 'log', '--format=%H', '--', $test )
 			);
 
-			$commit = trim( strtok( trim( $log['wyjscie'] ), "\n" ) ?: '' );
+			$commity = array_filter( array_map( 'trim', explode( "\n", trim( $log['wyjscie'] ) ) ) );
 
-			if ( '' === $commit ) {
+			if ( empty( $commity ) ) {
 				$wyniki[] = array(
 					'id'      => (string) ( $blad['id'] ?? '?' ),
+					'wtyczka' => $wtyczka,
+					'test'    => $test,
+					'zrodlo'  => $zrodlo,
 					'werdykt' => 'brak-historii',
-					'dowod'   => 'Nie znaleziono commita dodajacego plik ' . $test . '.',
+					'dowod'   => 'Nie znaleziono commita dotykajacego pliku ' . $test . '.',
 				);
 				continue;
 			}
 
-			$pliki = $kontekst->workspace->polecenie(
-				array( 'git', '-C', $katalog, 'show', '--name-only', '--format=', $commit )
-			);
+			$historia = array();
 
-			$lista = array_filter( array_map( 'trim', explode( "\n", $pliki['wyjscie'] ) ) );
-			$razem = false;
+			foreach ( $commity as $commit ) {
+				$pliki = $kontekst->workspace->polecenie(
+					array( 'git', '-C', $katalog, 'show', '--name-only', '--format=', $commit )
+				);
 
-			foreach ( $lista as $plik ) {
-				if ( false !== strpos( $plik, $zrodlo ) ) {
-					$razem = true;
-					break;
-				}
+				$historia[] = array(
+					'commit' => $commit,
+					'pliki'  => array_values(
+						array_filter( array_map( 'trim', explode( "\n", $pliki['wyjscie'] ) ) )
+					),
+				);
 			}
 
 			$wyniki[] = array(
@@ -448,14 +467,51 @@ final class MP_AU_A26_Dowod_Naprawy extends MP_AU_Agent {
 				'wtyczka' => $wtyczka,
 				'test'    => $test,
 				'zrodlo'  => $zrodlo,
-				'commit'  => substr( $commit, 0, 7 ),
-				'werdykt' => $razem ? 'test-z-naprawa' : 'test-osobno',
-				'dowod'   => 'commit ' . substr( $commit, 0, 7 ) . ' obejmuje ' . count( $lista ) . ' plikow'
-					. ( $razem ? ', w tym poprawiane zrodlo' : ', bez poprawianego zrodla' ),
-			);
+			) + self::dopasuj_commit( $historia, $zrodlo );
 		}
 
 		return MP_AU_Wynik::ok( array( 'wyniki' => $wyniki ) );
+	}
+
+	/**
+	 * Szuka w historii pliku testu commita, ktory dotyka takze poprawianego zrodla.
+	 *
+	 * Wydzielone z `zbierz()` swiadomie: to jedyny kawalek tej pary, ktory da sie
+	 * sprawdzic testem bez zywego repozytorium i bez rejestru. Dostaje gotowa
+	 * historie (od najnowszego commita) i oddaje werdykt razem z dowodem.
+	 *
+	 * @param array  $historia Lista array( 'commit' => sha, 'pliki' => string[] ).
+	 * @param string $zrodlo   Sciezka poprawianego zrodla (fragment).
+	 * @return array array( 'commit', 'werdykt', 'dowod' )
+	 */
+	public static function dopasuj_commit( array $historia, string $zrodlo ): array {
+		if ( empty( $historia ) ) {
+			return array(
+				'commit'  => '',
+				'werdykt' => 'brak-historii',
+				'dowod'   => 'Historia pliku testu jest pusta.',
+			);
+		}
+
+		foreach ( $historia as $wpis ) {
+			foreach ( (array) ( $wpis['pliki'] ?? array() ) as $plik ) {
+				if ( '' !== $zrodlo && false !== strpos( (string) $plik, $zrodlo ) ) {
+					return array(
+						'commit'  => substr( (string) $wpis['commit'], 0, 7 ),
+						'werdykt' => 'test-z-naprawa',
+						'dowod'   => 'commit ' . substr( (string) $wpis['commit'], 0, 7 ) . ' obejmuje '
+							. count( (array) $wpis['pliki'] ) . ' plikow, w tym poprawiane zrodlo',
+					);
+				}
+			}
+		}
+
+		return array(
+			'commit'  => substr( (string) $historia[0]['commit'], 0, 7 ),
+			'werdykt' => 'test-osobno',
+			'dowod'   => 'zaden z ' . count( $historia ) . ' commitow dotykajacych testu nie ruszal '
+				. 'poprawianego zrodla',
+		);
 	}
 }
 

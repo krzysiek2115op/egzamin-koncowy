@@ -14,7 +14,7 @@
     "Jesli para nie istnieje, blad moze wrocic niezauwazony — para 1.15 to zglasza."
   ],
   "wersja": 1,
-  "zrodlo": "audyt enterprise 29.07.2026 + naprawy 29-30.07.2026 + Grupy A, B i C po audycie 31.07.2026 (wydanie 1.3.1)",
+  "zrodlo": "audyt enterprise 29.07.2026 + naprawy 29-30.07.2026 + Grupy A, B i C po audycie 31.07.2026 (wydanie 1.3.1) + ustalenia drobne 31.07.2026",
   "bledy": [
     {
       "id": "P3-K1",
@@ -284,6 +284,32 @@
       "test": "tests/naprawy/c1-vat-status-domyslny.php",
       "para": "1.25",
       "lekcja": "Wartosc domyslna nie moze twierdzic wiecej niz wiemy. 'unknown' bylo w slowniku od poczatku."
+    },
+    {
+      "id": "P2-D1",
+      "data": "2026-07-31",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Status dokumentu wpisywany napisem 'draft' w szesciu miejscach",
+      "klasa": "napis-zamiast-stalej-ze-slownika",
+      "plik": "includes/class-mp-offer-builder-lead-listener.php",
+      "dowod": "'status' => 'draft' obok istniejacej MP_Offer_Builder_DB::STATUS_DRAFT (nasluch leada 3x, Dzial 10, Dzial 11 2x)",
+      "skutek": "Dopoki wartosci sa zgodne, nic sie nie dzieje. Zmiana stalej ominie te szesc miejsc: powstana rekordy w stanie, ktorego wartownik `status = STATUS_DRAFT` w Dziale 10 juz nie rozpozna — zatwierdzona oferta znow dalaby sie nadpisac, czyli wrocilby blad P2-K2.",
+      "test": "tests/naprawy/status-przez-stala.php",
+      "para": "1.23",
+      "lekcja": "Slownik wartosci ma jednego wlasciciela. Napis powtorzony szesc razy to szesc miejsc, o ktorych trzeba pamietac przy kazdej zmianie."
+    },
+    {
+      "id": "P3-D1",
+      "data": "2026-07-31",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "Status wiersza zdarzenia wpisywany napisem 'done'",
+      "klasa": "napis-zamiast-stalej-ze-slownika",
+      "plik": "includes/pipeline/departments/class-mp-sw-department-08.php",
+      "dowod": "'status' => 'done' w planie zapisu zdarzenia; audyt wskazywal MP_SW_D6_Scheduler::STATUS_DONE, czyli stala z innej tabeli",
+      "skutek": "Sam napis byl poprawny. Pulapka lezala w podpowiedzi: stala Dzialu 6 opisuje cykl zycia ZADANIA follow-up, a nie wiersza zdarzenia. Uzycie jej zwiazaloby dwie niezalezne tabele — zmiana nazwy statusu zadania po cichu przepisywalaby zdarzenia.",
+      "test": "tests/naprawy/status-przez-stala.php",
+      "para": "1.23",
+      "lekcja": "Ta sama wartosc w dwoch tabelach to nie ta sama stala. Wlascicielem jest klasa, ktora wlada schematem."
     }
   ]
 }
