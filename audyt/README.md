@@ -4,7 +4,7 @@ Narzędzie audytujące **cały projekt naraz**: trzy wtyczki i trzy bazy danych.
 Nie jest wtyczką WordPress i nie trafia do klienta — dlatego żyje na własnej
 gałęzi `audyt-projektu`, założonej od `main`.
 
-**36 par agent + krytyk**: 26 w Dziale 1 (audyt), 10 w Dziale 2 (re-audyt).
+**37 par agent + krytyk**: 26 w Dziale 1 (audyt), 11 w Dziale 2 (re-audyt).
 
 ## Uruchomienie
 
