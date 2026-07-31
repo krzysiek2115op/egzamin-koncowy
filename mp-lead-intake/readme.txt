@@ -4,7 +4,7 @@ Tags: leads, formularz, b2b, nip, vat
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.3.1
+Stable tag: 1.3.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,23 @@ Pierwsza z trzech wtyczek procesu "formularz → oferta". Odpowiada za odbiór
 zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej bazy.
 
 == Changelog ==
+
+= 1.3.2 =
+
+* Odpowiedz Bialej listy bez pola `statusVat` byla raportowana jako
+  „status firmy sprawdzony", a pusty wynik trafial do pamieci podrecznej
+  na 12 godzin. Przez pol doby kazdy lead z tym numerem NIP dostawal
+  potwierdzenie weryfikacji, ktorej nikt nie wykonal, i nie trafial do
+  ponowienia w tle. Teraz brak statusu znaczy „nie ustalono".
+* Odpowiedz VIES bez pola `isValid` byla traktowana jak jednoznaczne
+  „numer VAT niepoprawny" — z zapisem tego werdyktu na 24 godziny.
+  Zgloszenie z poprawnym numerem bylo odrzucane przez cala dobe.
+  Rozstrzygnieciem jest teraz wylacznie odpowiedz, ktora to pole zawiera.
+* Nieudana wysylka alarmu do administratora zostawia slad w dzienniku.
+  Wczesniej przy zepsutej poczcie awaria pipeline'u nie zostawiala zadnego
+  sladu: alarm nie dochodzil i nikt sie o tym nie dowiadywal.
+* Dokumentacja: data pobrania przy cytowanym zrodle normy ISO 3166-1,
+  identyfikatory bledow z rejestru w naglowkach testow regresji.
 
 = 1.3.1 =
 
