@@ -92,7 +92,14 @@ function mp_sales_workflow_boot() {
 	MP_SW_Cron::register();
 	MP_SW_Hooks::register();
 	MP_SW_Meta_Guard::register();
-	MP_SW_Mailer::register();
+
+	/*
+	 * MP_SW_Mailer NIE wpina sie tutaj. Wpinal wczesniej filtry `wp_mail_from`
+	 * i `wp_mail_from_name` na cale zadanie, a te filtry nie wiedza, czyja
+	 * wiadomosc leci — nadawce wtyczki sprzedazowej dostawal wiec kazdy mail
+	 * witryny, z resetem hasla wlacznie. Nadawce ustawia teraz sama wysylka:
+	 * MP_SW_Mailer::send().
+	 */
 	MP_SW_Privacy::register();
 
 	if ( is_admin() ) {

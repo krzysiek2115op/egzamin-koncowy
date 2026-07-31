@@ -48,13 +48,38 @@ class MP_SW_Mailer {
 	const ALERT_KEY = 'mp_sw_breaker_alerted';
 
 	/**
-	 * Wpina filtry nadawcy.
+	 * Wysyla WLASNA wiadomosc wtyczki, z wlasnym nadawca.
 	 *
-	 * @return void
+	 * NADAWCE USTAWIAMY TYLKO NA SWOJEJ POCZCIE.
+	 *
+	 * Wczesniej oba filtry byly wpinane przy starcie wtyczki i zostawaly na cale
+	 * zadanie. Filtr `wp_mail_from` nie zna nadawcy — dostaje sam adres domyslny
+	 * i nie ma jak sprawdzic, CZYJA wiadomosc leci. Adres i nazwe wtyczki
+	 * sprzedazowej dostawal wiec kazdy mail witryny: reset hasla, powiadomienie
+	 * o komentarzu, wiadomosc z formularza kontaktowego. Uzytkownik proszacy
+	 * o nowe haslo dostawal je od „oferty@<domena>", a administrator, ktory
+	 * wylaczyl te wtyczke, tracil dobranego pod SPF/DKIM nadawce we WSZYSTKICH
+	 * mailach — awaria w miejscu niezwiazanym z wylaczona wtyczka.
+	 *
+	 * Filtry zdejmujemy w `finally`: wyjatek z warstwy pocztowej nie moze
+	 * zostawic ich wpietych na reszte zadania.
+	 *
+	 * @param string|string[] $to      Odbiorca.
+	 * @param string          $subject Temat.
+	 * @param string          $body    Tresc.
+	 * @param string[]        $headers Naglowki.
+	 * @return bool
 	 */
-	public static function register() {
+	public static function send( $to, $subject, $body, array $headers = array() ) {
 		add_filter( 'wp_mail_from', array( __CLASS__, 'from_address' ), 20 );
 		add_filter( 'wp_mail_from_name', array( __CLASS__, 'from_name' ), 20 );
+
+		try {
+			return (bool) wp_mail( $to, $subject, $body, $headers );
+		} finally {
+			remove_filter( 'wp_mail_from', array( __CLASS__, 'from_address' ), 20 );
+			remove_filter( 'wp_mail_from_name', array( __CLASS__, 'from_name' ), 20 );
+		}
 	}
 
 	/**
@@ -240,7 +265,7 @@ class MP_SW_Mailer {
 		 * ta sama droga, zostalby zatrzymany przez bezpiecznik, ktory wlasnie
 		 * zglasza. Jedna wiadomosc na godzine pilnuje transient powyzej.
 		 */
-		$poszlo = wp_mail(
+		$poszlo = self::send(
 			$admin,
 			self::header_safe( __( 'MP Sales Workflow: kolejka powiadomień zatrzymana', 'mp-sales-workflow' ) ),
 			sprintf(

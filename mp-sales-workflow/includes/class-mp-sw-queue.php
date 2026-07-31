@@ -207,7 +207,9 @@ class MP_SW_Queue {
 			return 'failed';
 		}
 
-		$sent = wp_mail( $to, $subject, (string) $row['body'], $headers );
+		// Przez MP_SW_Mailer::send(), a nie wp_mail() wprost: nadawca wtyczki ma
+		// obowiazywac WYLACZNIE jej wlasne wiadomosci.
+		$sent = MP_SW_Mailer::send( $to, $subject, (string) $row['body'], $headers );
 
 		if ( $sent ) {
 			$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
