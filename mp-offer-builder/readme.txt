@@ -69,6 +69,12 @@ RODO/GDPR:
   pomijał go przy pobieraniu stawek, drugi zwalniał z VAT tylko pozycje "brak".
   Skutkiem był VAT naliczony od pozycji niepodlegającej opodatkowaniu albo
   zablokowana oferta. Oba działy pytają teraz o to samo, w jednym miejscu.
+* PUSTA STAWKA VAT przechodziła kontrolę i dawała CICHE 0% na dokumencie.
+  Sprawdzane było tylko to, czy stawka w ogóle występuje — nie to, czy jest
+  liczbą. Pusta wartość po przeliczeniu dawała 0,00, więc oferta w mechanizmie
+  krajowym wychodziła bez podatku, bez błędu i bez śladu w dzienniku. "Brak
+  stawki" i "stawka równa zero" to dwie różne rzeczy: zero jest legalne
+  (eksport, klasa "Zero rate"), ale musi być podane wprost.
 * Naprawiony test procesu wtyczki, który od czasu jednej z optymalizacji
   w ogóle się nie uruchamiał.
 

@@ -25,6 +25,12 @@ zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej 
   dostawał ogólne "sprawdź dane i spróbuj ponownie" — bez wskazania pola. Każda
   kolejna próba z tym samym tekstem kończyła się tak samo. Limit liczony
   w znakach, nie w bajtach.
+* DATA ZAPYTANIA DO BIAŁEJ LISTY liczona była w czasie uniwersalnym (UTC),
+  a API zwraca status na konkretny dzień. W polskiej strefie między północą
+  a 1:00/2:00 pytanie dotyczyło więc doby POPRZEDNIEJ: firma zarejestrowana
+  jako podatnik VAT czynny od dzisiaj dostawała status "Niezarejestrowany" —
+  prawdziwy, ale na wczoraj — i zapisywany jako sprawdzony. Błędny wynik
+  utrwalał się w pamięci podręcznej na kolejne 12 godzin.
 * WERYFIKACJA VAT W TLE kasowała potwierdzony wcześniej status, gdy VIES akurat
   nie odpowiedział: "nie wiadomo" nadpisywało "tak". Lead tracił 30 punktów
   scoringu i po kilku próbach lądował ze statusem nieznanym, przez co wtyczka 2
