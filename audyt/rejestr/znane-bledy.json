@@ -203,7 +203,7 @@
       "plik": "includes/pipeline/departments/class-mp-sw-department-08.php",
       "dowod": "( ! $poszlo && $odpadlo ) ? undelivered : done — trzeci przypadek (ani kolejka, ani lista pominietych) wpadal do done",
       "skutek": "Handlowiec nie dostaje przypomnienia, pulpit pokazuje zadanie jako zrobione i nikt do niego nie wraca.",
-      "test": "mp-sales-workflow/tests/naprawy/grupa-a.php",
+      "test": "tests/naprawy/grupa-a.php",
       "para": "1.25",
       "lekcja": "Pytaj o dowod SUKCESU, nie o dowod porazki. Dwa przypadki w ternary tam, gdzie stany sa trzy, zawsze komus przypisza zla wartosc domyslna."
     },
@@ -216,7 +216,7 @@
       "plik": "includes/pipeline/departments/class-mp-sw-department-09.php",
       "dowod": "wp_next_scheduled() -> return false; wp_schedule_single_event() -> (bool) — wywolujacy nie odroznial sytuacji normalnej od awarii",
       "skutek": "Kolejka powiadomien nigdy nie rusza, wiadomosci leza w bazie, zaden komunikat o tym nie mowi.",
-      "test": "mp-sales-workflow/tests/naprawy/grupa-a.php",
+      "test": "tests/naprawy/grupa-a.php",
       "para": "1.25",
       "lekcja": "Wartosc zwracana musi rozrozniac tyle stanow, ile ich jest. Do tego siec bezpieczenstwa: przeglad crona sam zamawia zalegla kolejke."
     },
@@ -229,7 +229,7 @@
       "plik": "includes/pipeline/departments/class-mp-department-10.php",
       "dowod": "'response_json' => wp_json_encode( $r ) oraz 'result_ready' => ! empty( $r['success'] )",
       "skutek": "Pipeline melduje sukces, trzymajac false zamiast odpowiedzi; przegladarka dostaje puste cialo bez wyjasnienia.",
-      "test": "mp-lead-intake/tests/naprawy/a3-payload-json.php",
+      "test": "tests/naprawy/a3-payload-json.php",
       "para": "1.25",
       "lekcja": "Kazda funkcja rdzenia WordPressa, ktora moze zwrocic false, musi miec sprawdzony wynik — inaczej porazka przebiera sie za sukces."
     }
