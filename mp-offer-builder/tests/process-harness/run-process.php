@@ -30,6 +30,12 @@ if ( file_exists( $PLUGIN . '/vendor/autoload.php' ) ) {
 }
 require $PLUGIN . '/includes/db/class-mp-offer-builder-db.php';
 require $PLUGIN . '/includes/class-mp-offer-builder-storage.php';
+// Dzial 2 siega po MP_OB_Products (pobranie produktow jedna partia zamiast
+// zapytania na pozycje). Klasa zostala wydzielona pozniej niz powstal harness
+// i lista wymagan nie zostala uzupelniona — przebieg konczyl sie fatalem
+// „Class MP_OB_Products not found". Nie wyszlo to nigdy na jaw, bo CI
+// uruchamialo wylacznie harness wtyczki 1.
+require $PLUGIN . '/includes/class-mp-ob-products.php';
 require $PLUGIN . '/includes/pipeline/bootstrap.php';
 require $PLUGIN . '/includes/class-mp-offer-builder-lead-listener.php';
 require $PLUGIN . '/includes/class-mp-offer-builder-download.php';

@@ -299,17 +299,37 @@ function wc_get_product( $id ) {
 	$data['id'] = $id;
 	return new WC_Product( $data );
 }
-// Krok 4.5 (MP_Offer_Builder_Admin::search_products()): wyszukiwanie po nazwie,
-// tylko produkty 'publish' (kontrakt wc_get_products( array('s','status','limit') ),
-// patrz docs/dzial-02/woocommerce-wc_get_products.md).
+// Dwa rozne wywolania z kodu produkcyjnego (patrz docs/dzial-02/woocommerce-wc_get_products.md):
+//
+//   1. Krok 4.5, MP_Offer_Builder_Admin::search_products()
+//      array( 's' => fraza, 'status' => 'publish', 'limit' => N )
+//   2. MP_OB_Products::map()
+//      array( 'include' => array( id, ... ), 'status' => array( ... ), 'limit' => -1 )
+//
+// Zaslepka znala tylko pierwszy przypadek: `include` ignorowala, a tablice
+// statusow rzutowala na string, wiec porownanie dawalo „Array" i nie pasowalo
+// do niczego. Efekt — pusta mapa produktow i STOP `invalid_products` juz
+// w dziale 2, czyli KAZDY scenariusz harnessu na czerwono. Nie wyszlo to na jaw,
+// bo harness i tak konczyl sie wczesniej fatalem (brakujacy require), a CI go
+// nie uruchamialo.
 function wc_get_products( $args = array() ) {
-	$term   = isset( $args['s'] ) ? strtolower( (string) $args['s'] ) : '';
-	$status = isset( $args['status'] ) ? (string) $args['status'] : '';
-	$limit  = isset( $args['limit'] ) ? (int) $args['limit'] : -1;
+	$term    = isset( $args['s'] ) ? strtolower( (string) $args['s'] ) : '';
+	$limit   = isset( $args['limit'] ) ? (int) $args['limit'] : -1;
+	$include = isset( $args['include'] ) ? array_map( 'intval', (array) $args['include'] ) : null;
+
+	// `status` przyjmuje i pojedyncza wartosc, i liste — tak samo jak prawdziwe
+	// WooCommerce. Pusta lista znaczy „bez filtrowania".
+	$statusy = array();
+	if ( isset( $args['status'] ) ) {
+		$statusy = array_filter( array_map( 'strval', (array) $args['status'] ) );
+	}
 
 	$results = array();
 	foreach ( $GLOBALS['__mp_ob_wc_products'] as $id => $data ) {
-		if ( '' !== $status && ( isset( $data['status'] ) ? $data['status'] : '' ) !== $status ) {
+		if ( null !== $include && ! in_array( (int) $id, $include, true ) ) {
+			continue;
+		}
+		if ( ! empty( $statusy ) && ! in_array( (string) ( isset( $data['status'] ) ? $data['status'] : '' ), $statusy, true ) ) {
 			continue;
 		}
 		if ( '' !== $term && false === strpos( strtolower( (string) ( isset( $data['name'] ) ? $data['name'] : '' ) ), $term ) ) {
