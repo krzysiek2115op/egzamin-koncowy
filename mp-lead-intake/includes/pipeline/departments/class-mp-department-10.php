@@ -81,11 +81,28 @@ class MP_D10_Agent_Finalize extends MP_Abstract_Agent {
 	public function run( MP_Context $context ) {
 		$r = (array) $context->get( 'response', array() );
 
+		/*
+		 * Wynik kodowania SPRAWDZANY, nie zakładany.
+		 *
+		 * wp_json_encode() zwraca `false`, gdy odpowiedzi nie da się zapisać
+		 * w JSON-ie (wartość INF/NAN, struktura głębsza niż 512 poziomów —
+		 * WordPressowy _wp_json_sanity_check() naprawia wyłącznie kodowanie
+		 * znaków). Wcześniej ta wartość szła dalej jako `response_json`,
+		 * a `result_ready` brało się z samego `$r['success']` — więc pipeline
+		 * meldował sukces, mając w ręku odpowiedź, której nie da się wysłać.
+		 * Przeglądarka dostawała puste ciało odpowiedzi i nic tego nie tłumaczyło.
+		 *
+		 * Teraz brak dającego się zakodować wyniku zatrzymuje dział na krytyku
+		 * K10.3 — lepiej zgłosić błąd niż odesłać pustkę pod nazwą sukcesu.
+		 */
+		$json     = wp_json_encode( $r );
+		$zakodowa = is_string( $json );
+
 		return MP_Result::ok(
 			array(
 				'response'      => $r,
-				'response_json' => wp_json_encode( $r ),
-				'result_ready'  => ! empty( $r['success'] ),
+				'response_json' => $zakodowa ? $json : '',
+				'result_ready'  => ! empty( $r['success'] ) && $zakodowa,
 			)
 		);
 	}
