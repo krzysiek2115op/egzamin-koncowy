@@ -215,9 +215,72 @@ if ( $w21->is_ok() ) {
 }
 
 /*
- * Kontrola przeciwna: gdy w tej samej klasie bez stawki siedzi pozycja
- * OPODATKOWANA, Dzial 2 ma nadal odmowic. Bez tej asercji naprawa mogla by
- * polegac na wylaczeniu kontroli w ogole.
+ * A2 (P2-G5). Koszyk zlozony WYLACZNIE z pozycji zwolnionych.
+ *
+ * Naprawa P2-G1 pomija klasy pozycji zwolnionych przy zbieraniu stawek. Gdy
+ * zwolniona jest KAZDA pozycja, zbior stawek wychodzi pusty — i wtedy krytyk
+ * K2.3 (MP_OB_Array_Critic na kluczu `tax_rates`) odrzucal caly dzial, bo jego
+ * jedyny warunek brzmial „tablica ma byc niepusta". Pusty zbior znaczy tu
+ * jednak „zadna stawka nie byla potrzebna", a nie „stawki brakuje".
+ *
+ * Przypadek nie jest wydumany: oferta na same uslugi zwolnione z VAT (art. 43
+ * ustawy o VAT — szkolenia, uslugi medyczne, finansowe) to normalna oferta.
+ * Sekcja A powyzej go nie lapala, bo ma koszyk MIESZANY — zawsze zostawala
+ * przynajmniej jedna klasa opodatkowana.
+ */
+$GLOBALS['mp_ag']['lines'][] = '';
+$GLOBALS['mp_ag']['lines'][] = '=== A2. koszyk wylacznie ze zwolnien ===';
+
+$kontekst_z = new MP_OB_Context(
+	array(
+		'items' => array(
+			array(
+				'product_id'   => $id_zwolniony,
+				'variation_id' => null,
+				'qty'          => 3,
+			),
+		),
+	)
+);
+
+$w21z = ( new MP_OB_D2_Agent_Products() )->run( $kontekst_z );
+ag_ok( $w21z->is_ok(), 'Agent 2.1 rozpoznaje pozycje zwolniona' );
+
+if ( $w21z->is_ok() ) {
+	$kontekst_z->set( 'products', (array) $w21z->get_data()['products'] );
+
+	$a23z = new MP_OB_D2_Agent_Tax();
+	$w23z = $a23z->run( $kontekst_z );
+
+	ag_ok(
+		$w23z->is_ok(),
+		'Agent 2.3 przechodzi, gdy zwolnione sa wszystkie pozycje',
+		$w23z->is_ok() ? '' : 'kod=' . $w23z->get_code()
+	);
+
+	if ( $w23z->is_ok() ) {
+		ag_ok(
+			array() === (array) $w23z->get_data()['tax_rates'],
+			'zbior stawek jest pusty — bo zadna nie byla potrzebna'
+		);
+
+		// SEDNO A2: krytyk musi przepuscic pusty zbior w tym przypadku.
+		$k23z = new MP_OB_D2_Tax_Critic( 'K2.3', 'Krytyk 2.3 — stawka-istnieje' );
+		$r23z = $k23z->review( $w23z, $kontekst_z );
+
+		ag_ok(
+			$r23z->is_ok(),
+			'Krytyk 2.3 przepuszcza pusty zbior przy samych zwolnieniach',
+			$r23z->is_ok() ? '' : 'kod=' . $r23z->get_code()
+		);
+	}
+}
+
+/*
+ * Kontrola przeciwna, wspolna dla A i A2: gdy w tej samej klasie bez stawki
+ * siedzi pozycja OPODATKOWANA, Dzial 2 ma nadal odmowic. Bez tej asercji obie
+ * naprawy mogly by polegac na wylaczeniu kontroli — a wtedy oferta liczylaby
+ * 0% VAT tam, gdzie stawka istnieje, tylko nie zostala skonfigurowana.
  */
 $zwykly_bez_stawki = new WC_Product_Simple();
 $zwykly_bez_stawki->set_name( 'MP test 1.25 — towar opodatkowany bez stawki' );
@@ -245,7 +308,11 @@ if ( $w21b->is_ok() ) {
 	$kontekst2->set( 'products', (array) $w21b->get_data()['products'] );
 	$w23b = ( new MP_OB_D2_Agent_Tax() )->run( $kontekst2 );
 
-	ag_ok( ! $w23b->is_ok(), 'pozycja OPODATKOWANA bez stawki nadal konczy sie odmowa' );
+	ag_ok(
+		! $w23b->is_ok() && 'missing_tax_rate' === $w23b->get_code(),
+		'pozycja OPODATKOWANA bez stawki nadal konczy sie odmowa',
+		'ok=' . ( $w23b->is_ok() ? 'tak(BLAD)' : 'nie' ) . ' kod=' . $w23b->get_code()
+	);
 }
 
 /* ==================================================================== B */

@@ -312,10 +312,68 @@ class MP_OB_D2_Agent_Tax extends MP_OB_Abstract_Agent {
 
 		return MP_OB_Result::ok(
 			array(
-				'tax_rates' => $rates,
-				'currency'  => function_exists( 'get_woocommerce_currency' ) ? get_woocommerce_currency() : 'PLN',
+				'tax_rates'       => $rates,
+				// Ile klas NAPRAWDE wymagalo stawki. Krytyk 2.3 nie ma jak tego
+				// odtworzyc z samego `tax_rates`: pusty zbior znaczy albo „zadna
+				// stawka nie byla potrzebna" (same pozycje zwolnione — oferta
+				// poprawna), albo „stawek brakuje" (blad). Bez tej liczby te dwa
+				// przypadki sa nierozroznialne.
+				'taxable_classes' => count( $tax_classes ),
+				'currency'        => function_exists( 'get_woocommerce_currency' ) ? get_woocommerce_currency() : 'PLN',
 			)
 		);
+	}
+}
+
+/**
+ * Krytyk 2.3 — stawka istnieje dla kazdej klasy, ktora jej wymaga.
+ *
+ * Zastapil MP_OB_Array_Critic, ktorego jedyny warunek brzmial „tablica
+ * `tax_rates` ma byc niepusta". Po tym, jak Agent 2.3 przestal zbierac klasy
+ * pozycji zwolnionych z VAT, oferta zlozona WYLACZNIE ze zwolnien dawala pusty
+ * zbior stawek — poprawnie — i byla przez to odrzucana. A oferta na same uslugi
+ * zwolnione (art. 43 ustawy o VAT: szkolenia, uslugi medyczne, finansowe) to
+ * normalna oferta, nie przypadek skrajny.
+ */
+class MP_OB_D2_Tax_Critic extends MP_OB_Abstract_Critic {
+
+	/**
+	 * @param MP_OB_Result  $agent_result Wynik agenta.
+	 * @param MP_OB_Context $context      Kontekst.
+	 * @return MP_OB_Result
+	 */
+	public function review( MP_OB_Result $agent_result, MP_OB_Context $context ) {
+		unset( $context );
+
+		if ( ! $agent_result->is_ok() ) {
+			return $agent_result;
+		}
+
+		$data = $agent_result->get_data();
+
+		if ( ! isset( $data['tax_rates'] ) || ! is_array( $data['tax_rates'] ) ) {
+			return MP_OB_Result::fail( 'Pusta lub zła struktura sekcji: tax_rates', array(), 'invalid_structure' );
+		}
+
+		$wymagane = isset( $data['taxable_classes'] ) ? (int) $data['taxable_classes'] : 0;
+
+		// Kazda klasa wymagajaca stawki musi ja miec. Agent zwraca FAIL, gdy
+		// stawki brakuje, wiec tu chodzi o kontrole zgodnosci liczb — zeby
+		// ciche zgubienie wpisu miedzy zbieraniem klas a budowaniem stawek
+		// nie przeszlo dalej.
+		if ( count( $data['tax_rates'] ) !== $wymagane ) {
+			return MP_OB_Result::fail(
+				sprintf(
+					'Stawki VAT niekompletne: klas wymagajacych stawki %d, stawek %d.',
+					$wymagane,
+					count( $data['tax_rates'] )
+				),
+				array(),
+				'invalid_structure'
+			);
+		}
+
+		return MP_OB_Result::ok( $data );
 	}
 }
 
@@ -429,12 +487,23 @@ class MP_OB_D2_QA_Agent extends MP_OB_Abstract_Agent {
 	 * @return MP_OB_Result
 	 */
 	public function run( MP_OB_Context $context ) {
-		$required = array( 'products', 'prices', 'tax_rates', 'templates', 'numbering' );
+		$required = array( 'products', 'prices', 'templates', 'numbering' );
 		$missing  = array();
 		foreach ( $required as $key ) {
 			if ( empty( $context->get( $key ) ) ) {
 				$missing[] = $key;
 			}
+		}
+
+		/*
+		 * `tax_rates` sprawdzane osobno: ma byc OBECNE, ale wolno mu byc puste.
+		 * Reszta sekcji snapshotu pusta znaczy „brakuje danych"; tutaj pusty
+		 * zbior to poprawny wynik oferty zlozonej z samych pozycji zwolnionych
+		 * z VAT — zadna stawka nie byla potrzebna. `empty()` nie odroznia tego
+		 * od braku, `is_array()` odroznia: sekcja nieustawiona daje null.
+		 */
+		if ( ! is_array( $context->get( 'tax_rates' ) ) ) {
+			$missing[] = 'tax_rates';
 		}
 
 		if ( $missing ) {
@@ -465,7 +534,7 @@ class MP_OB_Department_02 {
 			),
 			array(
 				'agent'  => new MP_OB_D2_Agent_Tax(),
-				'critic' => new MP_OB_Array_Critic( 'K2.3', 'Krytyk 2.3 — stawka-istnieje', 'tax_rates' ),
+				'critic' => new MP_OB_D2_Tax_Critic( 'K2.3', 'Krytyk 2.3 — stawka-istnieje' ),
 			),
 			array(
 				'agent'  => new MP_OB_D2_Agent_Templates(),
