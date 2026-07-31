@@ -1,15 +1,20 @@
 {
     "name": "mp/egzamin-koncowy-dev",
-    "description": "Wspolne narzedzia deweloperskie (PHPCS/WPCS) dla wtyczek MP tego repo (mp-lead-intake i kolejne) - uzywane lokalnie i w CI.",
-    "license": "proprietary",
+    "description": "Wspolne narzedzia deweloperskie (PHPCS + WordPress Coding Standards) dla trzech wtyczek projektu. NIE sa to zaleznosci runtime — wtyczki dzialaja bez tego pliku. Zaleznosci runtime wtyczki 2 (dompdf) leza w mp-offer-builder/composer.json.",
     "type": "project",
+    "license": "GPL-2.0-or-later",
     "require-dev": {
-        "wp-coding-standards/wpcs": "^3.1"
+        "squizlabs/php_codesniffer": "^3.9",
+        "wp-coding-standards/wpcs": "^3.1",
+        "phpcompatibility/phpcompatibility-wp": "^2.1"
     },
     "config": {
         "allow-plugins": {
             "dealerdirect/phpcodesniffer-composer-installer": true
-        },
-        "sort-packages": true
+        }
+    },
+    "scripts": {
+        "phpcs": "phpcs",
+        "phpcbf": "phpcbf"
     }
 }

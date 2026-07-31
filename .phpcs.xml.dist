@@ -1,55 +1,62 @@
 <?xml version="1.0"?>
-<ruleset name="Egzamin koncowy - MP plugins">
+<ruleset name="Egzamin koncowy - trzy wtyczki">
 	<description>
-		Standardy kodowania projektu (baza: WordPress Coding Standards).
-		Część reguł świadomie rozluźniono tam, gdzie zderzają się z decyzjami
-		architektonicznymi projektu — każda z uzasadnieniem poniżej.
+		Standardy kodowania calego projektu (baza: WordPress Coding Standards).
+		Do scalenia galezi kazda wtyczka miala wlasny, niezalezny plik regul —
+		rozniacy sie WYLACZNIE zakresem plikow, text domain i wyjatkami dla
+		zapytan do bazy. Ten plik jest ich suma, bez zadnego rozluznienia
+		ponad to, co obowiazywalo osobno.
 	</description>
 
 	<!-- Co skanujemy -->
 	<file>mp-lead-intake</file>
+	<file>mp-offer-builder</file>
+	<file>mp-sales-workflow</file>
 	<arg name="extensions" value="php"/>
 	<arg name="basepath" value="."/>
 	<arg value="ps"/><!-- p = progress, s = pokaz kody sniffow -->
 
-	<!--
-		Harness testowy (tests/process-harness/) świadomie łamie reguły WPCS:
-		podmienia funkcje WordPressa na stuby, używa ini_set/error_reporting i $GLOBALS,
-		fałszuje $wpdb. To narzędzie deweloperskie (runtime-weryfikacja pipeline poza WP),
-		nie kod produkcyjny wtyczki — wykluczamy je ze skanu.
-	-->
 	<exclude-pattern>*/tests/*</exclude-pattern>
+	<!--
+		Biblioteki zewnetrzne wtyczki 2 (dompdf i zaleznosci). Przed scaleniem
+		zakres `<file>mp-offer-builder</file>` obejmowal je bez wyjatku, wiec
+		przebieg na korzeniu repo zglaszal tysiace uwag do cudzego kodu.
+		Standardy WordPressa dotycza kodu tego projektu, nie vendorow.
+	-->
+	<exclude-pattern>*/vendor/*</exclude-pattern>
 
 	<!-- Standard bazowy: pełny WordPress (Core + Docs + Extra) -->
 	<rule ref="WordPress"/>
 
-	<!-- Minimalna wersja WP i PHP dla kontroli zgodności -->
+	<!-- Minimalna wersja WP dla kontroli zgodności -->
 	<config name="minimum_wp_version" value="6.0"/>
 
-	<!-- Text domain wtyczki (i18n) -->
+	<!-- Text domain każdej z trzech wtyczek (i18n) -->
 	<rule ref="WordPress.WP.I18n">
 		<properties>
 			<property name="text_domain" type="array">
 				<element value="mp-lead-intake"/>
+				<element value="mp-offer-builder"/>
+				<element value="mp-sales-workflow"/>
 			</property>
 		</properties>
 	</rule>
 
 	<!--
-		Prefiks globalny: klasy MP_*, funkcje mp_lead_intake_*. WPCS wymaga prefiksu
-		>= 3 znaki; nasz MP_ ma 2. Pełne przemianowanie (~72 klasy) należy do opcji
-		"pełna zgodność", której świadomie nie wybraliśmy — prefiks MP_ jest spójny
-		i unikalny w projekcie, więc tę regułę rozluźniamy.
+		Prefiks globalny. Kazda wtyczka uzywa wlasnego (MP_*, MP_OB_*, MP_SW_*)
+		wlasnie po to, zeby przy jednoczesnej aktywacji wszystkich trzech nie
+		doszlo do kolizji nazw klas. WPCS nie potrafi tego wyrazic per katalog.
 	-->
 	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
 		<severity>0</severity>
 	</rule>
 
 	<!--
-		=== Reguły świadomie rozluźnione (decyzja projektowa) ===
+		=== Reguły świadomie rozluźnione — ta sama decyzja projektowa podjęta
+		niezależnie na wszystkich trzech gałęziach, dla tej samej konwencji ===
 	-->
 
-	<!-- Konwencja projektu "1 plik = 1 dział": kilka powiązanych klas w pliku działu -->
+	<!-- Konwencja "1 plik = 1 dział": kilka klas (Agent/Krytyk/budowniczy) w pliku działu -->
 	<rule ref="Generic.Files.OneObjectStructurePerFile">
 		<severity>0</severity>
 	</rule>
@@ -75,26 +82,30 @@
 	</rule>
 
 	<!--
-		=== Zapytania do bazy — tylko w warstwie DB/pipeline ===
-		To wtyczka z WŁASNYMI tabelami (BD-3). Zapytania bezpośrednie są zamierzone;
-		wartości użytkownika idą przez $wpdb->prepare()/placeholdery, a interpolowane
-		są wyłącznie nazwy tabel pochodzące z kodu. Cache obiektowy nie ma tu
-		zastosowania (dane transakcyjne). Dlatego wyłączamy te sniffy w tych ścieżkach.
+		=== Zapytania do bazy ===
+		Każda wtyczka ma WŁASNE tabele (BD-3, BD-2, BD-1), więc zapytania
+		bezpośrednie są zamierzone: wartości użytkownika idą przez
+		$wpdb->prepare(), a interpolowane są wyłącznie nazwy tabel pochodzące
+		z kodu. Suma wyjątków z trzech osobnych plików reguł.
 	-->
 	<rule ref="WordPress.DB.DirectDatabaseQuery">
 		<exclude-pattern>*/includes/db/*</exclude-pattern>
 		<exclude-pattern>*/includes/pipeline/*</exclude-pattern>
+		<exclude-pattern>*/includes/class-mp-offer-builder-lead-listener.php</exclude-pattern>
 	</rule>
 	<rule ref="WordPress.DB.PreparedSQL">
 		<exclude-pattern>*/includes/db/*</exclude-pattern>
 		<exclude-pattern>*/includes/pipeline/*</exclude-pattern>
+		<exclude-pattern>*/includes/class-mp-offer-builder-lead-listener.php</exclude-pattern>
 	</rule>
 	<rule ref="WordPress.DB.PreparedSQLPlaceholders">
 		<exclude-pattern>*/includes/db/*</exclude-pattern>
 		<exclude-pattern>*/includes/pipeline/*</exclude-pattern>
+		<exclude-pattern>*/includes/class-mp-offer-builder-lead-listener.php</exclude-pattern>
 	</rule>
 	<rule ref="WordPress.DB.SlowDBQuery">
 		<exclude-pattern>*/includes/db/*</exclude-pattern>
 		<exclude-pattern>*/includes/pipeline/*</exclude-pattern>
+		<exclude-pattern>*/includes/class-mp-offer-builder-lead-listener.php</exclude-pattern>
 	</rule>
 </ruleset>

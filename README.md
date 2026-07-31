@@ -26,12 +26,31 @@ danych między formularzem, WooCommerce i pocztą.
 
 ## Struktura repozytorium
 
+```
+mp-lead-intake/        wtyczka 1 (BD-3)
+mp-offer-builder/      wtyczka 2 (BD-2), z vendor/ — dompdf
+mp-sales-workflow/     wtyczka 3 (BD-1)
+paczka-klienta/        materiały dla klienta, osobny komplet na wtyczkę
+  ├─ mp-lead-intake/materialy/
+  ├─ mp-offer-builder/materialy/
+  └─ mp-sales-workflow/materialy/
+tools/                 narzędzia deweloperskie (m.in. środowisko testowe)
+.phpcs.xml.dist        wspólne reguły PHPCS/WPCS dla trzech wtyczek
+```
+
 Każda wtyczka mieszka we własnym katalogu w korzeniu repo (zgodnie z konwencją
-wtyczek WordPress). Prace nad każdą wtyczką prowadzimy na dedykowanym branchu.
+wtyczek WordPress). Prace nad każdą wtyczką prowadzone są na dedykowanym branchu,
+a gałąź `main` zbiera komplet — trzy wtyczki naraz.
 
 ## Workflow
 
-- Praca nad każdą wtyczką toczy się na dedykowanym branchu (tabela wyżej).
+- Każda wtyczka ma dedykowany branch (tabela wyżej). Branche powstały jako
+  **w pełni odizolowane** — własny `composer.json` i `.phpcs.xml.dist`, bez
+  dziedziczenia kodu między nimi. Dzięki temu kod trzech wtyczek nie kolidował
+  ze sobą przy scalaniu do `main` ani w jednym pliku.
+- `main` zbiera komplet. Pliki konfiguracyjne korzenia są tam **sumą** trzech
+  wersji: `.phpcs.xml.dist` skanuje trzy katalogi i zna trzy text domains,
+  `composer.json` opisuje wspólne narzędzia deweloperskie.
 - Narzędzie audytujące mieszka na osobnym branchu `audyt-projektu` — nie jest
   częścią dostawy dla klienta.
 - Commity powstają automatycznie przy każdym większym kroku.

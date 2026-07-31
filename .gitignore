@@ -23,10 +23,15 @@ wp-config.php
 /build/
 *.cache
 
-# --- Paczka klienta: kod pluginu zduplikowany celowo lokalnie (ZIP do wysyłki);
-#     wersjonujemy tylko paczka-klienta/materialy/ (schematy + instrukcje) ---
-/paczka-klienta/mp-lead-intake/
-/paczka-klienta/mp-lead-intake.zip
+# --- Paczka klienta: wersjonujemy WYŁĄCZNIE materiały (schematy + instrukcje).
+#     Kod wtyczki bywał tam duplikowany lokalnie na potrzeby ZIP-a do wysyłki —
+#     po scaleniu gałęzi każda wtyczka ma własny podkatalog, więc reguły są
+#     wypisane dla wszystkich trzech. ZIP-y wydań budowane są z drzewa gita
+#     (patrz Releases), nie z tych katalogów. ---
+/paczka-klienta/*/mp-lead-intake/
+/paczka-klienta/*/mp-offer-builder/
+/paczka-klienta/*/mp-sales-workflow/
+/paczka-klienta/**/*.zip
 
 # --- IDE / OS ---
 .idea/
