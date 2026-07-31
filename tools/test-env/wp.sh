@@ -33,6 +33,18 @@ if [ ! -d "$ENV_DIR/wp" ]; then
 	echo "BŁĄD: brak $ENV_DIR/wp — zob. tools/test-env/README.md (odtworzenie środowiska)." >&2
 	exit 1
 fi
+
+# Wszystkie trzy wtyczki musza byc w tym drzewie roboczym. Po scaleniu leza obok
+# siebie na `main`; na starych galeziach wtyczek — nie. Bez tej kontroli podman
+# zamontowalby puste katalogi i testy „przeszlyby" na nieistniejacym kodzie.
+for _wt in mp-lead-intake mp-offer-builder mp-sales-workflow; do
+	if [ ! -d "$REPO/$_wt" ]; then
+		echo "BŁĄD: w $REPO nie ma katalogu $_wt." >&2
+		echo "Środowisko testuje komplet trzech wtyczek, a te leżą razem na gałęzi 'main'." >&2
+		echo "Przełącz się na main albo uruchom skrypt z drzewa roboczego maina." >&2
+		exit 1
+	fi
+done
 mkdir -p "$SCR"
 
 # Baza musi stać; po restarcie maszyny kontener jest zatrzymany, ale wolumen zostaje.
