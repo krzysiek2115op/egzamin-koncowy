@@ -101,13 +101,29 @@ Wywołanie wp-cli: `podman exec lt_wp php -d memory_limit=768M /usr/local/bin/wp
 
 ---
 
-## 5. Otwarte decyzje dla klienta
+## 5. Decyzje
 
-1. **B2 — podszywanie się pod innego użytkownika.** Czy administrator ma mieć
-   prawo wykonać akcję „w imieniu" handlowca (wtedy zapisujemy obie wartości:
-   aktora deklarowanego i faktycznie zalogowanego), czy rozbieżność ma być
-   twardą odmową?
-2. **P1-K1 z lipca** — formularz deklaruje 27 krajów UE, walidacja przyjmuje
+### B2 — ROZSTRZYGNIĘTE 31.07.2026: twarda zgodność
+
+Klient wybrał **twardą zgodność**. Realizacja:
+
+- Zdarzenie o pochodzeniu `SOURCE_MANUAL`: `actor.user_id` z koperty **musi** być
+  równy `get_current_user_id()`. Rozbieżność = odmowa 403, przed jakąkolwiek pracą
+  pipeline'u (tą samą drogą co `MP_SW_Events::refuse()` — zero zmian w bazie).
+- Zdarzenia `SOURCE_SYSTEM` i `SOURCE_CRON` bez zmian: `user_id = 0` oznacza aktora
+  systemowego i tak zostaje.
+- Uzasadnienie wyboru: **nie ma dziś żadnego scenariusza biznesowego „w imieniu
+  kogoś"**. Wariant z dwoma aktorami wymagałby nowego uprawnienia, zmiany zapisu
+  w dzienniku i zmiany widoku historii — czyli kosztu bez odbiorcy.
+- Gdyby kiedyś taki scenariusz się pojawił (kierownik poprawiający proces
+  handlowca), otwiera się to przez dodanie pola `actor.real_user_id` i uprawnienia
+  „działanie w imieniu". Ta ścieżka została świadomie odłożona, nie odrzucona.
+- Test: zdarzenie ręczne z aktorem innym niż zalogowany kończy się odmową i **zero
+  wierszy w bazie**; zdarzenie systemowe z `user_id = 0` przechodzi normalnie.
+
+### Nadal otwarte
+
+1. **P1-K1 z lipca** — formularz deklaruje 27 krajów UE, walidacja przyjmuje
    wyłącznie polski NIP. Nadal nierozstrzygnięte.
 
 ---
