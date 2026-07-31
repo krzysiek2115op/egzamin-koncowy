@@ -14,7 +14,7 @@
     "Jesli para nie istnieje, blad moze wrocic niezauwazony — para 1.15 to zglasza."
   ],
   "wersja": 1,
-  "zrodlo": "audyt enterprise 29.07.2026 + naprawy 29-30.07.2026 + Grupy A, B i C po audycie 31.07.2026 (wydanie 1.3.1) + ustalenia drobne 31.07.2026 + ustalenia z glebokiego przebiegu 31.07.2026",
+  "zrodlo": "audyt enterprise 29.07.2026 + naprawy 29-30.07.2026 + Grupy A, B i C po audycie 31.07.2026 (wydanie 1.3.1) + ustalenia drobne 31.07.2026 + ustalenia z glebokiego przebiegu 31.07.2026 + ustalenia srednie 01.08.2026",
   "bledy": [
     {
       "id": "P3-K1",
@@ -496,6 +496,33 @@
       "dowod": "resolve_wl() i wl_cache_key() uzywaly gmdate('Y-m-d'); API zwraca statusVat NA DANY DZIEN.",
       "skutek": "W polskiej strefie miedzy polnoca a 1:00/2:00 pytanie dotyczylo dnia POPRZEDNIEGO. Firma zarejestrowana jako podatnik VAT czynny od dzis dostawala status 'Niezarejestrowany' zapisany jako sprawdzony, a klucz cache utrwalal go na 12 godzin.",
       "test": "tests/naprawy/biala-lista-niepelna-odpowiedz.php",
+      "para": "1.25"
+    },
+    {
+      "id": "P3-G2",
+      "data": "2026-08-01",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "Zanonimizowany proces nie mogl zmienic statusu — RODO zamieniala go w cegle",
+      "klasa": "polowiczne-zatrzymanie-danych-osobowych-na-granicy-modulu",
+      "plik": "includes/pipeline/departments/class-mp-sw-department-07.php",
+      "dowod": "client_data() pilnowalo tylko tego, by swiezy odczyt z wtyczki 1 nie nadpisal adresu, ale sam adres-zaslepke (deleted+N@invalid) zwracalo dalej; run() budowal z niej pelnoprawnego odbiorce AUDIENCE_CLIENT bez sprawdzenia MP_SW_Privacy::is_anonymized().",
+      "skutek": "Skutek byl gorszy niz w zgloszeniu audytu: wiadomosc NIE trafiala do kolejki, bo is_email('deleted+1@invalid') zwraca false (domena bez kropki) i krytyk K7.2 odrzucal cala koperte kodem invalid_recipient. Dzial 7 konczyl sie porazka, wiec zanonimizowany proces nie mogl przejsc w ZADEN status wywolujacy powiadomienie klienta (m.in. offer_sent). Zadanie klienta o usuniecie danych blokowalo prace handlowca nad trwajacym zamowieniem.",
+      "lekcja": "Zgloszenie audytu trafilo w miejsce, ale nie w skutek — mowilo o wierszu kolejki i spalonych probach wysylki. Uruchomienie sondy pokazalo zatrzymanie calego przejscia. Skutek trzeba ZOBACZYC, a nie wywnioskowac z lektury kodu, bo od niego zalezy waga bledu i ksztalt naprawy.",
+      "test": "tests/naprawy/odbiorcy-niekompletni.php",
+      "para": "1.25"
+    },
+    {
+      "id": "P3-G3",
+      "data": "2026-08-01",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "Brak handlowca dawal odbiorce z pustym adresem — sprawdzone, NIE jest defektem",
+      "klasa": "zgloszenie-audytu-oparte-na-nieaktualnej-przeslance",
+      "plik": "includes/pipeline/departments/class-mp-sw-department-07.php",
+      "status": "odrzucone-po-sprawdzeniu",
+      "dowod": "Zgloszenie [23] (para 1.25) twierdzilo, ze pusty adres z find_salesman() wpuszcza niekompletne dane do kolejki i powinien konczyc sie FAIL-em. Uruchomienie calego Dzialu 7 pokazalo co innego: Agent 7.2 odsiewa niedostarczalne adresy WEWNETRZNE (warunek AUDIENCE_CLIENT !== audience && ( '' === adres || ! is_email( adres ) )), zapisuje je w skipped_notifications, a Dzial 8 wpisuje je do dziennika jako notification.skipped. Do kolejki nie trafia nic niekompletnego.",
+      "skutek": "Zadnego. Naprawa wg zgloszenia (MP_SW_Result::fail 'missing_recipient') cofnelaby wczesniejsza swiadoma decyzje: jedno konto pracownika bez e-maila blokowaloby przyjmowanie leadow w calosci. Zamiast naprawy powstaly asercje utrwalajace obecny stan (czesc B testu), zeby nikt nie 'naprawil' tego w te strone.",
+      "lekcja": "Ustalenie audytu opisuje kod w jednym miejscu, a skutek zalezy od calej sciezki. Zanim sie naprawia, trzeba uruchomic pelna sciezke — inaczej naprawa zgodna ze zgloszeniem bywa regresja.",
+      "test": "tests/naprawy/odbiorcy-niekompletni.php",
       "para": "1.25"
     }
   ]
