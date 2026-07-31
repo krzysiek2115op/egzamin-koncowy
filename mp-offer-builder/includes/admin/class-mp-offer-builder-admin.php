@@ -138,15 +138,41 @@ class MP_Offer_Builder_Admin {
 			)
 		);
 
-		$results = array();
+		/*
+		 * Ta sama JEDNOSTKA co w ofercie: NETTO.
+		 *
+		 * `get_regular_price()` zwraca cene tak, jak wpisano ja w sklepie —
+		 * a sklep skonfigurowany na ceny brutto trzyma tam kwote Z VAT-em.
+		 * Dzial 2 sprowadza cene do netto na granicy odczytu, wiec podpowiedz
+		 * w wyszukiwarce pokazywalaby o 23% wiecej niz to, co za chwile wejdzie
+		 * do oferty. Handlowiec widzialby dwie rozne ceny tego samego produktu
+		 * i nie mial jak rozstrzygnac, ktora obowiazuje (blad P2-K3 wyszedl
+		 * dokladnie z tego pomieszania jednostek).
+		 */
+		$ceny_z_podatkiem = function_exists( 'wc_prices_include_tax' ) && wc_prices_include_tax();
+		$results          = array();
+
 		foreach ( $products as $product ) {
 			if ( ! $product instanceof WC_Product ) {
 				continue;
 			}
+
+			$cena = $product->get_regular_price();
+
+			if ( $ceny_z_podatkiem && function_exists( 'wc_get_price_excluding_tax' ) && is_numeric( $cena ) ) {
+				$cena = wc_get_price_excluding_tax(
+					$product,
+					array(
+						'price' => $cena,
+						'qty'   => 1,
+					)
+				);
+			}
+
 			$results[] = array(
 				'id'    => $product->get_id(),
 				'name'  => $product->get_name(),
-				'price' => (string) $product->get_regular_price(),
+				'price' => (string) $cena,
 			);
 		}
 		return $results;
