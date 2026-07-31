@@ -4,7 +4,7 @@ Tags: oferty, pdf, woocommerce, cennik
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.1
+Stable tag: 1.3.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -59,6 +59,32 @@ RODO/GDPR:
 * Sugerowana treść polityki prywatności jest dodawana w Ustawienia → Prywatność.
 
 == Changelog ==
+
+= 1.3.2 =
+
+* Pozycja zwolniona z VAT przypisana do klasy podatkowej bez skonfigurowanej
+  stawki (np. domyslna „Zero rate" w swiezej instalacji WooCommerce)
+  wywracala cala kalkulacje bledem „brak stawki VAT". Handlowiec nie mogl
+  wystawic oferty, w ktorej wszystkie realnie potrzebne stawki byly na
+  miejscu — a ta blokujaca i tak nigdy nie zostalaby uzyta.
+* Nieudany zapis zatwierdzenia oferty pokazywal komunikat informacyjny
+  „Ta oferta byla juz zatwierdzona — nic sie nie zmienilo". Pracownik uznawal
+  sprawe za zalatwiona i nie ponawial akcji, a oferta zostawala szkicem
+  i nie szla do klienta. Awaria bazy ma teraz wlasny komunikat bledu.
+* Limity dlugosci pol byly mierzone w bajtach przy limitach kolumn liczonych
+  w znakach. Nazwa firmy ze 120 znakow z polskimi ogonkami (200 bajtow) byla
+  odrzucana komunikatem o „limicie 191 znakow", ktory byl nieprawdziwy.
+* Kontrola nieznanego kodu kraju wykonywala sie tylko przy zaladowanym
+  WooCommerce. Poza tym warunkiem literowka o poprawnym ksztalcie („DR"
+  zamiast „DE") dostawala ciche 0% VAT z podstawa prawna, ktora nie istnieje.
+  Lista ISO 3166-1 jest teraz wbudowana i kontrola dziala zawsze.
+* Wyszukiwarka produktow pokazywala cene brutto, podczas gdy oferta liczy
+  netto. Handlowiec widzial kwote o 23% wyzsza niz ta, ktora za chwile
+  wchodzila do oferty.
+* Pozycje oferty pobierane sa jednym zapytaniem zamiast osobnego na kazda
+  pozycje: 41 zapytan przy 12 pozycjach zeszlo do 10.
+* Nieudana wysylka alarmu do administratora zostawia slad w dzienniku.
+* Licencja w `composer.json` zgodna z naglowkiem wtyczki (GPL-2.0-or-later).
 
 = 1.3.1 =
 
