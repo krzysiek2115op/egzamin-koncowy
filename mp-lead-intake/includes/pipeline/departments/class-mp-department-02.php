@@ -139,6 +139,31 @@ class MP_D2_Agent_Validate_Formats extends MP_Abstract_Agent {
 			}
 		}
 
+		/*
+		 * Pozostałe pola tekstowe formularza — obie kolumny to `varchar(100)`.
+		 * Wcześniej limit obowiązywał tylko dla `company_name` i `phone`, mimo że
+		 * komentarz wyżej uzasadnia go zgodnością z kolumnami BD-3. Skutek nie był
+		 * kosmetyczny: `wpdb::process_fields()` przycina wartość do długości
+		 * kolumny i po wykryciu różnicy ZWRACA FALSE zamiast zapisać. Dział 7
+		 * kończył się wtedy `insert_failed`, transakcja szła w ROLLBACK, a klient
+		 * dostawał ogólne „sprawdź dane i spróbuj ponownie" bez wskazania pola —
+		 * więc każda kolejna próba z tym samym tekstem kończyła się identycznie
+		 * i lead przepadał.
+		 *
+		 * Limit liczony w ZNAKACH (`str_len`), bo `varchar(100)` w utf8mb4 liczy
+		 * znaki, nie bajty — ta sama pułapka co w P2-G2.
+		 */
+		foreach ( array(
+			'segment'    => 'Segment / branża',
+			'est_volume' => 'Przewidywany wolumen',
+		) as $pole => $etykieta ) {
+			$wartosc = (string) $context->get( $pole, '' );
+
+			if ( '' !== $wartosc && self::str_len( $wartosc ) > 100 ) {
+				$errors[ $pole ] = sprintf( '%s: wartość jest za długa (maks. 100 znaków)', $etykieta );
+			}
+		}
+
 		// Kraj jest opcjonalny (pusty → dział 4.1 domyślnie ustawi PL), ale gdy podany,
 		// musi mieć format ISO 3166-1 alpha-2 — inaczej surowa, błędna wartość trafiłaby
 		// nieprzechwycona do wywołania VIES w dziale 3 (audyt 2026-07-22, [ŚR] Walidacja pól).

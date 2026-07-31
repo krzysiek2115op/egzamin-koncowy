@@ -140,8 +140,8 @@ class MP_Lead_Intake_Vat_Verifier {
 		$vies = MP_D3_Agent_Vat::resolve_vies( $country, $nip );
 		$wl   = MP_D3_Agent_Company_Status::resolve_wl( $nip );
 
-		$vat_valid   = array_key_exists( 'vat_valid', $vies ) ? $vies['vat_valid'] : null;
 		$vat_checked = ! empty( $vies['vat_checked'] );
+		$vat_valid   = self::scal_vat_valid( $vies, isset( $lead['vat_valid'] ) ? $lead['vat_valid'] : null );
 		$wl_checked  = ! empty( $wl['company_status_checked'] );
 		// Gdy Biała lista akurat nie odpowie, NIE nadpisujemy wcześniej ustalonego
 		// statusu (i jego wkładu w scoring) wartością null — audyt wykazał, że to
@@ -257,5 +257,37 @@ class MP_Lead_Intake_Vat_Verifier {
 				self::enqueue( (int) $row['id'] );
 			}
 		}
+	}
+
+	/**
+	 * Scala swiezy wynik VIES z tym, co juz wiadomo o ledzie.
+	 *
+	 * Gdy VIES nie odpowiedzial, wynik jest NIEWIADOMA — a niewiadoma nie ma
+	 * prawa skasowac faktu ustalonego wczesniej. Bez tego potwierdzone
+	 * `vat_valid = 1` bylo nadpisywane przez `null` przy pierwszej nieudanej
+	 * probie w tle: scoring tracil 30 punktow, `vat_checked_at` szlo na NULL,
+	 * a po wyczerpaniu prob status ladowal na `unknown`. Wtyczka 2 nigdy nie
+	 * zobaczyla juz `valid`, wiec odwrotne obciazenie (art. 196) stawalo sie
+	 * nieosiagalne. Cicho i nieodwracalnie.
+	 *
+	 * Biala lista miala ten fallback od czasu poprzedniego audytu — VIES nie,
+	 * mimo ze problem jest dokladnie ten sam. Naprawiajac klase bledu, trzeba
+	 * przejsc WSZYSTKIE jej wystapienia.
+	 *
+	 * @param array $vies      Wynik fetchera VIES.
+	 * @param mixed $poprzedni Wartosc `vat_valid` z wiersza leada (moze byc '1'/'0'/null).
+	 * @return bool|null
+	 */
+	public static function scal_vat_valid( array $vies, $poprzedni ) {
+		if ( ! empty( $vies['vat_checked'] ) && array_key_exists( 'vat_valid', $vies ) ) {
+			return $vies['vat_valid'];
+		}
+
+		// Kolumna w bazie trzyma 1/0/NULL, a scoring porownuje SCISLE z `true`.
+		if ( null === $poprzedni || '' === $poprzedni ) {
+			return null;
+		}
+
+		return (bool) (int) $poprzedni;
 	}
 }

@@ -4,7 +4,7 @@ Tags: sprzedaz, crm, workflow, follow-up
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.2
+Stable tag: 1.3.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,6 +33,18 @@ rekordow SPF/DKIM/DMARC oraz blokady katalogu z ofertami PDF. Pelna checklista:
 powiadomien do klientow.
 
 == Changelog ==
+
+= 1.3.3 =
+
+* RODO: anonimizacja nie usuwała nazwy firmy klienta z powiadomień wysłanych do
+  handlowca — czyściła wyłącznie wiadomości do klienta. Nazwa zostawała w bazie
+  na stałe, bo tabela powiadomień nie ma retencji, a żądanie usunięcia danych
+  kończyło się komunikatem o powodzeniu. Adres pracownika zostaje bez zmian:
+  to dane firmowe, a wiersz jest śladem wysyłki.
+* KOLEJKA WIADOMOŚCI mogła wysłać tę samą ofertę dwa razy. Dwa równoległe
+  przebiegi zadań cyklicznych dostawały tę samą paczkę, bo licznik prób rósł
+  dopiero przy wysyłce. Teraz przejęcie wiersza i podbicie licznika to jedna
+  operacja — wysyła ten, kto pierwszy przejął.
 
 = 1.3.2 =
 

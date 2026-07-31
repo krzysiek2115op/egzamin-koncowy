@@ -4,7 +4,7 @@ Tags: oferty, pdf, woocommerce, cennik
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.2
+Stable tag: 1.3.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -59,6 +59,18 @@ RODO/GDPR:
 * Sugerowana treść polityki prywatności jest dodawana w Ustawienia → Prywatność.
 
 == Changelog ==
+
+= 1.3.3 =
+
+* OFERTA ZŁOŻONA WYŁĄCZNIE Z POZYCJI ZWOLNIONYCH Z VAT (art. 43 — szkolenia,
+  usługi medyczne, finansowe) była odrzucana: pusty zbiór stawek traktowano jak
+  brak stawek. Pusty zbiór znaczy tu "żadna stawka nie była potrzebna".
+* STATUS PODATKOWY "TYLKO WYSYŁKA" wpadał w szczelinę między działami: jeden
+  pomijał go przy pobieraniu stawek, drugi zwalniał z VAT tylko pozycje "brak".
+  Skutkiem był VAT naliczony od pozycji niepodlegającej opodatkowaniu albo
+  zablokowana oferta. Oba działy pytają teraz o to samo, w jednym miejscu.
+* Naprawiony test procesu wtyczki, który od czasu jednej z optymalizacji
+  w ogóle się nie uruchamiał.
 
 = 1.3.2 =
 

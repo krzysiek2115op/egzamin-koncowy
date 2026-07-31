@@ -4,7 +4,7 @@ Tags: leads, formularz, b2b, nip, vat
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.3.2
+Stable tag: 1.3.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,20 @@ Pierwsza z trzech wtyczek procesu "formularz → oferta". Odpowiada za odbiór
 zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej bazy.
 
 == Changelog ==
+
+= 1.3.3 =
+
+* POLA "SEGMENT" I "PRZEWIDYWANY WOLUMEN" bez limitu długości powodowały UTRATĘ
+  ZGŁOSZENIA. Kolumny to varchar(100); dłuższa wartość sprawiała, że zapis do
+  bazy zwracał błąd zamiast się wykonać, transakcja szła w ROLLBACK, a klient
+  dostawał ogólne "sprawdź dane i spróbuj ponownie" — bez wskazania pola. Każda
+  kolejna próba z tym samym tekstem kończyła się tak samo. Limit liczony
+  w znakach, nie w bajtach.
+* WERYFIKACJA VAT W TLE kasowała potwierdzony wcześniej status, gdy VIES akurat
+  nie odpowiedział: "nie wiadomo" nadpisywało "tak". Lead tracił 30 punktów
+  scoringu i po kilku próbach lądował ze statusem nieznanym, przez co wtyczka 2
+  nie mogła zastosować odwrotnego obciążenia. Biała lista miała to zabezpieczone
+  od poprzedniego audytu — VIES nie.
 
 = 1.3.2 =
 
