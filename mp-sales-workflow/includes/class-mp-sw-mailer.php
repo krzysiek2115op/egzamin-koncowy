@@ -212,7 +212,7 @@ class MP_SW_Mailer {
 		 * ta sama droga, zostalby zatrzymany przez bezpiecznik, ktory wlasnie
 		 * zglasza. Jedna wiadomosc na godzine pilnuje transient powyzej.
 		 */
-		wp_mail(
+		$poszlo = wp_mail(
 			$admin,
 			self::header_safe( __( 'MP Sales Workflow: kolejka powiadomień zatrzymana', 'mp-sales-workflow' ) ),
 			sprintf(
@@ -222,6 +222,28 @@ class MP_SW_Mailer {
 			),
 			array( 'Content-Type: text/plain; charset=UTF-8' )
 		);
+
+		if ( ! $poszlo ) {
+			/*
+			 * Alarmu o nieudanym alarmie nie da się wysłać pocztą — a właśnie
+			 * zepsuta poczta jest najbardziej prawdopodobnym powodem, dla którego
+			 * bezpiecznik w ogóle zadziałał. Ślad musi więc trafić tam, gdzie widać
+			 * go BEZ poczty: do dziennika technicznego, tą samą drogą co wpis
+			 * o zatrzymaniu kolejki kilka linii wyżej.
+			 *
+			 * Nie zwalniamy przy tym transientu: jest ogranicznikiem częstotliwości,
+			 * a nie znacznikiem sukcesu. Przy trwale zepsutym SMTP ponawianie co
+			 * zdarzenie zamieniłoby jedną nieudaną wiadomość na godzinę w lawinę.
+			 */
+			MP_SW_Log::security(
+				MP_SW_Errors::E_MAIL,
+				array(
+					'code'   => MP_SW_Errors::E_MAIL,
+					'reason' => 'breaker_alert_not_sent',
+					'count'  => (int) $count,
+				)
+			);
+		}
 	}
 
 	/**
