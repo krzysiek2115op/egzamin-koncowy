@@ -4,7 +4,7 @@ Tags: sprzedaz, crm, workflow, follow-up
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.1
+Stable tag: 1.3.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,6 +33,17 @@ rekordow SPF/DKIM/DMARC oraz blokady katalogu z ofertami PDF. Pelna checklista:
 powiadomien do klientow.
 
 == Changelog ==
+
+= 1.3.2 =
+
+* Nieudana wysylka alarmu do administratora zostawia slad w dzienniku
+  technicznym. Wczesniej przy zepsutej poczcie ostrzezenie o wstrzymanej
+  kolejce powiadomien ginelo bez zadnego sladu.
+* Status wiersza zdarzenia ma wlasna stala w warstwie schematu bazy.
+  Wczesniej byl napisem, a najblizsza istniejaca stala nalezala do slownika
+  ZADAN follow-up — jej uzycie zwiazaloby ze soba dwie niezalezne tabele.
+* Dokumentacja i testy: identyfikatory bledow z rejestru w naglowkach testow
+  regresji, statyczny test pilnujacy slownika statusow.
 
 = 1.3.1 =
 
