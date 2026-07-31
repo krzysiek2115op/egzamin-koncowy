@@ -93,7 +93,18 @@ class MP_D11_Agent_Report extends MP_Abstract_Agent {
 				'client_category' => $context->get( 'client_category' ),
 				'score'           => (int) $context->get( 'score', 0 ),
 				'status'          => (string) $context->get( 'status', 'new' ),
-				'vat_status'      => (string) $context->get( 'vat_status', 'checked' ),
+
+				/*
+				 * Wartość zastępcza mówi „nie wiadomo", a nie „sprawdzone".
+				 * Dziś Dział 7 ustawia `vat_status` przy każdym przebiegu, więc ta
+				 * gałąź jest nieosiągalna — i właśnie dlatego warto mieć ją
+				 * poprawną: pierwsza ścieżka omijająca Dział 7 (import, lead
+				 * zakładany z panelu, nowy tryb) podałaby wtyczce 2 potwierdzenie
+				 * weryfikacji, której nikt nie wykonał. `unknown` należy do tego
+				 * samego słownika co reszta — używa go weryfikator w tle po
+				 * wyczerpaniu prób.
+				 */
+				'vat_status'      => (string) $context->get( 'vat_status', 'unknown' ),
 				'salesman_id'     => $context->get( 'salesman_id' ),
 
 				/*
