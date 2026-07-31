@@ -1,12 +1,10 @@
 {
     "name": "mp/egzamin-koncowy-dev",
-    "description": "Wspolne narzedzia deweloperskie (PHPCS + WordPress Coding Standards) dla trzech wtyczek projektu. NIE sa to zaleznosci runtime — wtyczki dzialaja bez tego pliku. Zaleznosci runtime wtyczki 2 (dompdf) leza w mp-offer-builder/composer.json.",
+    "description": "Wspolne narzedzia deweloperskie (PHPCS + WordPress Coding Standards) dla trzech wtyczek projektu. NIE sa to zaleznosci runtime — wtyczki dzialaja bez tego pliku. Zaleznosci runtime wtyczki 2 (dompdf) leza w mp-offer-builder/composer.json. Wszystkie trzy galezie deklarowaly identyczne require-dev, wiec composer.lock z galezi wtyczki 1 pozostaje wazny (zgodny content-hash).",
     "type": "project",
     "license": "GPL-2.0-or-later",
     "require-dev": {
-        "squizlabs/php_codesniffer": "^3.9",
-        "wp-coding-standards/wpcs": "^3.1",
-        "phpcompatibility/phpcompatibility-wp": "^2.1"
+        "wp-coding-standards/wpcs": "^3.1"
     },
     "config": {
         "allow-plugins": {
