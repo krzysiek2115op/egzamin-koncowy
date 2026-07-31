@@ -165,6 +165,7 @@ class MP_SW_D7_Agent_Recipients extends MP_SW_Abstract_Agent {
 		$lang_flow = self::process_lang( $context, $flow );
 
 		$recipients = array();
+		$skipped    = array();
 
 		if ( in_array( MP_SW_D5_Machine::EFFECT_NOTIFY_SALESMAN, $effects, true ) ) {
 			$recipients[] = array(
@@ -180,18 +181,46 @@ class MP_SW_D7_Agent_Recipients extends MP_SW_Abstract_Agent {
 		}
 
 		if ( in_array( MP_SW_D5_Machine::EFFECT_NOTIFY_CLIENT, $effects, true ) ) {
-			$recipients[] = array(
-				'audience'  => MP_SW_D7_Notifier::AUDIENCE_CLIENT,
-				'template'  => MP_SW_Templates::TPL_OFFER_SENT,
-				// Klient dostaje wiadomość w języku PROCESU, nie w języku witryny —
-				// to jego język ustalono przy pozyskaniu leada.
-				'lang'      => $lang_flow,
-				'email'     => $client['email'],
-				'user_id'   => 0,
-				'name'      => $client['name'],
-				'reason'    => MP_SW_D5_Machine::EFFECT_NOTIFY_CLIENT,
-				'task_type' => '',
-			);
+			/*
+			 * ANONIMIZACJA ZATRZYMUJE POWIADOMIENIE, A NIE CAŁY PROCES.
+			 *
+			 * `client_data()` pilnuje, żeby świeży odczyt z wtyczki 1 nie przywrócił
+			 * usuniętego kontaktu — i na tym się kończyło. Adres-zaślepkę
+			 * (`deleted+N@invalid`) zwracało dalej, a odbiorca powstawał normalnie.
+			 * Skutek był odwrotny do zamierzonego: `is_email()` odrzuca domenę bez
+			 * kropki, więc krytyk K7.2 wywracał CAŁĄ kopertę kodem
+			 * `invalid_recipient` i proces nie mógł przejść w żaden status
+			 * powiadamiający klienta. Żądanie usunięcia danych unieruchamiało
+			 * zamówienie, które toczyło się dalej.
+			 *
+			 * Odbiorca nie powstaje w ogóle. To poprawne, ZAMIERZONE zatrzymanie
+			 * jednego powiadomienia, więc idzie tą samą drogą co pominięcia z
+			 * Agenta 7.2: do dziennika (Dział 8), a nie w odmowę.
+			 */
+			if ( MP_SW_Privacy::is_anonymized( $client['email'] ) ) {
+				$skipped[] = array(
+					'audience' => MP_SW_D7_Notifier::AUDIENCE_CLIENT,
+					'template' => MP_SW_Templates::TPL_OFFER_SENT,
+					'reason'   => MP_SW_D5_Machine::EFFECT_NOTIFY_CLIENT,
+					'user_id'  => 0,
+					// Dziennik jest bez adresów (RODO) — tu tym bardziej, bo powodem
+					// pominięcia jest właśnie usunięcie danych.
+					'cause'    => 'anonimizacja',
+				);
+			} else {
+				$recipients[] = array(
+					'audience'  => MP_SW_D7_Notifier::AUDIENCE_CLIENT,
+					'template'  => MP_SW_Templates::TPL_OFFER_SENT,
+					// Klient dostaje wiadomość w języku PROCESU, nie w języku witryny —
+					// to jego język ustalono przy pozyskaniu leada.
+					'lang'      => $lang_flow,
+					'email'     => $client['email'],
+					'user_id'   => 0,
+					'name'      => $client['name'],
+					'reason'    => MP_SW_D5_Machine::EFFECT_NOTIFY_CLIENT,
+					'task_type' => '',
+				);
+			}
 		}
 
 		/*
@@ -212,7 +241,12 @@ class MP_SW_D7_Agent_Recipients extends MP_SW_Abstract_Agent {
 			);
 		}
 
-		return MP_SW_Result::ok( array( 'recipients' => $recipients ) );
+		return MP_SW_Result::ok(
+			array(
+				'recipients'            => $recipients,
+				'skipped_notifications' => $skipped,
+			)
+		);
 	}
 
 	/**
@@ -417,7 +451,15 @@ class MP_SW_D7_Agent_Content extends MP_SW_Abstract_Agent {
 		$lead_id  = isset( $entity['lead_id'] ) ? (int) $entity['lead_id'] : 0;
 		$offsets  = MP_SW_D6_Scheduler::plan_types();
 		$messages = array();
-		$skipped  = array();
+
+		/*
+		 * Lista pominiętych zaczyna się od tego, co odsiał już Agent 7.1
+		 * (powiadomienie do zanonimizowanego klienta). Dział scala dane agentów
+		 * przez `array_merge`, więc pusta tablica w tym miejscu NADPISAŁABY wpis
+		 * poprzednika i ślad zniknąłby z dziennika — a dziennik jest tu jedynym
+		 * dowodem, że powiadomienia świadomie nie wysłano.
+		 */
+		$skipped = (array) $context->get( 'skipped_notifications', array() );
 
 		/*
 		 * Numer oferty: najpierw snapshot, dopiero potem wiersz procesu. Snapshot
