@@ -1,0 +1,76 @@
+{
+  "title": "MP Offer Builder — jak działa wtyczka",
+  "subtitle": "Przewodnik po działaniu: część biznesowa (o co chodzi i co daje) oraz część techniczna (jak to działa w środku).",
+  "footer": "MP Offer Builder v1.0.3 · jak działa wtyczka",
+  "accent": "2563eb",
+  "blocks": [
+    {"t":"h1","text":"CZĘŚĆ 1 — dla każdego: o co chodzi"},
+
+    {"t":"h2","text":"Po co jest ta wtyczka"},
+    {"t":"p","text":"MP Offer Builder to druga z trzech wtyczek procesu „formularz → oferta”. Zamienia zapytanie klienta w gotową, profesjonalną ofertę handlową w PDF — z cenami pobranymi wprost z Twojego sklepu WooCommerce, poprawnie policzonym VAT-em i unikalnym numerem oferty."},
+    {"t":"p","text":"Rozwiązuje typowy problem działów handlowych: oferty robione ręcznie w edytorze tekstu są czasochłonne i podatne na błędy w cenach, rabatach i VAT. Tutaj rachunki robi system, a handlowiec skupia się na sprzedaży."},
+
+    {"t":"h2","text":"Dla kogo"},
+    {"t":"bullet","text":"Handlowiec — buduje ofertę: wybiera produkty, ilości, wariant cenowy i pobiera gotowy PDF."},
+    {"t":"bullet","text":"Firma B2B — spójne, poprawne rachunkowo oferty z numeracją i historią zmian."},
+    {"t":"bullet","text":"Administrator — nadzór nad wszystkimi ofertami i uprawnieniami."},
+
+    {"t":"h2","text":"Jak przebiega proces"},
+    {"t":"num","n":1,"text":"Start: dane klienta wchodzą automatycznie ze zwalidowanego zapytania (Plugin 1) jako szkic oferty, albo handlowiec zakłada ofertę ręcznie."},
+    {"t":"num","n":2,"text":"Dobór pozycji: handlowiec wyszukuje produkty w katalogu WooCommerce, podaje ilości i wybiera wariant cenowy (Standard lub Partner)."},
+    {"t":"num","n":3,"text":"Wycena: system pobiera aktualne ceny, nalicza rabaty i dobiera właściwy mechanizm VAT."},
+    {"t":"num","n":4,"text":"Dokument: powstaje oferta PDF z unikalnym numerem (format OF/RRRR/NNNNNN) i poprawnymi polskimi znakami."},
+    {"t":"num","n":5,"text":"Zapis: oferta trafia do bazy z pełną historią wersji; PDF można pobrać tylko przez chroniony link."},
+
+    {"t":"h2","text":"Co konkretnie robi"},
+    {"t":"bullet","text":"Pobiera ceny produktów bezpośrednio z WooCommerce (jedno źródło prawdy — bez przepisywania cen)."},
+    {"t":"bullet","text":"Nalicza rabaty według reguł wariantu cenowego."},
+    {"t":"bullet","text":"Dobiera mechanizm VAT: krajowy (PL), odwrotne obciążenie (firma z UE z ważnym VAT UE) lub poza zakresem (klient spoza UE)."},
+    {"t":"bullet","text":"Generuje estetyczny PDF na bazie szablonu (osobny dla języka PL i EN)."},
+    {"t":"bullet","text":"Nadaje kolejne, niepowtarzalne numery ofert i prowadzi historię wersji (korekta = nowa wersja pod tym samym numerem)."},
+
+    {"t":"h2","text":"Jakie dane zapisuje"},
+    {"t":"p","text":"Dane oferty (klient, pozycje, kwoty, mechanizm VAT), historię kolejnych wersji, dziennik aktywności (kto, co i kiedy) oraz wygenerowane pliki PDF. Wszystko w dedykowanych tabelach bazy — nie miesza się z danymi sklepu."},
+
+    {"t":"h2","text":"Co to daje"},
+    {"t":"bullet","text":"Szybciej i bez pomyłek — koniec ręcznych rachunków w ofertach."},
+    {"t":"bullet","text":"Zgodność podatkowa — odwrotne obciążenie (0% VAT) dla kontrahentów z UE, gdy handlowiec potwierdzi ważny numer VAT UE; w innym wypadku bezpiecznie liczona stawka krajowa."},
+    {"t":"bullet","text":"Porządek i bezpieczeństwo — każdy handlowiec widzi tylko swoje oferty, a pliki są za chronionym linkiem."},
+    {"t":"bullet","text":"Pełna historia — każda zmiana oferty jest odtwarzalna."},
+
+    {"t":"pagebreak"},
+    {"t":"h1","text":"CZĘŚĆ 2 — technicznie: jak to działa w środku"},
+
+    {"t":"h2","text":"Architektura: pipeline 11 działów"},
+    {"t":"p","text":"Sercem wtyczki jest jednokierunkowy potok przetwarzania (pipeline) złożony z 11 działów. Każdy dział ma swoich Agentów (wykonują pracę) i Krytyków (weryfikują wynik), a po każdym dziale działa bramka jakości (QA). Dane płyną między działami jako obiekt kontekstu (JSON). Błąd na dowolnym etapie zatrzymuje proces (STOP) i trafia do dziennika — nie powstaje wtedy wadliwa oferta."},
+    {"t":"bullet","text":"1. Kontrakt wejścia i uprawnienia — dwa tryby (nowa oferta / dokończenie szkicu), idempotencja, kontrola dostępu (IDOR)."},
+    {"t":"bullet","text":"2. Integracja WooCommerce — pobranie cen produktów i krajowej stawki VAT (jednym odczytem)."},
+    {"t":"bullet","text":"3. Walidacja pozycji — czy produkty istnieją, ilości poprawne."},
+    {"t":"bullet","text":"4. Ceny w groszach — obliczenia na liczbach całkowitych (BCMath), bez błędów zaokrągleń typu float."},
+    {"t":"bullet","text":"5. Rabaty — reguły wersjonowane w kodzie, rabat naliczany na sumie."},
+    {"t":"bullet","text":"6. Mechanizm VAT — krajowy / odwrotne obciążenie / poza zakresem."},
+    {"t":"bullet","text":"7. Szablon i treść — podstawienie znaczników w szablonie HTML."},
+    {"t":"bullet","text":"8. Numeracja i wersja — nadanie numeru OF/RRRR/NNNNNN; korekta zachowuje numer i zwiększa wersję."},
+    {"t":"bullet","text":"9. Render PDF — Dompdf z osadzoną czcionką DejaVu Sans (polskie znaki)."},
+    {"t":"bullet","text":"10. Zapis transakcyjny — nagłówek, pozycje, wersja i wpis w dzienniku w jednej transakcji bazodanowej."},
+    {"t":"bullet","text":"11. Odpowiedź i zdarzenie — zdarzenie mp_offer_created wystawiane PO zatwierdzeniu transakcji (COMMIT)."},
+
+    {"t":"h2","text":"Mechanizm VAT"},
+    {"t":"p","text":"Dobór jest deterministyczny: klient z Polski → stawka krajowa; firma z UE z potwierdzonym ważnym VAT UE → odwrotne obciążenie (0% VAT, art. 196 dyrektywy 2006/112/WE); klient spoza UE → poza zakresem (0%). Jeśli status VAT klienta z UE nie jest potwierdzony, system bezpiecznie nalicza stawkę krajową — nigdy „ciche” 0% bez podstawy prawnej. Błędny kod kraju jest odrzucany jawnym błędem."},
+
+    {"t":"h2","text":"Numeracja i wersjonowanie"},
+    {"t":"p","text":"Numer w formacie OF/ROK/kolejny (np. OF/2026/000001) jest nadawany bez kolizji. Korekta istniejącej oferty nie tworzy nowego numeru — zwiększa wersję, a poprzedni stan trafia do historii wersji (pełny snapshot). Dzięki temu można odtworzyć każdą wcześniejszą wersję oferty."},
+
+    {"t":"h2","text":"Bezpieczeństwo"},
+    {"t":"bullet","text":"Kontrola własności (IDOR) — handlowiec widzi i pobiera wyłącznie własne oferty; administrator — wszystkie."},
+    {"t":"bullet","text":"Chroniony PDF — pobieranie przez endpoint z weryfikacją nonce, uprawnienia i właściciela; nazwa pliku jest niezgadywalna (sekret + HMAC)."},
+    {"t":"bullet","text":"Blokada optymistyczna — dwie osoby edytujące tę samą ofertę nie nadpiszą sobie nawzajem zmian (dedykowana kolumna lock_version)."},
+    {"t":"bullet","text":"Zapis transakcyjny + siatka bezpieczeństwa na twarde błędy PHP (brak ofert-widm i osieroconych plików)."},
+
+    {"t":"h2","text":"Integracja z Pluginem 1 i baza danych"},
+    {"t":"p","text":"Wtyczka nasłuchuje zdarzenia mp_lead_created z Pluginu 1 (MP Lead Intake) i zakłada szkic oferty ze snapshotem klienta. Uwaga: automatyczne przełożenie statusu VIES z Pluginu 1 na odwrotne obciążenie zostanie domknięte we wspólnej rundzie integracyjnej — obecnie szkic z leada domyślnie liczy VAT krajowy, a odwrotne obciążenie włącza handlowiec, potwierdzając ważny VAT UE na ofercie. Powiązanie jest miękkie (bez twardego klucza obcego), więc wtyczki pozostają niezależne. Dane oferty żyją w 5 tabelach z prefiksem wp_mp_ob_ (InnoDB, utf8mb4); kwoty przechowywane w groszach."},
+
+    {"t":"h2","text":"Technologie"},
+    {"t":"p","text":"WordPress + WooCommerce (ceny i stawki VAT), Dompdf (render PDF, osadzone czcionki), BCMath (obliczenia kwotowe). Kod zgodny ze standardami WordPress (WPCS), pokryty zestawem testów regresyjnych."}
+  ]
+}

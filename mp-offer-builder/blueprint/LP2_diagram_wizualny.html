@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LP.2 MP OFFER BUILDER — diagram procesu zgodnie z zasadami</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#111827; --ink2:#3B4658; --ink3:#6B7280;
+  --blue:#1D4ED8; --blueln:#93B4F5; --bluebg:#EBF1FE;
+  --green:#15803D; --greenln:#86D3A5; --greenbg:#EAF7EF;
+  --ag:#0E7A48; --agbg:#E7F5EC; --agln:#7FCBA0;
+  --kr:#C2410C; --krbg:#FDEEE4; --krln:#F0A876;
+  --gate:#B45309; --gatebg:#FFF4E0; --gateln:#E8A23E;
+  --viol:#6D28D9; --violbg:#F4EEFD; --violln:#C6ADF2;
+  --red:#DC2626; --redbg:#FDECEC;
+  --json:#1E40AF; --jsonbg:#EEF3FD;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#E9EDF3;color:var(--ink);
+  font-family:'Inter',system-ui,-apple-system,Segoe UI,sans-serif;font-size:12px;line-height:1.4}
+.sheet{max-width:1560px;margin:0 auto;background:#fff;border:2px solid #0B1220;padding:14px 16px 16px}
+
+/* nagłówek */
+.head h1{margin:0;font-size:23px;font-weight:900;letter-spacing:-.02em}
+.head .rules{margin:3px 0 0;font-size:11.5px;font-weight:700;letter-spacing:.02em;color:var(--ink2)}
+.head .rules b{color:var(--blue)}
+.head .rules i{font-style:normal;color:var(--green)}
+.legendrow{display:flex;flex-wrap:wrap;gap:14px;margin:8px 0 10px;padding:6px 10px;
+  background:#F6F8FB;border:1px solid #DCE3EC;border-radius:8px;font-size:10.5px;color:var(--ink2)}
+.legendrow span{display:inline-flex;align-items:center;gap:5px}
+.ic{font-size:12px}
+
+/* siatka główna */
+.grid{display:grid;grid-template-columns:212px 1fr 236px;gap:12px;align-items:start}
+
+/* ------- LEWA: BAZA ------- */
+.dbcol{display:flex;flex-direction:column;gap:8px}
+.dbhead{background:var(--blue);color:#fff;border-radius:9px;padding:7px 10px;text-align:center}
+.dbhead b{font-size:12.5px;letter-spacing:.02em}
+.dbhead .cyl{display:block;margin:4px auto 2px}
+.zone{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:#0B5A70;background:#E3F3F7;border:1px solid #9CCEDB;border-radius:6px;padding:3px 7px;text-align:center}
+.zone.wr{color:#8A2C22;background:#FBECEA;border-color:#EBB6AE}
+.tcard{border:1.5px solid var(--blueln);border-radius:8px;background:#FBFCFF;padding:5px 8px}
+.tcard.wr{border-color:#EBB6AE;background:#FFFBFA}
+.tcard b{display:block;font-family:var(--mono);font-size:10px;color:var(--blue);font-weight:700;margin-bottom:2px;word-break:break-all}
+.tcard.wr b{color:#B03A2E}
+.tcard span{display:block;font-family:var(--mono);font-size:8.6px;color:var(--ink3);line-height:1.45}
+.ajaxbadge{background:var(--blue);color:#fff;border-radius:8px;text-align:center;
+  font-weight:900;font-size:14px;padding:6px 8px;letter-spacing:.04em;box-shadow:0 2px 0 #143A9E}
+.ajaxnote{font-size:9.8px;color:var(--ink2);text-align:center;line-height:1.45;padding:0 4px}
+.ajaxnote b{color:var(--blue)}
+.dbleg{border:1px solid #DCE3EC;border-radius:8px;padding:5px 8px;font-size:9.5px;color:var(--ink2)}
+.dbleg b{display:block;font-size:9px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:3px}
+.dbleg span{display:flex;align-items:center;gap:5px;margin:2px 0}
+.sq{width:9px;height:9px;border-radius:2px;display:inline-block;flex:0 0 auto}
+
+/* ------- ŚRODEK: PIPELINE ------- */
+.pipehead{background:var(--green);color:#fff;border-radius:9px;padding:7px 12px;text-align:center;
+  font-size:14px;font-weight:900;letter-spacing:.02em}
+.cols{display:grid;grid-template-columns:168px 1fr 206px 178px;gap:8px;margin:8px 0 4px;
+  font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--blue);text-transform:uppercase}
+.cols div{text-align:center}
+.dept{border:2px solid var(--blueln);border-radius:11px;background:#fff;margin-bottom:0;overflow:hidden}
+.drow{display:grid;grid-template-columns:168px 1fr 206px 178px;gap:8px;padding:7px 8px}
+.dcell{display:flex;flex-direction:column;gap:4px}
+.dnum{display:flex;align-items:center;gap:6px}
+.circ{width:22px;height:22px;border-radius:50%;background:var(--green);color:#fff;font-weight:900;
+  font-size:11.5px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.dico{font-size:16px}
+.dname{font-size:11.5px;font-weight:800;line-height:1.2}
+.chip{font-family:var(--mono);font-size:8.4px;font-weight:700;letter-spacing:.04em;border-radius:5px;
+  padding:1px 5px;width:fit-content;border:1px solid}
+.chip.b0{color:var(--ink3);border-color:#CBD5E1;background:#F5F7FA}
+.chip.br{color:#0369A1;border-color:#7DD3FC;background:#E0F2FE}
+.chip.bw{color:#B91C1C;border-color:#FCA5A5;background:#FEE2E2}
+.chip.zk{color:var(--viol);border-color:var(--violln);background:var(--violbg);font-weight:600;letter-spacing:0}
+.pairs{display:flex;flex-direction:column;gap:4px}
+.pl{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.abox{background:var(--agbg);border:1.5px solid var(--agln);border-radius:8px;padding:4px 7px}
+.abox b{font-family:var(--mono);font-size:9px;color:var(--ag);font-weight:700}
+.abox p{margin:1px 0 0;font-size:9.8px;color:#1F3D2E;line-height:1.35}
+.kbox{background:var(--krbg);border:1.5px solid var(--krln);border-radius:8px;padding:4px 7px}
+.kbox b{font-family:var(--mono);font-size:9px;color:var(--kr);font-weight:700}
+.kbox p{margin:1px 0 0;font-size:9.8px;color:#5C2E12;line-height:1.35}
+.jsonbox{background:var(--jsonbg);border:1.5px solid #B6C7F2;border-radius:8px;padding:5px 7px;
+  font-family:var(--mono);font-size:8.8px;color:var(--json);line-height:1.5;white-space:pre-wrap;word-break:break-word;align-self:start}
+.opbox{display:flex;flex-direction:column;gap:3px;align-self:start}
+.opbox p{margin:0;font-size:9.6px;color:var(--ink2);line-height:1.35;padding-left:9px;position:relative}
+.opbox p::before{content:'•';position:absolute;left:0;color:var(--green);font-weight:900}
+.dok{font-family:var(--mono);font-size:8.4px;color:var(--viol);background:var(--violbg);
+  border:1px solid var(--violln);border-radius:5px;padding:2px 5px;line-height:1.4;word-break:break-word}
+.note{grid-column:1/-1;background:#FFFBF0;border-top:1px solid var(--gateln);
+  font-size:9.6px;color:#6B4A00;padding:4px 8px;margin:2px -8px -7px}
+.note b{color:var(--gate)}
+.gatebar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
+  background:var(--gatebg);border:1.5px dashed var(--gateln);border-radius:9px;
+  padding:4px 12px;margin:6px 0;color:#8A5200}
+.gatebar b{font-size:10.5px;font-weight:800;letter-spacing:.02em}
+.gatebar span{font-family:var(--mono);font-size:9px;color:#9A6300}
+.gatebar em{font-style:normal;color:var(--green);font-weight:800}
+.gatebar u{text-decoration:none;color:var(--red);font-weight:800}
+.jflow{text-align:center;margin:2px 0 6px}
+.jflow span{font-family:var(--mono);font-size:8.8px;color:var(--json);background:var(--jsonbg);
+  border:1px solid #B6C7F2;border-radius:8px;padding:1px 8px}
+.final{display:grid;grid-template-columns:1.4fr 1fr;gap:10px;margin-top:8px}
+.finbox{border:2.5px solid var(--green);border-radius:11px;background:var(--greenbg);padding:10px 14px;
+  display:flex;align-items:center;gap:12px}
+.finbox .pdfic{font-size:30px}
+.finbox h3{margin:0;font-size:14.5px;font-weight:900;color:#14532D}
+.finbox p{margin:2px 0 0;font-size:10.5px;color:#1F5636}
+.retjson{border:1.5px solid #B6C7F2;border-radius:11px;background:var(--jsonbg);padding:8px 11px}
+.retjson b{font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--json)}
+.retjson pre{margin:3px 0 0;font-family:var(--mono);font-size:9.2px;color:var(--json);white-space:pre-wrap}
+
+/* ------- PRAWA: PANELE ------- */
+.side{display:flex;flex-direction:column;gap:10px}
+.panel{border-radius:10px;border:2px solid;overflow:hidden}
+.panel h5{margin:0;padding:5px 10px;color:#fff;font-size:11px;font-weight:800;letter-spacing:.03em;text-align:center}
+.panel .bd{padding:7px 9px;background:#fff}
+.panel.zas{border-color:var(--viol)} .panel.zas h5{background:var(--viol)}
+.panel.sch{border-color:var(--red)} .panel.sch h5{background:var(--red)}
+.panel.leg{border-color:#64748B} .panel.leg h5{background:#64748B}
+.panel.kry{border-color:var(--green)} .panel.kry h5{background:var(--green)}
+.panel.kry .bd{background:#F4FBF6}
+.ck{display:flex;gap:6px;align-items:flex-start;font-size:9.8px;color:var(--ink2);margin:3px 0;line-height:1.35}
+.ck::before{content:'✓';color:var(--green);font-weight:900;flex:0 0 auto}
+.panel.zas .ck::before{color:var(--viol)}
+.flowbox{border-radius:7px;padding:3px 8px;font-size:9.3px;font-weight:700;text-align:center;margin:0 auto;width:88%}
+.fb-db{background:var(--bluebg);border:1.5px solid var(--blueln);color:var(--blue)}
+.fb-aj{background:var(--blue);color:#fff}
+.fb-pair{display:grid;grid-template-columns:1fr 1fr;gap:4px;width:88%;margin:0 auto}
+.fb-a{background:var(--agbg);border:1.5px solid var(--agln);color:var(--ag);border-radius:7px;padding:3px 4px;font-size:8.8px;font-weight:700;text-align:center}
+.fb-k{background:var(--krbg);border:1.5px solid var(--krln);color:var(--kr);border-radius:7px;padding:3px 4px;font-size:8.8px;font-weight:700;text-align:center}
+.fb-g{background:var(--gatebg);border:1.5px dashed var(--gateln);color:#8A5200}
+.fb-j{background:var(--jsonbg);border:1.5px solid #B6C7F2;color:var(--json)}
+.fb-n{background:var(--greenbg);border:1.5px solid var(--greenln);color:var(--green)}
+.fb-w{background:var(--violbg);border:1.5px solid var(--violln);color:var(--viol)}
+.far{text-align:center;color:#94A3B8;font-size:10px;line-height:1.1;margin:1px 0}
+.failrow{display:flex;align-items:center;gap:5px;justify-content:center;margin:1px 0}
+.failrow i{font-style:normal;font-family:var(--mono);font-size:8.2px;color:var(--red);font-weight:700}
+.fb-x{background:var(--redbg);border:1.5px solid #F1A8A8;color:var(--red);border-radius:7px;padding:2px 7px;font-size:8.6px;font-weight:800}
+.lgi{display:flex;gap:6px;align-items:center;font-size:9.6px;color:var(--ink2);margin:3px 0}
+
+/* ------- DÓŁ ------- */
+.docsrow{margin-top:12px;border:1.5px solid var(--violln);border-radius:10px;background:#FDFBFF;padding:8px 12px}
+.docsrow b{font-size:10.5px;font-weight:800;color:var(--viol)}
+.docsgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px 18px;margin-top:5px}
+.docsgrid div{font-size:9.4px;color:var(--ink2);line-height:1.4}
+.docsgrid i{font-style:normal;font-family:var(--mono);font-size:8.8px;color:var(--viol)}
+.bottombar{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-top:10px;padding-top:8px;
+  border-top:1.5px solid #DCE3EC;font-size:9.6px;color:var(--ink2)}
+.bottombar span{display:inline-flex;align-items:center;gap:5px}
+.foot{margin-top:6px;text-align:center;font-family:var(--mono);font-size:9px;color:var(--ink3)}
+
+@media (max-width:1150px){
+  .grid{grid-template-columns:1fr}
+  .drow,.cols{grid-template-columns:150px 1fr}
+  .jsonbox,.opbox{display:none}
+  .cols div:nth-child(3),.cols div:nth-child(4){display:none}
+  .final{grid-template-columns:1fr}
+}
+@media print{
+  body{background:#fff}
+  .sheet{max-width:none;border-width:1.5px}
+  .dept,.tcard,.panel,.finbox,.docsrow{break-inside:avoid}
+  @page{size:A2 landscape;margin:8mm}
+}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <div class="head">
+    <h1>LP.2 MP OFFER BUILDER — DIAGRAM PROCESU ZGODNIE Z ZASADAMI</h1>
+    <p class="rules"><b>1 AJAX</b> • PARY <b>AGENT Ax.y — KRYTYK Kx.y</b> • BRAMKI JAKOŚCI PO DZIAŁACH (1+1) • <i>JSON</i> • PIPELINE • <b>BD-2</b> (strefa odczytu / strefa zapisu)</p>
+  </div>
+  <div class="legendrow">
+    <span><span class="ic">🤖</span> agent — wykonuje zadanie</span>
+    <span><span class="ic">⭐</span> krytyk — sprawdza swojego agenta (para 1:1)</span>
+    <span><span class="sq" style="background:var(--gatebg);border:1.5px dashed var(--gateln)"></span> bramka jakości — QA agent + QA krytyk na cały dział</span>
+    <span><span class="sq" style="background:var(--jsonbg);border:1.5px solid #B6C7F2"></span> dane po dziale (JSON)</span>
+    <span><span class="sq" style="background:var(--violbg);border:1.5px solid var(--violln)"></span> pozycja zlecenia / dokumentacja</span>
+  </div>
+
+  <div class="grid">
+
+    <!-- ===== LEWA KOLUMNA ===== -->
+    <div class="dbcol">
+      <div class="dbhead">
+        <svg class="cyl" width="34" height="26" viewBox="0 0 34 26"><ellipse cx="17" cy="5" rx="15" ry="4.5" fill="#fff" opacity=".9"/><path d="M2 5v16c0 2.5 6.7 4.5 15 4.5s15-2 15-4.5V5" fill="none" stroke="#fff" stroke-width="2.4" opacity=".9"/></svg>
+        <b>BAZA DANYCH · BD-2</b>
+      </div>
+
+      <div class="zone">strefa WooCommerce — tylko odczyt</div>
+      <div class="tcard"><b>wp_posts + wp_postmeta</b><span>produkty i warianty<br>· id · sku · name · status<br>· odczyt przez WC_Product</span></div>
+      <div class="tcard"><b>wp_wc_product_meta_lookup</b><span>· product_id · sku<br>· min_price · max_price<br>· onsale · tax_class</span></div>
+      <div class="tcard"><b>wp_woocommerce_tax_rates</b><span>· tax_rate_id · tax_rate_country<br>· tax_rate · tax_rate_class</span></div>
+
+      <div class="zone wr">strefa wtyczki — zapis 1 transakcją</div>
+      <div class="tcard wr"><b>wp_mp_offer_templates</b><span>· id · name · lang (pl/en)<br>· content · variables · version</span></div>
+      <div class="tcard wr"><b>wp_mp_offers</b><span>· id · offer_number · version<br>· status · net/vat/gross<br>· pdf_path · pdf_sha256 · created_at</span></div>
+      <div class="tcard wr"><b>wp_mp_offer_items</b><span>· id · offer_id · product_id<br>· variation_id · qty · price_base<br>· discount_value · price_final · tax_rate</span></div>
+      <div class="tcard wr"><b>wp_mp_offer_versions</b><span>· id · offer_id · version_number<br>· data_json · pdf_path<br>· created_at · created_by · change_log</span></div>
+
+      <div class="ajaxbadge">1 AJAX</div>
+      <p class="ajaxnote"><b>JEDYNE WEJŚCIE / WYJŚCIE</b><br>wejście i wyjście tylko JSON<br>1 strzał odczytu (Dział 2)<br>1 transakcja zapisu (Dział 10)<br><b>0 wywołań sieciowych</b></p>
+
+      <div class="dbleg">
+        <b>Legenda BD-2</b>
+        <span><span class="sq" style="background:#EBF1FE;border:1px solid #93B4F5"></span> dane WooCommerce (odczyt)</span>
+        <span><span class="sq" style="background:#FBECEA;border:1px solid #EBB6AE"></span> dane wtyczki LP.2 (zapis)</span>
+        <span><span class="sq" style="background:#E3F3F7;border:1px solid #9CCEDB"></span> granica stref = granica ryzyka</span>
+      </div>
+    </div>
+
+    <!-- ===== ŚRODEK ===== -->
+    <div>
+      <div class="pipehead">PIPELINE LP.2 — MP OFFER BUILDER</div>
+      <div class="cols"><div>DZIAŁ</div><div>PARY: AGENT (wykonuje) — KRYTYK (sprawdza)</div><div>DANE PO DZIALE (JSON)</div><div>OPERACJE · DOK</div></div>
+      <div id="pipe"></div>
+
+      <div class="final">
+        <div class="finbox">
+          <span class="pdfic">📄</span>
+          <div>
+            <h3>WYNIK KOŃCOWY — GOTOWA OFERTA PDF Z NUMEREM I HISTORIĄ WERSJI</h3>
+            <p>Status <span style="font-family:var(--mono)">draft</span> — czeka na zatwierdzenie handlowca (automatyzacja pkt 4.4). Akceptacja i wysyłka to kolejny etap, poza tym rysunkiem.</p>
+          </div>
+        </div>
+        <div class="retjson">
+          <b>ZWRACANE JSON</b>
+          <pre>{ "success": true,
+  "offer_id": 57,
+  "offer_number": "OF/2026/000123",
+  "version": 1,
+  "pdf_url": "…",
+  "status": "draft",
+  "trace_id": "3f1c8ae2-…" }</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PRAWA KOLUMNA ===== -->
+    <div class="side">
+      <div class="panel zas"><h5>ZASADY PROCESU</h5><div class="bd">
+        <div class="ck">1 AJAX — wejście i wyjście tylko JSON</div>
+        <div class="ck">Para: agent Ax.y — krytyk Kx.y — nigdy osobno</div>
+        <div class="ck">W dziale tyle par, ile dział ma zadań</div>
+        <div class="ck">Bramka jakości PO każdym dziale: 1 agent + 1 krytyk</div>
+        <div class="ck">Strefa WooCommerce wyłącznie do odczytu</div>
+        <div class="ck">Zapis tylko do wp_mp_offer_* — jedną transakcją</div>
+        <div class="ck">1 odczyt · 1 zapis · 0 wywołań sieciowych</div>
+        <div class="ck">Jednokierunkowy pipeline — zero pętli i powrotów</div>
+        <div class="ck">Werdykty: PASS · PASS_WARN · FAIL_RETRY · FAIL_FATAL</div>
+        <div class="ck">Unikalność numeru domyka UNIQUE w bazie, nie kod</div>
+      </div></div>
+
+      <div class="panel sch"><h5>SCHEMAT PRZEPŁYWU DANYCH</h5><div class="bd">
+        <div class="flowbox fb-db">BD-2 (strefa odczytu)</div>
+        <div class="far">▼ 1 strzał</div>
+        <div class="flowbox fb-aj">1 AJAX · JSON</div>
+        <div class="far">▼</div>
+        <div class="fb-pair"><div class="fb-a">🤖 AGENT Ax.y</div><div class="fb-k">⭐ KRYTYK Kx.y</div></div>
+        <div class="far">▼ (× liczba par w dziale)</div>
+        <div class="flowbox fb-g">BRAMKA JAKOŚCI (QA 1+1)</div>
+        <div class="failrow"><i>FAIL_FATAL →</i><span class="fb-x">ROLLBACK + kod + dziennik</span></div>
+        <div class="failrow"><i>FAIL_RETRY →</i><span class="fb-x" style="color:#B45309;border-color:#E8A23E;background:#FFF4E0">ponowienie (maks. 2)</span></div>
+        <div class="far">▼ PASS</div>
+        <div class="flowbox fb-j">JSON → następny dział</div>
+        <div class="far">▼ … Dział 10</div>
+        <div class="flowbox fb-db" style="border-color:#EBB6AE;color:#B03A2E;background:#FBECEA">BD-2 (strefa wtyczki) · 1 transakcja</div>
+        <div class="far">▼</div>
+        <div class="flowbox fb-w">WYNIK KOŃCOWY (oferta PDF)</div>
+      </div></div>
+
+      <div class="panel leg"><h5>LEGENDA SCHEMATU</h5><div class="bd">
+        <div class="lgi"><span class="ic">🤖</span> agent — wykonanie zadania</div>
+        <div class="lgi"><span class="ic">⭐</span> krytyk — kontrola pary 1:1</div>
+        <div class="lgi"><span class="sq" style="background:var(--gatebg);border:1.5px dashed var(--gateln)"></span> bramka jakości — QA całego działu</div>
+        <div class="lgi"><span class="sq" style="background:var(--jsonbg);border:1.5px solid #B6C7F2"></span> JSON — przekazanie danych</div>
+        <div class="lgi"><span class="sq" style="background:#E0F2FE;border:1px solid #7DD3FC"></span> 1 ODCZYT — jedyne czytanie bazy</div>
+        <div class="lgi"><span class="sq" style="background:#FEE2E2;border:1px solid #FCA5A5"></span> 1 ZAPIS — jedyna transakcja</div>
+        <div class="lgi"><span class="sq" style="background:var(--violbg);border:1px solid var(--violln)"></span> pozycja zlecenia / dokumentacja</div>
+      </div></div>
+
+      <div class="panel kry"><h5>KRYTERIA ODBIORU LP.2</h5><div class="bd">
+        <div class="ck">Poprawne pobranie cen z WooCommerce</div>
+        <div class="ck">Poprawna kalkulacja rabatów</div>
+        <div class="ck">Poprawne zastosowanie szablonów ofert</div>
+        <div class="ck">PDF po polsku i po angielsku (kryt. 5.3)</div>
+        <div class="ck">Właściwe ceny i numer oferty w pliku</div>
+        <div class="ck">Unikalna numeracja ofert</div>
+        <div class="ck">Prawidłowa historia wersji</div>
+        <div class="ck">Dane tylko JSON, przez 1 AJAX</div>
+        <div class="ck">Wszystkie bramki jakości = PASS</div>
+        <div class="ck">Gotowość do integracji: status draft + zdarzenie</div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ===== DÓŁ ===== -->
+  <div class="docsrow">
+    <b>DOKUMENTACJA ŹRÓDŁOWA (oryginalna, na dział)</b>
+    <div class="docsgrid">
+      <div>D1 · JSON Schema 2020-12 + WP REST permission_callback + Nonces — <i>json-schema.org · developer.wordpress.org</i></div>
+      <div>D2 · WooCommerce: WC_Product / wc_get_products · wp_wc_product_meta_lookup · WC_Tax — <i>developer.woocommerce.com · woocommerce.github.io/code-reference</i></div>
+      <div>D3 · słowniki wobec snapshotu — <i>reguły własne wg zlecenia</i></div>
+      <div>D4 · PHP BCMath (grosze, zero float) — <i>php.net/manual/en/book.bc.php</i></div>
+      <div>D5 · reguły rabatowe wersjonowane (wariant × segment × wolumen) — <i>konfiguracja wtyczki</i></div>
+      <div>D6 · WC_Tax + odwrotne obciążenie art. 196 dyrektywy 2006/112/WE — <i>eur-lex.europa.eu</i></div>
+      <div>D7 · szablony pl/en + PHP intl NumberFormatter — <i>php.net/manual/en/class.numberformatter.php</i></div>
+      <div>D8 · format OF/RRRR/NNNNNN + UNIQUE(offer_number, version) — <i>dev.mysql.com/doc/refman/8.4/en/create-index.html</i></div>
+      <div>D9 · Dompdf, UTF-8, fonty DejaVu (polskie znaki) — <i>github.com/dompdf/dompdf</i></div>
+      <div>D10 · dbDelta() + START TRANSACTION / COMMIT — <i>developer.wordpress.org/reference/functions/dbdelta · dev.mysql.com</i></div>
+      <div>D11 · Plugin API do_action + wp_send_json_success — <i>developer.wordpress.org/plugins/hooks/actions</i></div>
+      <div>Zasada dbDelta: dwie spacje po PRIMARY KEY · KEY zamiast INDEX · pola w osobnych liniach</div>
+    </div>
+  </div>
+
+  <div class="bottombar">
+    <span><svg width="16" height="12" viewBox="0 0 34 26"><ellipse cx="17" cy="5" rx="15" ry="4.5" fill="#1D4ED8"/><path d="M2 5v16c0 2.5 6.7 4.5 15 4.5s15-2 15-4.5V5" fill="none" stroke="#1D4ED8" stroke-width="3"/></svg> BD-2 (dwie strefy)</span>
+    <span><span class="sq" style="background:#1D4ED8"></span> 1 AJAX (wejście/wyjście JSON)</span>
+    <span>🤖 AGENT (wykonanie)</span>
+    <span>⭐ KRYTYK (kontrola pary)</span>
+    <span><span class="sq" style="background:var(--gatebg);border:1.5px dashed var(--gateln)"></span> BRAMKA JAKOŚCI (QA działu)</span>
+    <span><span class="sq" style="background:var(--jsonbg);border:1.5px solid #B6C7F2"></span> JSON (przekazanie)</span>
+    <span><span class="sq" style="background:var(--greenbg);border:1.5px solid var(--greenln)"></span> NASTĘPNY DZIAŁ (kontynuacja)</span>
+    <span style="color:#8A5200;font-weight:700">STATUS BRAMKI: <em style="color:var(--green);font-style:normal">PASS — przejście dalej</em> · <em style="color:var(--red);font-style:normal">FAIL — zatrzymanie / ponowienie</em></span>
+  </div>
+
+  <div class="foot">LP.2 MP Offer Builder + BD-2 · 11 działów · 27 par w działach · 11 bramek jakości · 38 agentów + 38 krytyków · rewizja 1.1 · 21.07.2026 · Automatyzacje WordPress — Mariusz Perzyński</div>
+</div>
+
+<script>
+const D = [
+{n:1,ico:'🛡️',nm:'BRAMA I KONTRAKT ŻĄDANIA',badge:'b0',zk:'wariant cenowy · wejście tylko JSON',
+ pairs:[
+  ['kontrakt','waliduje wejściowy JSON: dane klienta, pozycje, wariant cenowy, język pl/en','schemat-wejścia','komplet błędów naraz; pola spoza schematu odrzucone jawnie'],
+  ['uprawnienie','żądanie automatyczne (po leadzie) albo ręczne od handlowca — ręczne z nonce i uprawnieniami','kto-woła','wywołanie ręczne bez uprawnień = 403 przed pracą'],
+  ['idempotencja','request_id (UUID) na całe żądanie — podwójny klik to jedna oferta','klucz-idempotencji','ten sam request_id nigdy nie tworzy drugiej oferty']
+ ],
+ json:'{ "input": { "client": {…},\n  "items": [ {…} ],\n  "wariant": "partner",\n  "lang": "pl" },\n  "request_id": "3f1c…" }',
+ ops:['Walidacja schematu wejścia','Uprawnienia przy wywołaniu ręcznym','Klucz idempotencji na żądanie'],
+ dok:'dok: JSON Schema 2020-12 · WP REST permission_callback · Nonces',
+ gate:['komplet wejścia: pozycje + wariant + język','brak języka lub pozycji = 422 z listą pól'],
+ note:''},
+
+{n:2,ico:'📥',nm:'STRZAŁ ODCZYTU — BD-2',badge:'br',zk:'pkt 2: pobranie cen z WooCommerce',
+ pairs:[
+  ['produkty','produkty i warianty jedną partią przez oficjalne API — tylko opublikowane i możliwe do sprzedaży','istnienie-produktu','SKU spoza katalogu = błąd wejścia, nie cicha korekta'],
+  ['ceny','regular_price i sale_price każdej pozycji — przez tabelę podręczną meta_lookup','kompletność-cen','pozycja bez ceny zatrzymuje ofertę; cena zero wymaga flagi'],
+  ['podatki','stawki z WC_Tax wg klasy podatkowej; waluta sklepu i miejsca dziesiętne','stawka-istnieje','brak stawki = FAIL, nie domyślne 23%'],
+  ['szablony','szablony ofert pl i en z tabeli wtyczki, z numerem wersji','wersja-szablonu','szablon bez wersji jest nieodtwarzalny w historii'],
+  ['numeracja','ostatni numer w roku + istniejące wersje oferty klienta','punkt-startu','numer-kandydat ze snapshotu, nie zgadywany']
+ ],
+ json:'{ "snapshot": {\n  "products": […],\n  "prices": {…},\n  "tax_rates": {…},\n  "templates": {…},\n  "numbering": {"last":122} },\n  "db_reads": 1 }',
+ ops:['Jeden strzał odczytu do BD-2','Zamrożenie snapshotu w pamięci','Działy 3–9 = czyste funkcje'],
+ dok:'dok: developer.woocommerce.com · WC_Tax (code-reference) · wp_wc_product_meta_lookup',
+ gate:['jeden-odczyt: db_reads = 1, pięć sekcji snapshotu','brak sekcji = FAIL_FATAL'],
+ note:'<b>Z dokumentacji WooCommerce:</b> ceny czyta się przez WC_Product / meta_lookup, <b>nie surowym SQL po wp_postmeta</b> — układ tabel zmienia się między wersjami, stabilnym kontraktem jest API.'},
+
+{n:3,ico:'📋',nm:'WALIDACJA POZYCJI OFERTY',badge:'b0',zk:'automatyzacja 4.3',
+ pairs:[
+  ['istnienie','każda pozycja żądania ma odpowiednik w snapshocie: produkt, konkretny wariant, status opublikowany','dopasowanie-pozycji','pozycja wskazuje jeden wariant, nigdy „pierwszy pasujący”'],
+  ['ilości','ilości całkowite 1–10 000; maksymalnie 50 pozycji na ofertę','zakres-ilości','zero, ujemne i ułamki sztuk = błąd wejścia']
+ ],
+ json:'{ "items_valid": true,\n  "items": [ {\n   "product_id": 812,\n   "variation_id": 9101,\n   "qty": 40 } ] }',
+ ops:['Dopasowanie pozycji do katalogu','Kontrola ilości i limitów koszyka'],
+ dok:'dok: słowniki wobec snapshotu (reguły wg zlecenia)',
+ gate:['policzalność całego koszyka','jeden brak unieważnia kalkulację, nie linię'],
+ note:''},
+
+{n:4,ico:'💰',nm:'CENY BAZOWE',badge:'b0',zk:'kryt. 5.3: właściwe ceny',
+ pairs:[
+  ['jednostkowe','cena jednostkowa: sale_price jeśli aktywna, inaczej regular_price; przeliczenie na grosze','wybór-ceny','źródło ceny (promocyjna/katalogowa) zapisane przy pozycji'],
+  ['pozycje','wartość pozycji = cena × ilość, w groszach, bez zaokrągleń pośrednich','suma-pozycji','suma pozycji = suma kontrolna; arytmetyka tylko na int']
+ ],
+ json:'{ "lines": [ {\n  "unit_grosze": 12999,\n  "line_grosze": 519960,\n  "price_source": "sale" } ],\n  "subtotal_grosze": 519960 }',
+ ops:['Wybór ceny: promocyjna / katalogowa','Kwoty w groszach — zero float'],
+ dok:'dok: PHP BCMath — php.net/manual/en/book.bc.php',
+ gate:['zero-float: arytmetyka całkowitoliczbowa','0.1 + 0.2 ≠ 0.3 — float rozjeżdża grosze w PDF'],
+ note:''},
+
+{n:5,ico:'🏷️',nm:'KALKULACJA RABATÓW',badge:'b0',zk:'pkt 2: kalkulacja rabatu',
+ pairs:[
+  ['dobór','reguły wg wariantu cenowego, segmentu i pasma wolumenu; kolejność priorytetowa','cytat-reguły','każdy rabat cytuje regułę z konkretnej wersji zestawu'],
+  ['zastosowanie','rabat na pozycji albo na sumie — jedna metoda, jawnie wybrana; górny limit łączny','limit-rabatu','rabat ponad limit = flaga do akceptacji, nie ciche przycięcie']
+ ],
+ json:'{ "discounts": [ {\n  "rule_id": "R-07",\n  "amount_grosze": 25998 } ],\n  "discount_total": 25998,\n  "rules_version": "v2" }',
+ ops:['Dobór reguł: wariant × segment × wolumen','Limit łącznego rabatu'],
+ dok:'dok: reguły rabatowe wersjonowane (konfiguracja wtyczki)',
+ gate:['odtwarzalność-rabatu','ten sam koszyk + ta sama wersja reguł = ten sam wynik'],
+ note:''},
+
+{n:6,ico:'🧾',nm:'PODATKI I SUMA KOŃCOWA',badge:'b0',zk:'kryt. 5.3 · art. 196 dyrektywy VAT',
+ pairs:[
+  ['mechanizm','PL — stawka krajowa z WC_Tax; UE z ważnym VAT — odwrotne obciążenie 0%; poza UE — poza zakresem VAT','wybór-mechanizmu','mechanizm i jego podstawa zapisane przy ofercie'],
+  ['zaokrąglenia','netto, VAT i brutto w groszach; zaokrąglenie raz — na sumie podatku, metodą półówkową','jeden-punkt-zaokrąglenia','pozycje osobno vs suma naraz = dwa różne wyniki; obowiązuje jedna metoda']
+ ],
+ json:'{ "tax": {\n  "mechanism": "reverse_charge",\n  "rate": 0, "vat_grosze": 0 },\n  "totals": { "net": 493962,\n  "vat": 0, "gross": 493962 },\n  "currency": "PLN" }',
+ ops:['Mechanizm: PL / UE reverse charge / poza UE','Jedno zaokrąglenie, na sumie'],
+ dok:'dok: WC_Tax · dyrektywa 2006/112/WE art. 196 (eur-lex)',
+ gate:['spójność-sumy','netto + VAT = brutto, zawsze, w groszach'],
+ note:'<b>Odwrotne obciążenie:</b> B2B do firmy z UE z ważnym VAT — podatek rozlicza nabywca (art. 196); oferta EN dostaje adnotację „reverse charge”. Status VAT przychodzi w żądaniu, ustalony przy leadzie.'},
+
+{n:7,ico:'📝',nm:'SZABLON I TREŚĆ OFERTY',badge:'b0',zk:'pkt 2: szablony · kryt. 5.3: PL i EN',
+ pairs:[
+  ['dobór','szablon wg języka z żądania: pl albo en; wersja szablonu do historii','język-szablonu','brak szablonu w języku = FAIL, nie ciche przejście na polski'],
+  ['scalenie','podstawia dane klienta, pozycje, rabaty, sumy; liczby i daty w konwencji języka','puste-pola','żaden znacznik podstawienia nie zostaje pusty ani w nawiasach']
+ ],
+ json:'{ "document": {\n  "lang": "en",\n  "template_version": "1.3",\n  "html": "…" } }',
+ ops:['Szablon wg języka pl / en','Formaty kwot i dat: 1 234,56 zł / 1,234.56'],
+ dok:'dok: szablony wtyczki + PHP intl NumberFormatter',
+ gate:['jednojęzyczność dokumentu','mieszanka pl/en w jednej ofercie = FAIL'],
+ note:''},
+
+{n:8,ico:'#️⃣',nm:'NUMERACJA I WERSJA',badge:'b0',zk:'pkt 2: numeracja ofert i historia wersji',
+ pairs:[
+  ['numer','nowa oferta: kandydat = ostatni numer w roku + 1 (ze snapshotu), format OF/RRRR/NNNNNN','ciągłość-numeracji','rok z daty oferty; licznik wraca do 1 z dniem 1 stycznia'],
+  ['wersja','korekta: ten sam numer, wersja + 1, wskazanie na wersję poprzednią','przyrost-wersji','nowa wersja nigdy nie nadpisuje poprzedniej — historia tylko dopisywana']
+ ],
+ json:'{ "offer_number":\n  "OF/2026/000123",\n  "version": 1,\n  "parent_version": null }',
+ ops:['Numer PRZED renderem PDF (kryt. 5.3)','Wersja +1 przy korekcie, bez nadpisań'],
+ dok:'dok: UNIQUE(offer_number, version) — dev.mysql.com',
+ gate:['jedno-albo-drugie','nowy numer ALBO podbita wersja — nigdy oba naraz'],
+ note:'<b>Kolizja numeru</b> (dwie oferty równolegle) wychodzi na indeksie UNIQUE przy zapisie — FAIL_RETRY: numer + 1, ponowny render, ponowna transakcja (maks. 2 podejścia).'},
+
+{n:9,ico:'📄',nm:'RENDER PDF',badge:'b0',zk:'pkt 2: generowanie PDF · kryt. 5.3',
+ pairs:[
+  ['render','HTML z Działu 7 — PDF A4; fonty osadzone; metadane (tytuł = numer oferty)','diakrytyka','ą ć ę ł ń ó ś ź ż w pliku, nie krzaki — font osadzony, nie systemowy'],
+  ['kontrola','strony > 0, rozmiar w limicie; w treści pliku numer oferty i suma brutto; SHA-256','zawartość-pdf','numer i kwota wyciągnięte z pliku = zgodne z kopertą']
+ ],
+ json:'{ "pdf": {\n  "tmp_path": "tmp/of-….pdf",\n  "pages": 3,\n  "bytes": 182344,\n  "sha256": "ab19…" } }',
+ ops:['Render A4, fonty DejaVu osadzone','Kontrola treści + skrót pliku'],
+ dok:'dok: Dompdf — github.com/dompdf/dompdf',
+ gate:['plik-to-nie-dowód: sprawdzana treść, nie istnienie','plik tymczasowy; nazwa docelowa po COMMIT'],
+ note:''},
+
+{n:10,ico:'💾',nm:'ZAPIS — JEDNA TRANSAKCJA',badge:'bw',zk:'kryt. 5.1 · 5.5 · unikalna numeracja',
+ pairs:[
+  ['plan','komplet operacji: nagłówek, pozycje, wersja (pełny stan data_json), dziennik','zgodność-z-DDL','kwoty DECIMAL, długości w limitach, statusy ze słownika'],
+  ['transakcja','START TRANSACTION — INSERT-y — COMMIT; kolizja UNIQUE — RETRY do D8; inny błąd — ROLLBACK','jeden-zapis','db_writes = 1; nie istnieje oferta bez pozycji ani wersji'],
+  ['dziennik','zdarzenia offer.created / offer.versioned z wartościami przed i po','odtwarzalność','historię statusów i wersji odtwarza sam dziennik (kryt. 5.5)']
+ ],
+ json:'{ "tx": "commit",\n  "offer_id": 57,\n  "offer_number":\n  "OF/2026/000123",\n  "version": 1,\n  "affected_rows": 9,\n  "db_writes": 1 }',
+ ops:['Jedna transakcja: oferta + pozycje + wersja + dziennik','Po ROLLBACK: tymczasowy PDF kasowany'],
+ dok:'dok: dbDelta() (developer.wordpress.org) · MySQL COMMIT',
+ gate:['atomowość: wiersze = plan','żadnych rekordów częściowych i PDF-sierot'],
+ note:'<b>dbDelta():</b> dwie spacje po PRIMARY KEY, słowo KEY zamiast INDEX, każde pole w osobnej linii, zero pustych linii.'},
+
+{n:11,ico:'📤',nm:'ODPOWIEDŹ I PRZEKAZANIE',badge:'b0',zk:'automatyzacja 4.4: oferta do zatwierdzenia',
+ pairs:[
+  ['zdarzenie','mp_offer_created wystawione dokładnie raz, po COMMIT; oferta w statusie draft','jednokrotność','zdarzenie nigdy przed COMMIT — inaczej dalszy etap dostaje ofertę-widmo'],
+  ['odpowiedź','JSON: offer_id, numer, wersja, adres PDF, status, trace_id; kod HTTP wg wyniku','zakres-odpowiedzi','bez ścieżek serwera i danych innych ofert']
+ ],
+ json:'{ "success": true,\n  "offer_id": 57,\n  "pdf_url": "…",\n  "status": "draft",\n  "trace_id": "3f1c…" }',
+ ops:['Zdarzenie po COMMIT, dokładnie raz','Wyjście tylko JSON + trace_id'],
+ dok:'dok: do_action · wp_send_json_success (developer.wordpress.org)',
+ gate:['tylko-json: wyjście zgodne ze schematem','nic nie wisi w tle po odpowiedzi'],
+ note:''}
+];
+
+const BLBL = {b0:'0 ZAPYTAŃ', br:'1 ODCZYT', bw:'1 ZAPIS'};
+
+let out = '';
+D.forEach((d, i) => {
+  const pairs = d.pairs.map((p,k)=>`
+    <div class="pl">
+      <div class="abox"><b>🤖 AGENT A${d.n}.${k+1} · ${p[0]}</b><p>${p[1]}</p></div>
+      <div class="kbox"><b>⭐ KRYTYK K${d.n}.${k+1} · ${p[2]}</b><p>${p[3]}</p></div>
+    </div>`).join('');
+
+  out += `
+  <div class="dept">
+    <div class="drow">
+      <div class="dcell">
+        <div class="dnum"><span class="circ">${d.n}</span><span class="dico">${d.ico}</span></div>
+        <div class="dname">${d.nm}</div>
+        <span class="chip ${d.badge}">${BLBL[d.badge]}</span>
+        <span class="chip zk">${d.zk}</span>
+        <span class="chip b0">${d.pairs.length} par A–K</span>
+      </div>
+      <div class="pairs">${pairs}</div>
+      <div class="jsonbox">${d.json}</div>
+      <div class="opbox">${d.ops.map(o=>`<p>${o}</p>`).join('')}<span class="dok">${d.dok}</span></div>
+      ${d.note?`<div class="note">${d.note}</div>`:''}
+    </div>
+  </div>
+  <div class="gatebar">
+    <b>BRAMKA JAKOŚCI ${d.n} — QA AGENT + QA KRYTYK — <em>PASS</em> / <u>FAIL</u></b>
+    <span>sprawdza: ${d.gate[0]} · ${d.gate[1]}</span>
+  </div>`;
+  if(i < D.length-1) out += `<div class="jflow"><span>json ▼</span></div>`;
+});
+document.getElementById('pipe').innerHTML = out;
+</script>
+</body>
+</html>
