@@ -622,9 +622,48 @@ final class MP_AU_A18_Wzorce_SQL extends MP_AU_Agent {
 	 * @param MP_AU_Kontekst $kontekst Kontekst.
 	 * @return MP_AU_Wynik
 	 */
+	/**
+	 * Slowa, po ktorych w SQL stoi NAZWA obiektu, a nie wartosc.
+	 *
+	 * @var string
+	 */
+	private const PRZED_IDENTYFIKATOREM = 'FROM|JOIN|INTO|UPDATE|TABLE|REFERENCES|CONSTRAINT|INDEX|TRUNCATE|DESCRIBE|ANALYZE|OPTIMIZE|EXISTS';
+
+	/**
+	 * Czy KAZDA zmienna w zapytaniu stoi w pozycji nazwy obiektu.
+	 *
+	 * Rozroznienie jest istotne, bo `prepare()` podstawia WARTOSCI. Symbol `%s`
+	 * w miejscu nazwy tabeli otoczylby ja cudzyslowem i zapytanie przestaloby
+	 * dzialac — czyli zadanie „uzyj prepare()" bywa niewykonalne. Zgloszenie,
+	 * ktorego nie da sie spelnic, uczy ignorowac cala regule.
+	 *
+	 * @param string $sql Tresc zapytania.
+	 * @return bool
+	 */
+	private static function tylko_identyfikatory( string $sql ): bool {
+		if ( ! preg_match_all( '/\{?\$(?!wpdb->prefix)[a-z_][a-z0-9_]*(?:->[a-z_][a-z0-9_]*)?\}?/i', $sql, $trafienia, PREG_OFFSET_CAPTURE ) ) {
+			return false;
+		}
+
+		foreach ( $trafienia[0] as $zmienna ) {
+			$przed = substr( $sql, 0, (int) $zmienna[1] );
+
+			if ( ! preg_match( '/\b(?:' . self::PRZED_IDENTYFIKATOREM . ')\s+$/i', $przed ) ) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * @param MP_AU_Kontekst $kontekst Kontekst.
+	 * @return MP_AU_Wynik
+	 */
 	public function zbierz( MP_AU_Kontekst $kontekst ): MP_AU_Wynik {
-		$alternatywy = array();
-		$bez_prepare = array();
+		$alternatywy    = array();
+		$bez_prepare    = array();
+		$identyfikatory = array();
 
 		foreach ( $kontekst->workspace->branche() as $branch ) {
 			foreach ( $kontekst->workspace->pliki_php( $branch, true ) as $plik ) {
@@ -654,14 +693,37 @@ final class MP_AU_A18_Wzorce_SQL extends MP_AU_Agent {
 				// (b) zapytanie ze zmienna, ale bez prepare() w poblizu.
 				if ( preg_match_all( '/\$wpdb->(?:get_var|get_row|get_col|get_results|query)\s*\(\s*(["\'])(.{0,400}?)\1\s*\)/is', $tresc, $t, PREG_SET_ORDER ) ) {
 					foreach ( $t as $trafienie ) {
-						if ( preg_match( '/\$(?!wpdb->prefix)[a-z_][a-z0-9_]*/i', $trafienie[2] )
-							&& false === strpos( $trafienie[0], 'prepare' ) ) {
-							$bez_prepare[] = array(
-								'plik'     => $wzgledna,
-								'linia'    => MP_AU_A15_Kod_Kontra_DDL::linia( $tresc, $trafienie[0] ),
-								'fragment' => trim( substr( $trafienie[0], 0, 160 ) ),
-							);
+						if ( ! preg_match( '/\$(?!wpdb->prefix)[a-z_][a-z0-9_]*/i', $trafienie[2] )
+							|| false !== strpos( $trafienie[0], 'prepare' ) ) {
+							continue;
 						}
+
+						$linia = MP_AU_A15_Kod_Kontra_DDL::linia( $tresc, $trafienie[0] );
+						$wpis  = array(
+							'plik'     => $wzgledna,
+							'linia'    => $linia,
+							'fragment' => trim( substr( $trafienie[0], 0, 160 ) ),
+						);
+
+						/*
+						 * Nazwa tabeli albo wiezu to nie to samo co wartosc.
+						 * `prepare()` obsluguje wylacznie wartosci, wiec dla DDL
+						 * („ALTER TABLE {$tabela}", „DROP TABLE IF EXISTS {$tabela}")
+						 * nie ma poprawnej wersji z prepare — zadanie byloby
+						 * niewykonalne. Zostaje pytanie, SKAD ta nazwa pochodzi,
+						 * i na to musi odpowiedziec adnotacja przy linii.
+						 * Bez adnotacji czytajacy nie ma jak tego sprawdzic,
+						 * wiec ustalenie zostaje — tyle ze mowi prawde o problemie.
+						 */
+						if ( self::tylko_identyfikatory( $trafienie[2] ) ) {
+							if ( ! MP_AU_Pomoc::wyciszone( $tresc, $linia ) ) {
+								$identyfikatory[] = $wpis;
+							}
+
+							continue;
+						}
+
+						$bez_prepare[] = $wpis;
 					}
 				}
 			}
@@ -669,8 +731,9 @@ final class MP_AU_A18_Wzorce_SQL extends MP_AU_Agent {
 
 		return MP_AU_Wynik::ok(
 			array(
-				'alternatywy' => $alternatywy,
-				'bez_prepare' => $bez_prepare,
+				'alternatywy'    => $alternatywy,
+				'bez_prepare'    => $bez_prepare,
+				'identyfikatory' => $identyfikatory,
 			)
 		);
 	}
@@ -718,6 +781,26 @@ final class MP_AU_K18_Wzorce_SQL extends MP_AU_Krytyk {
 					'dowod'      => (string) $b['fragment'],
 					'scenariusz' => 'Wartosc sterowana przez uzytkownika trafia do zapytania bez przygotowania (CWE-89).',
 					'status'     => MP_AU_Ustalenie::PRAWDOPODOBNE,
+					'naprawa'    => 'Przepuscic wartosc przez `$wpdb->prepare()` z symbolem odpowiadajacym typowi.',
+				)
+			);
+		}
+
+		foreach ( (array) ( $od_agenta->dane['identyfikatory'] ?? array() ) as $i ) {
+			$ustalenia[] = new MP_AU_Ustalenie(
+				'1.8',
+				'Nazwa obiektu bazy wstawiona interpolacja, bez adnotacji o zrodle.',
+				MP_AU_Ustalenie::SREDNIE,
+				array(
+					'plik'       => (string) $i['plik'],
+					'linia'      => (int) $i['linia'],
+					'dowod'      => (string) $i['fragment'],
+					'scenariusz' => 'W tym miejscu `prepare()` nie ma zastosowania — podstawia wartosci, nie nazwy '
+						. 'tabel. Pytanie brzmi wiec inaczej: skad ta nazwa pochodzi. Jesli moze pochodzic '
+						. 'z zadania, mamy wstrzykniecie przez nazwe obiektu, ktorego zadne `prepare()` nie zatrzyma.',
+					'status'     => MP_AU_Ustalenie::PRAWDOPODOBNE,
+					'naprawa'    => 'Budowac nazwe wylacznie z `$wpdb->prefix` i stalych klasy, a przy linii zostawic '
+						. 'adnotacje mowiaca, skad nazwa pochodzi (tak jak robia to trzy wtyczki tego projektu).',
 				)
 			);
 		}
