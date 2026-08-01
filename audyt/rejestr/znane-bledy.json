@@ -928,6 +928,19 @@
       "lekcja": "Gdy budzet na weryfikacje jest mniejszy niz liczba ustalen, o wyniku audytu decyduje KOLEJNOSC, a nie tresc. Ustalenie krytyczne samo jedno przewraca bramke, wiec to jemu nalezy sie druga ocena w pierwszej kolejnosci — inaczej najdrozsza konsekwencja audytu opiera sie na jedynym zdaniu, ktorego nikt nie zakwestionowal. Sortowanie musi byc STABILNE (dekoracja indeksem), zeby raporty dalo sie dalej porownywac miedzy przebiegami.",
       "test": "audyt/tests/sedzia-bierze-najciezsze.php",
       "para": "2.9"
+    },
+    {
+      "id": "P1-G16",
+      "data": "2026-08-01",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Firma z innego kraju UE czytala, ze pomylila sie w numerze, ktory jest poprawny",
+      "klasa": "komunikat-nie-nazywa-prawdziwego-powodu",
+      "plik": "includes/pipeline/departments/class-mp-department-02.php, class-mp-department-03.php",
+      "dowod": "Agent 2.3 oddawal \"NIP powinien miec 10 cyfr\" dla kazdej zlej dlugosci, bez wzgledu na pole country; Agent 3.1 oddawal \"Niepoprawna suma kontrolna NIP\" dla kazdego dziesieciocyfrowego numeru, ktory nie przechodzi POLSKIEJ sumy kontrolnej. Kraj byl w kontekscie w obu miejscach (BD-3 ma UNIQUE (country, nip), VIES dostaje countryCode), ale do tresci nie wchodzil.",
+      "skutek": "Niemiecki USt-IdNr. ma nie te dlugosc, wiec czlowiek czytal komunikat sugerujacy literowke w numerze, ktory jest w pelni poprawny — tylko w innym kraju, i poprawial numer zamiast dowiedziec sie, ze tego kraju nie obslugujemy. Gorszy przypadek to Slowacja: tamtejszy numer VAT ma DOKLADNIE dziesiec cyfr, wiec przechodzi kontrole dlugosci w Dziale 2 i dociera do Dzialu 3, gdzie polska suma kontrolna go odrzuca komunikatem o bledzie rachunkowym, ktorego nie ma.",
+      "lekcja": "Sama regula ZOSTAJE polska — to decyzja zakresu klienta, nie przeoczenie, i naprawa nie ma prawa jej ruszyc. Naprawiony jest wylacznie tekst i wylacznie dla kraju roznego od PL. Zbior przyjmowanych i odrzucanych numerow jest nietkniety, czego pilnuje osobna sekcja kontr-asercji (poprawny polski NIP przy country=DE nadal przechodzi oba dzialy, przy country=PL komunikaty sa co do znaku takie jak byly). Kod kraju wchodzi do zdania tylko w ksztalcie ISO 3166-1: komunikat dla czlowieka nie moze byc kanalem na cudzy tekst. Osobny wniosek o zasiegu: zanim uznasz galaz za nieosiagalna, policz kraje — \"do Dzialu 3 nie dojdzie zaden numer zagraniczny\" bylo nieprawda przez Slowacje.",
+      "test": "tests/naprawy/komunikat-nip.php (sekcje D i E)",
+      "para": "1.26"
     }
   ]
 }
