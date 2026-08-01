@@ -165,7 +165,7 @@
       "plik": "tests/koncowe/scenariusze-1-10.php",
       "dowod": "Asercja oczekiwala zer, a sprawdzana funkcja zwracala zera z powodu awarii",
       "skutek": "Punkt 8 testow raportowal PASS przy niedzialajacej funkcji.",
-      "test": "",
+      "test": "tests/koncowe/scenariusze-1-10.php + tests/security/scenariusze-s1-s12.php (kontrole pozytywne)",
       "para": "1.24",
       "lekcja": "Test, ktory przechodzi rowniez wtedy, gdy funkcja jest zepsuta, jest gorszy niz brak testu — zamyka temat."
     },
