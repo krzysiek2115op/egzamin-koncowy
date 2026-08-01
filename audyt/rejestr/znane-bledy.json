@@ -889,6 +889,45 @@
       "lekcja": "Pulapka POMIARU, nie kodu, i to ona kosztowala tu najwiecej. W WordPressie 7.0 load_plugin_textdomain() NICZEGO JUZ NIE LADUJE: rejestruje sciezke przez WP_Textdomain_Registry::set_custom_path() i zwraca true, a ladowanie jest just-in-time przy pierwszym __(). Pierwsza wersja sondy nasluchiwala override_load_textdomain i nie zobaczyla nic — ani dla LP.3, ani dla LP.2, ktora wolala te funkcje od dawna; filtr byl wlasciwy dla WordPressa sprzed 6.7. WP_Textdomain_Registry::has() tez sie nie nadaje: oddaje true dla dowolnej, nigdy nierejestrowanej domeny. Jedynym sladem jest prywatne custom_paths, czytane refleksja. Zanim uznasz brak sygnalu za dowod, sprawdz na wtyczce, ktora RObi juz to, czego szukasz.",
       "test": "tests/naprawy/tlumaczenia-ladowane.php",
       "para": "1.20"
+    },
+    {
+      "id": "P1-G15",
+      "data": "2026-08-01",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Stopka alarmu obiecywala wyciszenie \"z tego samego miejsca\", a wyjatki mialy jeden klucz na cala wtyczke",
+      "klasa": "tekst-obiecuje-wiecej-niz-kod-robi",
+      "plik": "includes/pipeline/class-mp-pipeline-logger.php",
+      "dowod": "log_exception() uzywalo transienta o stalej nazwie mp_notify_exception, bez numeru dzialu, podczas gdy sciezka bledu dzialu (notify_admin) ma klucz mp_notify_<dzial>. Ta sama stopka alert_footer() idzie na OBIE sciezki i mowi: \"przez najblizsze 15 minut kolejne alarmy z tego samego miejsca sa wyciszone\". Drugi wpis tej samej rodziny: log_alert_failure() zapisywalo lead_id => null na sztywno i nie dokladalo request_id do meta_json.",
+      "skutek": "Wyjatek w Dziale 3 uciszal na kwadrans wyjatki z Dzialu 9. Druga, zupelnie niezalezna awaria nie dawala znaku zycia, a administrator czytal w stopce, ze wyciszone jest tylko jedno miejsce — czyli dokladnie ten blad, przed ktorym ta stopka miala bronic (P1-G10). Osobno: wpis admin_alert_failed byl jedynym zdarzeniem w dzienniku, ktorego nie dalo sie przypisac do zgloszenia, mimo ze to on opisuje moment, w ktorym alarm NIE doszedl — identyfikatory byly tylko w tresci maila, czyli w wiadomosci, ktora nie dotarla.",
+      "lekcja": "Kiedy tekst dla czlowieka i zachowanie kodu sie rozjezdzaja, naprawiaj ZACHOWANIE, jesli obietnica jest sluszna — obnizenie obietnicy do poziomu kodu jest tansze, ale zostawia gorszy produkt. Zmiana nazwy klucza transienta ma swoj ogon w testach: am_reset() czyscil stara nazwe, wiec kolejny przebieg widzial alarm jako wyciszony i test padal z powodu swojego POPRZEDNIEGO przebiegu, nie z powodu kodu. Slad w dzienniku o niedostarczonej wiadomosci musi miec identyfikatory W SOBIE, bo kanal, ktory je niosl, wlasnie zawiodl.",
+      "test": "tests/naprawy/alarm-mowi-prawde.php (sekcje F i G)",
+      "para": "1.26"
+    },
+    {
+      "id": "P2-S9",
+      "data": "2026-08-01",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Blizniak P1-G15: jeden ogranicznik wyjatkow na cala wtyczke i slad bez offer_id",
+      "klasa": "tekst-obiecuje-wiecej-niz-kod-robi",
+      "plik": "includes/pipeline/class-mp-ob-pipeline-logger.php",
+      "dowod": "mp_ob_notify_exception bez numeru dzialu, przy kluczu mp_ob_notify_<dzial> na sciezce bledu dzialu; log_alert_failure() z offer_id => null na sztywno i bez request_id w meta_json.",
+      "skutek": "To samo co w LP.1: wyjatek w Dziale 4 uciszal wyjatki z Dzialu 10, a wpis admin_alert_failed nie dawal sie przypisac do dokumentu.",
+      "lekcja": "Ten sam defekt w dwoch wtyczkach to nie jeden wpis w rejestrze, tylko dwa — bo to osobne klasy z wlasnymi kluczami i osobne testy. Wspolny test dawalby zludzenie pokrycia. LP.3 tej rodziny nie ma: jej dziennik idzie przez MP_SW_Log i nie zna tej sciezki.",
+      "test": "tests/naprawy/alarm-mowi-prawde.php (sekcje F i G)",
+      "para": "1.26"
+    },
+    {
+      "id": "NARZ-F2",
+      "data": "2026-08-01",
+      "wtyczka": "audyt",
+      "tytul": "Drugi sedzia dostawal osiem PIERWSZYCH ustalen, a nie osiem NAJCIEZSZYCH",
+      "klasa": "kolejnosc-decyduje-o-tym-co-w-ogole-zostanie-sprawdzone",
+      "plik": "audyt/includes/pary/dzial-02-weryfikacja.php",
+      "dowod": "MP_AU_A29_Sedzia::zbierz() skladalo dossier w kolejnosci naplywania, a krytyk bral tyle paczek po 8, ile pozwala limit_modelu (domyslnie 6, czyli JEDNA paczke). Ustalenia ciezkie pochodza z par MODELOWYCH 1.25 i 1.26, ktore chodza na koncu Dzialu 1, wiec byly strukturalnie ostatnie w kolejce.",
+      "skutek": "Przebieg na kodzie 1.3.5 (01.08.2026) zakonczyl sie werdyktem NO GO z JEDNEGO ustalenia krytycznego, ktorego drugi sedzia w ogole nie widzial: raport nosi adnotacje [2.9] przy osmiu ustaleniach sposrod 52, same lekkie. Sonda w kodzie obalila to ustalenie w calosci (Agent 7.2 wtyczki 3 odsiewa odbiorcow bez adresu do skipped_notifications — obie sciezki, efektowa i follow-up).",
+      "lekcja": "Gdy budzet na weryfikacje jest mniejszy niz liczba ustalen, o wyniku audytu decyduje KOLEJNOSC, a nie tresc. Ustalenie krytyczne samo jedno przewraca bramke, wiec to jemu nalezy sie druga ocena w pierwszej kolejnosci — inaczej najdrozsza konsekwencja audytu opiera sie na jedynym zdaniu, ktorego nikt nie zakwestionowal. Sortowanie musi byc STABILNE (dekoracja indeksem), zeby raporty dalo sie dalej porownywac miedzy przebiegami.",
+      "test": "audyt/tests/sedzia-bierze-najciezsze.php",
+      "para": "2.9"
     }
   ]
 }

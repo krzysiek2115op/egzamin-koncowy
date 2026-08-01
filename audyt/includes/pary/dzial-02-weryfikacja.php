@@ -856,10 +856,50 @@ final class MP_AU_A29_Sedzia extends MP_AU_Agent {
 			);
 		}
 
+		/*
+		 * NAJCIEZSZE IDA PIERWSZE — bo do modelu pojdzie tylko poczatek listy.
+		 *
+		 * Krytyk bierze tyle paczek, ile pozwala `limit_modelu` (domyslnie 6,
+		 * czyli JEDNA paczka po osiem sztuk). Dossier skladane w kolejnosci
+		 * naplywania dawalo wiec drugiemu sedziemu osiem PIERWSZYCH zgloszen
+		 * przebiegu — a ustalenia ciezkie pochodza z par MODELOWYCH (1.25, 1.26),
+		 * ktore chodza na koncu Dzialu 1. Ustalenie krytyczne bylo przez to
+		 * strukturalnie ostatnie w kolejce do drugiej oceny, mimo ze samo jedno
+		 * przewraca bramke calego audytu na NO GO.
+		 *
+		 * Tak wlasnie skonczyl sie przebieg na kodzie 1.3.5 (01.08.2026): werdykt
+		 * NO GO z jednego ustalenia krytycznego, ktorego drugi sedzia nie widzial,
+		 * a ktore sonda w kodzie obalila w calosci.
+		 *
+		 * Sortowanie jest STABILNE (dekoracja indeksem), zeby kolejnosc w obrebie
+		 * jednej wagi zostala bez zmian i raporty dalo sie dalej porownywac.
+		 */
+		$kolejnosc = array(
+			MP_AU_Ustalenie::KRYTYCZNE => 0,
+			MP_AU_Ustalenie::SREDNIE   => 1,
+			MP_AU_Ustalenie::DROBNE    => 2,
+		);
+
+		$pozycje = array_keys( $do_oceny );
+		usort(
+			$pozycje,
+			static function ( $a, $b ) use ( $do_oceny, $kolejnosc ) {
+				$wa = $kolejnosc[ $do_oceny[ $a ]['waga'] ] ?? 3;
+				$wb = $kolejnosc[ $do_oceny[ $b ]['waga'] ] ?? 3;
+
+				return $wa === $wb ? $a <=> $b : $wa <=> $wb;
+			}
+		);
+
+		$posortowane = array();
+		foreach ( $pozycje as $poz ) {
+			$posortowane[] = $do_oceny[ $poz ];
+		}
+
 		return MP_AU_Wynik::ok(
 			array(
-				'paczki' => array_chunk( $do_oceny, self::PACZKA ),
-				'ile'    => count( $do_oceny ),
+				'paczki' => array_chunk( $posortowane, self::PACZKA ),
+				'ile'    => count( $posortowane ),
 			)
 		);
 	}
