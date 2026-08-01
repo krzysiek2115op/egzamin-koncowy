@@ -64,7 +64,25 @@ class MP_D7_Agent_Dedup extends MP_Abstract_Agent {
 			// działem 7) — klucz unikalności w BD-3 to (country, nip), patrz dział 1.1.
 			$country  = (string) $context->get( 'country', 'PL' );
 			$archived = MP_Lead_Intake_DB::get_archived_lead_by_nip( $nip, $country );
-			if ( $archived && isset( $archived['id'] ) ) {
+
+			/*
+			 * `null` = odczyt się NIE odbył (patrz class-mp-db.php). Potwierdzony
+			 * brak archiwum to pusta tablica. Bez tego rozróżnienia awaria
+			 * zapytania wyglądała identycznie jak „firma nigdy tu nie była":
+			 * 7.3 szedł na INSERT, ten bił w UNIQUE (country, nip) — bo wiersz po
+			 * soft-delete nadal tam stoi — i oddawał generyczne `insert_failed`.
+			 * Ta sama zasada co przy `leads_checked` wyżej: „nie ustalono" to nie
+			 * to samo co „ustalono, że nie".
+			 */
+			if ( is_null( $archived ) ) {
+				return MP_Result::fail(
+					'Archiwum firm niesprawdzone — odczyt z BD-3 się nie odbył.',
+					array( 'errors' => array( 'archive_checked' ) ),
+					'archive_not_checked'
+				);
+			}
+
+			if ( isset( $archived['id'] ) ) {
 				$reactivate_id = (int) $archived['id'];
 			}
 		}

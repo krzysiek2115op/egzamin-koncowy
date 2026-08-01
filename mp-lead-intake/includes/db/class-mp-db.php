@@ -111,18 +111,40 @@ class MP_Lead_Intake_DB {
 	 *
 	 * @param string $nip     NIP firmy.
 	 * @param string $country Kod kraju ISO 3166-1 alpha-2 (np. 'PL').
-	 * @return array|null Wiersz (ARRAY_A) lub null, gdy brak.
+	 * @return array|null Wiersz (ARRAY_A); pusta tablica, gdy brak; null, gdy odczyt się nie udał.
 	 */
 	public static function get_archived_lead_by_nip( $nip, $country ) {
 		global $wpdb;
 		$table = self::leads_table();
+
+		// Zerowane PRZED zapytaniem — patrz get_leads_by_nip() wyżej. Tu jest to
+		// jeszcze istotniejsze: `insert_activity()` w tym samym przebiegu potrafi
+		// zostawić `last_error` po nieudanym ZAPISIE, a bez wyzerowania ten ślad
+		// przebrałby się za awarię TEGO odczytu i zatrzymał poprawne zgłoszenie.
+		$wpdb->last_error = '';
 
 		$row = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			$wpdb->prepare( "SELECT * FROM $table WHERE nip = %s AND country = %s AND deleted_at IS NOT NULL ORDER BY id DESC LIMIT 1", $nip, $country ),
 			ARRAY_A
 		);
 
-		return is_array( $row ) ? $row : null;
+		/*
+		 * `get_row()` oddaje przy błędzie `null` — czyli dokładnie to samo, co przy
+		 * braku pasującego wiersza. Dwa różne stany, jedna odpowiedź; to ta sama
+		 * pomyłka, którą naprawiliśmy w `get_leads_by_nip()` (P1-G11), i tu kosztuje
+		 * więcej: Agent 7.1 czytał brak odpowiedzi jako „firma nie ma archiwum",
+		 * więc Agent 7.3 szedł na INSERT, ten bił w UNIQUE (country, nip) i wracał
+		 * generycznym `insert_failed`. Powracająca firma nie była reaktywowana i nie
+		 * dostawała prawdziwego powodu odmowy.
+		 *
+		 * Jedna reguła dla całej klasy: `null` z metody odczytu znaczy ZAWSZE
+		 * „odczyt się nie odbył”, a potwierdzony brak wiersza to pusta tablica.
+		 */
+		if ( '' !== (string) $wpdb->last_error ) {
+			return null;
+		}
+
+		return is_array( $row ) ? $row : array();
 	}
 
 	/**
