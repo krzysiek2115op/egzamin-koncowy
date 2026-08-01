@@ -14,7 +14,7 @@
     "Jesli para nie istnieje, blad moze wrocic niezauwazony — para 1.15 to zglasza."
   ],
   "wersja": 1,
-  "zrodlo": "audyt enterprise 29.07.2026 + naprawy 29-30.07.2026 + Grupy A, B i C po audycie 31.07.2026 (wydanie 1.3.1) + ustalenia drobne 31.07.2026 + ustalenia z glebokiego przebiegu 31.07.2026 + ustalenia srednie 01.08.2026",
+  "zrodlo": "audyt enterprise 29.07.2026 + naprawy 29-30.07.2026 + Grupy A, B i C po audycie 31.07.2026 (wydanie 1.3.1) + ustalenia drobne 31.07.2026 + ustalenia z glebokiego przebiegu 31.07.2026 + ustalenia srednie 01.08.2026 + cztery ostatnie ustalenia i wydanie 1.3.4 (01.08.2026)",
   "bledy": [
     {
       "id": "P3-K1",
@@ -732,6 +732,97 @@
       "skutek": "Jak w P1-G10, a dodatkowo: przy danych niekodowalnych do JSON sprintf('%s', false) dawal pusty ciag i mail konczyl sie linia „Bledy: \" — komunikat wygladajacy na kompletny, bez ani jednego szczegolu awarii.",
       "lekcja": "Gdy dwa moduly maja ten sam kod, musza miec tez ten sam test — inaczej naprawa w jednym miejscu zostawia drugie. Test P2 jest bliznaczy do P1 celowo.",
       "test": "tests/naprawy/alarm-mowi-prawde.php",
+      "para": "1.26"
+    },
+    {
+      "id": "P2-G14",
+      "data": "2026-08-01",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Payload zdarzenia budowany z odczytu SPRZED zapisu",
+      "klasa": "dane-odczytane-raz-i-uzyte-po-zmianie-stanu",
+      "plik": "includes/class-mp-offer-builder-approval.php",
+      "dowod": "approve() czytalo wiersz oferty na poczatku, a payload mp_offer_approved budowalo z tego samego, starego odczytu — juz po UPDATE. Warunek WHERE status = 'draft' pilnuje statusu, nie reszty wiersza.",
+      "skutek": "Rownolegla korekta z Dzialu 10 mogla zmienic kwote, numer, wersje albo nazwe klienta, zostawiajac status draft. Zatwierdzenie konczylo sie powodzeniem, a do wtyczki 3 i wtyczki 1 szly wartosci nieaktualne — proces sprzedazowy wysylal klientowi oferte opisana liczbami, ktorych nie ma juz w bazie.",
+      "lekcja": "Odczyt sprzed zapisu przestaje byc prawda w chwili zapisu. Payload zdarzenia integracyjnego musi powstawac z odczytu PO zapisie; gdy wiersz zdazyl zniknac, lepsze zdarzenie ze starymi danymi niz brak zdarzenia po udanym zatwierdzeniu.",
+      "test": "tests/naprawy/zatwierdzenie-mowi-prawde.php",
+      "para": "1.26"
+    },
+    {
+      "id": "P2-G15",
+      "data": "2026-08-01",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Komunikat obiecywal wysylke przez modul, ktorego moze nie byc",
+      "klasa": "komunikat-twierdzi-o-cudzym-module-bez-sprawdzenia",
+      "plik": "includes/class-mp-offer-builder-approval.php",
+      "dowod": "„Oferta zatwierdzona. Modul sprzedazowy przejmuje wysylke do klienta” bylo twierdzeniem o cudzej wtyczce; kod nie pytal has_action( mp_offer_approved ).",
+      "skutek": "Wtyczka 2 potrafi zbudowac oferte sama (ze zdarzenia mp_lead_created), wiec wtyczka 3 bywa wylaczona albo niezainstalowana. do_action() trafial w pustke, pracownik czytal zielony komunikat i uznawal sprawe za zamknieta, a oferta nigdy nie wychodzila do klienta — i nie byla juz draft, wiec znikala tez z edycji.",
+      "lekcja": "Komunikat ma mowic to, co kod SPRAWDZIL. O cudzym module wolno powiedziec tylko tyle, ile widac przez has_action().",
+      "test": "tests/naprawy/zatwierdzenie-mowi-prawde.php",
+      "para": "1.26"
+    },
+    {
+      "id": "P2-G16",
+      "data": "2026-08-01",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Dwie strefy czasu w jednej kolumnie i rok numeru liczony w UTC",
+      "klasa": "mieszanie-stref-czasu-w-jednej-wartosci",
+      "plik": "includes/class-mp-offer-builder-approval.php",
+      "dowod": "Kolumne updated_at zapisywaly dwa miejsca w dwoch strefach: Dzial 10 przez gmdate() (UTC), zatwierdzenie przez current_time('mysql') (strefa witryny). Sciezka ponowienia po kolizji numeru liczyla rok przez gmdate('Y').",
+      "skutek": "Lista ofert sortuje po updated_at i pokazywala ja bez przeliczania: w strefie innej niz UTC oferta zatwierdzona pozniej ladowala przed zapisana wczesniej, a godzina byla raz lokalna, raz uniwersalna. 1 stycznia miedzy polnoca a 1:00 czasu polskiego ponowienie budowalo numer z ROKU POPRZEDNIEGO — numer spoza biezacej serii na dokumencie handlowym.",
+      "lekcja": "Rozdzielic znacznik MASZYNOWY (UTC w bazie, przeliczany na ekranie) od wartosci KALENDARZOWEJ firmy (rok w numerze — czas witryny). Test musi ustawiac strefe inna niz UTC, bo w UTC roznica jest niewidoczna i test przechodzi takze na kodzie z bledem.",
+      "test": "tests/naprawy/strefy-czasu.php",
+      "para": "1.26"
+    },
+    {
+      "id": "P3-G8",
+      "data": "2026-08-01",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "Krytyk K5.2 sprawdzal wynik agenta, nigdy jego wejscie",
+      "klasa": "krytyk-liczy-oczekiwanie-z-tego-samego-zrodla-co-agent",
+      "plik": "includes/pipeline/departments/class-mp-sw-department-05.php",
+      "dowod": "$expected powstawalo z dokladnie tego samego wyrazenia, co $effects u agenta A5.2 — MP_SW_D5_Machine::effects_for( $transition['to'] ) na tym samym kontekscie. array_diff() w obie strony zawsze dawal puste tablice, wiec galaz effects_mismatch byla dla tej pary nieosiagalna.",
+      "skutek": "Krytyk lapal wynik agenta podstawiony z zewnatrz, ale WEJSCIA nie sprawdzal nikt: koperta z podmienionym transition['to'] szla przez pare bez slowa, a Dzialy 6 i 7 wykonywaly skutki nie tego przejscia — powiadomienia i zamkniecie zadan wyliczone dla cudzego statusu.",
+      "lekcja": "Krytyk, ktory liczy oczekiwanie z tego samego zrodla co agent, nie jest niezaleznym sprawdzeniem, tylko przepisaniem. Musi siegnac po dane WCZESNIEJSZE niz agent — tu: status docelowy z typu zdarzenia. Kod inwariantu wewnetrznego zostaje poza slownikiem MP_SW_Errors::map(), zeby nie wyciekl jako odmowa 4xx.",
+      "test": "tests/naprawy/krytyk-skutkow.php",
+      "para": "1.25"
+    },
+    {
+      "id": "P3-G9",
+      "data": "2026-08-01",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "Schemat deklarowal kolumne result_json, ktorej kod nigdy nie uzywal",
+      "klasa": "schemat-obiecuje-zachowanie-ktorego-kod-nie-ma",
+      "plik": "includes/db/class-mp-sales-workflow-db.php",
+      "dowod": "Komentarz przy tabeli zdarzen: result_json przechowuje odpowiedz zwrocona przy pierwszym przebiegu, powtorka tego samego zdarzenia ma oddac ten sam wynik. grep result_json includes/ trafial wylacznie w schemat — ani zapisu, ani odczytu.",
+      "skutek": "Czytajacy schemat (i audytor) mial prawo sadzic, ze powtorka zdarzenia dostaje odtworzona odpowiedz. Dostawala 409 duplicate_event. Sama idempotencja dzialala — obietnica byla nadmiarowa, nie zachowanie bledne.",
+      "lekcja": "Rozstrzygac ZAWSZE w strone kodu: albo dopisac zachowanie, albo skasowac obietnice. Tu odtworzenie odpowiedzi lamaloby dwa wczesniejsze ustalenia (db_writes = 1 w Dziale 8 oraz celowo uboga odpowiedz bledu), wiec znika obietnica. Usuniecie kolumny wymaga jawnego ALTER-a: dbDelta() kolumn nie kasuje.",
+      "test": "tests/naprawy/schemat-bez-obietnic.php",
+      "para": "1.26"
+    },
+    {
+      "id": "P1-G11",
+      "data": "2026-08-01",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Dedup 7.1 czytal brak danych jako potwierdzona unikalnosc",
+      "klasa": "brak-danych-czytany-jako-potwierdzony-wynik",
+      "plik": "includes/pipeline/departments/class-mp-department-07.php",
+      "dowod": "$existing = $context->get( 'leads', array() ); $dup = ! empty( $existing ); — trzy rozne stany (nie ma takiej firmy / nikt nie pytal / zapytanie padlo) dawaly te sama odpowiedz. wpdb::get_results() oddaje przy bledzie pusta tablice, wiec awaria bazy wygladala jak firma nowa.",
+      "skutek": "Zasieg sprawdzony sonda: Dzial 1 zawsze ustawia leads, a pusty NIP nie dochodzi do Dzialu 7 (pipeline odmawia na Dziale 2 w kazdym z szesciu sprawdzonych krajow), do tego BD-3 ma UNIQUE(country, nip). Realnie zostawal wiec tylko odczyt, ktory padl: zglaszajacy dostawal generyczne insert_failed zamiast informacji, ze baza nie odpowiada.",
+      "lekcja": "Sprawdzenie ma stac na WLASNYM warunku, nie na cudzej dyscyplinie. Warstwa DB musi rozrozniac brak wyniku (pusta tablica) od nieudanego odczytu (null po last_error), a dzial czytajacy — wymagac potwierdzenia, ze odczyt sie odbyl. Zasieg opisywac uczciwie: obrona w glab, nie defekt krytyczny.",
+      "test": "tests/naprawy/dedup-bez-odczytu.php",
+      "para": "1.26"
+    },
+    {
+      "id": "P2-G17",
+      "data": "2026-08-01",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Komunikat panelu zalezny wylacznie od parametru adresu",
+      "klasa": "stan-interfejsu-wziety-z-zadania-zamiast-z-serwera",
+      "plik": "includes/class-mp-offer-builder-approval.php",
+      "dowod": "notice() czytalo tylko $_GET['mp_ob_approved'] — bez nonce'a, bez transientu i bez powiazania z offer_id.",
+      "skutek": "Adres z &mp_ob_approved=ok w zakladce, w historii przegladarki albo podeslany linkiem pokazywal zielone Oferta zatwierdzona przy kazdym wejsciu na strone ofert, choc nic sie nie wydarzylo; z =db_error straszyl awaria zapisu, ktorej nie bylo. Nie mowil tez, KTOREJ oferty dotyczy.",
+      "lekcja": "Komunikat o tym, co sie WYDARZYLO, jest stanem serwera, nie parametrem adresu: transient zwiazany z uzytkownikiem, jednorazowy, krotki. Numer bierzemy po operacji z bazy. Wyjatkiem zostaje offer_not_found — nieistniejaca i cudza oferta maja dawac ten sam komunikat, wiec roznicowanie go numerem zrobiloby z niego wyrocznie do wyliczania cudzych ofert.",
+      "test": "tests/naprawy/komunikat-z-adresu.php",
       "para": "1.26"
     }
   ]
