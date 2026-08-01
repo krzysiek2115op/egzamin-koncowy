@@ -837,6 +837,19 @@
       "lekcja": "Naprawiajac blad tej klasy, przeszukaj CALA warstwe pod tym samym katem zamiast poprawiac sama znaleziona funkcje. Sentinel dobiera sie do calej klasy, nie do pojedynczej metody: null z metody odczytu znaczy zawsze 'odczyt sie nie odbyl', a potwierdzony brak to pusta tablica. Normalizacja musi siedziec w warstwie DB, nie u wolajacego - atrapa harnessu procesu oddaje dla braku archiwum null, wiec przeniesienie regulacji wyzej zbiloby 110 asercji harnessu.",
       "test": "tests/naprawy/archiwum-bez-odczytu.php",
       "para": "1.25"
+    },
+    {
+      "id": "P1-G13",
+      "data": "2026-08-01",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Straz odpowiedzi VIES pytala o obecnosc klucza, nie o werdykt",
+      "klasa": "brak-danych-czytany-jako-potwierdzony-wynik",
+      "plik": "includes/pipeline/departments/class-mp-department-03.php",
+      "dowod": "Straz brzmiala `if ( ! array_key_exists( 'isValid', $body ) )`. Klucz obecny z wartoscia pusta (null, '', '0') przechodzil ja bez przeszkod, a ponizej `! empty( null )` dawalo false. Lagodny fallback dla awarii panstwa czlonkowskiego wymaga NIEPUSTEGO userError, wiec tez nie lapal.",
+      "skutek": "Odpowiedz VIES bez zadnego werdyktu konczyla jako 'numer niewazny': zero szlo do cache na 24 h, a krytyk 3.2 zamienial vat_valid === false w twardy STOP vat_invalid. Legalny lead byl odrzucany przez cala dobe — dokladnie ten skutek, przed ktorym straz miala bronic (P1-G2). Straz istniala, tylko pytala o zla rzecz.",
+      "lekcja": "Straz ma pytac o to, czego potrzebuje decyzja, a nie o ksztalt odpowiedzi. Potrzebny byl WERDYKT, wiec warunkiem jest is_bool(), a nie obecnosc klucza. Dobrany tak, zeby degradowac sie w strone bezpieczna: gdyby VIES zaczal oddawac 1/0 zamiast true/false, kod powie 'nie ustalono' i ponowi probe, zamiast odrzucic leada. Test dopisany jako sekcja G do istniejacego vies-brak-pola-isvalid.php — ta sama straz, ta sama historia, jeden plik.",
+      "test": "tests/naprawy/vies-brak-pola-isvalid.php",
+      "para": "1.25"
     }
   ]
 }
