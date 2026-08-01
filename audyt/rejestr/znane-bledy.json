@@ -850,6 +850,19 @@
       "lekcja": "Straz ma pytac o to, czego potrzebuje decyzja, a nie o ksztalt odpowiedzi. Potrzebny byl WERDYKT, wiec warunkiem jest is_bool(), a nie obecnosc klucza. Dobrany tak, zeby degradowac sie w strone bezpieczna: gdyby VIES zaczal oddawac 1/0 zamiast true/false, kod powie 'nie ustalono' i ponowi probe, zamiast odrzucic leada. Test dopisany jako sekcja G do istniejacego vies-brak-pola-isvalid.php — ta sama straz, ta sama historia, jeden plik.",
       "test": "tests/naprawy/vies-brak-pola-isvalid.php",
       "para": "1.25"
+    },
+    {
+      "id": "P1-G14",
+      "data": "2026-08-01",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Dwie kolumny czasowe tego samego wiersza w dwoch strefach",
+      "klasa": "niespojna-jednostka-w-jednym-rekordzie",
+      "plik": "includes/pipeline/departments/class-mp-department-07.php",
+      "dowod": "W jednej tablicy $lead_data: 'salesman_assigned_at' => current_time( 'mysql' ) obok 'vat_checked_at' => current_time( 'mysql', true ). Regula projektu jest spisana wprost w class-mp-db.php ('GMT, nie lokalny czas WP') i trzymaja sie jej updated_at oraz caly weryfikator w tle — salesman_assigned_at bylo jedynym odstepstwem wsrod zapisow datetime.",
+      "skutek": "Kolumny tego samego wiersza nieporownywalne miedzy soba: przy witrynie w Europe/Warsaw salesman_assigned_at wyprzedza vat_checked_at o offset strefy (latem 2 h). Dzis nikt tej kolumny nie czyta, wiec nic sie nie psuje widocznie — ale kolumna stoi w bazie klienta i pierwszy raport albo eksport, ktory ja zestawi z reszta wiersza, dostanie ciche przesuniecie.",
+      "lekcja": "Niespojna JEDNOSTKA w jednym rekordzie to defekt, nawet gdy dzis nikt jej nie czyta — bo koszt naprawy rosnie z kazdym wierszem w bazie klienta, a wykrycie nastepuje dopiero na raporcie. Niezmiennik dopisany do harnessu przy istniejacej asercji GMT (26b), gdzie symulowany offset 2 h czyni regresje widoczna. Pulapka przy pisaniu tego testu: atrapa harnessu domyslnie NIE ma handlowcow, wiec kolumna zostawala null i test padal z niewlasciwego powodu (wartosc pusta zamiast rozjazdu 7200 s) — sonda musi padac z tego powodu, ktory opisuje.",
+      "test": "tests/process-harness/run-process.php (niezmiennik 26b)",
+      "para": "1.25"
     }
   ]
 }
