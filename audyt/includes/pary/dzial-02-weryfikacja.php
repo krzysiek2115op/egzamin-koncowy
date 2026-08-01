@@ -866,6 +866,25 @@ final class MP_AU_K29_Sedzia extends MP_AU_Krytyk {
 		$paczki = array_slice( $paczki, 0, max( 1, (int) ceil( (int) $kontekst->pobierz( 'limit_modelu', 40 ) / MP_AU_A29_Sedzia::PACZKA ) ) );
 
 		foreach ( $paczki as $paczka ) {
+			/*
+			 * Paczka MUSI sie zakodowac, zanim pojdzie w pytanie. `json_encode()`
+			 * oddaje `false` przy najmniejszym nieprawidlowym bajcie, a `false`
+			 * sklejone ze stringiem to pusty ciag — pytanie wychodzilo wtedy
+			 * z naglowkiem „=== USTALENIA ===" i niczym pod nim. Model uczciwie
+			 * odpowiadal pusta lista, warunek nizej czytal ja jako „ocena nie
+			 * zostala wykonana" i bramka Dzialu 2 zabierala werdykt CALEMU
+			 * przebiegowi (01.08.2026, pokrycie 91%). Zgloszenie ma nazywac
+			 * przyczyne po stronie narzedzia, a nie zrzucac wine na model.
+			 */
+			$ustalenia_json = json_encode( $paczka, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
+
+			if ( false === $ustalenia_json ) {
+				return MP_AU_Wynik::nieocenione(
+					'Nie udalo sie zakodowac paczki ustalen do JSON (' . json_last_error_msg()
+					. ') — pytanie NIE zostalo wyslane. Blad narzedzia, nie modelu.'
+				);
+			}
+
 			$pytanie = "Jestes DRUGIM sedzia w audycie. Ponizej ustalenia zgloszone przez pierwszego. "
 				. "Twoim zadaniem jest ZAKWESTIONOWAC te, ktore nie bronia sie wlasnym dowodem.\n\n"
 				. "Dla kazdego ustalenia zwroc werdykt:\n"
@@ -874,7 +893,7 @@ final class MP_AU_K29_Sedzia extends MP_AU_Krytyk {
 				. "  „odrzuc\" — to nie jest problem (np. celowa konstrukcja, wzorzec trafil w cos innego).\n\n"
 				. "ODPOWIEDZ WYLACZNIE JSON-em:\n"
 				. '{"werdykty":[{"klucz":"","werdykt":"trzyma|watpliwe|odrzuc","uzasadnienie":""}]}' . "\n\n"
-				. "=== USTALENIA ===\n" . json_encode( $paczka, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
+				. "=== USTALENIA ===\n" . $ustalenia_json;
 
 			$odpowiedz = $kontekst->model->zapytaj( $pytanie, true );
 

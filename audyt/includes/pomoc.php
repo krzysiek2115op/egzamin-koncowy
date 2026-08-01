@@ -81,6 +81,15 @@ final class MP_AU_Pomoc {
 	/**
 	 * Skraca dowod do rozmiaru, ktory da sie przeczytac w raporcie.
 	 *
+	 * Ciecie po ZNAKACH, nie po bajtach. `substr()` na 400. bajcie ladowalo
+	 * w srodku znaku wielobajtowego, a dowody ustalen sa pelne polskich liter
+	 * i cudzyslowow typograficznych. Skutek byl niewidoczny az do werdyktu:
+	 * `json_encode()` na zepsutym UTF-8 zwraca `false`, sklejenie `"..." . false`
+	 * daje pusty ciag, wiec pytanie szlo do modelu BEZ danych, model uczciwie
+	 * odpowiadal pusta lista, a krytyk czytal ja jako „ocena nie zostala
+	 * wykonana". Tak wlasnie para 2.9 zabrala werdykt calemu przebiegowi
+	 * z 01.08.2026 — patrz audyt/tests/skrot-utf8.php.
+	 *
 	 * @param string $tekst Tekst.
 	 * @param int    $ile   Limit znakow.
 	 * @return string
@@ -88,7 +97,9 @@ final class MP_AU_Pomoc {
 	public static function skrot( string $tekst, int $ile = 160 ): string {
 		$tekst = trim( preg_replace( '/\s+/', ' ', $tekst ) ?? $tekst );
 
-		return strlen( $tekst ) <= $ile ? $tekst : substr( $tekst, 0, $ile ) . ' […]';
+		return mb_strlen( $tekst, 'UTF-8' ) <= $ile
+			? $tekst
+			: mb_substr( $tekst, 0, $ile, 'UTF-8' ) . ' […]';
 	}
 
 	/**
