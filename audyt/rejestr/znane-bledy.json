@@ -641,6 +641,98 @@
       "lekcja": "To ten sam blad, ktory naprawiono juz raz obok, przy false === $changed (db_error). Naprawa jednej galezi nie zamyka klasy bledu w sasiedniej. Wyscig da sie odtworzyc deterministycznie filtrem query wpdb, ktory podmienia wiersz tuz przed UPDATE-em.",
       "test": "tests/naprawy/zero-zmienionych-wierszy.php",
       "para": "1.26"
+    },
+    {
+      "id": "P1-G6",
+      "data": "2026-08-01",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Jeden komunikat o NIP-ie na cztery rozne powody odrzucenia",
+      "klasa": "komunikat-twierdzi-wiecej-niz-kod-ustalil",
+      "plik": "includes/pipeline/departments/class-mp-department-03.php",
+      "dowod": "Agent 3.1 zwracal „Niepoprawna suma kontrolna NIP\" dla pustego pola, zlej dlugosci, wartosci zastepczej i realnie blednej cyfry kontrolnej. checksum_valid() odrzuca trzy pierwsze przypadki ZANIM policzy jakakolwiek sume.",
+      "skutek": "Przy pustym polu klient czytal, ze pomylil sie w cyfrze kontrolnej numeru, ktorego nie podal. Przy 1111111111 szukal bledu rachunkowego tam, gdzie liczba jest arytmetycznie poprawna, a odrzucona jako wartosc zastepcza.",
+      "lekcja": "ZASIEG: w pelnym przebiegu Dzial 2 odrzuca puste pole i zla dlugosc wczesniej, wiec agent mylil sie realnie w jednym przypadku. Kontrakt publicznej metody i tak musi byc prawdziwy — jest wolana takze poza pipeline'em (harness procesu).",
+      "test": "tests/naprawy/komunikat-nip.php",
+      "para": "1.26"
+    },
+    {
+      "id": "P1-G6b",
+      "data": "2026-08-01",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "NIP z separatorami rzekomo odrzucany przez Agenta 3.1 — sprawdzone, NIE jest defektem",
+      "klasa": "zgloszenie-audytu-ignorujace-kolejnosc-dzialow",
+      "plik": "includes/pipeline/departments/class-mp-department-03.php",
+      "status": "odrzucone-po-sprawdzeniu",
+      "dowod": "Zgloszenie [07] (para 1.25) twierdzilo, ze Agent 3.1 liczy sume na surowej wartosci, wiec poprawny NIP „123-456-32-18\" dostaje komunikat o blednej sumie kontrolnej. Sonda przez CALY pipeline: taki NIP przechodzi bez problemu. Agent 2.2 (Dzial 2) normalizuje `nip` do samych cyfr i WPISUJE go z powrotem do kontekstu, a Dzial 3 chodzi po Dziale 2.",
+      "skutek": "Zadnego. Sekcja C testu utrwala kolejnosc dzialow i normalizacje — gdyby ktos przestawil dzialy, zgloszenie [07] staloby sie prawdziwe i test to zlapie.",
+      "lekcja": "Ustalenie opisujace JEDNA metode nie widzi kolejnosci, w jakiej metody sa wolane. Sprawdzac calym przebiegiem, nie lektura pliku.",
+      "test": "tests/naprawy/komunikat-nip.php",
+      "para": "1.25"
+    },
+    {
+      "id": "P1-G7",
+      "data": "2026-08-01",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "vat_status „checked\" przy weryfikacji, ktora sie nie odbyla",
+      "klasa": "jedna-galaz-na-dwa-rozne-stany-w-tym-stan-nieznany",
+      "plik": "includes/pipeline/departments/class-mp-department-07.php",
+      "dowod": "Galaz `else` lapala zarowno false === $vat_valid (sprawdzono, numer niewazny), jak i null === $vat_valid (nie rozstrzygnieto). Ze null jest wartoscia oczekiwana, dowodzil kod obok: 'vat_valid' => is_null(...) ? null : ...",
+      "skutek": "Stan osiagalny w trybie synchronicznym: resolve_vies() zwraca null przy awarii VIES lub odpowiedzi bez `isValid`, BEZ flagi vat_pending. Wiersz dostawal vat_status='checked', vat_checked_at=teraz i vat_attempts=0, wiec dla wtyczki 2, raportow i czlowieka wygladal na rozstrzygnietego. Weryfikator w tle bierze wylacznie wiersze 'pending' — nikt nigdy nie wracal do tego numeru.",
+      "lekcja": "Znacznik czasu idzie za STATUSEM, nie za flaga: data sprawdzenia przy nierozstrzygnietej weryfikacji byla data czegos, co sie nie odbylo.",
+      "test": "tests/naprawy/status-vat-nieznany.php",
+      "para": "1.25"
+    },
+    {
+      "id": "P1-G8",
+      "data": "2026-08-01",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Nieudane utworzenie pod-strony konczylo sie cisza",
+      "klasa": "brak-galezi-else-plus-domyslka-wyciszajaca-ostrzezenie",
+      "plik": "includes/class-mp-page.php",
+      "dowod": "create(): `if ( $page_id && ! is_wp_error( $page_id ) ) { ... }` bez `else`. maybe_admin_notice(): `if ( '0' !== (string) get_option( self::OPTION_MENU_OK, '1' ) ) { return; }` — przy nieustawionej opcji domyslka '1' konczy metode.",
+      "skutek": "Gdy wp_insert_post() zawiodlo, nie powstawala ani strona z formularzem, ani zaden slad, a jedyne ostrzezenie w adminie bylo wyciszone domyslka. Administrator widzial „Wtyczka wlaczona\" i zakladal, ze formularz dziala; klienci nie mieli gdzie go wypelnic.",
+      "lekcja": "Domyslna wartosc opcji jest czescia logiki, nie drobiazgiem: tu zamieniala brak informacji w „wszystko dobrze\".",
+      "test": "tests/naprawy/ostrzezenia-aktywacji.php",
+      "para": "1.26"
+    },
+    {
+      "id": "P1-G9",
+      "data": "2026-08-01",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Jedno ostrzezenie o menu na trzy rozne przyczyny",
+      "klasa": "komunikat-twierdzi-wiecej-niz-kod-ustalil",
+      "plik": "includes/class-mp-page.php",
+      "dowod": "add_to_menus() zwraca false w trzech sytuacjach: brak lokalizacji menu, lokalizacje BEZ przypisanego menu ($menu_id <= 0 → continue) oraz nieudane wp_update_nav_menu_item(). Wszystkie trafialy do jednej flagi 0/1 i jednego komunikatu.",
+      "skutek": "Administrator motywu, ktory menu rejestruje poprawnie, dostawal diagnoze nieprawdziwa („Twoj motyw nie rejestruje standardowego menu WordPressa\") i instrukcje, ktora nie moze pomoc — a prawdziwa naprawa (przypisanie menu do lokalizacji) jest jednym klknieciem w Wyglad → Menu.",
+      "lekcja": "Powod zapisujemy w osobnej opcji, bo flaga 0/1 wystarcza kodowi, ale nie czlowiekowi.",
+      "test": "tests/naprawy/ostrzezenia-aktywacji.php",
+      "para": "1.26"
+    },
+    {
+      "id": "P1-G10",
+      "data": "2026-08-01",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Cztery komunikaty logera pipeline mowily rzeczy, ktorych kod nie sprawdzil",
+      "klasa": "komunikat-twierdzi-wiecej-niz-kod-ustalil",
+      "plik": "includes/pipeline/class-mp-pipeline-logger.php",
+      "dowod": "(1) „dzial %d\" z wartoscia 0 w temacie maila, tresci maila i opisie wpisu; (2) „serwer poczty odrzucil wiadomosc\" przy jedynej przeslance false z wp_mail(); (3) alarm bez lead_id/request_id i bez informacji o 15-minutowym wyciszeniu; (4) `if ( ! $to ) { return; }` bez wpisu admin_alert_failed.",
+      "skutek": "Administrator szukal dzialu numer 0 w dokumentacji, diagnozowal sprawny SMTP, obslugiwal jedno zgloszenie z pieciudziesieciu wyciszonych i — przy pustym admin_email — zakladal, ze zostal powiadomiony, choc niczego nie probowano wyslac.",
+      "lekcja": "Punkt 4 to ta sama luka, ktora zamknieto juz raz dla galezi `! $sent` (commit 1.19). Naprawa jednej galezi nie zamyka klasy bledu w sasiedniej.",
+      "test": "tests/naprawy/alarm-mowi-prawde.php",
+      "para": "1.26"
+    },
+    {
+      "id": "P2-G13",
+      "data": "2026-08-01",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Te same cztery klamstwa w alarmach wtyczki 2 plus niesprawdzony wp_json_encode",
+      "klasa": "wada-odziedziczona-przez-kopie-wzorca",
+      "plik": "includes/pipeline/class-mp-ob-pipeline-logger.php",
+      "dowod": "Komplet wad z P1-G10 w drugim logerze (oba pliki powstaly z jednego wzorca) oraz ustalenie [14]: wynik wp_json_encode() szedl do tresci maila bez sprawdzenia.",
+      "skutek": "Jak w P1-G10, a dodatkowo: przy danych niekodowalnych do JSON sprintf('%s', false) dawal pusty ciag i mail konczyl sie linia „Bledy: \" — komunikat wygladajacy na kompletny, bez ani jednego szczegolu awarii.",
+      "lekcja": "Gdy dwa moduly maja ten sam kod, musza miec tez ten sam test — inaczej naprawa w jednym miejscu zostawia drugie. Test P2 jest bliznaczy do P1 celowo.",
+      "test": "tests/naprawy/alarm-mowi-prawde.php",
+      "para": "1.26"
     }
   ]
 }
