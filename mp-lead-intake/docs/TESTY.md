@@ -3,11 +3,15 @@
 Zbiorczy rejestr wszystkich testów wykonanych podczas budowy wtyczki (Golden Rule #3).
 Wersja wtyczki w momencie zamknięcia testów końcowych: **1.2.1**.
 
-**Stan na wydanie 1.3.4 (01.08.2026).** Testy opisane niżej nie są archiwum —
+**Stan na wydanie 1.3.5 (01.08.2026).** Testy opisane niżej nie są archiwum —
 wszystkie są nadal uruchamiane. Ostatni pełny przebieg wykonano na **świeżo
 zainstalowanej** bazie (instalacja od zera, w kolejności 1 → 2 → 3): pliki
-testowe trzech wtyczek **50 / 50 PASS**, harness procesu LP.1 **7 / 7 PASS**,
-PHPCS 0 błędów. Testy dołożone po 1.2.1 leżą w `tests/naprawy/` — każdy powstał
+testowe trzech wtyczek **54 / 54 PASS**, świeża instalacja **16 / 16 PASS**,
+harness procesu LP.1 **7 / 7 PASS**, `php -l` na 765 plikach bez błędu,
+PHPCS 0 błędów (3 ostrzeżenia, stan bazowy). W 1.3.5 doszły trzy pliki testowe
+tej wtyczki: `archiwum-bez-odczytu.php` (P1-G12) oraz rozszerzenia
+`vies-brak-pola-isvalid.php` (P1-G13) i harnessu o niezmiennik stref
+czasowych 26b (P1-G14). Testy dołożone po 1.2.1 leżą w `tests/naprawy/` — każdy powstał
 razem z naprawą konkretnego defektu i FAIL-ował przed nią.
 
 ## 1. Statyka kodu

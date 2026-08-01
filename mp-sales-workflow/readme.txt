@@ -4,7 +4,7 @@ Tags: sprzedaz, crm, workflow, follow-up
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.4
+Stable tag: 1.3.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,6 +33,24 @@ rekordow SPF/DKIM/DMARC oraz blokady katalogu z ofertami PDF. Pelna checklista:
 powiadomien do klientow.
 
 == Changelog ==
+
+= 1.3.5 =
+
+* ŻĄDANIE WYDANIA DANYCH OSOBOWYCH (RODO) pomijało tę wtyczkę. Usuwanie danych
+  działało od początku, ale eksport — czyli prawo klienta do otrzymania kopii
+  swoich danych — obejmował tylko dwie pozostałe wtyczki. Raport z narzędzia
+  WordPressa wyglądał na kompletny, mimo że brakowało w nim procesów
+  sprzedażowych i historii wysłanych powiadomień. Wtyczka wydaje teraz oba
+  komplety danych, wyłącznie dla adresu, którego dotyczy żądanie.
+
+* TŁUMACZENIA nie były w ogóle wczytywane, choć wtyczka ma 176 tekstów
+  przygotowanych do przetłumaczenia i prowadzi korespondencję w kilku językach.
+  Na witrynie polskiej nie było tego widać, bo teksty źródłowe są po polsku;
+  problem ujawniłby się dopiero przy pierwszym tłumaczeniu.
+
+* DWA TESTY zaliczały się również wtedy, gdy sprawdzana funkcja była zepsuta —
+  obie oczekiwały wyniku "zero", a zero pojawia się także po awarii. Doszły
+  kontrole, które najpierw potwierdzają, że sprawdzana droga w ogóle działa.
 
 = 1.3.4 =
 

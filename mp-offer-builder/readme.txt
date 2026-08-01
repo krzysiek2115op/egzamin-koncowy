@@ -4,7 +4,7 @@ Tags: oferty, pdf, woocommerce, cennik
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.4
+Stable tag: 1.3.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -59,6 +59,19 @@ RODO/GDPR:
 * Sugerowana treść polityki prywatności jest dodawana w Ustawienia → Prywatność.
 
 == Changelog ==
+
+= 1.3.5 =
+
+* ZABEZPIECZENIE PRZED OFERTĄ BEZ PLIKU PDF działało, ale nie było niczym
+  chronione przed przypadkowym usunięciem przy dalszych zmianach. Chodzi
+  o sytuację, w której oferta zapisała się w bazie, a pliku PDF nie udało się
+  zapisać na dysku: bez tego zabezpieczenia moduł ogłaszałby ofertę dalej,
+  z odnośnikiem do dokumentu, który nigdy nie powstał — klient dostawałby link
+  prowadzący donikąd. Doszedł test, który tego pilnuje przy każdej kolejnej
+  zmianie w kodzie.
+
+* Wersja podniesiona wspólnie z pozostałymi wtyczkami, żeby paczka całości
+  miała jeden, spójny numer.
 
 = 1.3.4 =
 

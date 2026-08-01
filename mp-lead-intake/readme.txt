@@ -4,7 +4,7 @@ Tags: leads, formularz, b2b, nip, vat
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.3.4
+Stable tag: 1.3.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,29 @@ Pierwsza z trzech wtyczek procesu "formularz → oferta". Odpowiada za odbiór
 zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej bazy.
 
 == Changelog ==
+
+= 1.3.5 =
+
+* SPRAWDZANIE, CZY FIRMA BYŁA JUŻ KIEDYŚ KLIENTEM, myliło dwie różne sytuacje:
+  "takiej firmy nie ma w archiwum" i "zapytanie do bazy się nie powiodło".
+  Skutek dotyczył wyłącznie firm POWRACAJĄCYCH: przy chwilowej awarii bazy
+  wtyczka uznawała, że firma jest nowa, próbowała założyć ją od zera, odbijała
+  się o wcześniejszy wpis i zwracała ogólny komunikat o nieudanym zapisie.
+  Powracający klient nie był reaktywowany i nie dowiadywał się, co naprawdę
+  zaszło. Teraz brak wpisu i nieudany odczyt to dwie różne odpowiedzi, a wtyczka
+  przy awarii mówi wprost, że nie sprawdziła archiwum.
+
+* WERYFIKACJA NUMERU VAT W UNIJNYM SYSTEMIE VIES traktowała odpowiedź bez
+  rozstrzygnięcia jak odpowiedź "numer nieważny". Gdy VIES odpowiadał, ale nie
+  podawał werdyktu, poprawny numer bywał uznawany za błędny — i to na całą dobę,
+  bo wynik trafiał do pamięci podręcznej. Wtyczka wymaga teraz jednoznacznej
+  odpowiedzi; wszystko inne znaczy "nie ustalono" i jest ponawiane.
+
+* DATY W KARCIE LEADA zapisywały się w dwóch różnych strefach czasowych: moment
+  przypisania handlowca w czasie lokalnym witryny, a moment sprawdzenia VAT
+  w czasie uniwersalnym. Kolumny jednego wiersza nie dawały się porównywać
+  między sobą, co przy zestawieniach i raportach dawałoby ciche przesunięcie
+  o różnicę stref. Wszystkie daty idą teraz w jednym czasie.
 
 = 1.3.4 =
 

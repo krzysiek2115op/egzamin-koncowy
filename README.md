@@ -20,9 +20,9 @@ danych między formularzem, WooCommerce i pocztą.
 
 | # | Wtyczka | Wersja | Baza | Opis |
 |---|---------|--------|------|------|
-| 1 | `mp-lead-intake` | 1.3.4 | BD-3 | Przyjęcie i kwalifikacja lead-a z formularza |
-| 2 | `mp-offer-builder` | 1.3.4 | BD-2 | Kalkulacja cenowa, integracja WooCommerce, oferty PDF |
-| 3 | `mp-sales-workflow` | 1.3.4 | BD-1 | Statusy procesu, handlowiec, powiadomienia, follow-up, dashboard |
+| 1 | `mp-lead-intake` | 1.3.5 | BD-3 | Przyjęcie i kwalifikacja lead-a z formularza |
+| 2 | `mp-offer-builder` | 1.3.5 | BD-2 | Kalkulacja cenowa, integracja WooCommerce, oferty PDF |
+| 3 | `mp-sales-workflow` | 1.3.5 | BD-1 | Statusy procesu, handlowiec, powiadomienia, follow-up, dashboard |
 
 Kolejność instalacji ma znaczenie: **1, potem 2, potem 3**. Wtyczka 2 nasłuchuje
 zdarzenia z wtyczki 1, a wtyczka 3 — zdarzeń z obu poprzednich. Gotowe paczki
@@ -165,10 +165,30 @@ wejścia; dedup czytający brak danych jako potwierdzoną unikalność; komunika
 panelu brany z parametru adresu; kolumna zadeklarowana w schemacie, której kod
 nigdy nie używał.
 
+Wydanie **1.3.5** (01.08.2026) zamyka kolejnych siedem ustaleń, w tym dwa
+o ciężarze prawnym: wtyczka 3 realizowała prawo do usunięcia danych, ale nie
+prawo do ich wydania — żądanie „Eksportuj dane osobowe" pomijało ją w ciszy,
+więc raport dla klienta wyglądał na kompletny; do tego jej teksty nie były
+w ogóle przygotowywane do tłumaczenia. Reszta to odczyt archiwum firm mylący
+brak wpisu z awarią zapytania, strażnik VIES pytający o obecność pola zamiast
+o werdykt, dwie strefy czasowe w jednym wierszu bazy oraz dwa testy, które
+zaliczały się także przy zepsutej funkcji.
+
+Przy tej okazji wyszła rzecz o samym narzędziu i trzeba ją powiedzieć wprost:
+para weryfikująca ustalenia sprawdzała ich miejsca funkcją rozpoznającą wyłącznie
+pliki, więc **każde ustalenie wskazujące katalog było z góry odrzucane jako
+fałszywy alarm**. Milczały przez to całe rodziny kontroli — między innymi ta od
+RODO. Bezpiecznik na taki wypadek istnieje, ale odpala się powyżej 50%
+nieodnalezionych miejsc, a odrzuceń było 42%: przeszło tuż pod progiem. Po
+naprawie treść raportu urosła z 14 do 35 ustaleń przy tym samym kodzie. Raport
+podaje teraz bilans (zgłoszone = odrzucone + w treści), żeby takiej różnicy nie
+dało się już przeoczyć.
+
 Wniosek, który wart jest zapamiętania bardziej niż sam werdykt: **„GO" znaczy
 „nie wróciło nic, co już znamy"** — nie „nie ma błędów". Deterministyczne pary
 to siatka regresyjna zbudowana z historii pomyłek tego projektu; nie zastąpią
-czytania kodu ze zrozumieniem.
+czytania kodu ze zrozumieniem. A jak pokazało 1.3.5 — potrafią też milczeć
+z powodu własnej wady, więc i one bywają audytowane.
 
 Raporty z kolejnych przebiegów leżą w `audyt/raport-*.txt` na gałęzi
 `audyt-projektu`, a szczegółowy opis narzędzia — w `audyt/README.md`.
