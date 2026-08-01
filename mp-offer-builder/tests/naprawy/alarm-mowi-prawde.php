@@ -97,6 +97,17 @@ add_filter(
  * @return void
  */
 function oam_reset() {
+	/*
+	 * Ogranicznik wyjatkow ma klucz OSOBNY DLA DZIALU (P2-S9), wiec sprzatanie
+	 * musi objac cala numeracje: 0 to „dzial nieustalony", 1-11 to pipeline.
+	 * Pominiecie tego zostawialo transient na kwadrans i NASTEPNE uruchomienie
+	 * testu widzialo alarm jako wyciszony — czyli test padal z powodu swojego
+	 * poprzedniego przebiegu, a nie z powodu kodu.
+	 */
+	for ( $dz = 0; $dz <= 11; $dz++ ) {
+		delete_transient( 'mp_ob_notify_exception_' . $dz );
+	}
+
 	delete_transient( 'mp_ob_notify_exception' );
 	delete_transient( 'mp_ob_notify_dzial-testowy' );
 	$GLOBALS['mp_ob_am_mail'] = array();
@@ -283,6 +294,144 @@ oam_ok(
 	empty( oam_wpis_o_alarmie( $przed_e ) ),
 	'dostarczony alarm NIE zostawia wpisu o niedostarczeniu'
 );
+
+$GLOBALS['mp_ob_am']['lines'][] = '';
+$GLOBALS['mp_ob_am']['lines'][] = '=== F. „z tego samego miejsca" ma znaczyc to, co mowi ===';
+
+/*
+ * Blizniak ustalenia z wtyczki 1 (P1-G15). Stopka alarmu obiecuje, ze wyciszone
+ * sa kolejne alarmy „Z TEGO SAMEGO MIEJSCA", ale sciezka WYJATKU uzywala
+ * JEDNEGO klucza na cala wtyczke: wyjatek w Dziale 4 uciszal na kwadrans
+ * wyjatki z Dzialu 10. Druga, niezalezna awaria nie dawala znaku zycia.
+ *
+ * Sprawdzane osobno w kazdej wtyczce, bo to osobne klasy z wlasnymi kluczami —
+ * wspolny test dawalby zludzenie pokrycia.
+ */
+foreach ( array( 4, 10 ) as $oam_dz ) {
+	delete_transient( 'mp_ob_notify_exception_' . $oam_dz );
+}
+delete_transient( 'mp_ob_notify_exception' );
+$GLOBALS['mp_ob_am_mail']    = array();
+$GLOBALS['mp_ob_am_powodzi'] = true;
+update_option( 'admin_email', 'admin@example.test' );
+
+$logger->log_exception( new RuntimeException( 'Awaria w dziale 4' ), oam_kontekst(), 4 );
+$oam_po_pierwszym = count( $GLOBALS['mp_ob_am_mail'] );
+
+$logger->log_exception( new RuntimeException( 'Awaria w dziale 10' ), oam_kontekst(), 10 );
+$oam_po_drugim = count( $GLOBALS['mp_ob_am_mail'] );
+
+oam_ok( 1 === $oam_po_pierwszym, 'F1: wyjatek z Dzialu 4 wysyla alarm', 'wiadomosci=' . $oam_po_pierwszym );
+oam_ok(
+	2 === $oam_po_drugim,
+	'F2: wyjatek z INNEGO dzialu w tym samym kwadransie tez wysyla alarm',
+	'wiadomosci=' . $oam_po_drugim
+);
+oam_ok(
+	2 === $oam_po_drugim && false !== strpos( (string) $GLOBALS['mp_ob_am_mail'][1]['message'], 'dziale 10' ),
+	'F3: drugi alarm dotyczy naprawde Dzialu 10, a nie powtorki z czworki',
+	'tresc=' . ( isset( $GLOBALS['mp_ob_am_mail'][1]['message'] ) ? $GLOBALS['mp_ob_am_mail'][1]['message'] : '?' )
+);
+
+/*
+ * KONTR-ASERCJA: rozbicie klucza nie moze znaczyc „ogranicznik przestal
+ * dzialac". Powtorka z tego samego dzialu ma dalej byc wyciszona.
+ */
+$logger->log_exception( new RuntimeException( 'Druga awaria w dziale 4' ), oam_kontekst(), 4 );
+
+oam_ok(
+	2 === count( $GLOBALS['mp_ob_am_mail'] ),
+	'F4: kontr-asercja — powtorka z tego samego dzialu nadal jest wyciszona',
+	'wiadomosci=' . count( $GLOBALS['mp_ob_am_mail'] )
+);
+oam_ok(
+	isset( $GLOBALS['mp_ob_am_mail'][0] ) && false !== mb_stripos( (string) $GLOBALS['mp_ob_am_mail'][0]['message'], 'z tego samego miejsca' ),
+	'F5: stopka nadal sklada te obietnice — i dopiero teraz jest ona prawdziwa',
+	'tresc=' . ( isset( $GLOBALS['mp_ob_am_mail'][0] ) ? $GLOBALS['mp_ob_am_mail'][0]['message'] : '?' )
+);
+
+foreach ( array( 4, 10 ) as $oam_dz ) {
+	delete_transient( 'mp_ob_notify_exception_' . $oam_dz );
+}
+
+$GLOBALS['mp_ob_am']['lines'][] = '';
+$GLOBALS['mp_ob_am']['lines'][] = '=== G. slad o niedostarczonym alarmie da sie polaczyc z oferta ===';
+
+/*
+ * Wpis `admin_alert_failed` szedl z `offer_id = null` na sztywno i bez
+ * `request_id` w `meta_json`. Alarm, ktory NIE doszedl, byl wiec jedynym
+ * zdarzeniem w dzienniku, ktorego nie dalo sie przypisac do dokumentu —
+ * a to wlasnie on jest momentem, w ktorym cos poszlo nie tak.
+ */
+foreach ( array( 4, 10, 5, 6 ) as $oam_dz ) {
+	delete_transient( 'mp_ob_notify_exception_' . $oam_dz );
+}
+$GLOBALS['mp_ob_am_mail']    = array();
+$GLOBALS['mp_ob_am_powodzi'] = false;
+update_option( 'admin_email', 'admin@example.test' );
+
+$przed_g = (int) $wpdb->get_var( "SELECT COALESCE(MAX(id),0) FROM {$log_t}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+$logger->log_exception( new RuntimeException( 'Awaria z niedostarczonym alarmem' ), oam_kontekst(), 5 );
+
+$wiersz_g = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	$wpdb->prepare(
+		"SELECT offer_id, meta_json FROM {$log_t} WHERE action = %s AND id > %d ORDER BY id DESC LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		'admin_alert_failed',
+		$przed_g
+	),
+	ARRAY_A
+);
+
+$meta_g = is_array( $wiersz_g ) ? (array) json_decode( (string) $wiersz_g['meta_json'], true ) : array();
+
+oam_ok( is_array( $wiersz_g ) && ! empty( $wiersz_g ), 'G1: wpis o niedostarczonym alarmie powstal' );
+oam_ok(
+	is_array( $wiersz_g ) && 4242 === (int) $wiersz_g['offer_id'],
+	'G2: wpis niesie offer_id oferty, nie null',
+	'offer_id=' . ( is_array( $wiersz_g ) ? var_export( $wiersz_g['offer_id'], true ) : 'brak wiersza' )
+);
+oam_ok(
+	isset( $meta_g['request_id'] ) && 'req-testowy-1' === (string) $meta_g['request_id'],
+	'G3: meta_json niesie identyfikator zadania',
+	'meta=' . ( is_array( $wiersz_g ) ? (string) $wiersz_g['meta_json'] : 'brak wiersza' )
+);
+
+/*
+ * KONTR-ASERCJA: awaria PRZED zapisem oferty nie ma offer_id i wtedy null jest
+ * jedyna poprawna wartoscia. Wpis ma wowczas stac na samym request_id.
+ */
+$przed_g2 = (int) $wpdb->get_var( "SELECT COALESCE(MAX(id),0) FROM {$log_t}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+$logger->log_exception(
+	new RuntimeException( 'Awaria przed zapisem oferty' ),
+	new MP_OB_Context( array( 'request_id' => 'req-testowy-2' ) ),
+	6
+);
+
+$wiersz_g2 = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	$wpdb->prepare(
+		"SELECT offer_id, meta_json FROM {$log_t} WHERE action = %s AND id > %d ORDER BY id DESC LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		'admin_alert_failed',
+		$przed_g2
+	),
+	ARRAY_A
+);
+
+$meta_g2 = is_array( $wiersz_g2 ) ? (array) json_decode( (string) $wiersz_g2['meta_json'], true ) : array();
+
+oam_ok(
+	is_array( $wiersz_g2 ) && null === $wiersz_g2['offer_id'],
+	'G4: kontr-asercja — bez oferty kolumna zostaje pusta, nic sie nie zmysla',
+	'offer_id=' . ( is_array( $wiersz_g2 ) ? var_export( $wiersz_g2['offer_id'], true ) : 'brak wiersza' )
+);
+oam_ok(
+	isset( $meta_g2['request_id'] ) && 'req-testowy-2' === (string) $meta_g2['request_id'],
+	'G5: a zadanie i tak da sie wskazac — po request_id',
+	'meta=' . ( is_array( $wiersz_g2 ) ? (string) $wiersz_g2['meta_json'] : 'brak wiersza' )
+);
+
+$GLOBALS['mp_ob_am_powodzi'] = true;
 
 // Sprzatanie: przywrocenie adresu i wpisow testowych.
 update_option( 'admin_email', $stary_admin );

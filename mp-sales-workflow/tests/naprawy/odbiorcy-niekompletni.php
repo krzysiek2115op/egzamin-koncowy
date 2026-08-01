@@ -323,6 +323,140 @@ on_ok(
 	'slady=' . wp_json_encode( on_pominiete( $bez_handlowca, MP_SW_D7_Notifier::AUDIENCE_SALESMAN ) )
 );
 
+$GLOBALS['mp_on']['lines'][] = '';
+$GLOBALS['mp_on']['lines'][] = '=== D. ta sama obrona na sciezce FOLLOW-UP, nie tylko przy zmianie statusu ===';
+
+/*
+ * Czesci A-C sprawdzaly odbiorce powstajacego z EFEKTU przejscia. Odbiorca
+ * rodzi sie jednak w Dziale 7 jeszcze raz, z zupelnie innego powodu: z zadania
+ * follow-up, ktore wlasnie wypadlo (`tasks_plan['fire']`) — czyli wtedy, gdy
+ * status sie NIE zmienil.
+ *
+ * Finalny audyt kodu 1.3.5 zglosil te sciezke jako KRYTYCZNA, z uzasadnieniem,
+ * ze skutek jest tam TRWALY: zadanie wypada przy kazdym zadaniu, wiec proces
+ * zostawalby zablokowany do czasu poprawienia profilu handlowca. Sonda pokazala
+ * cos innego — filtr Agenta 7.2 stoi w petli po WSZYSTKICH odbiorcach, wiec
+ * obejmuje takze follow-up. Zgloszenie bylo falszywym alarmem, ale luka
+ * w testach byla prawdziwa: NIC tej sciezki nie pilnowalo. Asercje ponizej ja
+ * zamykaja.
+ */
+$fu_kontekst = static function ( $sales_email, $owner_id = 7 ) {
+	$k = new MP_SW_Context(
+		array(
+			'transition' => array(
+				'from'           => MP_Sales_Workflow_DB::STATUS_OFFER_SENT,
+				'to'             => MP_Sales_Workflow_DB::STATUS_OFFER_SENT,
+				'changes_status' => false,
+			),
+			// Pusto celowo: follow-up jest tu jedynym powodem powiadomienia.
+			'effects'    => array(),
+			'tasks_plan' => array(
+				'create'     => array(),
+				'close'      => array(),
+				'fire'       => array( array( 'type' => MP_SW_D6_Scheduler::TYPE_D3 ) ),
+				'skip'       => array(),
+				'duplicates' => array(),
+			),
+			'assignment' => array( 'user_id' => $owner_id ),
+			'event'      => array( 'entity' => array( 'lead_id' => 1 ) ),
+			'event_id'   => 'ev-odbiorcy-followup',
+		)
+	);
+
+	$k->set(
+		MP_SW_D2_Reader::SNAPSHOT_KEY,
+		array(
+			'flow'      => array(
+				'row' => array(
+					'id'           => 1,
+					'client_name'  => 'Firma Testowa',
+					'client_email' => 'klient@test.local',
+					'lang'         => 'pl',
+					'offer_number' => 'OF/2026/0001',
+				),
+			),
+			/*
+			 * Handlowiec siedzi na liscie `incomplete` — i to jest sedno.
+			 * `find_salesman()` przeszukuje OBIE listy swiadomie („te juz
+			 * prowadzone procesy nadal sa jego"), wiec wpis z pustym adresem
+			 * naprawde stamtad dochodzi. To nie jest przypadek teoretyczny.
+			 */
+			'salesmen'  => array(
+				'complete'   => array(),
+				'incomplete' => array(
+					array(
+						'user_id' => 7,
+						'name'    => 'Handlowiec z niepelnym profilem',
+						'email'   => $sales_email,
+					),
+				),
+			),
+			'offer'     => array(
+				'offer_number' => 'OF/2026/0001',
+				'handle'       => 'uchwyt-testowy',
+			),
+			'templates' => array(
+				'set' => array(
+					MP_SW_Templates::TPL_FOLLOWUP_DUE => array(
+						'version' => '1',
+						'pl'      => array(
+							'subject' => 'Follow-up {{days}} dni',
+							'body'    => 'Proces {{client_name}}, panel: {{link}}',
+						),
+					),
+				),
+			),
+		)
+	);
+
+	return $k;
+};
+
+$fu_bez = MP_SW_Department_07::build()->process( $fu_kontekst( '' ) );
+
+on_ok(
+	$fu_bez->is_ok(),
+	'D1: follow-up dla handlowca bez adresu nie wywraca dzialu',
+	'kod=' . $fu_bez->get_code() . ' bledy=' . wp_json_encode( $fu_bez->get_errors() )
+);
+on_ok(
+	array() === on_kolejka( $fu_bez ),
+	'D2: do kolejki nie idzie wiersz z pustym adresem',
+	'kolejka=' . wp_json_encode( on_kolejka( $fu_bez ) )
+);
+on_ok(
+	array( 'brak_adresu' ) === on_pominiete( $fu_bez, MP_SW_D7_Notifier::AUDIENCE_SALESMAN ),
+	'D3: pominiecie follow-upu zostawia slad dla dziennika',
+	'slady=' . wp_json_encode( on_pominiete( $fu_bez, MP_SW_D7_Notifier::AUDIENCE_SALESMAN ) )
+);
+
+/*
+ * Druga droga do pustego adresu: handlowiec, ktorego w snapshocie NIE MA wcale
+ * (konto usuniete z WordPressa, `owner_id` nie pasuje do zadnego wpisu).
+ * `find_salesman()` oddaje wtedy `$empty` z pustym `email` — inne zrodlo tej
+ * samej sytuacji, wiec sprawdzane osobno.
+ */
+$fu_brak = MP_SW_Department_07::build()->process( $fu_kontekst( 'ktos@test.local', 999 ) );
+
+on_ok(
+	$fu_brak->is_ok() && array( 'brak_adresu' ) === on_pominiete( $fu_brak, MP_SW_D7_Notifier::AUDIENCE_SALESMAN ),
+	'D4: handlowiec spoza snapshotu (konto usuniete) idzie ta sama droga',
+	'kod=' . $fu_brak->get_code() . ' slady=' . wp_json_encode( on_pominiete( $fu_brak, MP_SW_D7_Notifier::AUDIENCE_SALESMAN ) )
+);
+
+/*
+ * KONTR-ASERCJA. Bez niej komplet asercji D przechodzilby rowniez wtedy, gdyby
+ * follow-upy przestaly wychodzic w ogole — a to zepsuloby pilnowanie terminow,
+ * czyli powod istnienia Dzialu 6.
+ */
+$fu_ok = MP_SW_Department_07::build()->process( $fu_kontekst( 'handlowiec@test.local' ) );
+
+on_ok(
+	$fu_ok->is_ok() && array( 'handlowiec@test.local' ) === on_kolejka( $fu_ok ),
+	'D5: kontr-asercja — z poprawnym adresem follow-up NADAL wychodzi',
+	'kod=' . $fu_ok->get_code() . ' kolejka=' . wp_json_encode( on_kolejka( $fu_ok ) )
+);
+
 echo implode( "\n", $GLOBALS['mp_on']['lines'] ) . "\n";
 echo sprintf( "\n----- PASS: %d / FAIL: %d -----\n", $GLOBALS['mp_on']['pass'], $GLOBALS['mp_on']['fail'] );
 echo ( 0 === $GLOBALS['mp_on']['fail'] ) ? "VERDICT_ALL_PASS\n" : "VERDICT_HAS_FAILURES\n";

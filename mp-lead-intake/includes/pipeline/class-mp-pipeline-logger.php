@@ -131,7 +131,22 @@ class MP_Pipeline_Logger {
 			)
 		);
 
-		$throttle_key = 'mp_notify_exception';
+		/*
+		 * Ogranicznik OSOBNY DLA KAŻDEGO DZIAŁU — bo dokładnie to obiecuje stopka
+		 * alarmu: „kolejne alarmy z tego samego miejsca są wyciszone".
+		 *
+		 * Jeden wspólny klucz na całą wtyczkę sprawiał, że wyjątek w Dziale 3
+		 * uciszał na kwadrans wyjątki z Działu 9. Druga, zupełnie niezależna
+		 * awaria nie dawała znaku życia, a administrator czytał w stopce, że
+		 * wyciszone jest tylko to jedno miejsce — czyli ten sam błąd, przed
+		 * którym ta stopka miała bronić (P1-G10): tekst dla człowieka twierdził
+		 * więcej, niż kod robił.
+		 *
+		 * Tempo nadal jest ograniczone: powtórka z tego samego działu milczy, a
+		 * górną granicą jest jedna wiadomość na dział na kwadrans. Ścieżka błędu
+		 * działu (`notify_admin()`) liczy się tak samo od zawsze.
+		 */
+		$throttle_key = 'mp_notify_exception_' . (int) $dept_num;
 		if ( get_transient( $throttle_key ) ) {
 			return;
 		}
@@ -158,7 +173,8 @@ class MP_Pipeline_Logger {
 					'alert'      => 'pipeline_exception',
 					'department' => (int) $dept_num,
 					'reason'     => 'brak_admin_email',
-				)
+				),
+				$context
 			);
 
 			return;
@@ -186,7 +202,8 @@ class MP_Pipeline_Logger {
 				array(
 					'alert'      => 'pipeline_exception',
 					'department' => (int) $dept_num,
-				)
+				),
+				$context
 			);
 		}
 	}
@@ -232,17 +249,40 @@ class MP_Pipeline_Logger {
 	 * sukcesu. Przy trwale zepsutym SMTP ponawianie przy każdym błędzie
 	 * zamieniłoby jedną wiadomość na kwadrans w lawinę.
 	 *
-	 * @param string $description Co dokładnie nie doszło.
-	 * @param array  $meta        Dodatkowe fakty do `meta_json`.
+	 * Identyfikatory biorą się z KONTEKSTU, a nie z treści alarmu: treść poszła
+	 * do skrzynki, która nie odpowiada, więc dziennik jest jedynym miejscem, po
+	 * którym da się dojść, KTÓREGO zgłoszenia sprawa dotyczyła. Bez tego wpis
+	 * `admin_alert_failed` był jedynym zdarzeniem w historii, którego nie dało
+	 * się przypisać do leada — a jest to dokładnie ten moment, w którym coś
+	 * poszło nie tak.
+	 *
+	 * `lead_id` zostaje pusty, gdy leada jeszcze nie ma (awaria przed zapisem).
+	 * Wpisanie tam zera albo liczby zastępczej byłoby gorsze niż brak: pusto
+	 * znaczy „nie powstał", a `request_id` w `meta_json` i tak wskazuje żądanie.
+	 *
+	 * @param string     $description Co dokładnie nie doszło.
+	 * @param array      $meta        Dodatkowe fakty do `meta_json`.
+	 * @param MP_Context $context     Kontekst pipeline (identyfikatory); null, gdy niedostępny.
 	 * @return void
 	 */
-	protected function log_alert_failure( $description, array $meta = array() ) {
+	protected function log_alert_failure( $description, array $meta = array(), MP_Context $context = null ) {
 		global $wpdb;
+
+		$lead_id = null;
+
+		if ( $context instanceof MP_Context ) {
+			$lead_id = (int) $context->get( 'lead_id' ) > 0 ? (int) $context->get( 'lead_id' ) : null;
+
+			$request_id = (string) $context->get( 'request_id', '' );
+			if ( '' !== $request_id && ! isset( $meta['request_id'] ) ) {
+				$meta['request_id'] = $request_id;
+			}
+		}
 
 		$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			MP_Lead_Intake_DB::activity_log_table(),
 			array(
-				'lead_id'     => null,
+				'lead_id'     => $lead_id,
 				'action'      => 'admin_alert_failed',
 				'description' => (string) $description,
 				// Bez adresu administratora i bez IP: dziennik ma mowic, CO nie
@@ -288,7 +328,8 @@ class MP_Pipeline_Logger {
 					'department' => $department->get_number(),
 					'code'       => $result->get_code(),
 					'reason'     => 'brak_admin_email',
-				)
+				),
+				$context
 			);
 
 			return;
@@ -331,7 +372,8 @@ class MP_Pipeline_Logger {
 					'alert'      => 'pipeline_error',
 					'department' => $department->get_number(),
 					'code'       => $result->get_code(),
-				)
+				),
+				$context
 			);
 		}
 	}

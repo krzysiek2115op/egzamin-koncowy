@@ -95,6 +95,8 @@ $logger = new MP_Pipeline_Logger();
 // Ograniczniki czestotliwosci z wczesniejszych przebiegow musza zniknac,
 // inaczej logger w ogole nie dojdzie do wysylki.
 delete_transient( 'mp_notify_exception' );
+// Ogranicznik wyjatkow ma dzis klucz OSOBNY DLA DZIALU; ten test chodzi na Dziale 7.
+delete_transient( 'mp_notify_exception_7' );
 
 $GLOBALS['mp_al']['lines'][] = '=== A: poczta DZIALA — nic nie trafia do dziennika porazek ===';
 
@@ -110,6 +112,8 @@ $GLOBALS['mp_al']['lines'][] = '';
 $GLOBALS['mp_al']['lines'][] = '=== B: poczta ODRZUCA — wyjatek pipeline ===';
 
 delete_transient( 'mp_notify_exception' );
+// Ogranicznik wyjatkow ma dzis klucz OSOBNY DLA DZIALU; ten test chodzi na Dziale 7.
+delete_transient( 'mp_notify_exception_7' );
 $przed = al_ile_porazek();
 
 /*
@@ -175,4 +179,6 @@ $wpdb->query( // phpcs:ignore
 	$wpdb->prepare( "DELETE FROM {$log_t} WHERE action IN ( %s, %s, %s ) AND description LIKE %s", 'admin_alert_failed', 'pipeline_exception', 'pipeline_error', '%test 1.19%' ) // phpcs:ignore
 );
 delete_transient( 'mp_notify_exception' );
+// Ogranicznik wyjatkow ma dzis klucz OSOBNY DLA DZIALU; ten test chodzi na Dziale 7.
+delete_transient( 'mp_notify_exception_7' );
 delete_transient( 'mp_notify_' . $dzial->get_key() );

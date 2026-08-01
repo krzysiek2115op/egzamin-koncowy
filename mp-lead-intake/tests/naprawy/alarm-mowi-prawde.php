@@ -97,6 +97,17 @@ add_filter(
  * @return void
  */
 function am_reset() {
+	/*
+	 * Ogranicznik wyjatkow ma klucz OSOBNY DLA DZIALU (P1-G15), wiec sprzatanie
+	 * musi objac cala numeracje: 0 to „dzial nieustalony", 1-11 to pipeline.
+	 * Pominiecie tego zostawialo transient na kwadrans i NASTEPNE uruchomienie
+	 * testu widzialo alarm jako wyciszony — czyli test padal z powodu swojego
+	 * poprzedniego przebiegu, a nie z powodu kodu.
+	 */
+	for ( $dz = 0; $dz <= 11; $dz++ ) {
+		delete_transient( 'mp_notify_exception_' . $dz );
+	}
+
 	delete_transient( 'mp_notify_exception' );
 	delete_transient( 'mp_notify_dzial-testowy' );
 	$GLOBALS['mp_am_mail'] = array();
@@ -283,6 +294,158 @@ am_ok(
 	empty( am_wpis_o_alarmie( $przed_e ) ),
 	'dostarczony alarm NIE zostawia wpisu o niedostarczeniu'
 );
+
+$GLOBALS['mp_am']['lines'][] = '';
+$GLOBALS['mp_am']['lines'][] = '=== F. „z tego samego miejsca" ma znaczyc to, co mowi ===';
+
+/*
+ * Stopka alarmu obiecuje administratorowi, ze wyciszone sa kolejne alarmy
+ * „Z TEGO SAMEGO MIEJSCA". Sciezka bledu dzialu tak wlasnie dziala (klucz
+ * `mp_notify_<dzial>`), ale sciezka WYJATKU uzywala JEDNEGO klucza na cala
+ * wtyczke. Wyjatek w Dziale 3 wyciszal wiec na kwadrans wyjatki z Dzialu 9 —
+ * druga, zupelnie niezalezna awaria nie dawala znaku zycia, a administrator
+ * czytal w stopce, ze wyciszone jest tylko to jedno miejsce.
+ *
+ * To ten sam blad, ktory ta stopka miala naprawiac (P1-G10, punkt 3): tekst dla
+ * czlowieka twierdzil wiecej, niz kod robil. Naprawiamy zachowanie, nie tekst —
+ * obietnica jest sluszna, to kod jej nie dotrzymywal.
+ */
+foreach ( array( 3, 9 ) as $am_dz ) {
+	delete_transient( 'mp_notify_exception_' . $am_dz );
+}
+delete_transient( 'mp_notify_exception' );
+$GLOBALS['mp_am_mail']    = array();
+$GLOBALS['mp_am_powodzi'] = true;
+update_option( 'admin_email', 'admin@example.test' );
+
+$logger->log_exception( new RuntimeException( 'Awaria w dziale 3' ), am_kontekst(), 3 );
+$po_pierwszym = count( $GLOBALS['mp_am_mail'] );
+
+$logger->log_exception( new RuntimeException( 'Awaria w dziale 9' ), am_kontekst(), 9 );
+$po_drugim = count( $GLOBALS['mp_am_mail'] );
+
+am_ok( 1 === $po_pierwszym, 'F1: wyjatek z Dzialu 3 wysyla alarm', 'wiadomosci=' . $po_pierwszym );
+am_ok(
+	2 === $po_drugim,
+	'F2: wyjatek z INNEGO dzialu w tym samym kwadransie tez wysyla alarm',
+	'wiadomosci=' . $po_drugim
+);
+am_ok(
+	2 === $po_drugim && false !== strpos( (string) $GLOBALS['mp_am_mail'][1]['message'], 'dziale 9' ),
+	'F3: drugi alarm dotyczy naprawde Dzialu 9, a nie powtorki z trojki',
+	'tresc=' . ( isset( $GLOBALS['mp_am_mail'][1]['message'] ) ? $GLOBALS['mp_am_mail'][1]['message'] : '?' )
+);
+
+/*
+ * KONTR-ASERCJA. Rozbicie klucza nie moze znaczyc „ogranicznik przestal
+ * dzialac" — powtorka z TEGO SAMEGO dzialu ma dalej byc wyciszona, inaczej
+ * awaria w petli zamienia skrzynke administratora w strumien.
+ */
+$logger->log_exception( new RuntimeException( 'Druga awaria w dziale 3' ), am_kontekst(), 3 );
+
+am_ok(
+	2 === count( $GLOBALS['mp_am_mail'] ),
+	'F4: kontr-asercja — powtorka z tego samego dzialu nadal jest wyciszona',
+	'wiadomosci=' . count( $GLOBALS['mp_am_mail'] )
+);
+am_ok(
+	isset( $GLOBALS['mp_am_mail'][0] ) && false !== mb_stripos( (string) $GLOBALS['mp_am_mail'][0]['message'], 'z tego samego miejsca' ),
+	'F5: stopka nadal sklada te obietnice — i dopiero teraz jest ona prawdziwa',
+	'tresc=' . ( isset( $GLOBALS['mp_am_mail'][0] ) ? $GLOBALS['mp_am_mail'][0]['message'] : '?' )
+);
+
+foreach ( array( 3, 9 ) as $am_dz ) {
+	delete_transient( 'mp_notify_exception_' . $am_dz );
+}
+
+$GLOBALS['mp_am']['lines'][] = '';
+$GLOBALS['mp_am']['lines'][] = '=== G. slad o niedostarczonym alarmie da sie polaczyc ze zgloszeniem ===';
+
+/*
+ * Wpis `admin_alert_failed` szedl z `lead_id = null` na sztywno i bez
+ * `request_id` w `meta_json`. Alarm, ktory NIE doszedl, byl wiec jedynym
+ * zdarzeniem w dzienniku, ktorego nie dalo sie przypisac do zgloszenia —
+ * a to wlasnie on jest momentem, w ktorym cos poszlo nie tak. Filtrowanie
+ * historii po lead_id go nie pokazywalo.
+ *
+ * Sedno: identyfikatory sa w TRESCI alarmu (P1-G10 punkt 3), tylko ze tresc
+ * poszla do skrzynki, ktora nie odpowiada. Zostaje dziennik i to on musi je
+ * miec.
+ */
+foreach ( array( 3, 9, 5 ) as $am_dz ) {
+	delete_transient( 'mp_notify_exception_' . $am_dz );
+}
+$GLOBALS['mp_am_mail']    = array();
+$GLOBALS['mp_am_powodzi'] = false;
+update_option( 'admin_email', 'admin@example.test' );
+
+$przed_g = (int) $wpdb->get_var( "SELECT COALESCE(MAX(id),0) FROM {$log_t}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+$logger->log_exception( new RuntimeException( 'Awaria z niedostarczonym alarmem' ), am_kontekst(), 5 );
+
+$wiersz_g = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	$wpdb->prepare(
+		"SELECT lead_id, meta_json FROM {$log_t} WHERE action = %s AND id > %d ORDER BY id DESC LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		'admin_alert_failed',
+		$przed_g
+	),
+	ARRAY_A
+);
+
+$meta_g = is_array( $wiersz_g ) ? (array) json_decode( (string) $wiersz_g['meta_json'], true ) : array();
+
+am_ok( is_array( $wiersz_g ) && ! empty( $wiersz_g ), 'G1: wpis o niedostarczonym alarmie powstal' );
+am_ok(
+	is_array( $wiersz_g ) && 4242 === (int) $wiersz_g['lead_id'],
+	'G2: wpis niesie lead_id zgloszenia, nie null',
+	'lead_id=' . ( is_array( $wiersz_g ) ? var_export( $wiersz_g['lead_id'], true ) : 'brak wiersza' )
+);
+am_ok(
+	isset( $meta_g['request_id'] ) && 'req-testowy-1' === (string) $meta_g['request_id'],
+	'G3: meta_json niesie identyfikator zadania',
+	'meta=' . ( is_array( $wiersz_g ) ? (string) $wiersz_g['meta_json'] : 'brak wiersza' )
+);
+
+/*
+ * KONTR-ASERCJA. Awaria PRZED zapisem leada nie ma lead_id i wtedy null jest
+ * jedyna poprawna wartoscia — dopisanie tam zera albo zmyslonej liczby byloby
+ * gorsze niz brak. Wpis ma wtedy stac na samym request_id.
+ */
+delete_transient( 'mp_notify_exception_6' );
+$przed_g2 = (int) $wpdb->get_var( "SELECT COALESCE(MAX(id),0) FROM {$log_t}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+$logger->log_exception(
+	new RuntimeException( 'Awaria przed zapisem leada' ),
+	new MP_Context( array( 'request_id' => 'req-testowy-2' ) ),
+	6
+);
+
+$wiersz_g2 = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	$wpdb->prepare(
+		"SELECT lead_id, meta_json FROM {$log_t} WHERE action = %s AND id > %d ORDER BY id DESC LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		'admin_alert_failed',
+		$przed_g2
+	),
+	ARRAY_A
+);
+
+$meta_g2 = is_array( $wiersz_g2 ) ? (array) json_decode( (string) $wiersz_g2['meta_json'], true ) : array();
+
+am_ok(
+	is_array( $wiersz_g2 ) && null === $wiersz_g2['lead_id'],
+	'G4: kontr-asercja — bez leada kolumna zostaje pusta, nic sie nie zmysla',
+	'lead_id=' . ( is_array( $wiersz_g2 ) ? var_export( $wiersz_g2['lead_id'], true ) : 'brak wiersza' )
+);
+am_ok(
+	isset( $meta_g2['request_id'] ) && 'req-testowy-2' === (string) $meta_g2['request_id'],
+	'G5: a zadanie i tak da sie wskazac — po request_id',
+	'meta=' . ( is_array( $wiersz_g2 ) ? (string) $wiersz_g2['meta_json'] : 'brak wiersza' )
+);
+
+foreach ( array( 5, 6 ) as $am_dz ) {
+	delete_transient( 'mp_notify_exception_' . $am_dz );
+}
+$GLOBALS['mp_am_powodzi'] = true;
 
 // Sprzatanie: przywrocenie adresu i wpisow testowych.
 update_option( 'admin_email', $stary_admin );
