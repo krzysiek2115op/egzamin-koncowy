@@ -59,7 +59,7 @@ class MP_D2_Agent_Required_Fields extends MP_Abstract_Agent {
 class MP_D2_Agent_Normalize extends MP_Abstract_Agent {
 
 	public function __construct() {
-		parent::__construct( '2.2', 'Normalizuje dane', 'sanitize_text_field / sanitize_email + NIP do samych cyfr' );
+		parent::__construct( '2.2', 'Normalizuje dane', 'sanitize_text_field / sanitize_email + numer VAT do postaci kanonicznej dla kraju' );
 	}
 
 	/**
@@ -71,7 +71,9 @@ class MP_D2_Agent_Normalize extends MP_Abstract_Agent {
 			array(
 				'company_name' => sanitize_text_field( (string) $context->get( 'company_name', '' ) ),
 				'email'        => sanitize_email( (string) $context->get( 'email', '' ) ),
-				'nip'          => preg_replace( '/\D+/', '', (string) $context->get( 'nip', '' ) ),
+				// Kanonizacja zależy od kraju: w Polsce giną wszystkie znaki poza cyframi,
+				// poza nią litery bywają częścią numeru — patrz MP_Vat_Number::normalize().
+				'nip'          => MP_Vat_Number::normalize( $context->get( 'nip', '' ), $context->get( 'country', '' ) ),
 				'phone'        => sanitize_text_field( (string) $context->get( 'phone', '' ) ),
 				'normalized'   => true,
 			)
@@ -85,7 +87,7 @@ class MP_D2_Agent_Normalize extends MP_Abstract_Agent {
 class MP_D2_Agent_Validate_Formats extends MP_Abstract_Agent {
 
 	public function __construct() {
-		parent::__construct( '2.3', 'Waliduje formaty', 'Poprawność e-maila (is_email) i wstępny format NIP (10 cyfr)' );
+		parent::__construct( '2.3', 'Waliduje formaty', 'Poprawność e-maila (is_email) i wstępny format numeru VAT (PL: 10 cyfr, UE: sanity-check)' );
 	}
 
 	/**
@@ -115,35 +117,35 @@ class MP_D2_Agent_Validate_Formats extends MP_Abstract_Agent {
 
 		// NIP jest wymagany. Po normalizacji (2.2) puste pole oznacza wejście bez
 		// cyfr (np. same myślniki) — nie wolno go przepuścić do działu 3.
-		$nip = (string) $context->get( 'nip', '' );
+		$nip     = (string) $context->get( 'nip', '' );
+		$country = (string) $context->get( 'country', '' );
 		if ( '' === $nip ) {
 			$errors['nip'] = 'NIP jest wymagany';
-		} elseif ( 10 !== strlen( $nip ) ) {
+		} elseif ( ! MP_Vat_Number::format_valid( $nip, $country ) ) {
 			/*
-			 * Kontrola formatu jest POLSKA i taka zostaje — to decyzja zakresu,
-			 * nie przeoczenie. Zmienia się wyłącznie to, co czyta człowiek.
+			 * Kontrola formatu jest teraz DWUTOROWA, bo formularz od zawsze pozwalał
+			 * wybrać kraj UE, a cała dalsza droga leadu była na to gotowa: agent 3.2
+			 * pyta VIES pod adresem /ms/{KRAJ}/vat/{NUMER}, klucz unikalności w BD-3
+			 * to (country, nip), a Dział 4 w P3 przydziela handlowca po kraju.
+			 * Zamknięte było wyłącznie wejście.
 			 *
-			 * Formularz pozwala wybrać kraj UE, bo kod kraju jest potrzebny do
-			 * VIES i do klucza UNIQUE (country, nip) w BD-3. Numer VAT większości
-			 * państw ma jednak inną długość niż polskie 10 cyfr, więc niemiecka
-			 * firma dostawała „NIP powinien mieć 10 cyfr" — komunikat sugerujący
-			 * literówkę w numerze, który jest w pełni poprawny, tylko w innym
-			 * kraju. Człowiek poprawiał numer, zamiast dowiedzieć się, że tego
-			 * kraju nie obsługujemy.
+			 * Polska: dokładnie stary warunek 10 cyfr, z dokładnie starym zdaniem.
+			 * Reszta UE: sanity-check w MP_Vat_Number — długość, dozwolone znaki,
+			 * odrzucenie wartości zastępczych. O ważności numeru orzeka VIES, nie my.
 			 *
 			 * Kod kraju wchodzi do treści tylko wtedy, gdy ma kształt ISO 3166-1.
 			 * Sprawdza to Agent 2.4, ale biegnie niezależnie od tego agenta, więc
 			 * nie zakładamy jego wyniku. Przy czymkolwiek innym zostaje zdanie bez
 			 * kodu — komunikat nie ma być kanałem na cudzy tekst.
 			 */
-			$country = strtoupper( trim( (string) $context->get( 'country', '' ) ) );
-
-			if ( '' !== $country && 'PL' !== $country ) {
-				$errors['nip'] = preg_match( '/^[A-Z]{2}$/', $country )
-					? sprintf( 'Sprawdzamy wyłącznie polski NIP (10 cyfr) — numer VAT z kraju %s ma inny format.', $country )
-					: 'Sprawdzamy wyłącznie polski NIP (10 cyfr).';
-			} else {
+			if ( MP_Vat_Number::is_polish( $country ) ) {
 				$errors['nip'] = 'NIP powinien mieć 10 cyfr';
+			} else {
+				$kod           = MP_Vat_Number::country( $country );
+				$errors['nip'] = sprintf(
+					'Numer VAT z kraju %s nie wygląda na poprawny — przepisz go z faktury (bez prefiksu kraju).',
+					$kod
+				);
 			}
 		}
 

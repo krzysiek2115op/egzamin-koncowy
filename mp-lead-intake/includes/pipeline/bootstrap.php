@@ -11,6 +11,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 $mp_pipeline_dir = __DIR__ . '/';
 
+// Numer VAT: kanoniczna postać i lokalna kontrola formatu. Ładowane TUTAJ, a nie
+// tylko w pliku głównym wtyczki, bo działy 1, 2 i 3 na tym stoją, a pipeline bywa
+// ładowany samodzielnie — tak robi harness procesu, który nie zna pliku głównego.
+require_once dirname( $mp_pipeline_dir ) . '/class-mp-vat-number.php';
+
 require_once $mp_pipeline_dir . 'class-mp-result.php';
 require_once $mp_pipeline_dir . 'class-mp-context.php';
 require_once $mp_pipeline_dir . 'pipeline-contracts.php';

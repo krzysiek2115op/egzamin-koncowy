@@ -70,35 +70,25 @@ class MP_D3_Agent_Nip extends MP_Abstract_Agent {
 	 * decyzja, tylko opisana słowami. Żaden komunikat nie mówi nic ponad to, co
 	 * naprawdę sprawdzono.
 	 *
-	 * Kod kraju służy WYŁĄCZNIE doborowi słów — reguła zostaje polska niezależnie
-	 * od niego, bo to decyzja zakresu, nie przeoczenie. Sedno: numer VAT Słowacji
-	 * ma dokładnie dziesięć cyfr, więc przechodzi kontrolę długości w Dziale 2
-	 * i dociera tutaj, gdzie odrzuca go polska suma kontrolna. Zdanie
-	 * „Niepoprawna suma kontrolna NIP" myliło wtedy podwójnie: numer jest
-	 * poprawny, tylko liczony inną regułą, a człowiek szukał błędu rachunkowego
-	 * tam, gdzie go nie ma.
+	 * Komunikaty są POLSKIE, bo i reguła jest polska — ten agent w ogóle nie
+	 * dotyka numerów z innych krajów UE. Zatrzymuje je warunek w `run()`, bo
+	 * przykładanie polskiej sumy kontrolnej do cudzego numeru dawało zarzut
+	 * błędu rachunkowego tam, gdzie żadnego błędu nie ma. Sedno tego, jak łatwo
+	 * to przeoczyć: numer VAT Słowacji ma dokładnie dziesięć cyfr, więc przechodził
+	 * kontrolę długości w Dziale 2 i docierał aż tutaj.
 	 *
-	 * @param string $nip     Wartość z kontekstu (po normalizacji Działu 2).
-	 * @param string $country Kod kraju z formularza; pusty albo „PL" = treść bez zmian.
+	 * @param string $nip Wartość z kontekstu (po normalizacji Działu 2).
 	 * @return string Pusty ciąg, gdy NIP jest poprawny.
 	 */
-	public static function rejection_reason( $nip, $country = '' ) {
-		$nip     = (string) $nip;
-		$country = strtoupper( trim( (string) $country ) );
-
-		// Kod kraju trafia do treści tylko w kształcie ISO 3166-1 — komunikat nie
-		// ma być kanałem na cudzy tekst.
-		$obcy  = '' !== $country && 'PL' !== $country;
-		$nazwa = $obcy && preg_match( '/^[A-Z]{2}$/', $country ) ? sprintf( ' z kraju %s', $country ) : '';
+	public static function rejection_reason( $nip ) {
+		$nip = (string) $nip;
 
 		if ( '' === $nip ) {
 			return 'NIP jest wymagany';
 		}
 
 		if ( ! preg_match( '/\A\d{10}\z/', $nip ) ) {
-			return $obcy
-				? sprintf( 'Sprawdzamy wyłącznie polski NIP (10 cyfr) — numer VAT%s ma inny format.', $nazwa )
-				: 'NIP powinien mieć 10 cyfr';
+			return 'NIP powinien mieć 10 cyfr';
 		}
 
 		if ( preg_match( '/\A(\d)\1{9}\z/', $nip ) ) {
@@ -109,9 +99,7 @@ class MP_D3_Agent_Nip extends MP_Abstract_Agent {
 			return '';
 		}
 
-		return $obcy
-			? sprintf( 'Sprawdzamy wyłącznie polski NIP — numer%s nie przechodzi polskiej sumy kontrolnej.', $nazwa )
-			: 'Niepoprawna suma kontrolna NIP';
+		return 'Niepoprawna suma kontrolna NIP';
 	}
 
 	/**
@@ -119,14 +107,40 @@ class MP_D3_Agent_Nip extends MP_Abstract_Agent {
 	 * @return MP_Result
 	 */
 	public function run( MP_Context $context ) {
-		$nip   = (string) $context->get( 'nip', '' );
+		$country = (string) $context->get( 'country', '' );
+
+		/*
+		 * Poza Polską nie mamy czego tu policzyć — i dobrze, bo `nip_valid` czyta
+		 * Krytyk 3.1 i to on zatrzymuje potok. Polska suma kontrolna przyłożona
+		 * do numeru niemieckiego czy holenderskiego zawsze wypadnie źle, a jej
+		 * werdykt nie znaczyłby nic poza „to nie jest numer polski".
+		 *
+		 * Kontrola lokalna dla zagranicy skończyła się na formacie (Dział 2).
+		 * O tym, czy numer istnieje i jest czynny, orzeka VIES — agent 3.2 —
+		 * a jego werdykt egzekwuje Krytyk 3.2. Flaga mówi więc prawdę: „przeszedł
+		 * kontrolę, jaką umiemy zrobić lokalnie", a nie „numer jest ważny".
+		 */
+		if ( ! MP_Vat_Number::is_polish( $country ) ) {
+			return MP_Result::ok(
+				array(
+					'nip_valid'    => true,
+					'nip_checksum' => 'nie_dotyczy',
+					'errors'       => array(),
+				)
+			);
+		}
+
+		// Normalizacja jest bezczynna po Dziale 2 (numer jest już kanoniczny), ale
+		// agent bywa wołany też poza potokiem — wtedy ma odpowiadać o tym samym numerze.
+		$nip   = MP_Vat_Number::normalize( $context->get( 'nip', '' ), $country );
 		$valid = self::checksum_valid( $nip );
-		$powod = self::rejection_reason( $nip, (string) $context->get( 'country', '' ) );
+		$powod = self::rejection_reason( $nip );
 
 		return MP_Result::ok(
 			array(
-				'nip_valid' => $valid,
-				'errors'    => $valid ? array() : array( 'nip' => $powod ),
+				'nip_valid'    => $valid,
+				'nip_checksum' => $valid ? 'zgodna' : 'niezgodna',
+				'errors'       => $valid ? array() : array( 'nip' => $powod ),
 			)
 		);
 	}
@@ -174,11 +188,10 @@ class MP_D3_Agent_Vat extends MP_Abstract_Agent {
 	 * @return array Kształt: vat_valid (bool|null), vat_checked (bool), [vat_source|vat_name|vat_error].
 	 */
 	public static function resolve_vies( $country, $nip ) {
-		$nip     = preg_replace( '/\D+/', '', (string) $nip );
-		$country = strtoupper( (string) $country );
-		if ( '' === $country ) {
-			$country = 'PL';
-		}
+		$country = MP_Vat_Number::country( $country );
+		// Litery bywają częścią numeru poza Polską — stare wycinanie wszystkiego poza
+		// cyframi pytało VIES o numer, którego nikt nie podał (NL: 123456789B01).
+		$nip = MP_Vat_Number::normalize( $nip, $country );
 		if ( '' === $nip ) {
 			return array(
 				'vat_valid'   => null,
@@ -287,11 +300,8 @@ class MP_D3_Agent_Vat extends MP_Abstract_Agent {
 	 * @return MP_Result
 	 */
 	public function run( MP_Context $context ) {
-		$nip     = preg_replace( '/\D+/', '', (string) $context->get( 'nip', '' ) );
-		$country = strtoupper( (string) $context->get( 'country', 'PL' ) );
-		if ( '' === $country ) {
-			$country = 'PL';
-		}
+		$country = MP_Vat_Number::country( $context->get( 'country', 'PL' ) );
+		$nip     = MP_Vat_Number::normalize( $context->get( 'nip', '' ), $country );
 		if ( '' === $nip ) {
 			return MP_Result::ok(
 				array(
@@ -362,11 +372,26 @@ class MP_D3_Agent_Company_Status extends MP_Abstract_Agent {
 	 * Jedyne miejsce z kosztownym wywołaniem sieciowym MF — wołane synchronicznie
 	 * tylko przy async OFF, a w trybie async wyłącznie przez weryfikator w tle.
 	 *
-	 * @param string $nip NIP.
+	 * @param string $nip     NIP.
+	 * @param string $country Kod kraju; pusty = Polska (tak było, zanim parametr powstał).
 	 * @return array Kształt: company_status (string|null), company_status_checked (bool), [source].
 	 */
-	public static function resolve_wl( $nip ) {
-		$nip = preg_replace( '/\D+/', '', (string) $nip );
+	public static function resolve_wl( $nip, $country = '' ) {
+		/*
+		 * Biała lista to rejestr polskiego Ministerstwa Finansów — o niemiecką czy
+		 * holenderską firmę nie ma go po co pytać. Wcześniej pytanie i tak leciało:
+		 * numer zagraniczny szedł do wl-api.mf.gov.pl, wracał brak wpisu, a lead
+		 * dostawał status „nieznany" wyglądający jak awaria, nie jak brak zakresu.
+		 */
+		if ( ! MP_Vat_Number::is_polish( $country ) ) {
+			return array(
+				'company_status'         => null,
+				'company_status_checked' => false,
+				'company_status_scope'   => 'pl_only',
+			);
+		}
+
+		$nip = MP_Vat_Number::normalize( $nip, $country );
 		if ( '' === $nip ) {
 			return array(
 				'company_status'         => null,
@@ -457,7 +482,15 @@ class MP_D3_Agent_Company_Status extends MP_Abstract_Agent {
 	 * @return MP_Result
 	 */
 	public function run( MP_Context $context ) {
-		$nip = preg_replace( '/\D+/', '', (string) $context->get( 'nip', '' ) );
+		$country = MP_Vat_Number::country( $context->get( 'country', '' ) );
+
+		// Poza Polską Biała lista nie ma zastosowania — nie kolejkujemy nawet zadania
+		// w tle, bo nie ma czego sprawdzić. Rozstrzygnięcie zapada tu, nie w API MF.
+		if ( ! MP_Vat_Number::is_polish( $country ) ) {
+			return MP_Result::ok( self::resolve_wl( '', $country ) );
+		}
+
+		$nip = MP_Vat_Number::normalize( $context->get( 'nip', '' ), $country );
 		if ( '' === $nip ) {
 			return MP_Result::ok(
 				array(

@@ -39,17 +39,15 @@ class MP_D1_Agent_Fetch_Leads extends MP_Abstract_Agent {
 	 * @return MP_Result
 	 */
 	public function run( MP_Context $context ) {
-		// Normalizacja NIP do samych cyfr (jak w działach 2/3), bo w BD-3 NIP jest
-		// zapisany kanonicznie (10 cyfr). Bez tego zapis typu "123-456-32-18" nie
-		// trafiłby w istniejącego klienta i dział 1 „ślepłby" na jego historię.
-		$nip = preg_replace( '/\D+/', '', (string) $context->get( 'nip', '' ) );
 		// Ta sama normalizacja kraju co dział 4.1 (dział 1 działa PRZED nim, więc nie
 		// może reużyć jego wyniku) — klucz unikalności w BD-3 to (country, nip), nie
 		// sam nip (lokalne numery firmowe różnych krajów UE mogą się cyfrowo pokrywać).
-		$country = strtoupper( trim( (string) $context->get( 'country', '' ) ) );
-		if ( ! preg_match( '/^[A-Z]{2}$/', $country ) ) {
-			$country = 'PL';
-		}
+		$country = MP_Vat_Number::country( $context->get( 'country', '' ) );
+		// Numer w tej samej postaci, w jakiej trafia do BD-3 (dział 2 kanonizuje tak
+		// samo). Bez tego zapis typu "123-456-32-18" nie trafiłby w istniejącego
+		// klienta i dział 1 „ślepłby" na jego historię. Kraj musi być ustalony PRZED
+		// numerem, bo to on rozstrzyga, czy litery są śmieciem, czy treścią.
+		$nip  = MP_Vat_Number::normalize( $context->get( 'nip', '' ), $country );
 		$rows = ( '' === $nip ) ? null : MP_Lead_Intake_DB::get_leads_by_nip( $nip, $country );
 
 		/*

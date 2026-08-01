@@ -129,16 +129,15 @@ class MP_Lead_Intake_Vat_Verifier {
 			return;
 		}
 
-		$nip     = preg_replace( '/\D+/', '', (string) ( isset( $lead['nip'] ) ? $lead['nip'] : '' ) );
-		$country = strtoupper( (string) ( isset( $lead['country'] ) ? $lead['country'] : 'PL' ) );
-		if ( '' === $country ) {
-			$country = 'PL';
-		}
+		$country = MP_Vat_Number::country( isset( $lead['country'] ) ? $lead['country'] : 'PL' );
+		$nip     = MP_Vat_Number::normalize( isset( $lead['nip'] ) ? $lead['nip'] : '', $country );
 
 		// Kosztowne HTTP — teraz POZA ścieżką żądania klienta. Te same fetchery co
-		// dział 3 (wspólne cache i łagodny fallback).
+		// dział 3 (wspólne cache i łagodny fallback). Biała lista dostaje kraj, bo
+		// poza Polską nie ma o co jej pytać — bez tego zadanie w tle dobijało się
+		// do API MF aż do wyczerpania prób, o numer spoza jej zakresu.
 		$vies = MP_D3_Agent_Vat::resolve_vies( $country, $nip );
-		$wl   = MP_D3_Agent_Company_Status::resolve_wl( $nip );
+		$wl   = MP_D3_Agent_Company_Status::resolve_wl( $nip, $country );
 
 		$vat_checked = ! empty( $vies['vat_checked'] );
 		$vat_valid   = self::scal_vat_valid( $vies, isset( $lead['vat_valid'] ) ? $lead['vat_valid'] : null );

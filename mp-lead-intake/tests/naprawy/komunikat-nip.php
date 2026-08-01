@@ -198,19 +198,26 @@ kn_ok(
 );
 
 $GLOBALS['mp_kn']['lines'][] = '';
-$GLOBALS['mp_kn']['lines'][] = '=== D. kraj inny niz PL: komunikat mowi, CZEGO nie sprawdzamy ===';
+$GLOBALS['mp_kn']['lines'][] = '=== D. kraj inny niz PL: polska regula w ogole sie nie stosuje ===';
 
 /*
- * Formularz pozwala wybrac kraj UE, ale kontrola formatu jest polska: 10 cyfr
- * plus polska suma kontrolna. To DECYZJA ZAKRESU, nie blad — klient obsluguje
- * polskich kontrahentow i tak ma zostac. Blad byl w tym, co czytal czlowiek:
- * niemiecka firma z numerem USt-IdNr. dostawala „NIP powinien miec 10 cyfr",
- * czyli komunikat sugerujacy literowke w numerze, ktory jest poprawny — tylko
- * w innym kraju.
+ * HISTORIA TEJ SEKCJI — bo jej tresc raz sie juz zmienila i warto wiedziec czemu.
  *
- * ZAKRES TEJ ZMIANY. Zmienia sie WYLACZNIE tresc komunikatu i wylacznie wtedy,
- * gdy kraj jest podany i rozny od PL. Zbior przyjmowanych i odrzucanych numerow
- * zostaje NIETKNIETY — pilnuje tego sekcja E.
+ * Najpierw (P1-G16) kontrola byla polska, a poprawiony zostal sam komunikat:
+ * niemiecka firma zamiast „NIP powinien miec 10 cyfr" — czyli zamiast zarzutu
+ * literowki w numerze w pelni poprawnym — czytala, ze sprawdzamy wylacznie polski
+ * NIP. Sekcja pilnowala wtedy DOBORU SLOW.
+ *
+ * Potem (P1-Z1) zapadla decyzja o szerszym zakresie: numery z innych krajow UE
+ * maja byc przyjmowane, bo cala reszta systemu byla na nie gotowa — VIES pytany
+ * per kraj, UNIQUE (country, nip) w BD-3, przydzial handlowca po kraju w P3.
+ * Tamten komunikat stal sie wiec nieprawdziwy i zniknal razem z regula, ktora
+ * opisywal. Nie „poprawiamy poprawki" — zmienil sie zakres produktu.
+ *
+ * Dzis sekcja pilnuje czegos mocniejszego niz slowa: ze do cudzego numeru NIE
+ * przykladamy polskiej sumy kontrolnej — ani jej werdyktu, ani jej slownictwa.
+ * Asercje P1-G6 (jeden komunikat na cztery rozne powody) zyja dalej, nietkniete,
+ * w sekcjach A–C.
  */
 $kn_dzial2 = static function ( $nip, $country ) {
 	$wynik = ( new MP_D2_Agent_Validate_Formats() )->run(
@@ -241,50 +248,65 @@ $kn_dzial3 = static function ( $nip, $country ) {
 	return isset( $dane['errors']['nip'] ) ? (string) $dane['errors']['nip'] : '';
 };
 
-// Niemiecki USt-IdNr. po normalizacji Dzialu 2 zostawia 9 cyfr — zatrzymuje go
-// kontrola dlugosci w Dziale 2 i to jej komunikat widzi czlowiek.
+// Niemiecki USt-IdNr. ma dziewiec cyfr — polskiej dlugosci nie spelnia i nie ma
+// spelniac. Po P1-Z1 nie jest to juz powod do odrzucenia.
 $kn_de = $kn_dzial2( '123456789', 'DE' );
 
 kn_ok(
-	'' !== $kn_de,
-	'D1: numer z kraju DE nadal jest odrzucany',
+	'' === $kn_de,
+	'D1: numer z kraju DE nie jest odrzucany za to, ze nie ma dziesieciu cyfr',
 	'komunikat=' . $kn_de
 );
 kn_ok(
-	false !== stripos( $kn_de, 'polski' ),
-	'D2: komunikat mowi wprost, ze sprawdzamy polski NIP',
-	'komunikat=' . $kn_de
-);
-kn_ok(
-	false !== strpos( $kn_de, 'DE' ),
-	'D3: komunikat nazywa kraj, ktory czlowiek wybral',
-	'komunikat=' . $kn_de
+	'' === $kn_dzial3( '123456789', 'DE' ),
+	'D2: i nie dostaje w Dziale 3 zadnego komunikatu o polskiej sumie kontrolnej',
+	'komunikat=' . $kn_dzial3( '123456789', 'DE' )
 );
 
 /*
- * Slowacki numer VAT ma DOKLADNIE dziesiec cyfr, wiec przechodzi kontrole
- * dlugosci w Dziale 2 i dociera do polskiej sumy kontrolnej w Dziale 3. Tam
- * dostawal „Niepoprawna suma kontrolna NIP" — komunikat mylacy podwojnie, bo
- * numer jest poprawny, tylko liczony inna regula.
+ * Slowacki numer VAT ma DOKLADNIE dziesiec cyfr, wiec przechodzil kontrole
+ * dlugosci w Dziale 2 i docieral do polskiej sumy kontrolnej w Dziale 3 — to
+ * najlatwiejszy do przeoczenia przypadek, bo z zewnatrz wyglada jak polski NIP.
+ * Tam dostawal „Niepoprawna suma kontrolna NIP": zarzut bledu rachunkowego
+ * w numerze, ktory zaden polski rachunek nie opisuje.
  */
 $kn_sk = $kn_dzial3( '2020123456', 'SK' );
 
 kn_ok(
-	'' !== $kn_sk && false === stripos( $kn_sk, 'suma kontrolna' ),
-	'D4: dziesieciocyfrowy numer z kraju SK nie jest opisany jako blad sumy kontrolnej',
+	'' === $kn_sk,
+	'D3: dziesieciocyfrowy numer z kraju SK nie jest juz mierzony polska suma kontrolna',
 	'komunikat=' . $kn_sk
 );
+
+/*
+ * Odrzucenie za granica nadal istnieje — tyle ze na podstawie formatu, nie sumy.
+ * Komunikat ma o tym mowic uczciwie: ma nazwac kraj i NIE ma wspominac ani
+ * o dziesieciu cyfrach, ani o sumie kontrolnej, bo zadnej z tych rzeczy tu nie
+ * sprawdzano. To ta sama zasada, ktorej pilnuje caly ten plik od P1-G6:
+ * komunikat nie twierdzi wiecej, niz kod naprawde ustalil.
+ */
+$kn_smiec = $kn_dzial2( 'AB', 'DE' );
+
 kn_ok(
-	false !== stripos( $kn_sk, 'polski' ) && false !== strpos( $kn_sk, 'SK' ),
-	'D5: mowi, ze regula jest polska, i nazywa kraj',
-	'komunikat=' . $kn_sk
+	'' !== $kn_smiec,
+	'D4: numer bez sensu z kraju DE nadal jest odrzucany — luznosc nie znaczy brak kontroli',
+	'komunikat=' . $kn_smiec
+);
+kn_ok(
+	false !== strpos( $kn_smiec, 'DE' )
+		&& false === stripos( $kn_smiec, 'suma kontrolna' )
+		&& false === stripos( $kn_smiec, '10 cyfr' ),
+	'D5: nazywa kraj i nie powoluje sie na polskie reguly, ktorych nie stosowano',
+	'komunikat=' . $kn_smiec
 );
 
 $GLOBALS['mp_kn']['lines'][] = '';
-$GLOBALS['mp_kn']['lines'][] = '=== E. KONTR-ASERCJE: zmienia sie TEKST, nie to, co przechodzi ===';
+$GLOBALS['mp_kn']['lines'][] = '=== E. KONTR-ASERCJE: polska sciezka nietknieta ===';
 
 /*
- * Najwazniejsza czesc tej zmiany. Gdyby przy okazji poluzowala sie kontrola,
+ * Najwazniejsza czesc tej zmiany. Otwarcie na numery z innych krajow nie moze
+ * przestawic ani jednej decyzji dla numeru polskiego — ani tego, co przechodzi,
+ * ani tego, co czyta polski klient. Gdyby przy okazji poluzowala sie kontrola,
  * do BD-3 zaczelyby wchodzic numery, ktorych zaden dzial dalej nie rozumie —
  * a UNIQUE (country, nip) i weryfikator w tle licza na numer kanoniczny.
  */
