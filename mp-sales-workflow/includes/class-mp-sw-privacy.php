@@ -63,7 +63,154 @@ class MP_SW_Privacy {
 	 */
 	public static function register() {
 		add_action( self::HOOK_ANONYMIZED, array( __CLASS__, 'on_lead_anonymized' ), 10, 1 );
+		add_filter( 'wp_privacy_personal_data_exporters', array( __CLASS__, 'register_exporter' ) );
 		add_filter( 'wp_privacy_personal_data_erasers', array( __CLASS__, 'register_eraser' ) );
+	}
+
+	/**
+	 * Podpina sie pod EKSPORTER danych osobowych WordPressa.
+	 *
+	 * Dotad wpiety byl sam kasownik. LP.1 i LP.2 wpinaja oba filtry, wiec zadanie
+	 * „Eksportuj dane osobowe" z Narzedzi oddawalo komplet z dwoch wtyczek
+	 * i CISZE z trzeciej — bez bledu i bez ostrzezenia, wiec raport wygladal na
+	 * kompletny. RODO daje prawo dostepu (art. 15) i przenoszenia (art. 20) obok
+	 * prawa do usuniecia (art. 17); obsluzenie samego usuwania zalatwia jedno
+	 * z trzech. Ta wtyczka nigdy nie twierdzila, ze jej dane nie sa osobowe —
+	 * ma kasownik, anonimizacje i `is_anonymized()`.
+	 *
+	 * @param array $exporters Zarejestrowane eksportery.
+	 * @return array
+	 */
+	public static function register_exporter( $exporters ) {
+		$exporters['mp-sales-workflow'] = array(
+			'exporter_friendly_name' => __( 'Procesy sprzedażowe MP', 'mp-sales-workflow' ),
+			'callback'               => array( __CLASS__, 'export_by_email' ),
+		);
+
+		return (array) $exporters;
+	}
+
+	/**
+	 * Eksporter rdzenia: wydaje dane podmiotu powiazane z adresem.
+	 *
+	 * Zasieg wynika wprost z naglowka tego pliku: LP.3 trzyma adres w DWOCH
+	 * miejscach i tylko dwoch — w wierszu procesu (`client_email`) i w kolejce
+	 * powiadomien (`recipient`). Dziennik aktywnosci adresu nie zawiera, wiec nie
+	 * ma tu czego eksportowac. Eksport wezszy o jedno z tych miejsc bylby gorszy
+	 * niz jego brak: wygladalby na kompletny.
+	 *
+	 * Zapytania wiaza po ADRESIE, nie po `lead_id`, bo zadanie RODO sklada sie
+	 * po zweryfikowanym adresie — dobranie wierszy „tego samego leada" wydaloby
+	 * dane procesow, ktore po anonimizacji naleza juz do nikogo.
+	 *
+	 * @param string $email Adres e-mail podmiotu danych.
+	 * @param int    $page  Numer strony (mechanizm rdzenia).
+	 * @return array
+	 */
+	public static function export_by_email( $email, $page = 1 ) {
+		global $wpdb;
+
+		$dane = array();
+
+		// Komplet miesci sie na jednej stronie: proces na lead jest jeden
+		// (UNIQUE `uq_lead`), a powiadomien do jednego adresu sa jednostki.
+		if ( 1 !== (int) $page ) {
+			return array(
+				'data' => array(),
+				'done' => true,
+			);
+		}
+
+		$flow_table = MP_Sales_Workflow_DB::flow_table();
+		$procesy    = (array) $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"SELECT id, lead_id, offer_number, status, segment, lang, client_name, client_email, created_at FROM {$flow_table} WHERE client_email = %s ORDER BY id ASC", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				(string) $email
+			),
+			ARRAY_A
+		);
+
+		foreach ( $procesy as $proces ) {
+			$dane[] = array(
+				'group_id'    => 'mp-sales-workflow-flow',
+				'group_label' => __( 'Procesy sprzedażowe (MP Sales Workflow)', 'mp-sales-workflow' ),
+				'item_id'     => 'mp-sw-flow-' . (int) $proces['id'],
+				'data'        => array(
+					array(
+						'name'  => __( 'Numer oferty', 'mp-sales-workflow' ),
+						'value' => (string) $proces['offer_number'],
+					),
+					array(
+						'name'  => __( 'Nazwa klienta', 'mp-sales-workflow' ),
+						'value' => (string) $proces['client_name'],
+					),
+					array(
+						'name'  => __( 'E-mail', 'mp-sales-workflow' ),
+						'value' => (string) $proces['client_email'],
+					),
+					array(
+						'name'  => __( 'Status procesu', 'mp-sales-workflow' ),
+						'value' => (string) $proces['status'],
+					),
+					array(
+						'name'  => __( 'Segment', 'mp-sales-workflow' ),
+						'value' => (string) $proces['segment'],
+					),
+					array(
+						'name'  => __( 'Język korespondencji', 'mp-sales-workflow' ),
+						'value' => (string) $proces['lang'],
+					),
+					array(
+						'name'  => __( 'Utworzono (GMT)', 'mp-sales-workflow' ),
+						'value' => (string) $proces['created_at'],
+					),
+				),
+			);
+		}
+
+		$noti_table    = MP_Sales_Workflow_DB::notifications_table();
+		$powiadomienia = (array) $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"SELECT id, template, recipient, subject, status, created_at FROM {$noti_table} WHERE recipient = %s ORDER BY id ASC", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				(string) $email
+			),
+			ARRAY_A
+		);
+
+		foreach ( $powiadomienia as $powiadomienie ) {
+			$dane[] = array(
+				'group_id'    => 'mp-sales-workflow-notifications',
+				'group_label' => __( 'Powiadomienia e-mail (MP Sales Workflow)', 'mp-sales-workflow' ),
+				'item_id'     => 'mp-sw-notification-' . (int) $powiadomienie['id'],
+				'data'        => array(
+					array(
+						'name'  => __( 'Rodzaj powiadomienia', 'mp-sales-workflow' ),
+						'value' => (string) $powiadomienie['template'],
+					),
+					array(
+						'name'  => __( 'Adresat', 'mp-sales-workflow' ),
+						'value' => (string) $powiadomienie['recipient'],
+					),
+					array(
+						'name'  => __( 'Temat', 'mp-sales-workflow' ),
+						'value' => (string) $powiadomienie['subject'],
+					),
+					array(
+						'name'  => __( 'Status wysyłki', 'mp-sales-workflow' ),
+						'value' => (string) $powiadomienie['status'],
+					),
+					array(
+						'name'  => __( 'Utworzono (GMT)', 'mp-sales-workflow' ),
+						'value' => (string) $powiadomienie['created_at'],
+					),
+				),
+			);
+		}
+
+		return array(
+			'data' => $dane,
+			'done' => true,
+		);
 	}
 
 	/**
