@@ -783,34 +783,47 @@ final class MP_AU_K28_Regresja extends MP_AU_Krytyk {
 			return MP_AU_Wynik::ok( $od_agenta->dane );
 		}
 
-		$ustalenia = array();
+		/*
+		 * ADNOTACJA, NIE NOWE USTALENIE.
+		 *
+		 * Ta para zglaszala wczesniej kazda swieza pozycje jako OSOBNE ustalenie
+		 * wagi SREDNIA. Skutek byl podwojnie zly.
+		 *
+		 * Po pierwsze: ta sama rzecz stala w raporcie dwa razy — raz od pary, ktora
+		 * ja znalazla, i raz tutaj — wiec liczby w podsumowaniu byly zawyzone,
+		 * a bramka liczy ustalenia. W przebiegu z 1.08.2026 na osiemnascie pozycji
+		 * sredniej wagi az szesc bylo echem innych szesciu.
+		 *
+		 * Po drugie, grozniejsze: waga byla nadpisywana na SREDNIA niezaleznie od
+		 * wagi wlasnej ustalenia, wiec drobiazg awansowal tylko dlatego, ze pojawil
+		 * sie miedzy przebiegami. Nowosc jest cecha CZASU POWSTANIA, nie ciezaru
+		 * szkody, i nie ma prawa przestawiac oceny.
+		 *
+		 * To, co ta para wie naprawde, jest cenne i zostaje: wiadomo, w ktorych
+		 * zmianach szukac przyczyny. Ale to informacja O ustaleniu, wiec dopisujemy
+		 * ja do dowodu — dokladnie tak, jak robia pary 2.2 i 2.9.
+		 */
+		$nowe = (array) ( $od_agenta->dane['nowe'] ?? array() );
+		$data = (string) ( $od_agenta->dane['data_poprzedniego'] ?? '?' );
+		$ile  = 0;
 
-		foreach ( array_slice( (array) ( $od_agenta->dane['nowe'] ?? array() ), 0, 15, true ) as $klucz => $u ) {
-			if ( MP_AU_Ustalenie::KRYTYCZNE !== $u['waga'] && MP_AU_Ustalenie::SREDNIE !== $u['waga'] ) {
+		foreach ( $kontekst->ustalenia() as $u ) {
+			if ( MP_AU_Ustalenie::ODRZUCONE === $u->status || ! isset( $nowe[ $u->klucz() ] ) ) {
 				continue;
 			}
 
-			$ustalenia[] = new MP_AU_Ustalenie(
-				'2.8',
-				'REGRESJA wzgledem poprzedniego przebiegu: ' . MP_AU_Pomoc::skrot( (string) $u['opis'], 90 ),
-				MP_AU_Ustalenie::SREDNIE,
-				array(
-					'dowod'      => 'Ustalenie nieobecne w raporcie z ' . ( $od_agenta->dane['data_poprzedniego'] ?? '?' )
-						. ', obecne dzis (klucz ' . $klucz . ').',
-					'scenariusz' => 'To jest problem WPROWADZONY miedzy dwoma przebiegami. Wiadomo, ze powstal '
-						. 'w zmianach z tego okresu — to najtansza w calym projekcie wskazowka, gdzie szukac.',
-					'status'     => MP_AU_Ustalenie::POTWIERDZONE,
-				)
-			);
+			$u->dowod .= "\n[2.8 regresja] Ustalenia nie bylo w raporcie z " . $data
+				. ' — powstalo w zmianach z tego okresu, wiec wiadomo, gdzie szukac przyczyny.';
+			++$ile;
 		}
 
-		$dane = $od_agenta->dane;
-		$dane['podsumowanie'] = 'bylo ' . $dane['bylo'] . ', jest ' . $dane['jest']
-			. ', nowych ' . count( (array) $dane['nowe'] ) . ', zniklo ' . count( (array) $dane['znikle'] );
+		$dane                              = $od_agenta->dane;
+		$dane['oznaczonych_jako_regresja'] = $ile;
+		$dane['podsumowanie']              = 'bylo ' . $dane['bylo'] . ', jest ' . $dane['jest']
+			. ', nowych ' . count( $nowe ) . ', zniklo ' . count( (array) $dane['znikle'] )
+			. ', oznaczonych adnotacja ' . $ile;
 
-		return empty( $ustalenia )
-			? MP_AU_Wynik::ok( $dane )
-			: MP_AU_Wynik::blad( 'Regresja wzgledem poprzedniego przebiegu.', $ustalenia, $dane );
+		return MP_AU_Wynik::ok( $dane );
 	}
 }
 

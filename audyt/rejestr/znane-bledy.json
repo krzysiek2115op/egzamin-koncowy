@@ -954,6 +954,84 @@
       "lekcja": "Nie budowac drugiego zrodla prawdy obok istniejacego. Kuszace bylo dopisac tablice formatow VAT dla 27 panstw, ale VIES juz jest w projekcie i juz jest pytany per kraj — tablica rozjechalaby sie z rzeczywistoscia (panstwa zmieniaja formaty) i zaczelaby odrzucac poprawne numery, zanim ktokolwiek zdazylby o nie zapytac. Lokalnie zostaje wiec tylko sanity-check: dlugosc, dozwolone znaki, odrzucenie wartosci zastepczych. Wyjatkiem jest polska suma kontrolna — to rachunek, nie tablica, wiec sie nie starzeje. Drugi wniosek: normalizacja danych to decyzja o ZNACZENIU, nie o formatowaniu. \"Wytnij wszystko poza cyframi\" bylo poprawne dla jednego kraju i niszczace dla pozostalych, a rozsiane po siedmiu miejscach nie mialo gdzie byc zakwestionowane. Trzeci: kraj musi byc ustalony PRZED numerem, bo to on rozstrzyga, czy litera jest smieciem, czy trescia.",
       "test": "tests/naprawy/numer-vat-ue.php (22 asercje, w tym kontr-asercje sekcji B, C i D na nietknieta sciezke polska); tests/naprawy/komunikat-nip.php (sekcja D przepisana pod nowy zakres)",
       "para": "-"
+    },
+    {
+      "id": "P2-Z1",
+      "data": "2026-08-01",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Kontrola zgodnosci podstawy pilnowala tylko mechanizmu krajowego, a pozycja bez snapshotu wpadala do stawki podstawowej",
+      "klasa": "kontrola-ograniczona-do-jednej-galezi-plus-odczyt-bez-guardu",
+      "plik": "includes/pipeline/departments/class-mp-ob-department-06.php",
+      "dowod": "Sprawdzenie array_sum(class_subtotal) !== subtotal siedzialo wewnatrz if ('domestic' === $mechanism). Galezie reverse_charge i out_of_scope liczyly net_grosze wprost z subtotal_grosze - discount_total, bez porownania z suma pozycji. Osobno: $products[$i] bylo czytane bez isset() w linii POPRZEDZAJACEJ te, ktora ten sam odczyt guardem juz oslania.",
+      "skutek": "Przy odwrotnym obciazeniu oferta z pozycjami na 500 zl i podstawa 1000 zl przechodzila bez slowa — dokument pokazywal liste pozycji, ktora nie dodaje sie do wlasnego netto, bo Dzial 10 zapisuje pozycje po jednej. Brak pozycji w snapshocie dawal ostrzezenie PHP o nieistniejacym kluczu i klase podatkowa pusta — czyli pozycja wpadala do stawki podstawowej zamiast zatrzymac oferte.",
+      "lekcja": "Ustalenie audytu przyjete POLOWICZNIE i to jest tu sedno. Audyt chcial przeniesc kontrole do wszystkich mechanizmow w calosci, ale przy 0% z mocy prawa rozjazd podstaw nie moze dac zlego podatku — szkoda dotyczy dokumentu, nie VAT-u. Istnial tez test asertujacy WPROST, ze odwrotne obciazenie bez pozycji ma przechodzic: swiadoma decyzja, ktorej naprawa nie miala prawa zdeptac. Kontrola objela wiec kazdy mechanizm, ale tylko dla pozycji NIEPUSTYCH. Gdy ustalenie audytu kloci sie z istniejacym testem, odpowiedzia nie jest ani 'audyt ma racje', ani 'test ma racje' — tylko znalezienie warunku, przy ktorym oba zdania sa prawdziwe. Drugi wniosek: guard postawiony w jednej linii, a pominiety w sasiedniej, ktora czyta to samo, jest silniejszym dowodem przeoczenia niz brak guardu w obu.",
+      "test": "tests/naprawy/podstawa-vat.php (sekcje F i G, w tym kontr-asercje F3/F4 na nietknieta decyzje o ofercie bez pozycji)",
+      "para": "1.25"
+    },
+    {
+      "id": "P1-Z2",
+      "data": "2026-08-01",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Doba Bialej listy i znaczniki czasu w logu brane z ustawienia witryny, a nie z tego, czego dotycza",
+      "klasa": "czas-zalezny-od-konfiguracji-zamiast-od-dziedziny",
+      "plik": "includes/pipeline/departments/class-mp-department-03.php, includes/class-mp-privacy.php, includes/class-mp-offer-registry.php, includes/pipeline/departments/class-mp-department-07.php",
+      "dowod": "wl_cache_key() i resolve_wl() liczyly date przez current_time('Y-m-d'), a URL do wl-api.mf.gov.pl dostawal ?date z tej samej wartosci. Klucz cache policzony przy timezone_string Pacific/Auckland konczyl sie na 2026-08-02, a przy Pacific/Honolulu na 2026-08-01 — ta sama chwila, dwie doby. Osobno: created_at/updated_at ustawiane recznie przez current_time('mysql') w trzech plikach, choc ten sam kod przy sasiednich kolumnach deklaruje: GMT, jak kazda inna kolumna datetime w tej tabeli.",
+      "skutek": "Komentarz w kodzie deklarowal naprawe (data w strefie WITRYNY, nie w UTC), ale domyslna instalacja WordPressa ma pusty timezone_string i gmt_offset 0, wiec current_time('Y-m-d') rowna sie gmdate('Y-m-d') i poprawka nie dzialala TAM WCALE. Miedzy polnoca a 1:00/2:00 czasu polskiego pytanie szlo o poprzednia dobe, a odpowiedz utrwalala sie w transiencie na zla dobe razem z company_status_checked=true — wiec nikt do niej nie wracal. W logu aktywnosci czesc wierszy miala czas serwera bazy, a czesc czas lokalny witryny; log jest sortowany po created_at, wiec kolejnosc zdarzen potrafila sie odwrocic.",
+      "lekcja": "Komentarz deklarujacy naprawe to nie dowod, ze naprawa dziala — ta byla pisana i sprawdzana przy witrynie ustawionej na Europe/Warsaw, wiec test przechodzil, a domyslna instalacja klienta nie byla objeta niczym. Test musi ustawiac warunki WROGIE, nie wygodne: dwie strefy odlegle o 22 godziny i zadanie tej samej odpowiedzi. Drugi wniosek: czas ma wynikac z DZIEDZINY, nie z konfiguracji — rejestr MF jest polski, wiec doba jest polska niezaleznie od panelu, a kolumna datetime ma jedna strefe dla wszystkich wierszy. Trzeci: audyt wskazal jedno miejsce, sonda znalazla trzy — zgloszenie to poczatek szukania, nie jego koniec.",
+      "test": "tests/naprawy/czas-nie-zalezy-od-witryny.php; tests/naprawy/biala-lista-niepelna-odpowiedz.php (asercja o strefie przepisana pod nowa regule)",
+      "para": "1.25"
+    },
+    {
+      "id": "P2-Z2",
+      "data": "2026-08-01",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Przy cenniku brutto cena ujemna z katalogu przechodzila na dokument handlowy",
+      "klasa": "kontrola-po-przeksztalceniu-danych-ktore-miala-sprawdzic",
+      "plik": "includes/pipeline/departments/class-mp-ob-department-02.php",
+      "dowod": "Warunek `$effective < 0.0 || (float) $regular < 0.0` stal ZA konwersja brutto->netto. Sonda na wlaczonym woocommerce_prices_include_tax: produkt z _regular_price = -123 i _price = -123 przechodzil Agenta 2.2 bez bledu (kod pusty), a ten sam produkt z cena dodatnia przechodzil tak samo — czyli kontrola nie dzialala wcale, a nie tylko inaczej.",
+      "skutek": "W sklepie z cennikiem brutto ujemna pozycja wchodzila do snapshotu cen i dalej na dokument handlowy. Arytmetyka pozostawala wewnetrznie spojna (netto+VAT=brutto), wiec bramka QA6 tego nie widziala. Luka dotyczyla WYLACZNIE sklepow z cennikiem brutto, dlatego przetrwala testy prowadzone na cenniku netto.",
+      "lekcja": "Bylem przekonany, ze to falszywy alarm: znak przezywa dzielenie przez stawke, wiec liczba ujemna zostanie ujemna. Sonda pokazala cos innego — wc_get_price_excluding_tax() nie jest dzieleniem i dla wartosci ujemnej nie oddaje wartosci ujemnej. Wniosek jest o metodzie, nie o cenach: przy ustaleniu, ktorego nie da sie rozstrzygnac CZYTANIEM kodu, rozumowanie nie zastepuje uruchomienia. Drugi wniosek: kontrola ma badac te dane, przed ktorymi obiecuje chronic — komentarz mowil wprost o surowej zawartosci _regular_price, a warunek patrzyl na liczbe po przeksztalceniu. Trzeci: galaz wykonywana tylko przy jednym ustawieniu sklepu to galaz, ktorej testy domyslnie NIE obejmuja.",
+      "test": "tests/naprawy/cena-ujemna.php (sekcja X)",
+      "para": "1.25"
+    },
+    {
+      "id": "P1-Z3",
+      "data": "2026-08-01",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Dwa ostrzezenia w panelu mowily o czyms, czego nie bylo, a wyjatki bez ustalonego dzialu dzielily jeden kubelek wyciszania",
+      "klasa": "komunikat-obiecuje-wiecej-niz-kod-zrobil",
+      "plik": "includes/class-mp-page.php, includes/pipeline/class-mp-pipeline-logger.php, mp-offer-builder/includes/pipeline/class-mp-ob-pipeline-logger.php",
+      "dowod": "Ostrzezenie o nieudanej pod-stronie konczylo sie slowami 'wstawiajac na niej krotki kod:', po czym w bloku <code> stala tresc bledu WordPressa — shortcode nie pojawial sie nigdzie. Ostrzezenie MENU_NO_ASSIGNED twierdzilo 'wtyczka sprobowala dolozyc' link, choc petla po lokalizacjach robi continue ZANIM dojdzie do wp_update_nav_menu_item(). Ogranicznik alarmow: klucz 'mp_notify_exception_' . (int) $dept_num, gdzie 0 znaczy 'dzial nieustalony' — wiec wszystkie takie wyjatki mialy wspolny kubelek.",
+      "skutek": "Czlowiek dostawal instrukcje 'wstaw ten kod' i komunikat awarii w miejscu, gdzie ten kod mial byc — jedyna rzecz do zrobienia recznie byla jedyna, ktorej nie dostal. Przy braku przypisanego menu szukal na stronie linku, ktorego nikt nie probowal dodac. A dwie niezalezne awarie w nieznanych miejscach uciszaly sie nawzajem na kwadrans, mimo ze stopka alarmu obiecuje wyciszenie tylko tego jednego miejsca.",
+      "lekcja": "Wartosc domyslna oznaczajaca 'nie wiadomo' nie jest kategoria — dept_num = 0 to nie 'dzial zero', tylko brak informacji, wiec nie moze sluzyc za tozsamosc miejsca. Gdy dzialu nie znamy, tozsamoscia jest pochodzenie wyjatku (plik:linia). To ta sama naprawa co P1-G15, tyle ze schowana w domyslce — poprawka klasy bledu nie konczy sie na przypadkach, ktore mialy nazwe. Drugi wniosek: zdanie przeklejone miedzy galeziami dziedziczy prawdziwosc tylko razem z kodem, ktory je uzasadnial — 'sprobowala dolozyc' bylo prawda w galezi z fallbackiem po elemencie nav i falszem tam, gdzie zadna proba sie nie odbyla.",
+      "test": "tests/naprawy/ostrzezenia-aktywacji.php (sekcja Z); tests/naprawy/alarm-mowi-prawde.php w P1 i P2 (sekcja H)",
+      "para": "1.26"
+    },
+    {
+      "id": "P3-Z1",
+      "data": "2026-08-01",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "Klamry w WARTOSCI zmiennej blokowaly przejscie statusu jako nierozwiazany znacznik",
+      "klasa": "rozstrzyganie-po-utracie-informacji-potrzebnej-do-rozstrzygniecia",
+      "plik": "includes/pipeline/departments/class-mp-sw-department-07.php",
+      "dowod": "Krytyk 7.2 wolal unresolved_markers() na $message['subject'] i $message['body'], czyli na tresci JUZ PODSTAWIONEJ. Wyrazenie MARKER nie ma jak odroznic znacznika, ktorego nikt nie ruszyl, od klamer, ktore przyszly jako wartosc zmiennej. Komentarz w kodzie deklarowal przy tym niezmiennik, ktorego kod nie trzymal: 'unresolved_markers() widzi tylko {{...}}, ktorych nikt nie ruszyl'.",
+      "skutek": "Nazwa firmy albo tytul oferty zawierajace ciag z podwojnymi klamrami powodowaly odrzucenie calej koperty powiadomien, wiec przejscie statusu nie dochodzilo do skutku. Przyczyna byla niewidoczna dla czlowieka: komunikat mowil o bledzie SZABLONU, a szablon byl poprawny — wadliwe byly dane, ktore z nim nie mialy nic wspolnego.",
+      "lekcja": "Rozstrzygac tam, gdzie jest jeszcze komplet informacji. Po podstawieniu znacznik i klamry z danych wygladaja identycznie, wiec zadne badanie wyniku ich nie rozdzieli — jedynym miejscem, gdzie widac naraz szablon i zmienne, jest moment renderowania. Drugi wniosek: komentarz deklarujacy niezmiennik jest wart tyle, co test, ktory go pilnuje. Ten stal w kodzie i byl nieprawdziwy.",
+      "test": "tests/naprawy/znaczniki-szablonu.php (sekcja Y, w tym asercja Y2 pokazujaca WPROST, ze stary sposob dawal falszywy alarm)",
+      "para": "1.25"
+    },
+    {
+      "id": "NARZ-F3",
+      "data": "2026-08-01",
+      "wtyczka": "audyt (narzedzie)",
+      "tytul": "Para 2.8 dublowala ustalenia w raporcie i nadawala kopii wage z powietrza",
+      "klasa": "informacja-o-ustaleniu-zglaszana-jako-osobne-ustalenie",
+      "plik": "audyt/includes/pary/dzial-02-weryfikacja.php",
+      "dowod": "MP_AU_K28_Regresja::ocen() tworzyla nowy MP_AU_Ustalenie dla kazdej pozycji nieobecnej w poprzednim raporcie, z wpisana na sztywno waga SREDNIE. W przebiegu z 1.08.2026 sekcja SREDNIE (18) zawierala szesc pozycji zaczynajacych sie od 'REGRESJA wzgledem poprzedniego przebiegu:', bedacych doslownym echem szesciu innych pozycji z tej samej sekcji.",
+      "skutek": "Raport liczyl te sama rzecz dwa razy, a bramka liczy ustalenia — wiec liczba, na ktorej opiera sie werdykt, byla zawyzona. Kopia dostawala przy tym wage niezalezna od wagi oryginalu, wiec sekcja sredniej wagi puchla o pozycje, ktore sredniej wagi nie sa. Czlowiek czytajacy raport nie mial jak odroznic dwoch niezaleznych problemow od jednego opisanego dwukrotnie.",
+      "lekcja": "Informacja O ustaleniu to nie jest ustalenie. Para 2.8 wie cos wartosciowego — w ktorych zmianach szukac przyczyny — ale to cecha znalezionego juz problemu, nie osobny problem. Miejscem takiej wiedzy jest dowod, dokladnie tak jak przy parach 2.2 i 2.9, ktore adnotuja i niczego nie dokladaja. Drugi wniosek, ten sam co przy NARZ-F2: narzedzie audytujace samo potrzebuje audytu, bo jego bledy nie wygladaja jak bledy — wygladaja jak wyniki.",
+      "test": "audyt/tests/regresja-nie-dubluje.php (8 asercji, w tym kontr-asercja C3 na ustalenie znane z poprzedniego przebiegu)",
+      "para": "-"
     }
   ]
 }
