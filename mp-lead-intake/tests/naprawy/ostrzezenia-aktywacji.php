@@ -272,9 +272,46 @@ $GLOBALS['mp_oa']['lines'][] = '=== Z. ostrzezenie daje to, co obiecuje, i nie o
  *    naprawde dziala — i kazalo szukac na stronie linku, ktorego nikt nie dodawal.
  */
 oa_wyczysc();
+
+/*
+ * Od 1.3.7 ostrzezenie o nieutworzonej stronie sprawdza STAN FAKTYCZNY, a nie sam
+ * slad po bledzie (U-13): jesli formularz stoi juz na jakiejs opublikowanej stronie,
+ * wtyczka przyjmuje ja za swoja i gasi komunikat. Zeby ten przypadek mierzyl TRESC
+ * ostrzezenia, a nie cudza strone przypadkiem obecna w bazie, chowamy na chwile
+ * wszystkie strony ze skrotem. Bez tego test padal na CI (gdzie strone zaklada
+ * aktywacja wtyczki) i przechodzil lokalnie — czyli najgorszy mozliwy uklad.
+ */
+$oa_schowane = get_posts(
+	array(
+		'post_type'   => 'page',
+		'post_status' => 'publish',
+		'numberposts' => -1,
+		'fields'      => 'ids',
+		's'           => '[' . MP_Lead_Intake_Form::SHORTCODE . ']',
+	)
+);
+
+foreach ( (array) $oa_schowane as $oa_sid ) {
+	wp_update_post(
+		array(
+			'ID'          => (int) $oa_sid,
+			'post_status' => 'draft',
+		)
+	);
+}
+
 update_option( MP_Lead_Intake_Page::OPTION_PAGE_ERROR, 'Nie udalo sie utworzyc strony (blad testowy).' );
 $oa_html_strona = oa_ostrzezenia();
 oa_wyczysc();
+
+foreach ( (array) $oa_schowane as $oa_sid ) {
+	wp_update_post(
+		array(
+			'ID'          => (int) $oa_sid,
+			'post_status' => 'publish',
+		)
+	);
+}
 
 oa_ok(
 	false !== strpos( $oa_html_strona, '[' . MP_Lead_Intake_Form::SHORTCODE . ']' ),

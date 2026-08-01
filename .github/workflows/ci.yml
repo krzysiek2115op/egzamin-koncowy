@@ -122,6 +122,10 @@ jobs:
           # miedzy wtyczkami 1 i 3 (U-15), wiec kolejnosc aktywacji ma znaczenie
           # i wlasnie dlatego jest tu ustalona jawnie.
           wp plugin activate mp-lead-intake mp-offer-builder mp-sales-workflow --path=wp
+          # Testy wtyczki 2 licza ceny i podatki, wiec potrzebuja sklepu, ktory ma co
+          # liczyc. Srodowisko lokalne dostalo to raz, recznie, i przez to piec testow
+          # cenowych przechodzilo wylacznie u autora.
+          wp eval-file tools/test-env/zasiew-woocommerce.php --path=wp
 
       - name: Pelna regresja (wszystkie wersjonowane pliki testowe)
         env:
