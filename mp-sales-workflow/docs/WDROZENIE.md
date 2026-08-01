@@ -16,7 +16,7 @@ zapewnić sam.
 
 ## 0. Kolejność wdrożenia
 
-1. **Kopia zapasowa bazy** (patrz §6) — aktualizacja podnosi schemat z `0.2.0` na `0.3.0`.
+1. **Kopia zapasowa bazy** (patrz §6) — aktualizacja podnosi schemat do `0.4.0`.
 2. Stałe w `wp-config.php` (§1) — **przed** aktywacją.
 3. HTTPS (§2), cron (§3), poczta (§4), blokada katalogu PDF (§5).
 4. Wgranie i aktywacja wtyczki.
@@ -220,13 +220,22 @@ przez `wp-load` — nie potrzebuje bezpośredniego dostępu do katalogu.
 
 ## 6. Kopia zapasowa bazy przed migracją
 
-Aktualizacja z wcześniejszej wersji podnosi schemat `0.2.0 → 0.3.0`: tabela zadań
-dostaje kolumny `claimed_at` i `claim_token` oraz indeks `idx_claim`. Migracja
-idzie przez `dbDelta` na haku `plugins_loaded`, czyli **przy pierwszym wejściu na
-witrynę po wgraniu plików** — nie ma osobnego przycisku „aktualizuj bazę".
+Aktualizacja z wcześniejszej wersji podnosi schemat do `0.4.0`. Migracja idzie na
+haku `plugins_loaded`, czyli **przy pierwszym wejściu na witrynę po wgraniu
+plików** — nie ma osobnego przycisku „aktualizuj bazę".
+
+| Krok | Co się zmienia |
+|---|---|
+| `0.2.0 → 0.3.0` | tabela zadań dostaje kolumny `claimed_at`, `claim_token` i indeks `idx_claim` (przez `dbDelta`) |
+| `0.3.0 → 0.4.0` | z tabeli zdarzeń **znika** kolumna `result_json` — martwa od początku, nikt jej nie zapisywał ani nie czytał |
+
+Usunięcie kolumny idzie osobnym `ALTER TABLE`, bo `dbDelta()` kolumn nie kasuje.
+Krok jest osłonięty: hosting bez uprawnienia `ALTER` zostaje z nadmiarową kolumną
+i wtyczka działa normalnie — kod jej nie dotyka. Danych to nie dotyczy, kolumna
+była pusta w każdej instalacji.
 
 ```bash
-wp db export kopia-przed-0.3.0.sql
+wp db export kopia-przed-0.4.0.sql
 ```
 
 Kopię zrób także dlatego, że dziennik aktywności (`wp_mp_sw_activity`) jest

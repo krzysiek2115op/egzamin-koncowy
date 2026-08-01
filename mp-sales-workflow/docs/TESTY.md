@@ -4,7 +4,7 @@ Plik zbiorczy wymagany przez Golden Rule #3. Opisuje testy **wykonane**, nie
 planowane, z podaniem środowiska i tego, co każdy z nich naprawdę sprawdza.
 
 **Data ostatniego pełnego przebiegu:** 2026-07-28
-**Wersja wtyczki:** 1.1.0 · schemat bazy 0.3.0
+**Wersja wtyczki:** 1.3.4 · schemat bazy 0.4.0
 
 ---
 
@@ -33,7 +33,7 @@ potwierdza, że test nie zależy od stanu zostawionego przez pierwszy).
 
 | # | Scenariusz | Co realnie sprawdza | Kryterium |
 |---|---|---|---|
-| S1 | Instalacja i schemat | 5 tabel, `DB_VERSION 0.3.0`, oba więzy `ON DELETE CASCADE`, silnik InnoDB, obie role, oba zadania cron, kolumny `claim_token`/`claimed_at` | — |
+| S1 | Instalacja i schemat | 5 tabel, wersja schematu w bazie zgodna z `MP_Sales_Workflow_DB::DB_VERSION`, oba więzy `ON DELETE CASCADE`, silnik InnoDB, obie role, oba zadania cron, kolumny `claim_token`/`claimed_at` | — |
 | S2 | Lead przez trzy wtyczki | **Prawdziwy pipeline LP.1** (11 działów, z tokenem CSRF) → `mp_lead_created` → LP.2 zakłada szkic oferty → LP.3 zakłada proces. Dokładnie jeden lead, jeden proces | 5.1 |
 | S3 | Przypisanie handlowca | Lead z PL trafia do handlowca obsługującego PL; kraj bez obsługi (FR) nie zostaje bez opiekuna — działa awaryjne przekazanie | 5.4 |
 | S4 | Oferta z LP.2 | `mp_offer_created` przestawia status i zapisuje `offer_id`; ten sam typ zdarzenia **z kanału ręcznego odrzucony** | 5.1 |

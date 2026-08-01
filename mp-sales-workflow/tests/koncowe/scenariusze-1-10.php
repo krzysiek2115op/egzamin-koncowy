@@ -203,7 +203,14 @@ foreach ( $tables as $t ) {
 	mp_ok( $found === $t, "tabela {$t} istnieje" );
 }
 
-mp_ok( '0.3.0' === get_option( MP_Sales_Workflow_DB::DB_VERSION_OPTION ), 'DB_VERSION = 0.3.0', (string) get_option( MP_Sales_Workflow_DB::DB_VERSION_OPTION ) );
+// Wersja ZAPISANA w bazie ma zgadzac sie z ta w kodzie — to jest niezmiennik, bo
+// od niego zalezy, czy `maybe_upgrade()` w ogole odpali migracje. Numer wpisany
+// na sztywno sprawdzal tylko, czy ktos pamietal o poprawieniu testu.
+mp_ok(
+	MP_Sales_Workflow_DB::DB_VERSION === get_option( MP_Sales_Workflow_DB::DB_VERSION_OPTION ),
+	'wersja schematu w bazie = MP_Sales_Workflow_DB::DB_VERSION (' . MP_Sales_Workflow_DB::DB_VERSION . ')',
+	'w bazie=' . (string) get_option( MP_Sales_Workflow_DB::DB_VERSION_OPTION )
+);
 
 $fk = MP_Sales_Workflow_DB::foreign_keys_status();
 foreach ( $fk as $name => $present ) {

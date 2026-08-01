@@ -34,7 +34,7 @@ class MP_Sales_Workflow_DB {
 	 * Wersja schematu. Podnoszona przy KAŻDEJ zmianie DDL — `maybe_upgrade()`
 	 * porównuje ją z wartością zapisaną w opcji i dopiero wtedy woła dbDelta().
 	 */
-	const DB_VERSION = '0.3.0';
+	const DB_VERSION = '0.4.0';
 
 	/** Po ilu minutach klamra na zadaniu wygasa i zadanie wraca do przeglądu. */
 	const CLAIM_TTL_MINUTES = 15;
@@ -197,10 +197,42 @@ class MP_Sales_Workflow_DB {
 		 * zapisuje proces i jego zadania jedną transakcją).
 		 */
 		self::maybe_add_foreign_keys();
+		self::maybe_drop_result_json();
 
 		update_option( self::DB_VERSION_OPTION, self::DB_VERSION );
 
 		return true;
+	}
+
+	/**
+	 * Usuwa martwą kolumnę `result_json` z tabeli zdarzeń (migracja 0.3.0 → 0.4.0).
+	 *
+	 * Funkcja dbDelta() kolumn NIE kasuje — dokłada brakujące i poprawia typy, nigdy
+	 * nie usuwa. Bez tego ALTER-a witryna zainstalowana wcześniej zostałaby z kolumną,
+	 * której nowy schemat już nie deklaruje: dwie różne tabele pod tą samą wersją
+	 * schematu. Ten sam wzorzec zastosowano we wtyczce 1 przy usuwaniu klucza
+	 * `uq_nip`.
+	 *
+	 * Wynik celowo nie wpływa na rezultat instalacji: nadmiarowa kolumna niczego
+	 * nie psuje (kod jej nie dotyka), więc hosting bez uprawnienia ALTER ma dalej
+	 * działać normalnie.
+	 *
+	 * @return void
+	 */
+	private static function maybe_drop_result_json() {
+		global $wpdb;
+
+		$events = self::events_table();
+
+		$exists = $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM {$events} LIKE %s", 'result_json' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- nazwa tabeli pochodzi z kodu.
+
+		if ( ! $exists ) {
+			return;
+		}
+
+		$suppress = $wpdb->suppress_errors( true );
+		$wpdb->query( "ALTER TABLE {$events} DROP COLUMN result_json" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- nazwa tabeli pochodzi z kodu.
+		$wpdb->suppress_errors( $suppress );
 	}
 
 	/**
@@ -613,9 +645,24 @@ class MP_Sales_Workflow_DB {
 		 * wstrzymane na indeksie do COMMIT-u pierwszego, a potem odbite błędem
 		 * klucza — bez dodatkowego zapisu przed transakcją.
 		 *
-		 * `result_json` przechowuje odpowiedź zwróconą przy pierwszym przebiegu:
-		 * powtórka tego samego zdarzenia ma oddać ten sam wynik, zamiast wykonać
-		 * pracę drugi raz (ten sam wzorzec sprawdził się we wtyczce 2).
+		 * CZEGO TU NIE MA. Do wersji 0.3.0 stała tu kolumna `result_json` z opisem
+		 * „przechowuje odpowiedź zwróconą przy pierwszym przebiegu: powtórka tego
+		 * samego zdarzenia ma oddać ten sam wynik". Nikt jej nigdy nie zapisywał
+		 * ani nie czytał — schemat obiecywał zachowanie, którego kod nie miał.
+		 *
+		 * Obietnicę usunięto zamiast dopisywać odtwarzanie odpowiedzi, bo to
+		 * ostatnie łamałoby dwa wcześniejsze ustalenia:
+		 *
+		 *  1. Odpowiedź powstaje PO całym pipelinie (`MP_SW_Events::payload()`),
+		 *     a ten wiersz zapisuje się w transakcji Działu 8. Zapamiętanie jej
+		 *     znaczyłoby DRUGI zapis, już po COMMIT-cie — a Dział 8 ma kryterium
+		 *     `db_writes = 1` i bramka jakości to mierzy.
+		 *  2. Oddanie zapamiętanego wyniku przy odmowie wymagałoby dołożenia pól
+		 *     do odpowiedzi błędu, która jest celowo uboga: szczegóły idą do
+		 *     dziennika, nie do wywołującego (patrz `payload()`).
+		 *
+		 * Sama gwarancja niepowtarzalności nigdy na tej kolumnie nie stała i stoi
+		 * dalej: daje ją UNIQUE poniżej. Powtórka dostaje 409 `duplicate_event`.
 		 */
 		$sql[] = "CREATE TABLE {$events} (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -625,7 +672,6 @@ class MP_Sales_Workflow_DB {
 			offer_id bigint(20) unsigned DEFAULT NULL,
 			actor_id bigint(20) unsigned DEFAULT NULL,
 			status varchar(20) NOT NULL DEFAULT 'done',
-			result_json longtext,
 			trace_id char(36) DEFAULT NULL,
 			created_at datetime NOT NULL,
 			updated_at datetime NOT NULL,
