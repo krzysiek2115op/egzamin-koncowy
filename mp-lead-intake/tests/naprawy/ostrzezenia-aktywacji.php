@@ -100,6 +100,57 @@ function constant_exists_mp_oa( $nazwa ) {
 	return defined( 'MP_Lead_Intake_Page::' . $nazwa );
 }
 
+/**
+ * Chowa w szkicach wszystkie opublikowane strony z krotkim kodem formularza.
+ *
+ * Od 1.3.7 ostrzezenie o nieutworzonej pod-stronie sprawdza STAN FAKTYCZNY, a nie
+ * sam slad po bledzie (U-13/U-14): jesli formularz stoi juz na jakiejs opublikowanej
+ * stronie, wtyczka przyjmuje ja za swoja i gasi komunikat. Kazdy przypadek, ktory
+ * mierzy TRESC tego ostrzezenia, musi wiec najpierw usunac z pola widzenia strone
+ * zalozona przez aktywacje — inaczej mierzy cudza strone, przypadkiem obecna w bazie.
+ *
+ * @return int[] Identyfikatory schowanych stron.
+ */
+function oa_schowaj_strony_z_formularzem() {
+	$znalezione = get_posts(
+		array(
+			'post_type'   => 'page',
+			'post_status' => 'publish',
+			'numberposts' => -1,
+			'fields'      => 'ids',
+			's'           => '[' . MP_Lead_Intake_Form::SHORTCODE . ']',
+		)
+	);
+
+	foreach ( (array) $znalezione as $id ) {
+		wp_update_post(
+			array(
+				'ID'          => (int) $id,
+				'post_status' => 'draft',
+			)
+		);
+	}
+
+	return array_map( 'intval', (array) $znalezione );
+}
+
+/**
+ * Przywraca strony schowane przez oa_schowaj_strony_z_formularzem().
+ *
+ * @param array $ids Identyfikatory.
+ * @return void
+ */
+function oa_przywroc_strony( array $ids ) {
+	foreach ( $ids as $id ) {
+		wp_update_post(
+			array(
+				'ID'          => (int) $id,
+				'post_status' => 'publish',
+			)
+		);
+	}
+}
+
 // Ostrzezenia widzi wylacznie administrator — bez tego maybe_admin_notice()
 // wychodzi na pierwszym warunku i test mierzylby brak uprawnien, nie kod.
 $admin = (int) $wpdb->get_var( "SELECT ID FROM {$wpdb->users} ORDER BY ID ASC LIMIT 1" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
@@ -116,12 +167,16 @@ oa_wyczysc();
  * odtworzyc nieudany zapis bez psucia bazy. Dokladnie tak zachowuje sie inna
  * wtyczka, ktora odrzuci wpis na swoim filtrze.
  */
+$oa_schowane_a = oa_schowaj_strony_z_formularzem();
+
 add_filter( 'wp_insert_post_empty_content', '__return_true' );
 MP_Lead_Intake_Page::create();
 remove_filter( 'wp_insert_post_empty_content', '__return_true' );
 
 $id_po_bledzie = (int) get_option( MP_Lead_Intake_Page::OPTION );
 $html_bledu    = oa_ostrzezenia();
+
+oa_przywroc_strony( $oa_schowane_a );
 
 oa_ok(
 	0 === $id_po_bledzie,
@@ -273,45 +328,13 @@ $GLOBALS['mp_oa']['lines'][] = '=== Z. ostrzezenie daje to, co obiecuje, i nie o
  */
 oa_wyczysc();
 
-/*
- * Od 1.3.7 ostrzezenie o nieutworzonej stronie sprawdza STAN FAKTYCZNY, a nie sam
- * slad po bledzie (U-13): jesli formularz stoi juz na jakiejs opublikowanej stronie,
- * wtyczka przyjmuje ja za swoja i gasi komunikat. Zeby ten przypadek mierzyl TRESC
- * ostrzezenia, a nie cudza strone przypadkiem obecna w bazie, chowamy na chwile
- * wszystkie strony ze skrotem. Bez tego test padal na CI (gdzie strone zaklada
- * aktywacja wtyczki) i przechodzil lokalnie — czyli najgorszy mozliwy uklad.
- */
-$oa_schowane = get_posts(
-	array(
-		'post_type'   => 'page',
-		'post_status' => 'publish',
-		'numberposts' => -1,
-		'fields'      => 'ids',
-		's'           => '[' . MP_Lead_Intake_Form::SHORTCODE . ']',
-	)
-);
-
-foreach ( (array) $oa_schowane as $oa_sid ) {
-	wp_update_post(
-		array(
-			'ID'          => (int) $oa_sid,
-			'post_status' => 'draft',
-		)
-	);
-}
+$oa_schowane = oa_schowaj_strony_z_formularzem();
 
 update_option( MP_Lead_Intake_Page::OPTION_PAGE_ERROR, 'Nie udalo sie utworzyc strony (blad testowy).' );
 $oa_html_strona = oa_ostrzezenia();
 oa_wyczysc();
 
-foreach ( (array) $oa_schowane as $oa_sid ) {
-	wp_update_post(
-		array(
-			'ID'          => (int) $oa_sid,
-			'post_status' => 'publish',
-		)
-	);
-}
+oa_przywroc_strony( $oa_schowane );
 
 oa_ok(
 	false !== strpos( $oa_html_strona, '[' . MP_Lead_Intake_Form::SHORTCODE . ']' ),

@@ -332,6 +332,36 @@ if ( ! class_exists( 'MP_Lead_Intake_DB' ) || ! class_exists( 'MP_Sales_Workflow
 	$bd3_offers = MP_Lead_Intake_DB::offers_table();
 	$flow_t     = MP_Sales_Workflow_DB::flow_table();
 
+	/*
+	 * Sekcja E potrzebuje HANDLOWCA z kompletem meta. Bez niego krytyk K4.2
+	 * wtyczki 3 konczy proces porazka „brak jakiegokolwiek handlowca" i wiersz
+	 * procesu w BD-1 w ogole nie powstaje — E8 dostaje pusty status.
+	 *
+	 * Do 1.3.7 test zadnego handlowca nie zakladal, a mimo to przechodzil: konta
+	 * `hjw_*` i `sec_*` zostawaly w bazie po WCZESNIEJSZYCH przebiegach innych
+	 * testow. Na czystej instalacji (CI) padal, bo w kolejnosci alfabetycznej ten
+	 * plik idzie PRZED testami, ktore te konta zakladaja. Fixture nalezy do testu,
+	 * ktory go potrzebuje — nie do smieci po sasiadach.
+	 */
+	$handlowiec3 = wp_insert_user(
+		array(
+			'user_login' => 'zo_handlowiec_' . $seria,
+			'user_email' => 'zo_handlowiec+' . $seria . '@example.test',
+			'user_pass'  => wp_generate_password( 24, true ),
+			'role'       => MP_SW_Roles::ROLE_SALESMAN,
+		)
+	);
+	$handlowiec3 = is_wp_error( $handlowiec3 ) ? 0 : (int) $handlowiec3;
+
+	if ( $handlowiec3 > 0 ) {
+		update_user_meta( $handlowiec3, MP_SW_D2_Reader::META_COUNTRY, 'PL' );
+		update_user_meta( $handlowiec3, MP_SW_D2_Reader::META_LANGS, 'pl,en' );
+		update_user_meta( $handlowiec3, MP_SW_D2_Reader::META_TEAM, 'zespol-testowy' );
+		update_user_meta( $handlowiec3, MP_SW_D2_Reader::META_ACTIVE, '1' );
+	}
+
+	mz_ok( $handlowiec3 > 0, 'E-fixture: handlowiec z kompletem meta zalozony na czas sekcji E' );
+
 	// Wskaznik oferty w BD-3 powstaje tylko dla ISTNIEJACEGO leada, wiec lead musi
 	// byc prawdziwym wierszem. Wstawiamy go wprost: pelny przebieg formularza jest
 	// sprawdzany w tescie wtyczki 1, tutaj potrzebujemy tylko poprawnego celu relacji.
@@ -359,7 +389,7 @@ if ( ! class_exists( 'MP_Lead_Intake_DB' ) || ! class_exists( 'MP_Sales_Workflow
 			'company_name' => 'Relacja Test Sp. z o.o.',
 			'email'        => 'relacja+' . $seria . '@example.test',
 			'country'      => 'PL',
-			'salesman_id'  => $handlowiec,
+			'salesman_id'  => $handlowiec3,
 			'products'     => 'kompletna linia filtracyjna',
 			'est_volume'   => '1 komplet',
 		)
@@ -405,7 +435,10 @@ if ( ! class_exists( 'MP_Lead_Intake_DB' ) || ! class_exists( 'MP_Sales_Workflow
 	mz_ok( is_array( $wskaznik ) && $lead3 === (int) $wskaznik['lead_id'], 'E2: wtyczka 1 zapisala wskaznik oferty w BD-3' );
 	mz_ok( is_array( $wskaznik ) && 'draft' === (string) $wskaznik['status'], 'E3: wskaznik ma status draft' );
 
-	$wynik = MP_Offer_Builder_Approval::approve( (int) $oferta3['id'], $handlowiec );
+	// Zatwierdza WLASCICIEL szkicu, czyli handlowiec z leada — nie administrator.
+	// Dopoki sekcja nie miala wlasnego handlowca, wlascicielem bywalo konto admina
+	// i ta roznica nie byla widoczna.
+	$wynik = MP_Offer_Builder_Approval::approve( (int) $oferta3['id'], $handlowiec3 );
 	mz_ok( true === $wynik, 'E4: oferta zatwierdzona', is_wp_error( $wynik ) ? $wynik->get_error_code() . ': ' . $wynik->get_error_message() : '' );
 
 	$po_zatw = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$bd3_offers} WHERE offer_number = %s", $numer3 ), ARRAY_A ); // phpcs:ignore
@@ -415,6 +448,17 @@ if ( ! class_exists( 'MP_Lead_Intake_DB' ) || ! class_exists( 'MP_Sales_Workflow
 
 	$status_procesu = (string) $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$flow_t} WHERE lead_id = %d", $lead3 ) ); // phpcs:ignore
 	mz_ok( 'offer_sent' === $status_procesu, 'E8: wtyczka 3 przesunela proces na „oferta wyslana" (krok 4 zlecenia)', 'jest: ' . $status_procesu );
+	mz_ok(
+		$handlowiec3 === (int) $wpdb->get_var( $wpdb->prepare( "SELECT assigned_user_id FROM {$flow_t} WHERE lead_id = %d", $lead3 ) ), // phpcs:ignore
+		'E9: wlascicielem procesu jest handlowiec z fixture, a nie ktos zostawiony w bazie'
+	);
+
+	// Fixture znika razem z sekcja, ktora go potrzebowala — inaczej nastepne testy
+	// dziedziczylyby handlowca i znow nie wiadomo by bylo, czyj to jest.
+	if ( $handlowiec3 > 0 ) {
+		require_once ABSPATH . 'wp-admin/includes/user.php';
+		wp_delete_user( $handlowiec3 );
+	}
 }
 
 $GLOBALS['mp_z']['lines'][] = '';
