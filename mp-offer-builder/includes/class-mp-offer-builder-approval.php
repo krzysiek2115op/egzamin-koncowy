@@ -218,6 +218,25 @@ class MP_Offer_Builder_Approval {
 			);
 		}
 
+		/*
+		 * PAYLOAD Z ODCZYTU PO ZAPISIE, NIE SPRZED NIEGO.
+		 *
+		 * `$offer` pochodzi z odczytu sprzed UPDATE-a. Warunek `WHERE status =
+		 * 'draft'` pilnuje statusu, ale NIE pilnuje reszty wiersza: równoległa
+		 * korekta z Działu 10 mogła w tym czasie zmienić kwotę, numer oferty,
+		 * wersję albo nazwę klienta i zostawić status na `draft`. Zatwierdzenie
+		 * kończyło się wtedy powodzeniem, a do wtyczki 3 i wtyczki 1 szły
+		 * wartości NIEAKTUALNE — proces sprzedażowy wysyłał klientowi ofertę
+		 * opisaną liczbami, których nie ma już w bazie.
+		 *
+		 * Ponowny odczyt jest jednym zapytaniem na ścieżce, która i tak właśnie
+		 * zapisała wiersz. Gdyby wiersz zdążył zniknąć, zostajemy przy tym, co
+		 * mamy — zdarzenie ze starymi danymi jest lepsze niż brak zdarzenia po
+		 * udanym zatwierdzeniu.
+		 */
+		$zapisana = MP_Offer_Builder_DB::get_offer( $offer_id );
+		$offer    = is_array( $zapisana ) ? $zapisana : $offer;
+
 		$lead_id = isset( $offer['lead_id'] ) ? (int) $offer['lead_id'] : 0;
 
 		// Dziennik BD-2 przed zdarzeniem: subskrybent może paść, a ślad po
@@ -312,7 +331,23 @@ class MP_Offer_Builder_Approval {
 		$code = sanitize_key( wp_unslash( $_GET[ self::NOTICE_ARG ] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		$messages = array(
-			'ok'               => array( 'success', __( 'Oferta zatwierdzona. Moduł sprzedażowy przejmuje wysyłkę do klienta.', 'mp-offer-builder' ) ),
+			/*
+			 * Komunikat sukcesu MÓWI TO, CO WIADOMO.
+			 *
+			 * „Moduł sprzedażowy przejmuje wysyłkę do klienta" było twierdzeniem
+			 * o cudzej wtyczce, którego kod nie sprawdzał. Wtyczka 2 potrafi
+			 * zbudować ofertę sama (ze zdarzenia `mp_lead_created`), więc wtyczka 3
+			 * bywa wyłączona albo w ogóle niezainstalowana. `do_action()` trafiał
+			 * wtedy w pustkę, pracownik czytał zielony komunikat i uznawał sprawę
+			 * za zamkniętą, a oferta nigdy nie wychodziła do klienta — i nie było
+			 * już `draft`, więc znikała też z edycji.
+			 */
+			'ok'               => array(
+				'success',
+				has_action( self::HOOK )
+					? __( 'Oferta zatwierdzona. Moduł sprzedażowy przejmuje wysyłkę do klienta.', 'mp-offer-builder' )
+					: __( 'Oferta zatwierdzona, ale ŻADEN moduł nie nasłuchuje wysyłki — wyślij ją klientowi ręcznie albo włącz wtyczkę MP Sales Workflow.', 'mp-offer-builder' ),
+			),
 			'already_approved' => array( 'info', __( 'Ta oferta była już zatwierdzona — nic się nie zmieniło.', 'mp-offer-builder' ) ),
 			// Poziom „error" jest tu istotą sprawy: zapis się NIE udał, więc
 			// komunikat nie może wyglądać jak potwierdzenie, że wszystko gra.
