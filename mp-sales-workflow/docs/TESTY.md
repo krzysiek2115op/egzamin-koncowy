@@ -3,8 +3,25 @@
 Plik zbiorczy wymagany przez Golden Rule #3. Opisuje testy **wykonane**, nie
 planowane, z podaniem środowiska i tego, co każdy z nich naprawdę sprawdza.
 
-**Data ostatniego pełnego przebiegu:** 2026-07-28
+**Data ostatniego pełnego przebiegu:** 2026-08-01 (wydanie 1.3.4)
 **Wersja wtyczki:** 1.3.4 · schemat bazy 0.4.0
+
+Przebieg z 01.08.2026 wykonany na **świeżo zainstalowanej** bazie — instalacja od
+zera w kolejności 1 → 2 → 3, potem cały zestaw. To istotne rozróżnienie: baza
+gromadząca dane z wcześniejszych przebiegów potrafi ukryć błąd instalacji, bo
+brakująca tabela albo kolumna już tam stoi z poprzedniego razu.
+
+| Zestaw | Wynik |
+|---|---|
+| Pliki testowe trzech wtyczek (`tests/koncowe`, `tests/naprawy`, `tests/security`) | **50 / 50 plików PASS** |
+| Świeża instalacja + pierwszy przebieg (`test-swieza-instalacja`) | 16 / 16 PASS |
+| Harness procesu LP.1 | 7 / 7 PASS |
+| Harness procesu LP.2 | 110 / 110 PASS |
+| PHPCS (cały projekt) | 0 błędów, 3 ostrzeżenia (stan bazowy) |
+| Bramka audytu `--glebokosc=pelny` | WERDYKT **GO** |
+
+Tabela w sekcji 3 opisuje starszy przebieg skryptów deweloperskich z 28.07.2026
+i zostaje jako zapis tamtego stanu — to inny zestaw niż pliki testowe wyżej.
 
 ---
 
@@ -99,9 +116,11 @@ użytkownika z uprawnieniem `promote_users`.
 
 ---
 
-## 3. Testy wewnętrzne (regresja)
+## 3. Testy wewnętrzne (regresja) — przebieg z 28.07.2026
 
-Uruchamiane na tej samej instalacji, przez `wp eval-file`.
+Skrypty deweloperskie (`~/mp-test-env/scr`), uruchamiane na tej samej instalacji
+przez `wp eval-file`. Zestaw INNY niż wersjonowane pliki testowe z nagłówka:
+te skrypty nie są częścią wtyczki i nie wchodzą do paczki dla klienta.
 
 | Zestaw | Zakres | Wynik |
 |---|---|---|

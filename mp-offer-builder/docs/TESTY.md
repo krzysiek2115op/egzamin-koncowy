@@ -11,6 +11,15 @@ czasu, idempotencja zapisu, sprzątanie PDF) pokrywa regresja jednostkowa
 **108/108** (sekcja Narzędzia). Pełny re-run E2E na żywym WP zaplanowany w rundzie
 integracyjnej (razem z Pluginem 3).
 
+**Stan na wydanie 1.3.4 (01.08.2026).** Zapowiedziany wyżej re-run integracyjny
+został wykonany i od tamtej pory jest powtarzany przy każdym wydaniu — na żywym
+WordPressie z trzema wtyczkami naraz. Ostatni przebieg na **świeżo
+zainstalowanej** bazie: pliki testowe trzech wtyczek **50 / 50 PASS** (w tym
+16 plików tej wtyczki), harness procesu LP.2 **110 / 110 PASS**, PHPCS 0 błędów.
+Testy dołożone po 1.0.4 leżą w `tests/koncowe/` i `tests/naprawy/` — każdy
+z `tests/naprawy/` powstał razem z naprawą konkretnego defektu i FAIL-ował
+przed nią.
+
 Środowisko testowe: waluta PLN, baza sklepu PL, stawka VAT PL 23%, 3 produkty
 proste (100,00 / 250,50 / 999,99 zł), rola testowa `mp_ob_test_handlowiec`
 (capability `mp_offer_builder_manage_offers` bez `manage_options`) + userzy

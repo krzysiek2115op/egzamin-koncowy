@@ -3,6 +3,13 @@
 Zbiorczy rejestr wszystkich testów wykonanych podczas budowy wtyczki (Golden Rule #3).
 Wersja wtyczki w momencie zamknięcia testów końcowych: **1.2.1**.
 
+**Stan na wydanie 1.3.4 (01.08.2026).** Testy opisane niżej nie są archiwum —
+wszystkie są nadal uruchamiane. Ostatni pełny przebieg wykonano na **świeżo
+zainstalowanej** bazie (instalacja od zera, w kolejności 1 → 2 → 3): pliki
+testowe trzech wtyczek **50 / 50 PASS**, harness procesu LP.1 **7 / 7 PASS**,
+PHPCS 0 błędów. Testy dołożone po 1.2.1 leżą w `tests/naprawy/` — każdy powstał
+razem z naprawą konkretnego defektu i FAIL-ował przed nią.
+
 ## 1. Statyka kodu
 
 | Test | Wynik | Narzędzie |
