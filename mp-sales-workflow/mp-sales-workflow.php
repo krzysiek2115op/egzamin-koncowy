@@ -88,6 +88,19 @@ MP_SW_Download::register();
  * @return void
  */
 function mp_sales_workflow_boot() {
+	/*
+	 * Tlumaczenia ladowane na `init`, razem z reszta bootu. Wtyczka uzywa `__()`
+	 * z ta domena w 176 miejscach i nie wolala tego nigdzie — a wtedy `__()`
+	 * po prostu oddaje ciag zrodlowy. Wszystko WYGLADA poprawnie, bo zrodlo jest
+	 * po polsku; brak widac dopiero na witrynie w innym jezyku, czyli u klienta.
+	 * LP.3 prowadzi korespondencje w wielu jezykach (kolumna `lang` w tabeli
+	 * procesow), wiec nie jest to wymaganie teoretyczne.
+	 *
+	 * Miejsce nie jest przypadkowe: od WordPressa 6.7 zaladowanie domeny PRZED
+	 * `init` konczy sie ostrzezeniem `_doing_it_wrong()`.
+	 */
+	load_plugin_textdomain( 'mp-sales-workflow', false, dirname( plugin_basename( MP_SALES_WORKFLOW_FILE ) ) . '/languages' );
+
 	MP_SW_Ajax::register();
 	MP_SW_Cron::register();
 	MP_SW_Hooks::register();
