@@ -624,6 +624,12 @@ printf(
 //     (current_time('mysql', true) → z powrotem 'mysql' bez GMT) przeszłaby niezauważona
 //     mimo 25/25 PASS (audyt 2026-07-23, patrz komentarz przy current_time() w wp-stubs.php).
 $reset_async();
+// Handlowiec w bazie testowej jest tu potrzebny wyłącznie po to, żeby Dział 7
+// w ogóle ZAPISAŁ salesman_assigned_at (bez przypisania kolumna zostaje null,
+// a niezmiennik 26b sprawdzałby wtedy nie strefę, tylko własną konfigurację).
+// Przywracane zaraz za 26b — dalsze niezmienniki zakładają bazę bez handlowców.
+$users_przed26                  = isset( $GLOBALS['__mp_cfg']['users'] ) ? $GLOBALS['__mp_cfg']['users'] : array();
+$GLOBALS['__mp_cfg']['users']   = array( 501, 502 );
 $prov26 = run_pipeline( base_input( $VALID_NIP ) );
 $lid26  = (int) ( isset( $prov26['final_data']['lead_id'] ) ? $prov26['final_data']['lead_id'] : 0 );
 $GLOBALS['__mp_cfg']['http_responses'] = array(
@@ -641,6 +647,23 @@ printf(
 	'' !== $checked_at26 ? $checked_at26 : '-',
 	PHP_INT_MAX === $drift26 ? '-' : $drift26
 );
+
+// 26b) GMT: ten sam wiersz, kolumna zapisywana przez Dział 7. Ustalenie 1.25 (P1-G14):
+//      `salesman_assigned_at` szło przez current_time('mysql') BEZ GMT, tuż obok
+//      `vat_checked_at` w GMT — dwie kolumny tego samego wiersza w dwóch strefach,
+//      nieporównywalne między sobą. Reguła projektu jest spisana w class-mp-db.php
+//      („GMT, nie lokalny czas WP"), a to było jedyne odstępstwo od niej wśród
+//      zapisów datetime; przy symulowanym offsecie 2h dawało 7200 s rozjazdu.
+$assigned_at26b = $row26 && isset( $row26['salesman_assigned_at'] ) ? $row26['salesman_assigned_at'] : '';
+$drift26b       = $assigned_at26b ? abs( strtotime( $assigned_at26b ) - time() ) : PHP_INT_MAX;
+$inv26b         = '' !== $assigned_at26b && $drift26b <= 5;
+printf(
+	"[%-4s] GMT: Dział 7 zapisuje salesman_assigned_at w GMT, spójnie z resztą wiersza (wartość=%s, odchylenie=%ss)\n",
+	$inv26b ? 'PASS' : 'FAIL',
+	'' !== $assigned_at26b ? $assigned_at26b : '-',
+	PHP_INT_MAX === $drift26b ? '-' : $drift26b
+);
+$GLOBALS['__mp_cfg']['users'] = $users_przed26;
 
 // 27) Segmentacja dz.4: needle "it" dopasowywany na granicy słowa — nazwy firm zawierające
 //     "it" jako CZĘŚĆ innego słowa (np. "Architektura", "Kapitałowa") NIE trafiają fałszywie
@@ -714,7 +737,7 @@ printf( "Scenariusze: PASS=%d FAIL=%d (z %d ocenianych)\n", $pass, $fail, $pass 
 $hard_fail = $fail + ( $inv1 ? 0 : 1 ) + ( $inv2 ? 0 : 1 ) + ( $inv3 ? 0 : 1 ) + ( $inv5 ? 0 : 1 ) + ( $inv6 ? 0 : 1 ) + ( $inv7 ? 0 : 1 ) + ( $inv8 ? 0 : 1 ) + ( $inv9 ? 0 : 1 ) + ( $inv10 ? 0 : 1 ) + ( $inv11 ? 0 : 1 )
 	+ ( $inv12 ? 0 : 1 ) + ( $inv13 ? 0 : 1 ) + ( $inv14 ? 0 : 1 ) + ( $inv15 ? 0 : 1 ) + ( $inv16 ? 0 : 1 ) + ( $inv17 ? 0 : 1 ) + ( $inv18 ? 0 : 1 ) + ( $inv19 ? 0 : 1 ) + ( $inv20 ? 0 : 1 )
 	+ ( $inv21 ? 0 : 1 ) + ( $inv22 ? 0 : 1 ) + ( $inv23 ? 0 : 1 ) + ( $inv24 ? 0 : 1 ) + ( $inv25 ? 0 : 1 )
-	+ ( $inv26 ? 0 : 1 ) + ( $inv27 ? 0 : 1 ) + ( $inv28 ? 0 : 1 );
+	+ ( $inv26 ? 0 : 1 ) + ( $inv26b ? 0 : 1 ) + ( $inv27 ? 0 : 1 ) + ( $inv28 ? 0 : 1 );
 echo $hard_fail === 0
 	? "WYNIK: proces spójny wg niezmienników.\n"
 	: "WYNIK: wykryto {$hard_fail} naruszeń — patrz FAIL powyżej.\n";

@@ -211,7 +211,11 @@ class MP_D7_Agent_Prepare extends MP_Abstract_Agent {
 			'products'             => ( '' !== trim( (string) $context->get( 'products', '' ) ) ) ? (string) $context->get( 'products' ) : null,
 			'est_volume'           => ( '' !== trim( (string) $context->get( 'est_volume', '' ) ) ) ? (string) $context->get( 'est_volume' ) : null,
 			'salesman_id'          => $salesman,
-			'salesman_assigned_at' => $salesman ? current_time( 'mysql' ) : null,
+			// GMT, jak każda inna kolumna datetime w tej tabeli (patrz class-mp-db.php:
+			// updated_at, vat_checked_at). Dotąd jedyna szła czasem LOKALNYM witryny
+			// i siedziała w wierszu tuż obok vat_checked_at w GMT — dwie kolumny tego
+			// samego wiersza w dwóch strefach, nieporównywalne między sobą.
+			'salesman_assigned_at' => $salesman ? current_time( 'mysql', true ) : null,
 			'score'                => $score,
 			'status'               => 'new',
 			'vat_valid'            => is_null( $vat_valid ) ? null : ( $vat_valid ? 1 : 0 ),
