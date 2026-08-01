@@ -346,20 +346,32 @@ final class MP_AU_K117_Dokumentacja extends MP_AU_Krytyk {
 					continue;
 				}
 
-				if ( count( $pliki ) > 1 ) {
-					$ustalenia[] = new MP_AU_Ustalenie(
-						'1.17',
-						'Dzial ' . $numer . ' wtyczki „' . $branch . '" ma ' . count( $pliki ) . ' plikow dokumentacji zamiast jednego.',
-						MP_AU_Ustalenie::DROBNE,
-						array(
-							'plik'       => $branch . '/docs/' . $klucz . '/',
-							'dowod'      => implode( ', ', $pliki ),
-							'scenariusz' => 'Zasada projektu mowi: jeden plik na dzial. Przy kilku plikach '
-								. 'nowe zrodlo laduje w losowym z nich i przestaje byc znajdowalne.',
-							'naprawa'    => 'Scalic w jeden plik dzialu.',
-						)
-					);
-				}
+				/*
+				 * LICZBA PLIKOW W KATALOGU DZIALU NIE JEST USTALENIEM.
+				 *
+				 * Stala tu kontrola „ma X plikow zamiast jednego", oparta na zle
+				 * odczytanej zasadzie klienta. Zasada brzmi: JEDEN PLIK NA ZRODLO
+				 * — jedna dokumentacja z jednego oryginalnego zrodla. Katalog
+				 * `docs/dzial-03/` z piecioma plikami (Biala lista, algorytm NIP,
+				 * VIES REST, WP-Cron, wp_remote_get) jest wiec wzorcowy, a nie
+				 * wadliwy. W przebiegu z 01.08.2026 kontrola dala 10 ustalen
+				 * i wszystkie byly falszywe.
+				 *
+				 * Nie zostala zastapiona inna, bo zaden mechaniczny niezmiennik
+				 * nie przezyl zderzenia z danymi:
+				 *   - „kazdy plik musi cytowac URL" — 5 z 47 plikow to notatki
+				 *     DECYZYJNE (rodo-zgody.md, scoring-przypisanie.md i inne),
+				 *     ktore zadnego zrodla zewnetrznego nie maja i miec nie musza;
+				 *   - „jeden host na plik" — 10 plikow cytuje dwa hosty i kazdy
+				 *     przypadek jest uprawniony: dwa opracowania tego samego
+				 *     algorytmu NIP, `example.com` w przykladzie kodu,
+				 *     dokumentacja WordPressa obok dokumentacji MySQL.
+				 *
+				 * Reguly, ktorej nie da sie postawic bez falszywych alarmow, nie
+				 * stawiamy na sile. Para pilnuje dwoch rzeczy, ktore sie bronia:
+				 * dzialu BEZ dokumentacji (wyzej) i cytatu bez daty (nizej).
+				 * Patrz audyt/tests/regula-1-17.php.
+				 */
 			}
 		}
 
