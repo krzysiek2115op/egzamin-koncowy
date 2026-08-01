@@ -863,6 +863,19 @@
       "lekcja": "Niespojna JEDNOSTKA w jednym rekordzie to defekt, nawet gdy dzis nikt jej nie czyta — bo koszt naprawy rosnie z kazdym wierszem w bazie klienta, a wykrycie nastepuje dopiero na raporcie. Niezmiennik dopisany do harnessu przy istniejacej asercji GMT (26b), gdzie symulowany offset 2 h czyni regresje widoczna. Pulapka przy pisaniu tego testu: atrapa harnessu domyslnie NIE ma handlowcow, wiec kolumna zostawala null i test padal z niewlasciwego powodu (wartosc pusta zamiast rozjazdu 7200 s) — sonda musi padac z tego powodu, ktory opisuje.",
       "test": "tests/process-harness/run-process.php (niezmiennik 26b)",
       "para": "1.25"
+    },
+    {
+      "id": "P3-G10",
+      "data": "2026-08-01",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "Brak eksportera danych osobowych — LP.3 umiala kasowac, ale nie wydawac",
+      "klasa": "polowiczna-realizacja-obowiazku-prawnego",
+      "plik": "includes/class-mp-sw-privacy.php",
+      "dowod": "MP_SW_Privacy::register() wpinalo wylacznie wp_privacy_personal_data_erasers. LP.1 i LP.2 wpinaja OBA filtry rdzenia. Sama wtyczka nigdy nie twierdzila, ze jej dane nie sa osobowe: ma erase_by_email(), anonymize_lead() i is_anonymized(), a naglowek pliku wymienia oba miejsca, w ktorych trzyma adres.",
+      "skutek": "Zadanie 'Eksportuj dane osobowe' z Narzedzi WordPressa oddawalo komplet z dwoch wtyczek i cisze z trzeciej — bez bledu i bez ostrzezenia, wiec raport dla podmiotu danych wygladal na kompletny. RODO daje prawo dostepu (art. 15) i przenoszenia (art. 20) obok prawa do usuniecia (art. 17); obsluzenie samego usuwania zalatwia jedno z trzech.",
+      "lekcja": "Obowiazek prawny realizuje sie w calosci albo wcale — polowiczny wyglada jak spelniony, bo brakujaca polowa nie zglasza sie zadnym bledem. Regula do dalszego stosowania: kazda wtyczka, ktora rejestruje KASOWNIK, musi rejestrowac tez EKSPORTER, bo kasownik jest przyznaniem, ze dane sa osobowe. Zasieg eksportu bierz z naglowka pliku prywatnosci, nie z domyslu: LP.3 trzyma adres w flow.client_email ORAZ notifications.recipient, a eksport wezszy o jedno z tych miejsc bylby gorszy niz jego brak. Pulapki z pisania sondy: kolumna nazywa sie `template`, nie `type` (INSERT do nieistniejacej kolumny cicho padal, wiec sekcja badala pusta kolejke), a wp_json_encode bez JSON_UNESCAPED_SLASHES zamienia numer oferty OF/X/1 na OF\\/X\\/1 i szukanie po nim nie trafia.",
+      "test": "tests/naprawy/eksport-danych-osobowych.php",
+      "para": "1.11"
     }
   ]
 }
