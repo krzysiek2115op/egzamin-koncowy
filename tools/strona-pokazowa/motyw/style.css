@@ -1,0 +1,13 @@
+/*
+Theme Name: Kredyt Kompas
+Theme URI: https://kredytkompas.pl/
+Author: Konwersja ze statycznego HTML
+Description: Motyw 1:1 odwzorowujący statyczną stronę Kredyt Kompas (eksperci kredytów hipotecznych). Treść stron edytowalna z panelu WordPress.
+Version: 1.0.0
+Requires at least: 6.0
+Requires PHP: 7.4
+Text Domain: kredyt-kompas
+*/
+
+/* Właściwe style strony są ładowane z assets/styles.css (enqueue w functions.php).
+   Ten plik zawiera tylko nagłówek motywu wymagany przez WordPress. */
