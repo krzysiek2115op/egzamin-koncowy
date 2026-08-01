@@ -152,7 +152,7 @@
       "plik": "includes/pipeline/departments/class-mp-ob-department-11.php",
       "dowod": "pdf_path zapisywane niezaleznie od wyniku zapisu pliku",
       "skutek": "Link do pobrania prowadzi do 404, a rekord twierdzi, ze dokument istnieje.",
-      "test": "",
+      "test": "tests/naprawy/finalizacja-pdf-a-zdarzenie.php",
       "para": "1.19",
       "status": "otwarte"
     },
