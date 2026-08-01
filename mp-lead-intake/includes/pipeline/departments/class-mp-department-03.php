@@ -58,17 +58,52 @@ class MP_D3_Agent_Nip extends MP_Abstract_Agent {
 	}
 
 	/**
+	 * Powód odrzucenia NIP-u — słowami, którymi da się coś zrobić.
+	 *
+	 * Agent zwracał jeden komunikat „Niepoprawna suma kontrolna NIP" dla KAŻDEGO
+	 * powodu: pustego pola, złej długości i wartości zastępczej. W trzech z tych
+	 * czterech przypadków sumy kontrolnej nawet nie liczono, a komunikat twierdził
+	 * co innego. Człowiek czytał, że pomylił się w cyfrze kontrolnej numeru,
+	 * którego nie podał — albo „poprawiał" numer wpisany celowo jako zastępczy.
+	 *
+	 * Kolejność sprawdzeń jest ta sama, co w `checksum_valid()`, bo to ta sama
+	 * decyzja, tylko opisana słowami. Żaden komunikat nie mówi nic ponad to, co
+	 * naprawdę sprawdzono.
+	 *
+	 * @param string $nip Wartość z kontekstu (po normalizacji Działu 2).
+	 * @return string Pusty ciąg, gdy NIP jest poprawny.
+	 */
+	public static function rejection_reason( $nip ) {
+		$nip = (string) $nip;
+
+		if ( '' === $nip ) {
+			return 'NIP jest wymagany';
+		}
+
+		if ( ! preg_match( '/\A\d{10}\z/', $nip ) ) {
+			return 'NIP powinien mieć 10 cyfr';
+		}
+
+		if ( preg_match( '/\A(\d)\1{9}\z/', $nip ) ) {
+			return 'NIP z samych powtórzonych cyfr nie jest prawdziwym numerem';
+		}
+
+		return self::checksum_valid( $nip ) ? '' : 'Niepoprawna suma kontrolna NIP';
+	}
+
+	/**
 	 * @param MP_Context $context Kontekst.
 	 * @return MP_Result
 	 */
 	public function run( MP_Context $context ) {
 		$nip   = (string) $context->get( 'nip', '' );
 		$valid = self::checksum_valid( $nip );
+		$powod = self::rejection_reason( $nip );
 
 		return MP_Result::ok(
 			array(
 				'nip_valid' => $valid,
-				'errors'    => $valid ? array() : array( 'nip' => 'Niepoprawna suma kontrolna NIP' ),
+				'errors'    => $valid ? array() : array( 'nip' => $powod ),
 			)
 		);
 	}
