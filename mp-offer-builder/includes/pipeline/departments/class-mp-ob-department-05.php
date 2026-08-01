@@ -63,6 +63,33 @@ class MP_OB_D5_Agent_Discount_Rules extends MP_OB_Abstract_Agent {
 		),
 	);
 
+	/**
+	 * Obowiązujący słownik reguł: z ustawień, a gdy ich nie ma — wbudowany.
+	 *
+	 * `RULES` powyżej przestało być jedynym źródłem prawdy, a zostało DOMYŚLNYM.
+	 * Progi rabatowe to decyzja handlowa; do 1.3.6 jej zmiana wymagała edycji tego
+	 * pliku, wydania nowej wersji wtyczki i wgrania jej na produkcję. Ekran
+	 * ustawień (MP_OB_Settings) zapisuje własny słownik do opcji.
+	 *
+	 * @return array
+	 */
+	public static function obowiazujace() {
+		return class_exists( 'MP_OB_Settings' ) ? MP_OB_Settings::rules() : self::RULES;
+	}
+
+	/**
+	 * Wersja obowiązującego słownika — trafia do oferty jako `rules_version`.
+	 *
+	 * Każdy zapis ustawień nadaje NOWĄ wersję. Bez tego dwie oferty z tym samym
+	 * znacznikiem miałyby różne rabaty i znacznik przestałby cokolwiek znaczyć,
+	 * a jest jedyną odpowiedzią na pytanie „dlaczego ta oferta ma taki rabat".
+	 *
+	 * @return string
+	 */
+	public static function wersja() {
+		return class_exists( 'MP_OB_Settings' ) ? MP_OB_Settings::rules_version() : self::RULES_VERSION;
+	}
+
 	public function __construct() {
 		parent::__construct( '5.1', 'Agent 5.1 — dobór', 'Reguły wg wariantu cenowego i pasma wolumenu; kolejność priorytetowa' );
 	}
@@ -83,7 +110,7 @@ class MP_OB_D5_Agent_Discount_Rules extends MP_OB_Abstract_Agent {
 		// Kolejność priorytetowa: spośród reguł pasujących do wariantu (albo
 		// catch-all R-00), wybieramy tę o NAJWYŻSZYM spełnionym progu ilości.
 		$best = null;
-		foreach ( self::RULES as $rule ) {
+		foreach ( self::obowiazujace() as $rule ) {
 			$matches_wariant = null === $rule['wariant'] || $rule['wariant'] === $wariant;
 			if ( ! $matches_wariant || $total_qty < $rule['min_qty'] ) {
 				continue;
@@ -93,7 +120,8 @@ class MP_OB_D5_Agent_Discount_Rules extends MP_OB_Abstract_Agent {
 			}
 		}
 		if ( null === $best ) {
-			$best = self::RULES[0]; // R-00 — zawsze pasuje (min_qty=0, wariant=null).
+			$obowiazujace = self::obowiazujace();
+			$best         = $obowiazujace[0]; // R-00 — zawsze pasuje (min_qty=0, wariant=null).
 		}
 
 		$subtotal_grosze = (int) $context->get( 'subtotal_grosze', 0 );
@@ -110,7 +138,7 @@ class MP_OB_D5_Agent_Discount_Rules extends MP_OB_Abstract_Agent {
 					),
 				),
 				'discount_total' => $amount_grosze,
-				'rules_version'  => self::RULES_VERSION,
+				'rules_version'  => self::wersja(),
 			)
 		);
 	}

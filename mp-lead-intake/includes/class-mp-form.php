@@ -133,7 +133,19 @@ class MP_Lead_Intake_Form {
 				<input type="text" id="mp-segment" name="segment">
 			</div>
 			<div class="mp-field">
-				<label for="mp-country"><?php esc_html_e( 'Kraj', 'mp-lead-intake' ); ?></label>
+				<?php
+				/*
+				 * RYNEK, NIE SAM „KRAJ".
+				 *
+				 * Zlecenie mowi o kierowaniu zgloszenia na wlasciwy RYNEK, a pole
+				 * nazywalo sie po prostu „Kraj". To ta sama rzecz — kolumna `country`
+				 * w BD-3 jest jedynym wyznacznikiem rynku w calym procesie: po niej
+				 * Dzial 4 wtyczki 3 dobiera handlowca, po niej idzie jezyk oferty
+				 * i odwrotne obciazenie VAT. Nazwa pola mowi teraz, do czego ta
+				 * wartosc sluzy, zamiast opisywac sam jej format.
+				 */
+				?>
+				<label for="mp-country"><?php esc_html_e( 'Rynek (kraj klienta)', 'mp-lead-intake' ); ?></label>
 				<select id="mp-country" name="country">
 					<?php foreach ( self::COUNTRIES as $code => $label ) : ?>
 						<option value="<?php echo esc_attr( $code ); ?>"<?php echo ( 'PL' === $code ) ? ' selected' : ''; ?>><?php echo esc_html( $label ); ?> (<?php echo esc_html( $code ); ?>)</option>

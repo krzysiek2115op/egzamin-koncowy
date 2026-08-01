@@ -181,7 +181,7 @@ class MP_Lead_Intake_Admin {
 			esc_html__( 'Firma', 'mp-lead-intake' ),
 			esc_html__( 'NIP', 'mp-lead-intake' ),
 			esc_html__( 'Kontakt', 'mp-lead-intake' ),
-			esc_html__( 'Kraj', 'mp-lead-intake' ),
+			esc_html__( 'Rynek', 'mp-lead-intake' ),
 			esc_html__( 'Segment', 'mp-lead-intake' ),
 			esc_html__( 'Punktacja', 'mp-lead-intake' ),
 			esc_html__( 'Status VAT', 'mp-lead-intake' ),

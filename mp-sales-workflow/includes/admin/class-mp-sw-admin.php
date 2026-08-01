@@ -85,6 +85,8 @@ class MP_SW_Admin {
 		echo '<div class="wrap">';
 		echo '<h1>' . esc_html__( 'Procesy sprzedażowe', 'mp-sales-workflow' ) . '</h1>';
 
+		self::podsumowanie_zespolu( $rows );
+
 		// Akcja wykonywana jest PRZED narysowaniem tabeli, ale wykaz `$rows` wczytano
 		// wcześniej — po zmianie statusu trzeba go odświeżyć, inaczej pulpit
 		// pokazałby stan sprzed operacji, którą użytkownik właśnie wykonał.
@@ -500,6 +502,108 @@ class MP_SW_Admin {
 	 * @param string $status Klucz statusu.
 	 * @return string
 	 */
+	/**
+	 * Podsumowanie zespołu — widok, którego manager sprzedaży nie miał.
+	 *
+	 * Do 1.3.6 pulpit był JEDEN dla wszystkich ról i różnił się wyłącznie tym,
+	 * ile wierszy pokazuje. Manager dostawał więc dłuższą listę tego samego,
+	 * co handlowiec — a odpowiada za coś innego: za rozłożenie pracy w zespole
+	 * i za terminy, których nikt nie dotrzymał. Żeby to zobaczyć, musiał ręcznie
+	 * przeliczyć listę.
+	 *
+	 * Blok liczy się z WIERSZY JUŻ POBRANYCH, bez ani jednego dodatkowego
+	 * zapytania. Pulpit stoi na zasadzie „jeden strzał odczytu" (Dział 2)
+	 * i podsumowanie nie ma prawa jej łamać.
+	 *
+	 * Handlowiec go nie widzi: dla kogoś, kto prowadzi własne procesy, byłby to
+	 * tylko powtórzony licznik tej samej listy.
+	 *
+	 * @param array $rows Wiersze procesów widoczne dla bieżącego użytkownika.
+	 * @return bool Czy blok został narysowany.
+	 */
+	public static function podsumowanie_zespolu( array $rows ) {
+		if ( ! current_user_can( MP_SW_Roles::CAP_VIEW_TEAM ) && ! current_user_can( MP_SW_Roles::CAP_VIEW_ALL ) ) {
+			return false;
+		}
+
+		$teraz       = current_time( 'mysql', true );
+		$wg_statusu  = array();
+		$wg_osoby    = array();
+		$po_terminie = 0;
+		$bez_wlasc   = 0;
+
+		foreach ( $rows as $row ) {
+			$status                = (string) $row['status'];
+			$wg_statusu[ $status ] = isset( $wg_statusu[ $status ] ) ? $wg_statusu[ $status ] + 1 : 1;
+
+			$owner = isset( $row['assigned_user_id'] ) ? (int) $row['assigned_user_id'] : 0;
+
+			if ( $owner > 0 ) {
+				$wg_osoby[ $owner ] = isset( $wg_osoby[ $owner ] ) ? $wg_osoby[ $owner ] + 1 : 1;
+			} else {
+				++$bez_wlasc;
+			}
+
+			/*
+			 * Po terminie liczymy TYLKO procesy otwarte. Wygrany albo przegrany
+			 * proces z przekroczonym SLA jest faktem historycznym, nie zaległością —
+			 * doliczanie go do listy zadań na dziś zawyżałoby ją bez końca.
+			 */
+			$otwarty = ! in_array( $status, array( MP_Sales_Workflow_DB::STATUS_WON, MP_Sales_Workflow_DB::STATUS_LOST ), true );
+			$termin  = isset( $row['sla_due_at'] ) ? (string) $row['sla_due_at'] : '';
+
+			if ( $otwarty && '' !== $termin && $termin < $teraz ) {
+				++$po_terminie;
+			}
+		}
+
+		echo '<div class="mp-sw-podsumowanie" style="margin:12px 0 18px;padding:12px 16px;background:#fff;border:1px solid #c3c4c7;border-left-width:4px;border-left-color:#2271b1;">';
+		echo '<h2 style="margin-top:0;font-size:14px;">' . esc_html__( 'Podsumowanie zespołu', 'mp-sales-workflow' ) . '</h2>';
+
+		echo '<p><strong>' . esc_html__( 'Procesy w toku:', 'mp-sales-workflow' ) . '</strong> ';
+
+		$czesci = array();
+
+		foreach ( MP_Sales_Workflow_DB::statuses() as $status ) {
+			if ( empty( $wg_statusu[ $status ] ) ) {
+				continue;
+			}
+
+			$czesci[] = self::status_label( $status ) . ' — ' . (int) $wg_statusu[ $status ];
+		}
+
+		echo esc_html( $czesci ? implode( ' · ', $czesci ) : __( 'brak', 'mp-sales-workflow' ) ) . '</p>';
+
+		echo '<p><strong>' . esc_html__( 'Obciążenie handlowców:', 'mp-sales-workflow' ) . '</strong> ';
+
+		$osoby = array();
+
+		arsort( $wg_osoby );
+
+		foreach ( $wg_osoby as $uid => $ile ) {
+			$user    = get_userdata( (int) $uid );
+			$osoby[] = ( $user instanceof WP_User ? $user->display_name : '#' . (int) $uid ) . ' — ' . (int) $ile;
+		}
+
+		if ( $bez_wlasc > 0 ) {
+			/* translators: %d: liczba procesów bez właściciela. */
+			$osoby[] = sprintf( __( 'bez właściciela — %d', 'mp-sales-workflow' ), $bez_wlasc );
+		}
+
+		echo esc_html( $osoby ? implode( ' · ', $osoby ) : __( 'brak', 'mp-sales-workflow' ) ) . '</p>';
+
+		echo '<p><strong>' . esc_html__( 'Po terminie SLA:', 'mp-sales-workflow' ) . '</strong> ';
+		echo esc_html( (string) $po_terminie );
+
+		if ( $po_terminie > 0 ) {
+			echo ' <span class="dashicons dashicons-warning" style="color:#d63638;" aria-hidden="true"></span>';
+		}
+
+		echo '</p></div>';
+
+		return true;
+	}
+
 	public static function status_label( $status ) {
 		$labels = array(
 			MP_Sales_Workflow_DB::STATUS_NEW         => __( 'nowy', 'mp-sales-workflow' ),

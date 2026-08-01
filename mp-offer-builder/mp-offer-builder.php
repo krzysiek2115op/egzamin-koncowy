@@ -76,6 +76,8 @@ require_once MP_OFFER_BUILDER_DIR . 'includes/class-mp-offer-builder-download.ph
 // class-mp-offer-builder-list-table.php ładowany leniwie wewnątrz Admin::render(),
 // NIE tutaj — klasa bazowa WP_List_Table żyje wyłącznie w wp-admin.
 require_once MP_OFFER_BUILDER_DIR . 'includes/admin/class-mp-offer-builder-admin.php';
+// Ekran regul rabatowych — progi to decyzja handlowa, nie techniczna.
+require_once MP_OFFER_BUILDER_DIR . 'includes/admin/class-mp-ob-settings.php';
 
 // Zatwierdzenie oferty (krok 4 zlecenia) — status `approved` + `mp_offer_approved`.
 require_once MP_OFFER_BUILDER_DIR . 'includes/class-mp-offer-builder-approval.php';
@@ -104,6 +106,7 @@ function mp_offer_builder_bootstrap() {
 	MP_Offer_Builder_Download::register();
 	// Panel wp-admin handlowca: menu, lista, ekran budowy (Krok 4.4/4.5).
 	MP_Offer_Builder_Admin::register();
+	MP_OB_Settings::register();
 	// Zatwierdzenie oferty z listy (krok 4 zlecenia) → mp_offer_approved.
 	MP_Offer_Builder_Approval::register();
 	MP_Offer_Builder_Privacy::register();
