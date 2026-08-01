@@ -235,6 +235,21 @@ class MP_Offer_Builder_Privacy {
 					// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
 					wp_delete_file( $real_pdf );
 				}
+
+				/*
+				 * Kolumna idzie razem z plikiem. Zostawiona wskazywała dokument,
+				 * którego już nie ma: lista ofert dalej pokazywała przycisk pobrania
+				 * (kończący się odmową), a bramka `no_document` w `approve()`
+				 * przepuszczała szkic po anonimizacji — zdarzenie `mp_offer_approved`
+				 * szło do pluginu 3 i ten próbował wysłać klientowi ofertę bez
+				 * dokumentu. Baza nie może twierdzić, że ma plik, który skasowała.
+				 */
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$wpdb->update(
+					$offers_table,
+					array( 'pdf_path' => '' ),
+					array( 'id' => $offer_id )
+				);
 			}
 
 			// 4) Wpis audytowy usunięcia (rozliczalność RODO) — bez PII w opisie.

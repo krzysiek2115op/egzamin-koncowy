@@ -115,6 +115,24 @@ class MP_Offer_Builder_Approval {
 		}
 
 		/*
+		 * NIEPUSTA KOLUMNA TO JESZCZE NIE DOKUMENT.
+		 *
+		 * `pdf_path` i dysk potrafią się rozjechać. Anonimizacja RODO kasowała plik
+		 * i zostawiała ścieżkę w bazie; kopia bazy z produkcji przynosi ścieżki do
+		 * plików, których na tym serwerze nigdy nie było. Bez sprawdzenia pliku
+		 * szkic po anonimizacji dawało się ZATWIERDZIĆ: zdarzenie szło do pluginu 3,
+		 * ten dostawał polecenie „wyślij ofertę klientowi" bez dokumentu i odbijał
+		 * je kodem MP3-E190 — błąd wychodził o dwa moduły za późno, a oferta nie
+		 * była już szkicem i znikała z edycji.
+		 */
+		if ( ! MP_Offer_Builder_Storage::document_exists( (string) $offer['pdf_path'] ) ) {
+			return new WP_Error(
+				'no_document',
+				__( 'Plik PDF tej oferty nie istnieje — wygeneruj dokument ponownie przed zatwierdzeniem.', 'mp-offer-builder' )
+			);
+		}
+
+		/*
 		 * Przejście warunkowe: `WHERE status = 'draft'` w samym UPDATE. Kontrola
 		 * wyżej jest tylko po to, żeby dać sensowny komunikat — o tym, KTO wygrał,
 		 * decyduje baza. Przy dwóch równoległych żądaniach dokładnie jedno dostanie

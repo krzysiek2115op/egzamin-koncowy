@@ -62,6 +62,38 @@ class MP_Offer_Builder_Storage {
 	}
 
 	/**
+	 * Czy pod `pdf_path` z bazy NAPRAWDĘ leży dokument, który da się wysłać.
+	 *
+	 * Kolumna i dysk potrafią się rozjechać: anonimizacja RODO kasuje plik,
+	 * a kopia bazy z produkcji na środowisko testowe przynosi ścieżki do plików,
+	 * których tam nigdy nie było. Kolumna jest wtedy obietnicą bez pokrycia,
+	 * a sprawdzenie „czy niepusta" tej obietnicy nie weryfikuje.
+	 *
+	 * Reguła jest ta sama, co przy pobieraniu dokumentu: plik musi istnieć ORAZ
+	 * leżeć w prywatnym katalogu wtyczki. Zgoda na wysyłkę oferty, której
+	 * dokumentu i tak nie da się pobrać, byłaby zgodą na wysłanie pustki.
+	 *
+	 * @param string $pdf_path Ścieżka z kolumny `pdf_path`.
+	 * @return bool
+	 */
+	public static function document_exists( $pdf_path ) {
+		$pdf_path = (string) $pdf_path;
+
+		if ( '' === $pdf_path || ! file_exists( $pdf_path ) ) {
+			return false;
+		}
+
+		$real_pdf  = realpath( $pdf_path );
+		$real_base = realpath( self::private_dir() );
+
+		if ( false === $real_pdf || false === $real_base ) {
+			return false;
+		}
+
+		return 0 === strpos( $real_pdf, $real_base . DIRECTORY_SEPARATOR ) && is_file( $real_pdf );
+	}
+
+	/**
 	 * Katalog plików TYMCZASOWYCH (przed COMMIT Działu 10).
 	 *
 	 * @return string
