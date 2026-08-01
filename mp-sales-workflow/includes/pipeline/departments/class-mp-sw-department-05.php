@@ -97,7 +97,19 @@ class MP_SW_D5_Machine {
 	 */
 	public static function target_status( $type, array $context_data ) {
 		if ( MP_SW_Pipeline_Factory::EVENT_LEAD_CREATED === $type ) {
-			return MP_Sales_Workflow_DB::STATUS_ASSIGNED;
+			$assignment = isset( $context_data['assignment'] ) ? (array) $context_data['assignment'] : array();
+
+			/*
+			 * „Przypisany" bez przypisanego to zdanie nieprawdziwe. Gdy Dział 4 nie
+			 * wskazał właściciela — bo handlowców jeszcze nie ma albo żaden nie
+			 * przyjmuje procesów — proces zostaje w statusie „nowy" i czeka na
+			 * ręczne przydzielenie. Przy okazji nie odpalają się skutki przejścia
+			 * do „przypisany": SLA liczone od przypisania i powiadomienie
+			 * handlowca, którego nie ma komu wysłać.
+			 */
+			return empty( $assignment['user_id'] )
+				? MP_Sales_Workflow_DB::STATUS_NEW
+				: MP_Sales_Workflow_DB::STATUS_ASSIGNED;
 		}
 
 		if ( MP_SW_Pipeline_Factory::EVENT_OFFER_APPROVED === $type ) {

@@ -268,6 +268,15 @@ kwalifikacji; liczba, której nikt nie widzi, niczego nie kwalifikuje.
 - **Motyw strony pokazowej istniał wyłącznie na maszynie autora.** Archiwum
   w wydaniu powstawało z katalogu spoza repozytorium; nikt poza autorem nie mógł
   odtworzyć tego, co ogląda recenzent.
+- **Pierwsze zgłoszenie po instalacji ginęło.** Dopóki administrator nie założył
+  kont handlowców, wtyczka 3 nie miała komu przypisać procesu — i zamiast zapisać
+  proces bez właściciela, odrzucała całe zdarzenie. Lead zostawał w BD-3, oferta
+  szła do BD-2, a procesu w BD-1 nie było w ogóle: ani wiersza, ani wpisu
+  w dzienniku. Jedyny ślad trafiał do `error_log` PHP i tylko przy włączonym
+  `WP_DEBUG`. Nie było tego widać, bo testy uruchamiano na bazie, w której konta
+  handlowców zostawały po **wcześniejszych przebiegach innych testów** — dopiero
+  ich skasowanie pokazało prawdę. Bramka pilnuje teraz nie „zawsze ktoś
+  przypisany", lecz „brak właściciela musi mieć podany powód".
 
 Dwa zarzuty **odrzuciliśmy z uzasadnieniem**, bo były fałszywymi alarmami — i to
 też jest wynik, zapisany po to, żeby nikt nie wracał do nich drugi raz. Jedno

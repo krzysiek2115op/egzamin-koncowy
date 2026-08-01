@@ -293,7 +293,7 @@ PHPCS na plikach zmienionych w tej wersji: **0 błędów, 0 ostrzeżeń**.
 
 ## Stan na wydanie 1.3.7 (01.08.2026)
 
-Pełna regresja: **65 / 65 PASS** (63 pliki testowe przez `wp eval-file`
+Pełna regresja: **66 / 66 PASS** (64 pliki testowe przez `wp eval-file`
 + 2 harnessy na własnym shimie). Scenariusze odbioru **102 / 102 PASS**.
 PHPCS wspólnym `.phpcs.xml.dist`: **0 błędów, 0 ostrzeżeń, kod wyjścia 0**.
 Surowe wyjście obu narzędzi leży w [`raporty/PRZEBIEG-TESTOW.md`](../../raporty/PRZEBIEG-TESTOW.md).

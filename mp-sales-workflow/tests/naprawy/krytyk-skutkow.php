@@ -205,11 +205,17 @@ $zgodne = array(
 		MP_Sales_Workflow_DB::STATUS_OFFER_SENT,
 		array(),
 	),
+	/*
+	 * Od 1.3.7 `lead.created` prowadzi do statusu „przypisany" tylko wtedy, gdy
+	 * Dzial 4 kogos wskazal; bez wlasciciela proces zostaje „nowy". Koperta musi
+	 * wiec niesc przypisanie, inaczej opisuje przejscie, ktore z tego zdarzenia
+	 * juz nie wynika. Sam sprawdzany inwariant sie nie zmienil.
+	 */
 	'lead.created → przypisany'       => array(
 		MP_SW_Pipeline_Factory::EVENT_LEAD_CREATED,
 		MP_Sales_Workflow_DB::STATUS_NEW,
 		MP_Sales_Workflow_DB::STATUS_ASSIGNED,
-		array(),
+		array( 'assignment' => array( 'user_id' => 501 ) ),
 	),
 	'status.change → wygrany'         => array(
 		MP_SW_Pipeline_Factory::EVENT_STATUS_CHANGE,
@@ -349,6 +355,9 @@ ks_ok(
 $bez_sla = ks_ocena(
 	array(
 		'event'      => array( 'type' => MP_SW_Pipeline_Factory::EVENT_LEAD_CREATED ),
+		// Wlasciciel w kopercie: bez niego zdarzenie prowadzi do statusu „nowy",
+		// a nie „przypisany", wiec skutek set_sla w ogole by nie wystapil.
+		'assignment' => array( 'user_id' => 501 ),
 		'flow'       => array( 'row' => array( 'status' => MP_Sales_Workflow_DB::STATUS_NEW ) ),
 		'transition' => array(
 			'from'            => MP_Sales_Workflow_DB::STATUS_NEW,

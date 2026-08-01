@@ -23,9 +23,9 @@ przy każdym pushu — zadanie `integracja` w `.github/workflows/ci.yml`.
 ## 1. Dziesięć scenariuszy odbioru
 
 ```
-[01-Aug-2026 18:53:32 UTC] [MP Sales Workflow] level=SECURITY code=MP3-E111 at=2026-08-01T18:53:32+00:00 type=task.due source=cron reason=sweep_outside_cron user_id=944 ip_hash=db0f9b80a3fc6a3a18579fdfe68c724b2f448afe3eea94b2c0015e01c89549a2
-[01-Aug-2026 18:53:32 UTC] [MP Sales Workflow] level=SECURITY code=MP3-E111 at=2026-08-01T18:53:32+00:00 type=task.due source=cron reason=sweep_outside_cron user_id=944 ip_hash=db0f9b80a3fc6a3a18579fdfe68c724b2f448afe3eea94b2c0015e01c89549a2
-[01-Aug-2026 18:53:32 UTC] [MP Sales Workflow] level=SECURITY code=MP3-E101 at=2026-08-01T18:53:32+00:00 reason=protected_meta user_id=944 ip_hash=db0f9b80a3fc6a3a18579fdfe68c724b2f448afe3eea94b2c0015e01c89549a2
+[01-Aug-2026 19:59:05 UTC] [MP Sales Workflow] level=SECURITY code=MP3-E111 at=2026-08-01T19:59:05+00:00 type=task.due source=cron reason=sweep_outside_cron user_id=1134 ip_hash=db0f9b80a3fc6a3a18579fdfe68c724b2f448afe3eea94b2c0015e01c89549a2
+[01-Aug-2026 19:59:05 UTC] [MP Sales Workflow] level=SECURITY code=MP3-E111 at=2026-08-01T19:59:05+00:00 type=task.due source=cron reason=sweep_outside_cron user_id=1134 ip_hash=db0f9b80a3fc6a3a18579fdfe68c724b2f448afe3eea94b2c0015e01c89549a2
+[01-Aug-2026 19:59:05 UTC] [MP Sales Workflow] level=SECURITY code=MP3-E101 at=2026-08-01T19:59:05+00:00 reason=protected_meta user_id=1134 ip_hash=db0f9b80a3fc6a3a18579fdfe68c724b2f448afe3eea94b2c0015e01c89549a2
 
 === S1/10 — instalacja i schemat na zywym WP ===
   [PASS] tabela wp_mp_sw_flow istnieje
@@ -210,6 +210,7 @@ STATUS: ALL_PASS
   [OK ] mp-sales-workflow/tests/koncowe/scenariusze-1-10.php
   [OK ] mp-sales-workflow/tests/naprawy/alarm-administratora.php
   [OK ] mp-sales-workflow/tests/naprawy/dokumentacja-jeden-plik.php
+  [OK ] mp-sales-workflow/tests/naprawy/ekrany-i-konfiguracja.php
   [OK ] mp-sales-workflow/tests/naprawy/eksport-danych-osobowych.php
   [OK ] mp-sales-workflow/tests/naprawy/grupa-a.php
   [OK ] mp-sales-workflow/tests/naprawy/grupa-b.php
@@ -221,6 +222,7 @@ STATUS: ALL_PASS
   [OK ] mp-sales-workflow/tests/naprawy/nadawca-poczty.php
   [OK ] mp-sales-workflow/tests/naprawy/odbiorcy-niekompletni.php
   [OK ] mp-sales-workflow/tests/naprawy/okno-bezpiecznika.php
+  [OK ] mp-sales-workflow/tests/naprawy/pierwszy-lead-bez-handlowcow.php
   [OK ] mp-sales-workflow/tests/naprawy/schemat-bez-obietnic.php
   [OK ] mp-sales-workflow/tests/naprawy/status-przez-stala.php
   [OK ] mp-sales-workflow/tests/naprawy/tlumaczenia-ladowane.php
@@ -228,5 +230,5 @@ STATUS: ALL_PASS
   [OK ] mp-sales-workflow/tests/security/scenariusze-s1-s12.php
 
 ====================================================
-PRZESZLO: 64   NIE PRZESZLO: 0   BEZ WERDYKTU: 0
+PRZESZLO: 66   NIE PRZESZLO: 0   BEZ WERDYKTU: 0
 ```

@@ -36,6 +36,16 @@ powiadomien do klientow.
 
 
 = 1.3.7 =
+* PIERWSZE ZGLOSZENIE PO INSTALACJI GINELO, GDY NIE BYLO JESZCZE HANDLOWCOW.
+  Bramka Dzialu 4 wymagala wlasciciela procesu ZAWSZE i wywracala cale
+  zdarzenie, gdy nie bylo komu go przypisac — a to stan zupelnie normalny tuz
+  po instalacji, zanim administrator zalozy konta. Lead zapisywal sie w BD-3,
+  wtyczka 2 robila szkic oferty, a procesu w BD-1 nie bylo w ogole: ani wiersza,
+  ani wpisu w dzienniku. Teraz proces powstaje zawsze, zostaje w statusie
+  „nowy", ma pusta kolumne wlasciciela, a powod trafia do dziennika
+  (`lead.unassigned`). Bramka pilnuje juz nie „zawsze ktos przypisany", tylko
+  „brak wlasciciela musi miec podany powod" — cisza pozostaje zabroniona.
+  Przypisanie kogos nieaktywnego nadal jest niemozliwe.
 * Zdarzenie `mp_sw_flow_updated` niesie `assigned_user_id`, a wtyczka 1 sie na
   nie wpina — dzieki temu przypisanie handlowca w BD-3 nadaza za rotacja
   i przepisaniem procesu przez managera.

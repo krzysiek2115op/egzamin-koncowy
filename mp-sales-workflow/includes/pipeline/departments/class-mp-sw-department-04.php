@@ -315,6 +315,22 @@ class MP_SW_D4_Agent_Rotation extends MP_SW_Abstract_Agent {
 			(string) $context->get( 'match_lang', '' )
 		);
 
+		/*
+		 * Gdy nikt nie może zostać właścicielem, dział mówi to WPROST i zapisuje
+		 * powód. Do 1.3.7 wychodził stąd sam pusty `user_id`, a bramka QA4 brała
+		 * go za błąd i wywracała cały proces — łącznie z sytuacją, w której
+		 * handlowców po prostu jeszcze nie założono. Zgłoszenie klienta przepadało
+		 * wtedy bez wiersza w BD-1 i bez wpisu w dzienniku.
+		 */
+		if ( empty( $decision['user_id'] ) ) {
+			$total = isset( $snapshot['salesmen']['total'] ) ? (int) $snapshot['salesmen']['total'] : 0;
+
+			$decision['unassigned']        = true;
+			$decision['unassigned_reason'] = 0 === $total
+				? MP_SW_D4_Critic_Coverage::REASON_NO_SALESMEN
+				: MP_SW_D4_Critic_Coverage::REASON_NONE_AVAILABLE;
+		}
+
 		return MP_SW_Result::ok(
 			array(
 				'assignment' => $decision,
@@ -325,9 +341,36 @@ class MP_SW_D4_Agent_Rotation extends MP_SW_Abstract_Agent {
 }
 
 /**
- * K4.2 „pokrycie" — proces nigdy nie zostaje bez właściciela.
+ * K4.2 „pokrycie" — brak właściciela ma być WIDOCZNY, nie ma kasować procesu.
+ *
+ * Do 1.3.7 ten krytyk kończył pipeline porażką za każdym razem, gdy nikt nie mógł
+ * zostać właścicielem. Brzmiało to jak ostrożność, a działało jak utrata danych:
+ * przy pustej liście handlowców — czyli w stanie zupełnie normalnym tuż po
+ * instalacji — zgłoszenie z formularza zapisywało się w BD-3, wtyczka 2 robiła
+ * szkic oferty, a procesu w BD-1 nie było W OGÓLE. Ani wiersza, ani wpisu
+ * w dzienniku aktywności; jedyny ślad szedł do error_log PHP i tylko przy
+ * włączonym WP_DEBUG. Nikt się o tym nie dowiadywał.
+ *
+ * Panel managera od 1.3.7 ma licznik „bez właściciela", a kolumna
+ * `assigned_user_id` w BD-1 dopuszcza NULL — produkt przewidywał proces bez
+ * handlowca wszędzie poza jednym miejscem: tym, które o nim decydowało.
+ *
+ * Reguła po zmianie: proces powstaje zawsze, brak właściciela zostaje zapisany
+ * jako stan (pusta kolumna + powód w danych działu), a przypisanie kogoś
+ * nieaktywnego albo zmyślonego nadal jest zabronione — tego pilnuje agent 4.1,
+ * który dobiera wyłącznie spośród handlowców gotowych do przyjęcia procesu.
  */
 class MP_SW_D4_Critic_Coverage extends MP_SW_Abstract_Critic {
+
+	/**
+	 * Powód braku właściciela — do zapisu w danych działu i w dzienniku.
+	 */
+	const REASON_NO_SALESMEN = 'brak-handlowcow';
+
+	/**
+	 * Powód: handlowcy są, ale żaden nie przyjmuje procesów.
+	 */
+	const REASON_NONE_AVAILABLE = 'brak-dostepnych';
 
 	/**
 	 * @param MP_SW_Result  $agent_result Wynik agenta.
@@ -338,14 +381,9 @@ class MP_SW_D4_Critic_Coverage extends MP_SW_Abstract_Critic {
 		$data       = $agent_result->get_data();
 		$assignment = isset( $data['assignment'] ) ? (array) $data['assignment'] : array();
 
-		if ( empty( $assignment['user_id'] ) ) {
-			$snapshot = (array) $context->get( MP_SW_D2_Reader::SNAPSHOT_KEY, array() );
-			$total    = isset( $snapshot['salesmen']['total'] ) ? (int) $snapshot['salesmen']['total'] : 0;
-
+		if ( empty( $assignment['user_id'] ) && empty( $assignment['unassigned_reason'] ) ) {
 			return MP_SW_Result::fail(
-				0 === $total
-					? __( 'Brak jakiegokolwiek handlowca — nie ma komu przypisać procesu.', 'mp-sales-workflow' )
-					: __( 'Nie wybrano właściciela procesu mimo dostępnych handlowców.', 'mp-sales-workflow' ),
+				__( 'Proces bez właściciela i bez podanego powodu.', 'mp-sales-workflow' ),
 				array(
 					'errors' => array( 'assignment.user_id' ),
 					'fatal'  => true,
@@ -463,15 +501,25 @@ class MP_SW_D4_QA_Agent extends MP_SW_Abstract_Agent {
 
 		return MP_SW_Result::ok(
 			array(
-				'qa_owner'  => isset( $assignment['user_id'] ) ? (int) $assignment['user_id'] : 0,
-				'qa_reason' => (string) $context->get( 'assign_reason', '' ),
+				'qa_owner'      => isset( $assignment['user_id'] ) ? (int) $assignment['user_id'] : 0,
+				'qa_reason'     => (string) $context->get( 'assign_reason', '' ),
+				'qa_unassigned' => isset( $assignment['unassigned_reason'] )
+					? (string) $assignment['unassigned_reason']
+					: '',
 			)
 		);
 	}
 }
 
 /**
- * QA4 krytyk — pusty właściciel to błąd krytyczny.
+ * QA4 krytyk — pusty właściciel przechodzi wyłącznie z podanym powodem.
+ *
+ * Bramka pilnuje teraz czego innego niż do 1.3.7. Wcześniej wymagała właściciela
+ * zawsze i przez to wywracała cały proces, gdy handlowca po prostu jeszcze nie
+ * było — zgłoszenie klienta znikało bez śladu. Teraz zabroniona jest CISZA:
+ * pusty właściciel jest dopuszczalny, o ile Dział 4 zapisał, dlaczego nikogo nie
+ * wskazał. Pusty właściciel BEZ powodu nadal zatrzymuje proces, bo to znaczy, że
+ * dział nie wykonał swojej pracy, a nie że nie miał kogo wybrać.
  */
 class MP_SW_D4_QA_Critic extends MP_SW_Abstract_Critic {
 
@@ -483,9 +531,9 @@ class MP_SW_D4_QA_Critic extends MP_SW_Abstract_Critic {
 	public function review( MP_SW_Result $agent_result, MP_SW_Context $context ) {
 		$data = $agent_result->get_data();
 
-		if ( empty( $data['qa_owner'] ) ) {
+		if ( empty( $data['qa_owner'] ) && '' === trim( (string) $data['qa_unassigned'] ) ) {
 			return MP_SW_Result::fail(
-				__( 'Proces bez właściciela po Dziale 4.', 'mp-sales-workflow' ),
+				__( 'Proces bez właściciela po Dziale 4 i bez podanego powodu.', 'mp-sales-workflow' ),
 				array(
 					'errors' => array( 'assignment.user_id' ),
 					'fatal'  => true,
@@ -494,7 +542,7 @@ class MP_SW_D4_QA_Critic extends MP_SW_Abstract_Critic {
 			);
 		}
 
-		if ( '' === trim( (string) $data['qa_reason'] ) ) {
+		if ( ! empty( $data['qa_owner'] ) && '' === trim( (string) $data['qa_reason'] ) ) {
 			return MP_SW_Result::fail(
 				__( 'Przypisanie bez zapisanego uzasadnienia.', 'mp-sales-workflow' ),
 				array( 'errors' => array( 'assign_reason' ) ),

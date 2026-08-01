@@ -44,6 +44,15 @@ class MP_SW_D8_Writer {
 	/** Wpis dziennika: przypisanie handlowca. */
 	const LOG_ASSIGNED = 'lead.assigned';
 
+	/**
+	 * Proces zapisany bez właściciela — z podanym powodem.
+	 *
+	 * Bez tego wpisu proces założony przy pustej liście handlowców nie zostawiał
+	 * w dzienniku ŻADNEGO śladu: status się nie zmieniał (zostaje „nowy"),
+	 * przypisania nie było, więc dziennik milczał wbrew kryterium 5.5.
+	 */
+	const LOG_UNASSIGNED = 'lead.unassigned';
+
 	/** Wpis dziennika: zaplanowanie zadania. */
 	const LOG_TASK_PLANNED = 'task.planned';
 
@@ -791,6 +800,23 @@ class MP_SW_D8_Agent_Journal extends MP_SW_Abstract_Agent {
 				'action'    => MP_SW_D8_Writer::LOG_ASSIGNED,
 				'old_value' => isset( $row['assigned_user_id'] ) ? (string) $row['assigned_user_id'] : '',
 				'new_value' => (string) $flow_data['assigned_user_id'],
+			);
+		}
+
+		/*
+		 * Proces zakładany bez właściciela ma zostawić ślad OD RAZU — inaczej
+		 * powstaje wiersz, o którym dziennik nic nie wie: status się nie zmienia
+		 * (zostaje „nowy"), przypisania nie ma, więc żadna z gałęzi wyżej nic nie
+		 * dopisuje. Tylko przy zakładaniu procesu, żeby kolejne zdarzenia
+		 * nieprzypisanego procesu nie powtarzały tego samego zdania w kółko.
+		 */
+		$assignment = (array) $context->get( 'assignment', array() );
+
+		if ( empty( $row ) && empty( $assignment['user_id'] ) && ! empty( $assignment['unassigned_reason'] ) ) {
+			$entries[] = array(
+				'action'    => MP_SW_D8_Writer::LOG_UNASSIGNED,
+				'old_value' => '',
+				'new_value' => (string) $assignment['unassigned_reason'],
 			);
 		}
 

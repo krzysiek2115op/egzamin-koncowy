@@ -3,22 +3,30 @@
 Plik zbiorczy wymagany przez Golden Rule #3. Opisuje testy **wykonane**, nie
 planowane, z podaniem środowiska i tego, co każdy z nich naprawdę sprawdza.
 
-**Data ostatniego pełnego przebiegu:** 2026-08-01 (wydanie 1.3.6)
-**Wersja wtyczki:** 1.3.6 · schemat bazy 0.4.0 (bez zmian od 1.3.4)
+**Data ostatniego pełnego przebiegu:** 2026-08-01 (wydanie 1.3.7)
+**Wersja wtyczki:** 1.3.7 · schemat bazy 0.4.0 (bez zmian od 1.3.4)
 
-Przebieg z 01.08.2026 wykonany na **świeżo zainstalowanej** bazie — instalacja od
-zera w kolejności 1 → 2 → 3, potem cały zestaw. To istotne rozróżnienie: baza
+Przebieg wykonany na **świeżo zainstalowanej** bazie — instalacja od zera
+w kolejności 1 → 2 → 3, potem cały zestaw. To istotne rozróżnienie: baza
 gromadząca dane z wcześniejszych przebiegów potrafi ukryć błąd instalacji, bo
 brakująca tabela albo kolumna już tam stoi z poprzedniego razu.
 
+W 1.3.7 doszło rozróżnienie ostrzejsze niż „świeża baza": **świeże konta**.
+Zestaw uruchomiono po skasowaniu wszystkich użytkowników z rolami handlowca
+i managera — i dopiero wtedy wyszło, że pierwsze zgłoszenie po instalacji nie
+zakłada procesu, bo nie ma komu go przypisać. Sonda świeżej instalacji tego nie
+widziała, bo konta handlowców zostawały w bazie po **wcześniejszych przebiegach
+innych testów**.
+
 | Zestaw | Wynik |
 |---|---|
-| Pliki testowe trzech wtyczek (`tests/koncowe`, `tests/naprawy`, `tests/security`) | **56 / 56 plików PASS** |
+| Pliki testowe trzech wtyczek (`tests/koncowe`, `tests/naprawy`, `tests/security`) | **66 / 66 plików PASS** |
 | Świeża instalacja + pierwszy przebieg (`test-swieza-instalacja`) | 16 / 16 PASS |
 | Harness procesu LP.1 | 7 / 7 PASS |
 | Harness procesu LP.2 | 110 / 110 PASS |
-| PHPCS (cały projekt) | 0 błędów, 3 ostrzeżenia (stan bazowy) |
-| `php -l` (składnia) — wszystkie pliki projektu | 768 / 768 plików bez błędu |
+| PHPCS wg `.phpcs.xml.dist` (cały projekt) | **kod wyjścia 0** |
+| `php -l` (składnia) — wszystkie pliki projektu | bez błędu |
+| CI GitHub Actions (PHP 7.4, PHP 8.3, integracja na WordPressie) | **3 / 3 zadania zielone** |
 | Bramka audytu `--glebokosc=pelny` | WERDYKT **GO** |
 | Testy samego narzędzia audytu (`audyt/tests`) | 12 / 12 PASS |
 
@@ -192,7 +200,7 @@ Uczciwa granica zakresu:
 
 ## Stan na wydanie 1.3.7 (01.08.2026)
 
-Pełna regresja: **65 / 65 PASS** (63 pliki testowe przez `wp eval-file`
+Pełna regresja: **66 / 66 PASS** (64 pliki testowe przez `wp eval-file`
 + 2 harnessy na własnym shimie). Scenariusze odbioru **102 / 102 PASS**.
 PHPCS wspólnym `.phpcs.xml.dist`: **0 błędów, 0 ostrzeżeń, kod wyjścia 0**.
 Surowe wyjście obu narzędzi leży w [`raporty/PRZEBIEG-TESTOW.md`](../../raporty/PRZEBIEG-TESTOW.md).
