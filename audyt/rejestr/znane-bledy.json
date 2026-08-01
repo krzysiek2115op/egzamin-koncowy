@@ -876,6 +876,19 @@
       "lekcja": "Obowiazek prawny realizuje sie w calosci albo wcale — polowiczny wyglada jak spelniony, bo brakujaca polowa nie zglasza sie zadnym bledem. Regula do dalszego stosowania: kazda wtyczka, ktora rejestruje KASOWNIK, musi rejestrowac tez EKSPORTER, bo kasownik jest przyznaniem, ze dane sa osobowe. Zasieg eksportu bierz z naglowka pliku prywatnosci, nie z domyslu: LP.3 trzyma adres w flow.client_email ORAZ notifications.recipient, a eksport wezszy o jedno z tych miejsc bylby gorszy niz jego brak. Pulapki z pisania sondy: kolumna nazywa sie `template`, nie `type` (INSERT do nieistniejacej kolumny cicho padal, wiec sekcja badala pusta kolejke), a wp_json_encode bez JSON_UNESCAPED_SLASHES zamienia numer oferty OF/X/1 na OF\\/X\\/1 i szukanie po nim nie trafia.",
       "test": "tests/naprawy/eksport-danych-osobowych.php",
       "para": "1.11"
+    },
+    {
+      "id": "P3-G11",
+      "data": "2026-08-01",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "176 ciagow do tlumaczenia i ani jednego zadania o tlumaczenie",
+      "klasa": "deklaracja-bez-mechanizmu",
+      "plik": "mp-sales-workflow.php",
+      "dowod": "Wtyczka uzywa __() z domena 'mp-sales-workflow' w 176 miejscach, a nigdzie nie wolala load_plugin_textdomain(). LP.1 (mp-lead-intake.php:121) i LP.2 (mp-offer-builder.php:92) wolaja ja obie.",
+      "skutek": "Bez tego wywolania WordPress nie ma skad wziac tlumaczen tej wtyczki: __() oddaje ciag zrodlowy. Wszystko WYGLADA poprawnie, bo zrodlo jest po polsku — brak widac dopiero na witrynie w innym jezyku, czyli u klienta, nie u nas. LP.3 prowadzi korespondencje wielojezyczna (kolumna lang w tabeli procesow), wiec nie jest to wymaganie teoretyczne.",
+      "lekcja": "Pulapka POMIARU, nie kodu, i to ona kosztowala tu najwiecej. W WordPressie 7.0 load_plugin_textdomain() NICZEGO JUZ NIE LADUJE: rejestruje sciezke przez WP_Textdomain_Registry::set_custom_path() i zwraca true, a ladowanie jest just-in-time przy pierwszym __(). Pierwsza wersja sondy nasluchiwala override_load_textdomain i nie zobaczyla nic — ani dla LP.3, ani dla LP.2, ktora wolala te funkcje od dawna; filtr byl wlasciwy dla WordPressa sprzed 6.7. WP_Textdomain_Registry::has() tez sie nie nadaje: oddaje true dla dowolnej, nigdy nierejestrowanej domeny. Jedynym sladem jest prywatne custom_paths, czytane refleksja. Zanim uznasz brak sygnalu za dowod, sprawdz na wtyczce, ktora RObi juz to, czego szukasz.",
+      "test": "tests/naprawy/tlumaczenia-ladowane.php",
+      "para": "1.20"
     }
   ]
 }
