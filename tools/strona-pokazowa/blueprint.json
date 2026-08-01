@@ -1,0 +1,84 @@
+{
+  "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+  "landingPage": "/wp-admin/admin.php?page=mp-sales-workflow",
+  "preferredVersions": {
+    "php": "8.2",
+    "wp": "latest"
+  },
+  "features": {
+    "networking": true
+  },
+  "login": true,
+  "siteOptions": {
+    "blogname": "Kredyt Kompas — demonstracja trzech wtyczek",
+    "blogdescription": "Proces: formularz → oferta → sprzedaż (egzamin końcowy)",
+    "timezone_string": "Europe/Warsaw",
+    "WPLANG": "pl_PL"
+  },
+  "constants": {
+    "MP_SW_LINK_KEY": "demo-egzamin-klucz-podpisywania-linkow-0123456789abcdef",
+    "MP_HASH_PEPPER": "demo-egzamin-pieprz-do-hashowania-0123456789abcdef",
+    "WP_DEBUG": false,
+    "DISALLOW_FILE_EDIT": true
+  },
+  "steps": [
+    {
+      "step": "setSiteLanguage",
+      "language": "pl_PL"
+    },
+    {
+      "step": "installPlugin",
+      "pluginData": {
+        "resource": "wordpress.org/plugins",
+        "slug": "woocommerce"
+      },
+      "options": {
+        "activate": true
+      }
+    },
+    {
+      "step": "installTheme",
+      "themeData": {
+        "resource": "url",
+        "url": "https://github.com/krzysiek2115op/egzamin-koncowy/releases/download/demo-egzamin/kredyt-kompas.zip"
+      },
+      "options": {
+        "activate": true
+      }
+    },
+    {
+      "step": "installPlugin",
+      "pluginData": {
+        "resource": "url",
+        "url": "https://github.com/krzysiek2115op/egzamin-koncowy/releases/download/demo-egzamin/mp-lead-intake.zip"
+      },
+      "options": {
+        "activate": true
+      }
+    },
+    {
+      "step": "installPlugin",
+      "pluginData": {
+        "resource": "url",
+        "url": "https://github.com/krzysiek2115op/egzamin-koncowy/releases/download/demo-egzamin/mp-offer-builder.zip"
+      },
+      "options": {
+        "activate": true
+      }
+    },
+    {
+      "step": "installPlugin",
+      "pluginData": {
+        "resource": "url",
+        "url": "https://github.com/krzysiek2115op/egzamin-koncowy/releases/download/demo-egzamin/mp-sales-workflow.zip"
+      },
+      "options": {
+        "activate": true
+      }
+    },
+    {
+      "step": "runPHP",
+      "code": "<?php\n/**\n * Zasiew demonstracyjny dla egzaminatora: WooCommerce po polsku, trzy produkty\n * i jeden pelny przebieg procesu — zgloszenie -> oferta -> proces sprzedazowy.\n *\n * Uruchamiany raz, przy stawianiu strony pokazowej. Idempotentny: powtorne\n * wywolanie nie dubluje ani produktow, ani leada.\n */\n\nrequire_once '/wordpress/wp-load.php';\n\nif ( ! function_exists( 'wp_set_current_user' ) ) {\n\treturn;\n}\n\nwp_set_current_user( 1 );\n$raport = array();\n\n/* ------------------------------------------------------------------ 1. Sklep */\n\nupdate_option( 'woocommerce_default_country', 'PL:PL-MZ' );\nupdate_option( 'woocommerce_currency', 'PLN' );\nupdate_option( 'woocommerce_calc_taxes', 'yes' );\nupdate_option( 'woocommerce_prices_include_tax', 'no' );\nupdate_option( 'woocommerce_tax_based_on', 'base' );\nupdate_option( 'woocommerce_price_decimal_sep', ',' );\nupdate_option( 'woocommerce_price_thousand_sep', ' ' );\n$raport[] = 'sklep: kraj PL, waluta PLN, podatki wlaczone, ceny netto';\n\n/* --------------------------------------------- 2. Stawka VAT PL 23% (krajowa) */\n\nglobal $wpdb;\n$stawki = $wpdb->get_var( \"SELECT COUNT(*) FROM {$wpdb->prefix}woocommerce_tax_rates WHERE tax_rate_country = 'PL'\" );\nif ( ! $stawki && class_exists( 'WC_Tax' ) ) {\n\tWC_Tax::_insert_tax_rate(\n\t\tarray(\n\t\t\t'tax_rate_country'  => 'PL',\n\t\t\t'tax_rate_state'    => '',\n\t\t\t'tax_rate'          => '23.0000',\n\t\t\t'tax_rate_name'     => 'VAT 23%',\n\t\t\t'tax_rate_priority' => 1,\n\t\t\t'tax_rate_compound' => 0,\n\t\t\t'tax_rate_shipping' => 1,\n\t\t\t'tax_rate_order'    => 0,\n\t\t\t'tax_rate_class'    => '',\n\t\t)\n\t);\n\t$raport[] = 'stawka VAT PL 23% zalozona';\n} else {\n\t$raport[] = 'stawka VAT PL juz byla (' . (int) $stawki . ')';\n}\n\n/* -------------------------------------------------------------- 3. Produkty */\n\n$katalog = array(\n\tarray( 'Filtr przemyslowy FP-100', '100.00', 'Filtr kasetowy do instalacji odpylajacych, klasa F9.' ),\n\tarray( 'Filtr przemyslowy FP-250', '250.50', 'Filtr workowy o zwiekszonej powierzchni czynnej, klasa M6.' ),\n\tarray( 'Stacja filtracyjna SF-900', '999.99', 'Kompletna stacja filtracyjna z wentylatorem i sterowaniem.' ),\n);\n\n$utworzone = 0;\nforeach ( $katalog as $poz ) {\n\tlist( $nazwa, $cena, $opis ) = $poz;\n\n\t$istnieje = get_page_by_title( $nazwa, OBJECT, 'product' );\n\tif ( $istnieje ) {\n\t\tcontinue;\n\t}\n\n\t$produkt = new WC_Product_Simple();\n\t$produkt->set_name( $nazwa );\n\t$produkt->set_status( 'publish' );\n\t$produkt->set_catalog_visibility( 'visible' );\n\t$produkt->set_regular_price( $cena );\n\t$produkt->set_description( $opis );\n\t$produkt->set_short_description( $opis );\n\t$produkt->set_tax_status( 'taxable' );\n\t$produkt->set_tax_class( '' );\n\t$produkt->set_manage_stock( false );\n\t$produkt->set_stock_status( 'instock' );\n\t$produkt->save();\n\t++$utworzone;\n}\n$raport[] = 'produkty: utworzono ' . $utworzone . ' z ' . count( $katalog );\n\n/* ------------------------------------------------- 4. Handlowcy z konfiguracja */\n\n/*\n * Sam uzytkownik z rola handlowca NIE WYSTARCZY. Dzial 4 dobiera wlasciciela\n * procesu wg kraju i jezyka, wiec konto bez usermeta `mp_sw_country` nie jest\n * kandydatem dla zadnego procesu — pipeline konczy sie wtedy kodem `no_owner`\n * i proces w ogole nie powstaje. To konfiguracja wdrozeniowa, nie usterka:\n * wtyczka nie zgaduje, kto ma obslugiwac ktory rynek.\n */\n$handlowcy = array(\n\tarray( 'handlowiec', 'Anna Kowalska', 'anna.kowalska@example.test', 'PL', 'pl,en' ),\n\tarray( 'handlowiec_de', 'Markus Weber', 'markus.weber@example.test', 'DE', 'de,en' ),\n);\n\nforeach ( $handlowcy as $h ) {\n\tlist( $login, $nazwa, $mail, $kraj, $jezyki ) = $h;\n\n\t$id = username_exists( $login );\n\tif ( ! $id ) {\n\t\t$id = wp_insert_user(\n\t\t\tarray(\n\t\t\t\t'user_login'   => $login,\n\t\t\t\t'user_pass'    => wp_generate_password( 20 ),\n\t\t\t\t'user_email'   => $mail,\n\t\t\t\t'display_name' => $nazwa,\n\t\t\t\t'role'         => get_role( 'mp_handlowiec' ) ? 'mp_handlowiec' : 'subscriber',\n\t\t\t)\n\t\t);\n\t}\n\n\tif ( is_wp_error( $id ) ) {\n\t\t$raport[] = 'handlowiec ' . $login . ': BLAD ' . $id->get_error_message();\n\t\tcontinue;\n\t}\n\n\tupdate_user_meta( (int) $id, 'mp_sw_country', $kraj );\n\tupdate_user_meta( (int) $id, 'mp_sw_langs', $jezyki );\n\tupdate_user_meta( (int) $id, 'mp_sw_active', '1' );\n\tupdate_user_meta( (int) $id, 'mp_sw_team', 'Sprzedaz B2B' );\n\n\t$raport[] = 'handlowiec ' . $login . ' (' . $kraj . ', ' . $jezyki . ') gotowy';\n}\n\n/* ------------------------------- 5. Pelny przebieg: zgloszenie -> oferta -> proces */\n\n$juz = (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . MP_Sales_Workflow_DB::flow_table() );\n\nif ( 0 === $juz ) {\n\t/*\n\t * Zgloszenie idzie PRAWDZIWA droga: przez pipeline wtyczki 1, a nie przez\n\t * recznie wystawiony hak. Roznica jest widoczna golym okiem — dopiero ta\n\t * droga zapisuje leada do BD-3. Wystawienie samego `mp_lead_created`\n\t * uruchamia wtyczki 2 i 3, ale baza wtyczki 1 zostaje pusta, wiec\n\t * egzaminator zobaczylby dwie bazy z trzech.\n\t */\n\t$dane = array(\n\t\t'company_name'      => 'Zaklady Metalowe Wisla Sp. z o.o.',\n\t\t'email'             => 'zakupy@wisla-demo.test',\n\t\t'phone'             => '+48 22 123 45 67',\n\t\t'nip'               => '5252248481',\n\t\t'country'           => 'PL',\n\t\t'segment'           => 'B2B',\n\t\t'products'          => 'filtry przemyslowe do linii lakierniczej',\n\t\t'est_volume'        => '100 szt./mies.',\n\t\t'consent_marketing' => true,\n\t\t'consent_rodo'      => true,\n\t\t'mp_hp'             => '',\n\t\t'mp_nonce'          => wp_create_nonce( 'mp_lead_intake' ),\n\t\t'request_id'        => wp_generate_uuid4(),\n\t);\n\n\ttry {\n\t\t$wynik_p1 = MP_Pipeline_Factory::make()->run( new MP_Context( $dane ) );\n\t\t$raport[] = 'pipeline zgloszenia (P1): ' . ( $wynik_p1->is_ok() ? 'OK' : 'STOP (' . $wynik_p1->get_code() . ') ' . wp_json_encode( $wynik_p1->get_errors(), JSON_UNESCAPED_UNICODE ) );\n\t} catch ( \\Throwable $e ) {\n\t\t$raport[] = 'pipeline zgloszenia (P1): WYJATEK ' . $e->getMessage();\n\t}\n\n\t$wiersz_leada = $wpdb->get_row( 'SELECT * FROM ' . $wpdb->prefix . 'mp_leads ORDER BY id DESC LIMIT 1', ARRAY_A );\n\t$lead         = is_array( $wiersz_leada ) ? (int) $wiersz_leada['id'] : 0;\n\t$raport[]     = 'lead w BD-3: ' . ( $lead ? 'id ' . $lead . ', VAT ' . ( $wiersz_leada['vat_status'] ?? '?' ) : 'BRAK' );\n\n\t$proces = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . MP_Sales_Workflow_DB::flow_table() . ' WHERE lead_id = %d', $lead ), ARRAY_A );\n\t$szkic  = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . MP_Offer_Builder_DB::offers_table() . ' WHERE lead_id = %d', $lead ), ARRAY_A );\n\n\t$raport[] = 'proces sprzedazowy: ' . ( is_array( $proces ) ? 'powstal (id ' . $proces['id'] . ', status ' . $proces['status'] . ')' : 'BRAK' );\n\t$raport[] = 'szkic oferty: ' . ( is_array( $szkic ) ? 'powstal (id ' . $szkic['id'] . ')' : 'BRAK' );\n\n\t/* Dokonczenie szkicu pelnym pipeline'em — oferta z numerem i PDF-em. */\n\tif ( is_array( $szkic ) && class_exists( 'MP_OB_Pipeline_Factory' ) ) {\n\t\t$produkty = wc_get_products( array( 'limit' => 2, 'status' => 'publish', 'orderby' => 'ID', 'order' => 'ASC' ) );\n\t\t$pozycje  = array();\n\t\tforeach ( $produkty as $p ) {\n\t\t\t$pozycje[] = array( 'product_id' => $p->get_id(), 'qty' => 10 );\n\t\t}\n\n\t\t$kontekst = new MP_OB_Context(\n\t\t\tarray(\n\t\t\t\t'offer_id'   => (int) $szkic['id'],\n\t\t\t\t'client'     => array(\n\t\t\t\t\t'name'    => 'Zaklady Metalowe Wisla Sp. z o.o.',\n\t\t\t\t\t'email'   => 'zakupy@wisla-demo.test',\n\t\t\t\t\t'nip'     => '1234563218',\n\t\t\t\t\t'country' => 'PL',\n\t\t\t\t),\n\t\t\t\t'items'      => $pozycje,\n\t\t\t\t'wariant'    => 'standard',\n\t\t\t\t'lang'       => 'pl',\n\t\t\t\t'request_id' => wp_generate_uuid4(),\n\t\t\t)\n\t\t);\n\n\t\ttry {\n\t\t\t$wynik = MP_OB_Pipeline_Factory::make()->run( $kontekst );\n\t\t\t$raport[] = 'pipeline oferty: ' . ( $wynik->is_ok() ? 'OK' : 'STOP (' . $wynik->get_code() . ')' );\n\t\t} catch ( \\Throwable $e ) {\n\t\t\t$raport[] = 'pipeline oferty: WYJATEK ' . $e->getMessage();\n\t\t}\n\n\t\t$gotowa = $wpdb->get_row( $wpdb->prepare( 'SELECT id, offer_number, status, pdf_path, total_gross_grosze FROM ' . MP_Offer_Builder_DB::offers_table() . ' WHERE id = %d', (int) $szkic['id'] ), ARRAY_A );\n\t\t$raport[] = 'oferta po pipeline: ' . wp_json_encode( $gotowa, JSON_UNESCAPED_UNICODE );\n\t}\n} else {\n\t$raport[] = 'zasiew pominiety: procesy juz istnieja (' . $juz . ')';\n}\n\n/* --------------------------------------------------------- 6. Strona formularza */\n\n$strona = get_option( 'mp_lead_intake_page_id' );\n$raport[] = 'strona formularza: ' . ( $strona ? get_permalink( (int) $strona ) : 'BRAK' );\n\nif ( PHP_SAPI !== 'cli' ) {\n\theader( 'Content-Type: text/plain; charset=utf-8' );\n}\necho \"=== ZASIEW DEMO ===\\n\";\nforeach ( $raport as $w ) {\n\techo '  ' . $w . \"\\n\";\n}\n"
+    }
+  ]
+}
