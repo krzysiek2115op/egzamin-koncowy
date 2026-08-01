@@ -89,6 +89,48 @@ $lead1 = 900000 + $seria * 3;
 $lead2 = $lead1 + 1;
 $lead3 = $lead1 + 2;
 
+$GLOBALS['mp_z_pliki'] = array();
+
+/**
+ * Zaklada PRAWDZIWY plik dokumentu i zwraca jego sciezke BEZWZGLEDNA.
+ *
+ * Wczesniej testowe `pdf_path` bylo napisem w rodzaju
+ * „mp-offer-builder-private/test-123.pdf" — sciezka WZGLEDNA do pliku, ktory
+ * nigdy nie powstawal. Produkcja zapisuje tam wynik
+ * MP_Offer_Builder_Storage::final_pdf_path(), czyli sciezke bezwzgledna do
+ * istniejacego pliku, a endpoint pobierania i tak odrzucilby tamta wartosc
+ * (file_exists + kontrola katalogu). Fixture opisywal stan, ktory w tej wtyczce
+ * nie wystepuje, i przez to przepuszczal bramke „czy jest dokument".
+ *
+ * @param string $nazwa Nazwa pliku.
+ * @return string
+ */
+function mz_dokument( $nazwa ) {
+	$sciezka = MP_Offer_Builder_Storage::private_dir() . '/' . $nazwa;
+
+	file_put_contents( $sciezka, '%PDF-1.4 test' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+
+	$GLOBALS['mp_z_pliki'][] = $sciezka;
+
+	return $sciezka;
+}
+
+/**
+ * Kasuje pliki testowe.
+ *
+ * @return void
+ */
+function mz_sprzataj_pliki() {
+	foreach ( $GLOBALS['mp_z_pliki'] as $sciezka ) {
+		if ( file_exists( $sciezka ) ) {
+			wp_delete_file( $sciezka );
+		}
+	}
+
+	$GLOBALS['mp_z_pliki'] = array();
+}
+register_shutdown_function( 'mz_sprzataj_pliki' );
+
 $GLOBALS['mp_z']['lines'][] = '=== SEKCJA A: prosba klienta trafia do szkicu (#3b) ===';
 
 // Handlowiec-wlasciciel: kontrola dostepu do oferty opiera sie na created_by,
@@ -210,7 +252,7 @@ $wpdb->update( // phpcs:ignore
 		'vat_grosze'   => 23000,
 		'gross_grosze' => 123000,
 		'currency'     => 'PLN',
-		'pdf_path'     => 'mp-offer-builder-private/test-' . $seria . '.pdf',
+		'pdf_path'     => mz_dokument( 'test-' . $seria . '.pdf' ),
 	),
 	array( 'id' => (int) $po_pustym['id'] )
 );
@@ -337,7 +379,7 @@ if ( ! class_exists( 'MP_Lead_Intake_DB' ) || ! class_exists( 'MP_Sales_Workflow
 			'vat_grosze'   => 46000,
 			'gross_grosze' => 246000,
 			'currency'     => 'PLN',
-			'pdf_path'     => 'mp-offer-builder-private/test-e-' . $seria . '.pdf',
+			'pdf_path'     => mz_dokument( 'test-e-' . $seria . '.pdf' ),
 		),
 		array( 'id' => (int) $oferta3['id'] )
 	);
@@ -400,7 +442,7 @@ if ( ! is_array( $szkic_f ) ) {
 	$GLOBALS['mp_z']['lines'][] = '  [POMINIETO] brak szkicu do testu wyscigu';
 } else {
 	$numer_f = sprintf( 'OF/2999/%06d', ( $seria + 7 ) % 1000000 );
-	$pdf_f   = 'mp-offer-builder-private/wyscig-' . $seria . '.pdf';
+	$pdf_f   = mz_dokument( 'wyscig-' . $seria . '.pdf' );
 
 	$wpdb->update( // phpcs:ignore
 		$offers_t,

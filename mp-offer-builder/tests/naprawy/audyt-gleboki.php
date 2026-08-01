@@ -347,7 +347,7 @@ foreach ( $zle as $i => $wartosc ) {
 			'subtotal_grosze' => 10000,
 			'discount_total'  => 0,
 			'tax_mechanism'   => 'domestic',
-			'lines'           => array( array( 'net_grosze' => 10000, 'tax_class' => '' ) ),
+			'lines'           => array( array( 'line_grosze' => 10000, 'tax_class' => '' ) ),
 			'products'        => array( array( 'tax_status' => 'taxable', 'tax_class' => '' ) ),
 			'tax_rates'       => array( '' => array( 'rate' => $wartosc ) ),
 		)
@@ -371,7 +371,7 @@ foreach ( array( 0, 0.0, '0', '0.00', 23, '23.0000' ) as $wartosc ) {
 			'subtotal_grosze' => 10000,
 			'discount_total'  => 0,
 			'tax_mechanism'   => 'domestic',
-			'lines'           => array( array( 'net_grosze' => 10000, 'tax_class' => '' ) ),
+			'lines'           => array( array( 'line_grosze' => 10000, 'tax_class' => '' ) ),
 			'products'        => array( array( 'tax_status' => 'taxable', 'tax_class' => '' ) ),
 			'tax_rates'       => array( '' => array( 'rate' => $wartosc ) ),
 		)
