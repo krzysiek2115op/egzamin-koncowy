@@ -38,9 +38,20 @@ main_po_sha = collections.defaultdict(list)
 for p, s in main.items():
     main_po_sha[s].append(p)
 
+# ZMIENIONE PO SCALENIU to NIE JEST utrata pliku.
+#
+# Porownanie idzie po blobach, wiec kazdy plik poprawiony na main po scaleniu
+# przestaje sie zgadzac z wersja zamrozona na galezi wtyczki. Wczesniej wszystkie
+# takie pliki ladowaly w kubelku "BRAK W MAIN" i podnosily BLAD — czyli narzedzie
+# meldowalo "scalenie zgubilo pliki" za kazdym razem, gdy ktos cokolwiek naprawil.
+# Po 1.3.4 bylo to 48 z 51 zgloszen. Alarm, ktory zapala sie zawsze, przestaje
+# cokolwiek znaczyc i uczy, zeby go ignorowac — a wtedy nie zauwazymy prawdziwej
+# utraty.
+#
+# Utrata to: sciezki NIE MA w main i tej samej TRESCI tez nie ma nigdzie indziej.
 for slug in SLUGI:
     galaz = drzewo("refs/heads/" + slug)
-    brak, przeniesione, scalone = [], [], []
+    brak, przeniesione, scalone, zmienione = [], [], [], []
     for p, sha in galaz.items():
         if main.get(p) == sha:
             continue
@@ -48,10 +59,13 @@ for slug in SLUGI:
             przeniesione.append((p, main_po_sha[sha][0]))
         elif p in SCALANE and p in main:
             scalone.append(p)
+        elif p in main:
+            zmienione.append(p)
         else:
             brak.append(p)
     print("\n  %s: %d plikow na galezi" % (slug, len(galaz)))
-    print("     w main pod ta sama sciezka : %d" % (len(galaz) - len(brak) - len(przeniesione) - len(scalone)))
+    print("     w main, tresc identyczna   : %d" % (len(galaz) - len(brak) - len(przeniesione) - len(scalone) - len(zmienione)))
+    print("     w main, tresc poprawiona   : %d  <- rozwoj po scaleniu, nie utrata" % len(zmienione))
     print("     scalone swiadomie          : %d (%s)" % (len(scalone), ", ".join(sorted(scalone))))
     print("     w main pod INNA sciezka    : %d" % len(przeniesione))
     for a, b in sorted(przeniesione)[:4]:
@@ -59,13 +73,21 @@ for slug in SLUGI:
     if len(przeniesione) > 4:
         print("        ... i %d dalszych (paczka kliencka)" % (len(przeniesione) - 4))
     if brak:
-        bledy.append("%s: %d plikow NIE MA w main" % (slug, len(brak)))
-        print("     BRAK W MAIN                : %d" % len(brak))
+        # UWAGA, nie BLAD — i to nie jest lagodzenie, tylko zgodnosc wagi
+        # z dowodem. Porownujemy ZAMROZONA galaz z RUCHOMYM mainem. Plik
+        # przeniesiony, a POTEM poprawiony, gubi zarowno sciezke, jak i bloba,
+        # wiec wyglada identycznie jak plik zgubiony. Tego rozroznienia to
+        # narzedzie zrobic nie moze i nie ma prawa orzekac utraty, ktorej nie
+        # udowodnilo. Czlowiek sprawdza kazda pozycje raz i zamyka temat.
+        ostrzezenia.append(
+            "%s: %d plikow galezi nieodnalezionych w main ani po sciezce, ani po tresci "
+            "— sprawdz, czy zostaly przeniesione i pozniej poprawione" % (slug, len(brak)))
+        print("     NIEODNALEZIONE             : %d  <- do potwierdzenia przez czlowieka" % len(brak))
         for p in sorted(brak)[:20]:
-            print("        ! %s" % p)
+            print("        ? %s" % p)
     else:
-        ok.append("%s: komplet w main" % slug)
-        print("     BRAK W MAIN                : 0  <- komplet")
+        ok.append("%s: zaden plik galezi nie zaginal w main" % slug)
+        print("     NIE MA W MAIN              : 0  <- nic nie zaginelo")
 
 print("\n  --- czy scalone pliki korzenia zawieraja wklad kazdej galezi ---")
 phpcs = git("show", "main:.phpcs.xml.dist")
@@ -176,7 +198,12 @@ else:
     ok.append("kazdy tag wersyjny ma release")
     print("  kazdy tag wersyjny ma swoj release")
 
-nadmiarowe = [t for t in tagi_rel if t not in wersyjne]
+# Wydania PROJEKTOWE (`vX.Y.Z`, bez sluga) sa zamierzone — obejmuja komplet
+# trzech wtyczek. Zglaszanie ich jako "release bez tagu wersyjnego" bylo falszywym
+# alarmem powtarzajacym sie przy kazdym wydaniu.
+projektowe = sorted(t for t in tagi_rel if re.fullmatch(r"v\d+\.\d+\.\d+", t))
+nadmiarowe = [t for t in tagi_rel if t not in wersyjne and t not in projektowe]
+print("  wydan projektowych (komplet trzech wtyczek): %d" % len(projektowe))
 if nadmiarowe:
     ostrzezenia.append("release bez tagu wersyjnego: %s" % ", ".join(nadmiarowe))
 puste = [r["tag_name"] for r in rel if len((r["body"] or "").strip()) < 80]
@@ -189,8 +216,30 @@ print("5. ZALACZNIKI — czy paczki zgadzaja sie z drzewem gita")
 print("=" * 72)
 
 WY = sys.argv[1] if len(sys.argv) > 1 else None
+
+# Wersja badana byla wpisana na sztywno ("1.3.2") w DWOCH miejscach tej sekcji.
+# Skutek: od wydania 1.3.3 sekcja sprawdzala paczki SPRZED dwoch wydan i milczala
+# o biezacym — kontrola, ktora nie mogla zadzialac dla tego, co akurat wysylamy.
+# Teraz bierzemy najwyzszy tag wersyjny, jaki widzi sekcja 3, albo wartosc podana
+# jako drugi argument (przydatne, gdy chcesz sprawdzic starsze wydanie).
+def najwyzsza_wersja():
+    numery = set()
+    for t in wersyjne:
+        m = re.search(r"/v(\d+)\.(\d+)\.(\d+)$", t)
+        if m:
+            numery.add(tuple(int(x) for x in m.groups()))
+    return ".".join(str(x) for x in max(numery)) if numery else None
+
+
+WERSJA = sys.argv[2] if len(sys.argv) > 2 else najwyzsza_wersja()
+print("  badana wersja: %s%s" % (WERSJA, "" if len(sys.argv) > 2 else " (najwyzszy tag wersyjny)"))
+
 for slug in SLUGI:
-    r = tagi_rel.get("%s/v1.3.2" % slug)
+    r = tagi_rel.get("%s/v%s" % (slug, WERSJA))
+    if not r:
+        bledy.append("%s: brak release dla wersji %s" % (slug, WERSJA))
+        print("  %-20s BRAK RELEASE dla %s" % (slug, WERSJA))
+        continue
     if not r:
         continue
     nazwy = sorted(a["name"] for a in r["assets"])
@@ -208,7 +257,7 @@ if WY and os.path.isdir(WY):
             if not i.is_dir():
                 w_zip[i.filename] = hashlib.sha1(
                     b"blob %d\0" % i.file_size + zipfile.ZipFile(z).read(i.filename)).hexdigest()
-        ref = "%s/v1.3.2" % slug
+        ref = "%s/v%s" % (slug, WERSJA)
         w_gicie = {p: s for p, s in drzewo(ref).items() if p.startswith(slug + "/")}
         rozne = [p for p in w_gicie if w_zip.get(p) != w_gicie[p]]
         brakuje = [p for p in w_gicie if p not in w_zip]
