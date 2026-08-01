@@ -4,7 +4,7 @@ Tags: leads, formularz, b2b, nip, vat
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.3.5
+Stable tag: 1.3.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,43 @@ Pierwsza z trzech wtyczek procesu "formularz → oferta". Odpowiada za odbiór
 zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej bazy.
 
 == Changelog ==
+
+= 1.3.6 =
+
+* FORMULARZ POZWALAŁ WYBRAĆ KRAJ Z CAŁEJ UNII, ale zgłoszenie z numerem VAT
+  innego kraju nie miało jak przejść: sprawdzanie żądało dziesięciu cyfr, czyli
+  reguły polskiej. Firma z Niemiec czy Czech dostawała komunikat o błędnym
+  numerze — poprawnie przepisanym z własnej faktury. Wtyczka sprawdza teraz
+  tylko to, czy numer w ogóle wygląda na numer (długość, obecność cyfr, brak
+  ciągu z jednego znaku), a o jego ważności orzeka unijny system VIES, który
+  i tak był już pytany osobno dla każdego kraju. Numery zagraniczne przestały
+  też tracić litery: dotąd czyszczenie usuwało z nich wszystko poza cyframi,
+  więc do VIES szedł numer, którego nikt nie wpisał. Numer polski jest
+  sprawdzany jak dotąd — dziesięć cyfr i suma kontrolna.
+
+* SPRAWDZANIE FIRMY NA BIAŁEJ LIŚCIE MINISTERSTWA FINANSÓW pytało o dzień
+  wyznaczony strefą czasową ustawioną w panelu WordPressa. Biała lista jest
+  rejestrem polskim i jej doba jest polska, więc witryna ustawiona na inną
+  strefę — albo pozostawiona na domyślnym UTC — potrafiła zapytać o dzień
+  wczorajszy lub jutrzejszy i zapamiętać taką odpowiedź na całą dobę. Dzień
+  liczy się teraz zawsze według czasu w Polsce, niezależnie od ustawień
+  witryny.
+
+* DWA KOMUNIKATY DLA ADMINISTRATORA MÓWIŁY NIEPRAWDĘ. Pierwszy zapowiadał, że
+  podaje krótki kod do wstawienia na stronie — i nie podawał żadnego. Drugi
+  informował, że wtyczka "spróbowała dołożyć" pozycję do menu, choć przy braku
+  wskazanego menu żadnej próby nie było. Oba mówią teraz to, co się naprawdę
+  wydarzyło; pierwszy pokazuje kod i powód zgłoszony przez WordPressa.
+
+* WYCISZANIE POWIADOMIEŃ O BŁĘDACH WEWNĘTRZNYCH obejmowało wszystkie awarie
+  naraz. Wtyczka ogranicza częstotliwość takich powiadomień, żeby jeden
+  powtarzający się błąd nie zasypał skrzynki administratora — ale licznik był
+  wspólny dla całego przetwarzania. Pierwsza awaria wyciszała na jakiś czas
+  powiadomienia o wszystkich pozostałych, więc o drugim, niezwiązanym
+  problemie administrator mógł się w ogóle nie dowiedzieć. Licznik jest teraz
+  osobny dla każdego etapu, a awarie spoza rozpoznanego etapu dostają licznik
+  wyliczony z miejsca w kodzie, zamiast dzielić jeden wspólny. Ślad
+  w dzienniku niesie identyfikator, po którym widać, którego licznika dotyczy.
 
 = 1.3.5 =
 

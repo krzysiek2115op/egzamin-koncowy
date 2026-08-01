@@ -20,9 +20,9 @@ danych między formularzem, WooCommerce i pocztą.
 
 | # | Wtyczka | Wersja | Baza | Opis |
 |---|---------|--------|------|------|
-| 1 | `mp-lead-intake` | 1.3.5 | BD-3 | Przyjęcie i kwalifikacja lead-a z formularza |
-| 2 | `mp-offer-builder` | 1.3.5 | BD-2 | Kalkulacja cenowa, integracja WooCommerce, oferty PDF |
-| 3 | `mp-sales-workflow` | 1.3.5 | BD-1 | Statusy procesu, handlowiec, powiadomienia, follow-up, dashboard |
+| 1 | `mp-lead-intake` | 1.3.6 | BD-3 | Przyjęcie i kwalifikacja lead-a z formularza |
+| 2 | `mp-offer-builder` | 1.3.6 | BD-2 | Kalkulacja cenowa, integracja WooCommerce, oferty PDF |
+| 3 | `mp-sales-workflow` | 1.3.6 | BD-1 | Statusy procesu, handlowiec, powiadomienia, follow-up, dashboard |
 
 Kolejność instalacji ma znaczenie: **1, potem 2, potem 3**. Wtyczka 2 nasłuchuje
 zdarzenia z wtyczki 1, a wtyczka 3 — zdarzeń z obu poprzednich. Gotowe paczki
@@ -184,11 +184,38 @@ naprawie treść raportu urosła z 14 do 35 ustaleń przy tym samym kodzie. Rapo
 podaje teraz bilans (zgłoszone = odrzucone + w treści), żeby takiej różnicy nie
 dało się już przeoczyć.
 
+Wydanie **1.3.6** (01.08.2026) domyka falę ustaleń średniej wagi z tego samego
+przebiegu. Najszerszą zmianą jest przyjmowanie numerów VAT z **całej Unii**:
+formularz od początku pozwalał wybrać kraj, ale sprawdzanie żądało dziesięciu
+cyfr, czyli reguły polskiej, więc firma z Niemiec czy Czech odbijała się od
+komunikatu o błędnym numerze — poprawnie przepisanym z własnej faktury. Reszta
+architektury była już wielokrajowa (VIES pytany osobno dla każdego kraju, klucz
+niepowtarzalności `(kraj, numer)`, przydział handlowca po kraju); zamknięta była
+sama bramka wejścia. Świadomie **nie** powstała tablica formatów 27 państw —
+byłaby drugim, konkurencyjnym źródłem prawdy obok VIES, który i tak orzeka
+ostatecznie. Subtelniejsza połowa naprawy dotyczyła czyszczenia numeru: w siedmiu
+miejscach usuwało ono wszystko poza cyframi, więc numer niderlandzki czy irlandzki
+tracił litery i do VIES szedł numer, którego nikt nie wpisał.
+
+Poza tym: cena ujemna, która przy cenniku **brutto** trafiała na dokument
+handlowy (kontrola stała za przeliczeniem, a to nie zachowuje znaku); podstawa
+opodatkowania niepilnowana przy odwrotnym obciążeniu, eksporcie i zwolnieniu;
+doba Białej listy MF liczona strefą ustawioną w panelu zamiast polską; dwa
+komunikaty administratora mówiące o czynnościach, których nie było; oraz
+znaczniki powiadomień wyszukiwane w tekście **po** podstawieniu zmiennych, przez
+co klamry w nazwie firmy wstrzymywały wysyłkę i blokowały zmianę statusu.
+
 Wniosek, który wart jest zapamiętania bardziej niż sam werdykt: **„GO" znaczy
 „nie wróciło nic, co już znamy"** — nie „nie ma błędów". Deterministyczne pary
 to siatka regresyjna zbudowana z historii pomyłek tego projektu; nie zastąpią
-czytania kodu ze zrozumieniem. A jak pokazało 1.3.5 — potrafią też milczeć
-z powodu własnej wady, więc i one bywają audytowane.
+czytania kodu ze zrozumieniem. A jak pokazały 1.3.5 i 1.3.6 — potrafią też
+milczeć albo krzyczeć z powodu własnej wady, więc i one bywają audytowane.
+W 1.3.6 zawężono dwie reguły produkujące fałszywe alarmy: para cyklu życia
+czytała z `wp_schedule_event()` **częstotliwość** zamiast nazwy zadania — żądała
+więc sprzątnięcia haka „daily" i zarazem nie widziała haków prawdziwych, czyli
+przeoczyłaby zadanie faktycznie niesprzątnięte; a para RODO żądała rozpoznania
+anonimizacji od wtyczki, która kolumnę adresu **zeruje**, czyli nie zostawia nic,
+co dałoby się wziąć za prawdziwy adres.
 
 Raporty z kolejnych przebiegów leżą w `audyt/raport-*.txt` na gałęzi
 `audyt-projektu`, a szczegółowy opis narzędzia — w `audyt/README.md`.

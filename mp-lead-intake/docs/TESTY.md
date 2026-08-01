@@ -3,16 +3,37 @@
 Zbiorczy rejestr wszystkich testów wykonanych podczas budowy wtyczki (Golden Rule #3).
 Wersja wtyczki w momencie zamknięcia testów końcowych: **1.2.1**.
 
-**Stan na wydanie 1.3.5 (01.08.2026).** Testy opisane niżej nie są archiwum —
+**Stan na wydanie 1.3.6 (01.08.2026).** Testy opisane niżej nie są archiwum —
 wszystkie są nadal uruchamiane. Ostatni pełny przebieg wykonano na **świeżo
 zainstalowanej** bazie (instalacja od zera, w kolejności 1 → 2 → 3): pliki
-testowe trzech wtyczek **54 / 54 PASS**, świeża instalacja **16 / 16 PASS**,
-harness procesu LP.1 **7 / 7 PASS**, `php -l` na 765 plikach bez błędu,
-PHPCS 0 błędów (3 ostrzeżenia, stan bazowy). W 1.3.5 doszły trzy pliki testowe
-tej wtyczki: `archiwum-bez-odczytu.php` (P1-G12) oraz rozszerzenia
+testowe trzech wtyczek **56 / 56 PASS**, świeża instalacja **16 / 16 PASS**,
+harness procesu LP.1 **7 / 7 PASS**, `php -l` na 768 plikach bez błędu,
+PHPCS 0 błędów (3 ostrzeżenia, stan bazowy). W 1.3.6 doszły dwa pliki testowe
+tej wtyczki — `numer-vat-ue.php` (P1-Z1: numery VAT z całej Unii, 22 asercje)
+i `czas-nie-zalezy-od-witryny.php` (P1-Z2: doba Białej listy liczona po
+polsku, niezależnie od strefy ustawionej w panelu) — oraz sekcje dołożone do
+`komunikat-nip.php`, `biala-lista-niepelna-odpowiedz.php`,
+`alarm-mowi-prawde.php` i `ostrzezenia-aktywacji.php`. Wcześniej, w 1.3.5,
+przybyły `archiwum-bez-odczytu.php` (P1-G12) oraz rozszerzenia
 `vies-brak-pola-isvalid.php` (P1-G13) i harnessu o niezmiennik stref
 czasowych 26b (P1-G14). Testy dołożone po 1.2.1 leżą w `tests/naprawy/` — każdy powstał
 razem z naprawą konkretnego defektu i FAIL-ował przed nią.
+
+Naprawa P1-Z1 jest przykładem tego, po co ta reguła istnieje. Pierwsza wersja
+testu przechodziła na kodzie **przed** naprawą, bo sprawdzała tylko treść
+komunikatu o błędzie — a tę zmieniono już w 1.3.5. Dopiero asercja na tym, że
+numer z Niderlandów przechodzi w całości (`NL123456789B01`, z literą w środku),
+pokazała prawdziwy zakres: czyszczenie usuwało z numeru wszystko poza cyframi
+w siedmiu miejscach, więc do systemu VIES szedł numer, którego nikt nie wpisał.
+Sama zmiana komunikatu wysłałaby do VIES okaleczony numer i dostała w odpowiedzi
+„nieważny" — czyli ten sam skutek, tylko trudniejszy do zdiagnozowania.
+
+Podobnie przy P1-Z2: audyt wskazał **jedno** miejsce liczące dobę strefą
+witryny, a sonda znalazła **trzy**. Test porównuje klucz pamięci podręcznej przy
+dwóch strefach witryny oddalonych o 22 godziny (Pacific/Honolulu i
+Pacific/Auckland) — przy tej samej chwili UTC dają one różne dni kalendarzowe,
+więc kod pytający Białą listę o „dziś" wg panelu pytał o inny dzień niż ten,
+którego dotyczy odpowiedź rejestru.
 
 ## 1. Statyka kodu
 

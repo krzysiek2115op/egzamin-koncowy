@@ -11,17 +11,36 @@ czasu, idempotencja zapisu, sprzątanie PDF) pokrywa regresja jednostkowa
 **108/108** (sekcja Narzędzia). Pełny re-run E2E na żywym WP zaplanowany w rundzie
 integracyjnej (razem z Pluginem 3).
 
-**Stan na wydanie 1.3.5 (01.08.2026).** Zapowiedziany wyżej re-run integracyjny
+**Stan na wydanie 1.3.6 (01.08.2026).** Zapowiedziany wyżej re-run integracyjny
 został wykonany i od tamtej pory jest powtarzany przy każdym wydaniu — na żywym
 WordPressie z trzema wtyczkami naraz. Ostatni przebieg na **świeżo
-zainstalowanej** bazie: pliki testowe trzech wtyczek **54 / 54 PASS** (w tym
-17 plików tej wtyczki), świeża instalacja **16 / 16 PASS**, harness procesu
-LP.2 **110 / 110 PASS**, PHPCS 0 błędów. W 1.3.5 doszedł
-`tests/naprawy/finalizacja-pdf-a-zdarzenie.php` — regresja dla P2-S4, czyli dla
-zabezpieczenia, które działało w kodzie, ale nie było niczym pilnowane.
-Testy dołożone po 1.0.4 leżą w `tests/koncowe/` i `tests/naprawy/` — każdy
-z `tests/naprawy/` powstał razem z naprawą konkretnego defektu i FAIL-ował
-przed nią.
+zainstalowanej** bazie: pliki testowe trzech wtyczek **56 / 56 PASS** (w tym
+18 plików tej wtyczki), świeża instalacja **16 / 16 PASS**, harness procesu
+LP.2 **110 / 110 PASS**, PHPCS 0 błędów. W 1.3.6 rozrosły się dwa pliki:
+`cena-ujemna.php` o sekcję dla sklepu z cennikiem **brutto** (P2-Z2)
+i `podstawa-vat.php` o kontrolę podstawy przy odwrotnym obciążeniu, eksporcie
+i zwolnieniu z VAT oraz o pozycję bez odpowiadającego produktu (P2-Z1).
+Wcześniej, w 1.3.5, doszedł `tests/naprawy/finalizacja-pdf-a-zdarzenie.php` —
+regresja dla P2-S4, czyli dla zabezpieczenia, które działało w kodzie, ale nie
+było niczym pilnowane. Testy dołożone po 1.0.4 leżą w `tests/koncowe/`
+i `tests/naprawy/` — każdy z `tests/naprawy/` powstał razem z naprawą
+konkretnego defektu i FAIL-ował przed nią.
+
+Sekcja o cenie ujemnej zasługuje na słowo osobno, bo zaczęła się od **błędnej
+oceny z mojej strony**: uznałem zgłoszenie audytu za fałszywy alarm, rozumując,
+że znak liczby przeżywa dzielenie przez stawkę podatku. Sonda z ustawieniem
+`woocommerce_prices_include_tax = yes` pokazała co innego —
+`wc_get_price_excluding_tax()` nie jest dzieleniem i dla wartości ujemnej nie
+zwraca wartości ujemnej. Kontrola stojąca **za** przeliczeniem oglądała już
+liczbę dodatnią. Wniosek na przyszłość: rozumowanie o kodzie nie zastępuje jego
+uruchomienia, a najdroższe pomyłki to te, w których „wiadomo, jak to działa".
+
+Naprawa podstawy VAT jest z kolei przykładem sporu z istniejącym testem.
+`podstawa-vat.php` asertuje wprost, że odwrotne obciążenie **bez pozycji** ma
+przechodzić; audyt żądał kontroli podstawy w każdym mechanizmie. Rozstrzygnięcie
+nie polegało na wybraniu strony, tylko na znalezieniu warunku, przy którym oba
+zdania są prawdziwe: kontrola obejmuje każdy mechanizm, ale wyłącznie dla
+pozycji **niepustych**.
 
 Środowisko testowe: waluta PLN, baza sklepu PL, stawka VAT PL 23%, 3 produkty
 proste (100,00 / 250,50 / 999,99 zł), rola testowa `mp_ob_test_handlowiec`

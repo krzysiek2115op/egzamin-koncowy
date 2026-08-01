@@ -4,7 +4,7 @@ Tags: sprzedaz, crm, workflow, follow-up
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.5
+Stable tag: 1.3.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,6 +33,17 @@ rekordow SPF/DKIM/DMARC oraz blokady katalogu z ofertami PDF. Pelna checklista:
 powiadomien do klientow.
 
 == Changelog ==
+
+= 1.3.6 =
+
+* POWIADOMIENIE E-MAIL BYWAŁO UZNAWANE ZA NIEGOTOWE Z POWODU WŁASNEJ TREŚCI.
+  Wtyczka pilnuje, żeby w wysyłanej wiadomości nie został niewypełniony
+  znacznik szablonu — ale szukała go w tekście już wypełnionym. Jeśli nazwa
+  firmy, stanowisko albo inna podstawiona wartość zawierała klamry, wyglądało
+  to jak znacznik, którego nie udało się wypełnić: wysyłka była wstrzymywana,
+  a proces sprzedażowy nie przechodził do kolejnego statusu. Niewypełnione
+  znaczniki wyliczane są teraz z samego szablonu, zanim cokolwiek zostanie
+  w nim podstawione, więc treść danych klienta nie ma już na to wpływu.
 
 = 1.3.5 =
 

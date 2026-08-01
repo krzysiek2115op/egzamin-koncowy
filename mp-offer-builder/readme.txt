@@ -4,7 +4,7 @@ Tags: oferty, pdf, woocommerce, cennik
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.5
+Stable tag: 1.3.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -59,6 +59,33 @@ RODO/GDPR:
 * Sugerowana treść polityki prywatności jest dodawana w Ustawienia → Prywatność.
 
 == Changelog ==
+
+= 1.3.6 =
+
+* CENA UJEMNA W KATALOGU trafiała na ofertę, jeśli sklep prowadzi cennik
+  w kwotach BRUTTO. Wtyczka odrzucała takie pozycje, ale sprawdzała je dopiero
+  po przeliczeniu ceny brutto na netto — a przeliczanie nie oddaje wartości
+  ujemnej, więc kontrola oglądała już liczbę dodatnią i przepuszczała pozycję
+  dalej. Klient mógł dostać dokument handlowy z ceną, której nikt nie
+  zamierzał mu wystawić. Znak ceny sprawdzany jest teraz na wartości wprost
+  z katalogu, przed jakimkolwiek przeliczeniem.
+
+* PODSTAWA OPODATKOWANIA nie była porównywana z sumą pozycji przy ofertach
+  rozliczanych inaczej niż stawką krajową — przy odwrotnym obciążeniu,
+  eksporcie i zwolnieniu z VAT kwota podstawy szła na dokument bez kontroli.
+  Sprawdzenie obejmuje teraz każdy mechanizm rozliczenia.
+
+* POZYCJA OFERTY, KTÓREJ NIE ODPOWIADA ŻADEN PRODUKT — sytuacja możliwa, gdy
+  produkt zniknie z katalogu w trakcie budowania oferty — kończyła się błędem
+  wewnętrznym zamiast czytelną odmową. Wtyczka rozpoznaje ten przypadek i mówi
+  wprost, na czym stanęła.
+
+* WYCISZANIE POWIADOMIEŃ O BŁĘDACH WEWNĘTRZNYCH obejmowało wszystkie awarie
+  naraz — jeden wspólny licznik dla całego przetwarzania sprawiał, że pierwsza
+  awaria wyciszała powiadomienia o wszystkich pozostałych, także zupełnie
+  niezwiązanych. Licznik jest teraz osobny dla każdego etapu, a awarie spoza
+  rozpoznanego etapu dostają licznik wyliczony z miejsca w kodzie. Ślad
+  w dzienniku niesie identyfikator, po którym widać, którego licznika dotyczy.
 
 = 1.3.5 =
 

@@ -3,8 +3,8 @@
 Plik zbiorczy wymagany przez Golden Rule #3. Opisuje testy **wykonane**, nie
 planowane, z podaniem środowiska i tego, co każdy z nich naprawdę sprawdza.
 
-**Data ostatniego pełnego przebiegu:** 2026-08-01 (wydanie 1.3.5)
-**Wersja wtyczki:** 1.3.5 · schemat bazy 0.4.0 (bez zmian od 1.3.4)
+**Data ostatniego pełnego przebiegu:** 2026-08-01 (wydanie 1.3.6)
+**Wersja wtyczki:** 1.3.6 · schemat bazy 0.4.0 (bez zmian od 1.3.4)
 
 Przebieg z 01.08.2026 wykonany na **świeżo zainstalowanej** bazie — instalacja od
 zera w kolejności 1 → 2 → 3, potem cały zestaw. To istotne rozróżnienie: baza
@@ -13,13 +13,21 @@ brakująca tabela albo kolumna już tam stoi z poprzedniego razu.
 
 | Zestaw | Wynik |
 |---|---|
-| Pliki testowe trzech wtyczek (`tests/koncowe`, `tests/naprawy`, `tests/security`) | **54 / 54 plików PASS** |
+| Pliki testowe trzech wtyczek (`tests/koncowe`, `tests/naprawy`, `tests/security`) | **56 / 56 plików PASS** |
 | Świeża instalacja + pierwszy przebieg (`test-swieza-instalacja`) | 16 / 16 PASS |
 | Harness procesu LP.1 | 7 / 7 PASS |
 | Harness procesu LP.2 | 110 / 110 PASS |
 | PHPCS (cały projekt) | 0 błędów, 3 ostrzeżenia (stan bazowy) |
-| `php -l` (składnia) — wszystkie pliki projektu | 765 / 765 plików bez błędu |
+| `php -l` (składnia) — wszystkie pliki projektu | 768 / 768 plików bez błędu |
 | Bramka audytu `--glebokosc=pelny` | WERDYKT **GO** |
+| Testy samego narzędzia audytu (`audyt/tests`) | 12 / 12 PASS |
+
+W 1.3.6 doszła w tej wtyczce jedna naprawa (P3-Z1) i jedna sekcja testu:
+`tests/naprawy/znaczniki-szablonu.php` sprawdza teraz, że niewypełnione
+znaczniki liczy się z **szablonu**, a nie z gotowego tekstu. Poprzednia wersja
+szukała ich po podstawieniu zmiennych, więc klamry w nazwie firmy albo
+w stanowisku wyglądały jak nieuzupełniony znacznik: wysyłka była wstrzymywana,
+a proces nie przechodził do kolejnego statusu.
 
 Tabela w sekcji 3 opisuje starszy przebieg skryptów deweloperskich z 28.07.2026
 i zostaje jako zapis tamtego stanu — to inny zestaw niż pliki testowe wyżej.
