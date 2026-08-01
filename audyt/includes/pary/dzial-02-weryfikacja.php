@@ -71,6 +71,20 @@ final class MP_AU_A22_Falszywe_Alarmy extends MP_AU_Agent {
 				continue;
 			}
 
+			/*
+			 * Miejsce moze byc KATALOGIEM — regula „jeden plik na dzial" (1.17)
+			 * bada `docs/dzial-NN/`, zasieg RODO (1.11) cala wtyczke. Katalog
+			 * potwierdza sie samym istnieniem: nie ma w nim linii, wiec obie
+			 * kontrole ponizej (numer linii, komentarz) nie maja do czego sie
+			 * odniesc i wolno je pominac, a nie uznac miejsca za nieistniejace.
+			 */
+			if ( is_dir( $pelna ) ) {
+				$wynik['werdykt'] = 'miejsce-istnieje';
+				$wynik['powod']   = 'Katalog potwierdzony niezaleznym odczytem.';
+				$sprawdzenia[]    = $wynik;
+				continue;
+			}
+
 			$tresc  = $kontekst->workspace->tresc( $pelna, $kontekst );
 			$wierszy = substr_count( $tresc, "\n" ) + 1;
 
@@ -130,8 +144,21 @@ final class MP_AU_A22_Falszywe_Alarmy extends MP_AU_Agent {
 				$katalog . '/' . $wzgledna,
 			);
 
+			/*
+			 * `file_exists()`, nie `is_file()`. Katalog nigdy nie jest plikiem,
+			 * wiec przy `is_file()` kazde ustalenie wskazujace KATALOG albo
+			 * korzen wtyczki bylo z gory nie do potwierdzenia i szlo na odrzut
+			 * jako „plik-nie-istnieje". Kasowalo to cale rodziny kontroli, ktore
+			 * z natury mowia o katalogu: regule „jeden plik na dzial" (1.17),
+			 * zasieg RODO (1.11), miejsca wskazywane korzeniem wtyczki (1.5).
+			 *
+			 * Skutek byl gorszy niz utrata tych ustalen: raport wygladal
+			 * CZYSCIEJ, niz bylo naprawde. W przebiegu z 01.08.2026 odpadlo tak
+			 * 20 z 48 zgloszen, a bezpiecznik ponizej tego nie zlapal, bo ma
+			 * prog > 50%, a wyszlo 42%.
+			 */
 			foreach ( $kandydaci as $kandydat ) {
-				if ( is_file( $kandydat ) ) {
+				if ( file_exists( $kandydat ) ) {
 					return $kandydat;
 				}
 			}
