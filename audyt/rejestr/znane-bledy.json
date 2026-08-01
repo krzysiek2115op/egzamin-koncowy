@@ -576,6 +576,71 @@
       "lekcja": "Test sprawdza PRZEBIEG kolejki, nie samo istnienie MP_SW_Mailer::send(): metoda mogla by istniec, a kolejka i tak wolac wp_mail() wprost.",
       "test": "tests/naprawy/nadawca-poczty.php",
       "para": "-"
+    },
+    {
+      "id": "P2-G8",
+      "data": "2026-08-01",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Oferte bez istniejacego pliku PDF dalo sie zatwierdzic i przekazac do wysylki",
+      "klasa": "kontrola-kolumny-zamiast-kontroli-rzeczy-ktora-kolumna-opisuje",
+      "plik": "includes/class-mp-offer-builder-approval.php",
+      "dowod": "Bramka no_document sprawdzala '' === (string) $offer['pdf_path'] i nic wiecej. MP_Offer_Builder_Privacy::erase() kasowalo plik PDF na zadanie RODO, zostawiajac sciezke w bazie.",
+      "skutek": "Na liscie ofert swiecil sie przycisk pobrania konczacy sie odmowa, a szkic po anonimizacji dawalo sie ZATWIERDZIC: mp_offer_approved szlo do wtyczki 3, ta dostawala polecenie wyslania oferty bez dokumentu i odbijala je kodem MP3-E190. Blad wychodzil o dwa moduly za pozno, a oferta nie byla juz szkicem i znikala z edycji.",
+      "lekcja": "Naprawa z dwoch stron: erase() czysci kolumne razem z plikiem (przyczyna), approve() sprawdza plik na dysku (obrona w glab — plik znika takze bez udzialu wtyczki, np. przy kopii bazy z produkcji). Regula „istnieje ORAZ lezy w katalogu prywatnym” dostala jedno miejsce: Storage::document_exists().",
+      "test": "tests/naprawy/dokument-ktorego-nie-ma.php",
+      "para": "-"
+    },
+    {
+      "id": "P2-G9",
+      "data": "2026-08-01",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Ujemna cena regularna wchodzila do oferty bez sprzeciwu",
+      "klasa": "kontrola-obejmujaca-jedna-z-dwoch-rownorzednych-wartosci",
+      "plik": "includes/pipeline/departments/class-mp-ob-department-02.php",
+      "dowod": "Agent 2.2 sprawdzal if ( $effective < 0.0 ), a regular_price przechodzilo po samym tescie niepuste + is_numeric. is_numeric('-100') zwraca true.",
+      "skutek": "Przy rozjezdzie meta (_regular_price=-100, _price=50 — import cennika bez synchronizacji) cena efektywna jest dodatnia, wiec kontrola nie lapala. Produkt bez aktywnej promocji ma on_sale=false, wiec Agent 4.1 bral wprost regular_price: ujemne unit_grosze, ujemna wartosc pozycji na dokumencie handlowym i ujemny wklad do sumy. Wszystkie bramki przechodzily, bo arytmetyka jest wewnetrznie spojna.",
+      "lekcja": "Komentarz przy warunku deklarowal ochrone przed ujemna cena w ofercie, a kod realizowal z tego polowe. Rozjazd komentarza z kodem to sygnal, nie ozdoba.",
+      "test": "tests/naprawy/cena-ujemna.php",
+      "para": "1.25"
+    },
+    {
+      "id": "P2-G10",
+      "data": "2026-08-01",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "VAT liczony od innej kwoty niz netto raportowane na dokumencie",
+      "klasa": "dwie-podstawy-tej-samej-liczby-nigdy-ze-soba-nieuzgadniane",
+      "plik": "includes/pipeline/departments/class-mp-ob-department-06.php",
+      "dowod": "net_grosze = subtotal_grosze - discount_total, a VAT z sumy lines[*]['line_grosze']. Zadna kontrola nie porownywala tych liczb. Bramka QA6 sprawdza wylacznie netto + VAT = brutto, co przy rozjezdzie nadal sie zgadza.",
+      "skutek": "lines puste przy subtotal 1000 zl dawalo netto 1000 zl i VAT 0 zl; lines na 100 zl przy subtotal 1000 zl dawalo VAT 23 zl, czyli 2,3% w mechanizmie krajowym. Oba przypadki konczyly sie SUKCESEM dzialu.",
+      "lekcja": "ZASIEG, uczciwie: krytyk Dzialu 4 (subtotal_mismatch) pilnuje tej samej sumy kontrolnej, wiec w pelnym przebiegu rozjazd zostalby zatrzymany wczesniej. To obrona w glab, nie dziura otwarta na produkcji. Dzial 6 nie moze jednak opierac poprawnosci PODATKU na kontroli z innego dzialu — to tutaj powstaje liczba idaca na dokument.",
+      "test": "tests/naprawy/podstawa-vat.php",
+      "para": "1.25"
+    },
+    {
+      "id": "P2-G11",
+      "data": "2026-08-01",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Druga stawka VAT klasy podatkowej przepadala bez sladu",
+      "klasa": "pierwszy-element-tablicy-wziety-za-cala-odpowiedz",
+      "plik": "includes/pipeline/departments/class-mp-ob-department-02.php",
+      "dowod": "WC_Tax::get_base_tax_rates() zwraca TABLICE stawek („array of matching rates” wg dokumentacji WooCommerce), a Agent 2.3 robil reset($found) i bral pierwszy wiersz. Sonda na zywym WooCommerce: stawki 20% + 3% dawaly na ofercie 20%.",
+      "skutek": "Sklep z dwiema stawkami dla klasy dostawal na dokumencie handlowym zanizony VAT i zanizona kwote brutto — bez bledu, bez sladu w dzienniku i przy przechodzacej bramce QA2. Rozjazd widac dopiero przy rozliczeniu.",
+      "lekcja": "Stawki zwykle sumujemy (WooCommerce nalicza kazda od tej samej podstawy netto), a przy stawce zlozonej (compound) odmawiamy: liczy sie ja od kwoty juz opodatkowanej, wiec jednej liczbie procentowej nie odpowiada. Dokument z wymyslona stawka jest gorszy niz brak dokumentu.",
+      "test": "tests/naprawy/stawki-wielokrotne.php",
+      "para": "1.25"
+    },
+    {
+      "id": "P2-G12",
+      "data": "2026-08-01",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Komunikat „nic sie nie zmienilo” przy ofercie, ktora NIE zostala zatwierdzona",
+      "klasa": "jeden-kod-bledu-na-wiele-roznych-przyczyn",
+      "plik": "includes/class-mp-offer-builder-approval.php",
+      "dowod": "UPDATE ma WHERE id = %d AND status = 'draft'. Galaz 1 !== (int) $changed zwracala bezwarunkowo already_approved, a panel pokazuje ten kod jako informacje na niebiesko.",
+      "skutek": "Gdy rownolegly proces ustawil inny status albo wiersz zniknal, pracownik czytal „Ta oferta byla juz zatwierdzona — nic sie nie zmienilo” i nie ponawial akcji. Oferta nie przeszla w approved, mp_offer_approved nie wyszlo i nikt jej nie wyslal. Komunikat mowil odwrotnie niz stan bazy.",
+      "lekcja": "To ten sam blad, ktory naprawiono juz raz obok, przy false === $changed (db_error). Naprawa jednej galezi nie zamyka klasy bledu w sasiedniej. Wyscig da sie odtworzyc deterministycznie filtrem query wpdb, ktory podmienia wiersz tuz przed UPDATE-em.",
+      "test": "tests/naprawy/zero-zmienionych-wierszy.php",
+      "para": "1.26"
     }
   ]
 }
