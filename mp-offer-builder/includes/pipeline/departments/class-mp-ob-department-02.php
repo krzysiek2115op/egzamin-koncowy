@@ -202,12 +202,23 @@ class MP_OB_D2_Agent_Prices extends MP_OB_Abstract_Agent {
 				);
 			}
 
-			// Cena UJEMNA nigdy nie jest poprawna (błędna konfiguracja WC) — jawny
-			// FAIL zamiast cichego ujemnego netto/VAT/brutto w ofercie. Cena 0 jest
-			// dopuszczona (legalna pozycja gratis: 0 netto → 0 VAT, arytmetyka spójna).
-			if ( $effective < 0.0 ) {
+			/*
+			 * Cena UJEMNA nigdy nie jest poprawna (błędna konfiguracja WC) — jawny
+			 * FAIL zamiast cichego ujemnego netto/VAT/brutto w ofercie. Cena 0 jest
+			 * dopuszczona (legalna pozycja gratis: 0 netto → 0 VAT, arytmetyka spójna).
+			 *
+			 * Sprawdzamy OBIE ceny, nie tylko efektywną. `_price` i `_regular_price`
+			 * to dwa osobne pola meta i potrafią się rozjechać: import cennika bez
+			 * synchronizacji, zapis SQL, wtyczka do promocji. Przy
+			 * `_regular_price = -100` i `_price = 50` cena efektywna jest dodatnia,
+			 * więc dawny warunek nie łapał — a produkt bez aktywnej promocji ma
+			 * `on_sale = false`, czyli Agent 4.1 bierze wprost `regular_price`.
+			 * Na dokument handlowy szła ujemna wartość pozycji przy przechodzących
+			 * bramkach, bo arytmetyka pozostaje wewnętrznie spójna.
+			 */
+			if ( $effective < 0.0 || (float) $regular < 0.0 ) {
 				$errors[] = array(
-					'field'   => "items.$i.price",
+					'field'   => $effective < 0.0 ? "items.$i.price" : "items.$i.regular_price",
 					'message' => 'Cena pozycji jest ujemna — nie można zbudować oferty.',
 				);
 				continue;
