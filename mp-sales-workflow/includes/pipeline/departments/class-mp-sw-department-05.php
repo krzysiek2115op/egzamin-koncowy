@@ -337,9 +337,43 @@ class MP_SW_D5_Critic_Effects extends MP_SW_Abstract_Critic {
 		$effects    = isset( $data['effects'] ) ? (array) $data['effects'] : array();
 		$transition = (array) $context->get( 'transition', array() );
 
+		/*
+		 * Status docelowy odczytany NIEZALEŻNIE od tablicy `transition`. Wcześniej
+		 * `$expected` powstawało z dokładnie tego samego wyrażenia, co `$effects`
+		 * u agenta 5.2 — `effects_for( $transition['to'] )` na tym samym kontekście.
+		 * Porównanie zawsze wychodziło na zero, więc krytyk sprawdzał tylko WYNIK
+		 * agenta (to zostaje, patrz niżej), a WEJŚCIA nie sprawdzał nikt: koperta
+		 * z podmienionym `to` szła przez parę bez słowa, a Działy 6 i 7 wykonywały
+		 * skutki NIE TEGO przejścia.
+		 */
+		$event    = (array) $context->get( 'event', array() );
+		$type     = isset( $event['type'] ) ? (string) $event['type'] : '';
+		$to_agent = isset( $transition['to'] ) ? (string) $transition['to'] : '';
+		$to_event = MP_SW_D5_Machine::target_status( $type, $context->all() );
+
+		/*
+		 * Kod `transition_not_from_event` celowo NIE trafia do słownika
+		 * `MP_SW_Errors::map()` i celowo nie niesie `http_status`: taka koperta nie
+		 * powstaje z żadnego żądania użytkownika, tylko z błędu w kodzie albo
+		 * podmiany danych między działami. To inwariant wewnętrzny i ma wychodzić
+		 * jako MP3-E500, tak samo jak `multiple_writes`.
+		 */
+		if ( ! empty( $transition['changes_status'] ) && $to_event !== $to_agent ) {
+			return MP_SW_Result::fail(
+				sprintf(
+					/* translators: 1: status żądany przez zdarzenie, 2: status z tablicy przejścia. */
+					__( 'Przejście prowadzi gdzie indziej niż żądanie zdarzenia — zdarzenie: %1$s, przejście: %2$s.', 'mp-sales-workflow' ),
+					'' !== $to_event ? $to_event : '—',
+					'' !== $to_agent ? $to_agent : '—'
+				),
+				array( 'errors' => array( 'transition.to' ) ),
+				'transition_not_from_event'
+			);
+		}
+
 		$expected = empty( $transition['changes_status'] )
 			? array()
-			: MP_SW_D5_Machine::effects_for( (string) $transition['to'] );
+			: MP_SW_D5_Machine::effects_for( $to_event );
 
 		/*
 		 * Porównanie w obie strony. Skutek nadmiarowy to dokładnie to „przy
