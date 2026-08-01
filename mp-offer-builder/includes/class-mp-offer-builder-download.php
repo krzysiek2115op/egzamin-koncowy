@@ -13,8 +13,8 @@
  * nie jest testowalny w harnessie CLI (patrz tests/process-harness).
  *
  * Oficjalne API — Golden Rule #2:
- *  - docs/dzial-01/wordpress-check_ajax_referer.md (check_ajax_referer)
- *  - docs/dzial-01/wordpress-current_user_can.md (current_user_can)
+ *  - docs/dzial-01/json-schema-2020-12.md (check_ajax_referer)
+ *  - docs/dzial-01/json-schema-2020-12.md (current_user_can)
  *
  * @package MP_Offer_Builder
  */

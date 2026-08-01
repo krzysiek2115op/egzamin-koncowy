@@ -19,7 +19,7 @@
  * Źródła — Golden Rule #2: brak zewnętrznego źródła technicznego (walidacja to
  * reguły biznesowe wg zlecenia klienta, nie API/standard strony trzeciej) —
  * patrz docs/dzial-03/limity-koszyka.md (ŹRÓDŁO ORYGINALNE, wzorem
- * mp-lead-intake/docs/dzial-04/segmentacja-konfiguracja.md).
+ * mp-lead-intake/docs/dzial-04/iso-3166-1-kody-krajow.md).
  *
  * @package MP_Offer_Builder
  */

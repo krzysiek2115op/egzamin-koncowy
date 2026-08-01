@@ -32,7 +32,7 @@ class MP_Offer_Builder_Storage {
 	/**
 	 * Sekret per-instalację wmieszany (HMAC) w nazwę pliku PDF na dysku — patrz
 	 * docblock final_pdf_path(). Generowany RAZ (wp_generate_password(), patrz
-	 * docs/dzial-09/wordpress-wp_generate_password.md) i trwale zapisany —
+	 * docs/dzial-09/dompdf.md) i trwale zapisany —
 	 * kolejne wywołania, w KAŻDYM procesie PHP, muszą zwrócić TĘ SAMĄ wartość,
 	 * inaczej Dział 10 (plan, przed COMMIT) i Dział 11 (finalize, po COMMIT)
 	 * policzyłyby DWIE RÓŻNE nazwy dla tej samej oferty.

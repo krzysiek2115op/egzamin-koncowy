@@ -5,7 +5,7 @@
  * 5.1 antyspam (honeypot), 5.2 CSRF (wp_verify_nonce), 5.3 rate limit (transient/IP).
  *
  * Źródła (oficjalne) — Golden Rule #2. Dokumentacja czytana przez agentów/krytyków:
- *  - docs/dzial-05/wordpress-wp_verify_nonce.md
+ *  - docs/dzial-05/wordpress-transients.md
  *  - docs/dzial-05/wordpress-transients.md
  *
  * @package MP_Lead_Intake

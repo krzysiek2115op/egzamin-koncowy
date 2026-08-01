@@ -29,8 +29,8 @@
  * ('woocommerce_unavailable') zamiast nieobsłużonego fatal errora PHP.
  *
  * Źródła (oficjalne) — Golden Rule #2:
- *  - docs/dzial-02/woocommerce-wc_product.md
- *  - docs/dzial-02/woocommerce-wc_tax.md
+ *  - docs/dzial-02/woocommerce-wc_get_products.md
+ *  - docs/dzial-02/woocommerce-wc_get_products.md
  *
  * @package MP_Offer_Builder
  */

@@ -286,7 +286,7 @@ Po wdrożeniu P-1 (async dział 3, poprzednia sesja) i zmian menu/SEO/responsywn
    (`products`, `est_volume`, `salesman_id` + nowe `salesman_assigned_at`).
 6. **Golden Rule #2** — `docs/dzial-09/zrodla-wordpress.md` i `docs/dzial-11/zrodla-wordpress.md` (jedyne
    pliki z ZERO dosłownych cytatów mimo nagłówka "skopiowane wiernie") przepisane na rzeczywiste cytaty
-   z developer.wordpress.org. `docs/dzial-03/nip-algorytm-sumy-kontrolnej.md` — dodano źródła i datę
+   z developer.wordpress.org. `docs/dzial-03/biala-lista-vat-api.md` — dodano źródła i datę
    (z jawną uwagą: brak jednego kanonicznego URL-a rządowego dla tego wzoru — dwa niezależne, zweryfikowane
    źródła publiczne potwierdzają identyczny algorytm).
 
@@ -294,7 +294,7 @@ Po wdrożeniu P-1 (async dział 3, poprzednia sesja) i zmian menu/SEO/responsywn
 - **9 pozostałych plików `docs/dzial-NN/*.md`** ma nagłówek "skopiowane wiernie", ale treść to parafraza
   z pojedynczymi cytatami, nie pełny wierny fragment (dzial-01 ×2, dzial-02 ×3, dzial-03/wp_remote_get,
   dzial-05 ×2, dzial-06/current_time, dzial-07/dzial-08 wpdb-insert, dzial-10/wp_json_encode) — wzorzec
-  do naśladowania: `docs/dzial-03/wordpress-wp-cron.md`. Wymaga ~9 kolejnych WebFetch + przepisania.
+  do naśladowania: `docs/dzial-03/biala-lista-vat-api.md`. Wymaga ~9 kolejnych WebFetch + przepisania.
 - **Hook `mp_lead_created` odpala się przed COMMIT** transakcji dz.7-11 — nieszkodliwe dziś (brak
   zewnętrznych subskrybentów), istotne dla integracji plugin 2/3 w przyszłości. NIE wymaga powrotu
   do tego brancha: plugin 2/3 powinny obsługiwać ten hook TYM SAMYM wzorcem, którego plugin 1 już

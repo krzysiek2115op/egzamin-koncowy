@@ -1,7 +1,7 @@
 <!--
 ŹRÓDŁO ORYGINALNE — konfiguracja projektu (reguły rabatowe wersjonowane).
 Dotyczy: Dział 5 — Agent 5.1 (dobór) i Agent 5.2 (zastosowanie).
-Wzorzec: mp-lead-intake/docs/dzial-04/segmentacja-konfiguracja.md (deterministyczna
+Wzorzec: mp-lead-intake/docs/dzial-04/iso-3166-1-kody-krajow.md (deterministyczna
 konfiguracja w kodzie, nie zewnętrzne API — zgodnie z diagramem: "dok: reguły
 rabatowe wersjonowane (konfiguracja wtyczki)").
 -->

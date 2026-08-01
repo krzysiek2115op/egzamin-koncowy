@@ -8,7 +8,7 @@
  *
  * Źródła (oficjalne/oryginalne) — Golden Rule #2. Dokumentacja czytana przez agentów:
  *  - docs/dzial-04/iso-3166-1-kody-krajow.md
- *  - docs/dzial-04/segmentacja-konfiguracja.md
+ *  - docs/dzial-04/iso-3166-1-kody-krajow.md
  *
  * @package MP_Lead_Intake
  */

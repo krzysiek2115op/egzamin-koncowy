@@ -54,3 +54,70 @@ jobs:
 
       - name: Weryfikacja procesu — wtyczka 2
         run: php mp-offer-builder/tests/process-harness/run-process.php
+
+  # Wtyczka 3 nie miala w CI ZADNEGO testu wykonywanego (U-8). Nie z przeoczenia:
+  # jej testy wymagaja WordPressa z baza, a harnessy wtyczek 1 i 2 chodza na
+  # wlasnym shimie i obchodza sie bez niego. Skutek byl jednak taki sam jak
+  # przeoczenie — trzecia wtyczka i cala integracja miedzy trzema wtyczkami
+  # przechodzily przez bramke na podstawie skladni i stylu kodu.
+  #
+  # Ocene werdyktu robi ten sam skrypt co lokalnie (tools/test-env/regresja.sh),
+  # tylko z innym klientem WP-CLI. Dwie kopie tej samej reguly rozjechalyby sie
+  # przy pierwszym nowym formacie wyniku.
+  integracja:
+    name: Testy na WordPressie (trzy wtyczki)
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wp_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mysqli, gd, zip
+          tools: wp-cli
+          coverage: none
+
+      - name: WordPress + trzy wtyczki
+        run: |
+          set -eu
+          wp core download --path=wp --version=latest
+          wp config create --path=wp \
+            --dbname=wp_test --dbuser=root --dbpass=root --dbhost=127.0.0.1
+          wp config set --path=wp MP_SW_LINK_KEY 'ci-link-key-32-znaki-na-potrzeby-ci' --type=constant
+          wp config set --path=wp MP_HASH_PEPPER 'ci-pepper-32-znaki-na-potrzeby-ci-x' --type=constant
+          wp core install --path=wp \
+            --url=http://localhost --title="CI" \
+            --admin_user=admin --admin_password=admin --admin_email=ci@example.test \
+            --skip-email
+          # Wtyczki ida z checkoutu, nie z kopii: test ma sprawdzac TEN kod.
+          for w in mp-lead-intake mp-offer-builder mp-sales-workflow; do
+            ln -s "$PWD/$w" "wp/wp-content/plugins/$w"
+          done
+          # Kolejnosc 1 → 2 → 3, ta sama co w bramce wydania. Role sa wspoldzielone
+          # miedzy wtyczkami 1 i 3 (U-15), wiec kolejnosc aktywacji ma znaczenie
+          # i wlasnie dlatego jest tu ustalona jawnie.
+          wp plugin activate mp-lead-intake mp-offer-builder mp-sales-workflow --path=wp
+
+      - name: Pelna regresja (wszystkie wersjonowane pliki testowe)
+        env:
+          MP_WP_CMD: wp --allow-root --path=wp
+          MP_PLUGINS_PATH: wp-content/plugins/
+          # Harnessy wtyczek 1 i 2 chodza tu na PHP z runnera, nie na przenosnym
+          # binarium ze srodowiska lokalnego.
+          MP_PHP: php
+        run: tools/test-env/regresja.sh

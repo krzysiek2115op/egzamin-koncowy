@@ -7,7 +7,7 @@ Dotyczy: Dział 3 — Agent 3.2 (ilości).
 
 Ilości i liczba pozycji na ofertę są ograniczone **deterministycznie** — stałymi
 zaszytymi w kodzie agenta, nie zewnętrznym API/standardem (to reguła biznesowa
-projektu, wzorem `mp-lead-intake/docs/dzial-04/segmentacja-konfiguracja.md`).
+projektu, wzorem `mp-lead-intake/docs/dzial-04/iso-3166-1-kody-krajow.md`).
 
 ## Limity
 

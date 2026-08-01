@@ -25,8 +25,8 @@
  *
  * Źródła (oficjalne) — Golden Rule #2:
  *  - docs/dzial-01/json-schema-2020-12.md
- *  - docs/dzial-01/wordpress-current_user_can.md
- *  - docs/dzial-01/wordpress-check_ajax_referer.md
+ *  - docs/dzial-01/json-schema-2020-12.md
+ *  - docs/dzial-01/json-schema-2020-12.md
  *
  * @package MP_Offer_Builder
  */

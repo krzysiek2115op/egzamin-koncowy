@@ -17,7 +17,7 @@
  *
  * Źródła (oficjalne) — Golden Rule #2:
  *  - docs/dzial-06/dyrektywa-2006-112-we-art-196.md (odwrotne obciążenie)
- *  - docs/dzial-02/woocommerce-wc_tax.md (WC_Tax — stawka krajowa, już cytowane w Dziale 2)
+ *  - docs/dzial-02/woocommerce-wc_get_products.md (WC_Tax — stawka krajowa, już cytowane w Dziale 2)
  *  - docs/dzial-04/php-bcmath.md (zaokrąglenie bez float — ta sama technika co Dział 4)
  *
  * @package MP_Offer_Builder

@@ -8,8 +8,8 @@
  *
  * Źródła (oficjalne) — Golden Rule #2. Dokumentacja, którą "czytają" agenci/krytycy:
  *  - docs/dzial-02/wordpress-is_email.md
- *  - docs/dzial-02/wordpress-sanitize_text_field.md
- *  - docs/dzial-02/wordpress-sanitize_email.md
+ *  - docs/dzial-02/wordpress-is_email.md
+ *  - docs/dzial-02/wordpress-is_email.md
  * ZADANIE każdego agenta/krytyka jest przypisane do niego (label/opis + run()),
  * nie w dokumentacji.
  *

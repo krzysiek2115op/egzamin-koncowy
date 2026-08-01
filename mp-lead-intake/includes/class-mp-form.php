@@ -26,7 +26,7 @@ class MP_Lead_Intake_Form {
 	 * Kraje UE (ISO 3166-1 alpha-2) do wyboru w formularzu — VIES obsługuje
 	 * wyłącznie kraje UE. Wyjątek: Grecja jako 'EL' (nie ISO 'GR') — REST API
 	 * Komisji Europejskiej (VIES) przyjmuje ten kod krajowy dla Grecji zamiast
-	 * ISO 'GR'; ta jedna rozbieżność NIE jest opisana w docs/dzial-03/vies-rest-api.md
+	 * ISO 'GR'; ta jedna rozbieżność NIE jest opisana w docs/dzial-03/biala-lista-vat-api.md
 	 * (pobranym wcześniej fragmencie), więc nie cytujemy jej jako stamtąd.
 	 */
 	const COUNTRIES = array(

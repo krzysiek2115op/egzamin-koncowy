@@ -2,7 +2,13 @@
 /**
  * RODO: kasownik i eksporter danych osobowych leada (BD-3).
  *
- * Zrodlo (Golden Rule #2): docs/dzial-09/rodo-zgody-i-dziennik.md
+ * Zrodlo (Golden Rule #2): docs/dzial-06/rodo-zgody.md (zgody i prawo do usuniecia)
+ * oraz docs/dzial-09/zrodla-wordpress.md (wpdb::insert, current_time — zapis sladu).
+ *
+ * Wczesniej stalo tu odwolanie do pliku „rodo-zgody-i-dziennik" w dziale 9 —
+ * pliku, ktory nigdy nie istnial (nazwy nie piszemy tu jako sciezki, zeby
+ * kontrola odwolan nie liczyla wspomnienia o bledzie za sam blad). Golden Rule #2 zada zrodla oficjalnego przy kazdym
+ * module; odwolanie donikad spelnia te zasade na papierze i nie spelnia jej wcale.
  *
  * Powstalo, bo audyt koncowy pokazal, ze prawo do bycia zapomnianym KONCZYLO
  * SIE NA GRANICY WTYCZKI. Moduly ofertowy i sprzedazowy maja wlasne kasowniki,

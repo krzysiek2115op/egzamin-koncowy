@@ -6,7 +6,7 @@
  * handlowiec z wtyczki 3), 7.3 zapis leada do wp_mp_leads (BD-3).
  *
  * Źródła (oficjalne/oryginalne) — Golden Rule #2. Dokumentacja czytana przez agentów:
- *  - docs/dzial-07/wordpress-wpdb-insert.md
+ *  - docs/dzial-07/scoring-przypisanie.md
  *  - docs/dzial-07/scoring-przypisanie.md
  *
  * @package MP_Lead_Intake

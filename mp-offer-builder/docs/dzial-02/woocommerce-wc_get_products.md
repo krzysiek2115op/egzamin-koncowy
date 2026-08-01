@@ -1,5 +1,6 @@
 <!--
 ŹRÓDŁO OFICJALNE (skopiowane wiernie, cytaty z developer.woocommerce.com oraz
+Jeden plik na dział (zasada projektu).
 kodu źródłowego WooCommerce na GitHub — jawnie oznaczone osobno poniżej)
 URL 1:   https://developer.woocommerce.com/docs/extensions/core-concepts/wc-get-products/
 URL 2:   https://github.com/woocommerce/woocommerce/blob/trunk/plugins/woocommerce/includes/data-stores/class-wc-product-data-store-cpt.php
@@ -63,3 +64,98 @@ obiekty `WC_Product` (już udokumentowane w `woocommerce-wc_product.md`: `get_id
 nie jest cytowany osobno, ale `get_name()`/`get_regular_price()` są tym samym,
 oficjalnym API co w Agencie 2.1/2.2 pipeline'u — tu użyte w panelu wp-admin do
 wyświetlenia wyniku wyszukiwania handlowcowi, PRZED uruchomieniem pipeline'u.
+
+---
+
+<!--
+ŹRÓDŁO OFICJALNE (skopiowane wiernie, cytaty z woocommerce.github.io/code-reference)
+URL:    https://woocommerce.github.io/code-reference/classes/WC-Product.html
+Pobrano: 2026-07-24
+Dotyczy: Dział 2 — Agent 2.1 "produkty" i Agent 2.2 "ceny" (MP_OB_D2_Agent_Products,
+         MP_OB_D2_Agent_Prices) — odczyt WYŁĄCZNIE przez oficjalne API, nigdy
+         surowym SQL po wp_postmeta (patrz uwaga w blueprint/LP2_diagram_wizualny.html,
+         Dział 2: "ceny czyta się przez WC_Product / meta_lookup, nie surowym SQL —
+         układ tabel zmienia się między wersjami / HPOS, stabilnym kontraktem jest API").
+-->
+
+# WC_Product — dokumentacja oficjalna (wybrane metody)
+
+## Opis klasy (cytat)
+
+"The WooCommerce product class handles individual product data." (od wersji 3.0.0)
+
+## get_status()
+
+"Get product status." Zwraca string (obsługuje konteksty 'view'/'edit'); wartość
+`'publish'` = produkt opublikowany.
+
+## is_purchasable()
+
+"Returns false if the product cannot be bought."
+
+## get_regular_price()
+
+"Returns the product's regular price." Zwraca string z ceną (kontekst 'view'/'edit').
+
+## get_sale_price()
+
+"Returns the product's sale price." Zwraca string z ceną (kontekst 'view'/'edit').
+
+## get_price()
+
+"Returns the product's active price." (cena efektywna — regularna albo promocyjna,
+gdy promocja aktywna).
+
+## Zastosowanie w tym dziale
+
+`wc_get_product( $id )` (funkcja pomocnicza WooCommerce, zwraca instancję `WC_Product`
+albo `false`) działa identycznie dla produktu prostego I wariantu (ID wariantu zwraca
+`WC_Product_Variation extends WC_Product`) — dlatego Agent 2.1/2.2 nie rozróżnia
+przypadków `product_id` / `variation_id`, tylko wybiera właściwe ID do przekazania.
+Agent 2.2 liczy `on_sale` samodzielnie (`sale_price < regular_price`) zamiast wołać
+`get_price()`, żeby jawnie zapisać ŹRÓDŁO ceny (`sale`/`regular`) w snapshocie —
+wymóg kryt. 5.3 diagramu ("źródło ceny... zapisane przy pozycji").
+
+---
+
+<!--
+ŹRÓDŁO OFICJALNE (skopiowane wiernie, cytaty z woocommerce.github.io/code-reference)
+URL:    https://woocommerce.github.io/code-reference/classes/WC-Tax.html
+Pobrano: 2026-07-24
+Dotyczy: Dział 2 — Agent 2.3 "podatki" (MP_OB_D2_Agent_Tax) — odczyt stawek VAT
+         wyłącznie przez oficjalne API WC_Tax, wg klasy podatkowej produktu.
+-->
+
+# WC_Tax — dokumentacja oficjalna (wybrane metody)
+
+## Opis klasy (cytat)
+
+"Performs tax calculations and loads tax rates"
+
+## get_rates() (cytat)
+
+"Get's an array of matching rates for a tax class."
+
+Sygnatura: `public static get_rates( string $tax_class = '', object $customer = null )`
+
+## get_base_tax_rates() (cytat)
+
+"Get's an array of matching rates for the shop's base country."
+
+Sygnatura: `public static get_base_tax_rates( string $tax_class = '' )`
+
+## find_rates() (cytat)
+
+"Searches for all matching country/state/postcode tax rates."
+
+Sygnatura: `public static find_rates( array $args = array() )`
+
+## Zastosowanie w tym dziale
+
+Agent 2.3 woła `WC_Tax::get_rates( $tax_class )` dla każdej UNIKALNEJ klasy podatkowej
+występującej wśród pozycji żądania (nie osobno per produkt — jedna klasa podatkowa
+= jedna stawka). Brak wyniku dla danej klasy = błąd (`missing_tax_rate`), NIGDY
+podstawiana domyślna stawka (23%) — zgodnie z krytykiem "stawka-istnieje" z diagramu.
+Mechanizm VAT (krajowa stawka / odwrotne obciążenie UE / poza zakresem VAT) to
+osobna decyzja Działu 6 — Dział 2 dostarcza tylko SUROWĄ stawkę krajową jako dane
+wejściowe do tamtej kalkulacji.

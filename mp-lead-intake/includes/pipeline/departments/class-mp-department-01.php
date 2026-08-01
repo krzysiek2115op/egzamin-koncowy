@@ -13,7 +13,7 @@
  *
  * Źródła (oficjalne) — Golden Rule #2. Dokumentacja, którą "czytają" agenci/krytycy:
  *  - docs/dzial-01/wordpress-wpdb-get_results.md
- *  - docs/dzial-01/wordpress-wpdb-prepare.md
+ *  - docs/dzial-01/wordpress-wpdb-get_results.md
  * Dane wyłącznie z BD-3 (wp_mp_leads) przez wpdb — bez danych zmyślonych/wtórnych.
  * ZADANIE każdego agenta/krytyka jest przypisane do niego (patrz label/opis i metoda
  * run() w klasach niżej), nie w dokumentacji.

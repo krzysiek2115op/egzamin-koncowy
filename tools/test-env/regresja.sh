@@ -12,6 +12,12 @@
 #
 # Zmienne:  MP_TEST_ENV — katalog środowiska (domyślnie $HOME/mp-test-env)
 #           MP_PHP      — przenośne PHP do harnessów (domyślnie z $MP_TEST_ENV/narzedzia)
+#           MP_WP_CMD   — klient WP-CLI (domyślnie tools/test-env/wp.sh na podmanie).
+#                         W CI nie ma podmana, za to WordPress stoi lokalnie — wtedy
+#                         np. MP_WP_CMD="wp --allow-root --path=$PWD/wp". Dzięki temu
+#                         reguła oceny werdyktu jest JEDNA i tu, i na GitHubie.
+#           MP_PLUGINS_PATH — przedrostek ścieżki testu przekazywanej do eval-file
+#                         (domyślnie "wp-content/plugins/").
 #
 # Kod wyjścia: 0 gdy wszystko przeszło, 1 przy pierwszej porażce w podsumowaniu.
 set -u
@@ -22,6 +28,8 @@ REPO=$(dirname "$(dirname "$SELF")")
 REPO=$(dirname "$REPO")
 ENV_DIR="${MP_TEST_ENV:-$HOME/mp-test-env}"
 PHP="${MP_PHP:-$ENV_DIR/narzedzia/php83/php}"
+WP_CMD="${MP_WP_CMD:-}"
+PLUGINS_PATH="${MP_PLUGINS_PATH:-wp-content/plugins/}"
 WZORZEC="${1:-}"
 
 OK=0
@@ -89,7 +97,12 @@ for p in mp-lead-intake mp-offer-builder mp-sales-workflow; do
 		esac
 		REL=${t#"$REPO/"}
 		case "$REL" in *"$WZORZEC"*) ;; *) [ -n "$WZORZEC" ] && continue ;; esac
-		OUT=$(MP_TEST_ENV="$ENV_DIR" "$HERE/wp.sh" eval-file "wp-content/plugins/$REL" 2>&1)
+		if [ -n "$WP_CMD" ]; then
+			# shellcheck disable=SC2086
+			OUT=$($WP_CMD eval-file "${PLUGINS_PATH}$REL" 2>&1)
+		else
+			OUT=$(MP_TEST_ENV="$ENV_DIR" "$HERE/wp.sh" eval-file "${PLUGINS_PATH}$REL" 2>&1)
+		fi
 		raport "$REL" "$OUT"
 	done
 done

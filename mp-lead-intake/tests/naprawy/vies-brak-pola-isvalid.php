@@ -21,7 +21,7 @@
  * za potwierdzenie. Agent 3.3 dostal to zabezpieczenie przy P1-G1, agent 3.2
  * zostal wtedy pominiety — audyt to wylapal.
  *
- * Dokumentacja VIES (docs/dzial-03/vies-rest-api.md) wymienia `isValid`
+ * Dokumentacja VIES (docs/dzial-03/biala-lista-vat-api.md) wymienia `isValid`
  * i `userError` jako OSOBNE pola i nigdzie nie mowi, ze brak `isValid` znaczy
  * „numer niewazny".
  *

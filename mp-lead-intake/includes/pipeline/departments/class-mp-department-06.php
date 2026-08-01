@@ -7,7 +7,7 @@
  * przy tworzeniu leada (dział 7) w kolumnach consent_* tabeli wp_mp_leads.
  *
  * Źródła (oficjalne/oryginalne) — Golden Rule #2. Dokumentacja czytana przez agentów:
- *  - docs/dzial-06/wordpress-current_time.md
+ *  - docs/dzial-06/rodo-zgody.md
  *  - docs/dzial-06/rodo-zgody.md
  *
  * @package MP_Lead_Intake

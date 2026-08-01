@@ -8,10 +8,10 @@
  * 3.3 Status firmy: oficjalna Biała lista VAT (Ministerstwo Finansów), analogicznie.
  *
  * Źródła (oficjalne) — Golden Rule #2. Dokumentacja, którą "czytają" agenci/krytycy:
- *  - docs/dzial-03/nip-algorytm-sumy-kontrolnej.md
- *  - docs/dzial-03/vies-rest-api.md
  *  - docs/dzial-03/biala-lista-vat-api.md
- *  - docs/dzial-03/wordpress-wp_remote_get.md
+ *  - docs/dzial-03/biala-lista-vat-api.md
+ *  - docs/dzial-03/biala-lista-vat-api.md
+ *  - docs/dzial-03/biala-lista-vat-api.md
  *
  * @package MP_Lead_Intake
  */
@@ -238,7 +238,7 @@ class MP_D3_Agent_Vat extends MP_Abstract_Agent {
 
 		/*
 		 * Brak pola `isValid` to NIE jest „numer nieważny". Dokumentacja VIES
-		 * (docs/dzial-03/vies-rest-api.md) wymienia `isValid` i `userError` jako
+		 * (docs/dzial-03/biala-lista-vat-api.md) wymienia `isValid` i `userError` jako
 		 * osobne pola i nigdzie nie mówi, że nieobecność pierwszego coś rozstrzyga.
 		 *
 		 * Bez tego warunku odpowiedź 200 bez `isValid` i bez `userError` szła
