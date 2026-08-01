@@ -18,6 +18,43 @@ if ( ! defined( 'ABSPATH' ) ) {
 class MP_Pipeline_Logger {
 
 	/**
+	 * Nazwa miejsca awarii dla CZŁOWIEKA.
+	 *
+	 * Docblock mówił „0 = nieznany", ale ta sama wartość szła wprost do `%d`
+	 * w temacie maila, w treści maila i w opisie wpisu w dzienniku. Powstawał
+	 * „dział 0" — numer, którego w pipeline nie ma (działy są numerowane od 1)
+	 * i którego czytelnik nie ma jak odróżnić od prawdziwego. Administrator
+	 * szukał działu numer 0 w dokumentacji zamiast dowiedzieć się, że miejsce
+	 * awarii jest NIEUSTALONE.
+	 *
+	 * @param int $dept_num Numer działu (0 = nieustalony).
+	 * @return string
+	 */
+	protected function department_label( $dept_num ) {
+		$dept_num = (int) $dept_num;
+
+		return $dept_num > 0
+			? sprintf( 'dziale %d', $dept_num )
+			: __( 'nieustalonym miejscu pipeline\'u', 'mp-lead-intake' );
+	}
+
+	/**
+	 * Dlaczego alarm nie doszedł — bez zmyślania przyczyny.
+	 *
+	 * Komunikat twierdził wprost „serwer poczty odrzucił wiadomość", choć kod
+	 * niczego takiego nie sprawdził: `wp_mail()` zwraca false także wtedy, gdy
+	 * do serwera poczty w ogóle nie doszło (filtr `pre_wp_mail` innej wtyczki,
+	 * niepoprawny adres w `admin_email`, wyjątek PHPMailera). Pracownik czytał
+	 * o awarii SMTP i sprawdzał konfigurację, która działa poprawnie, a prawdziwa
+	 * przyczyna zostawała nieznaleziona.
+	 *
+	 * @return string
+	 */
+	protected function delivery_failure_note() {
+		return __( 'wp_mail() zgłosiło niepowodzenie; przyczyny kod nie zna — sprawdź konfigurację poczty, adres w ustawieniach witryny i wtyczki podpięte pod wysyłkę.', 'mp-lead-intake' );
+	}
+
+	/**
 	 * Loguje porażkę działu do BD-3 i powiadamia administratora.
 	 *
 	 * @param MP_Department $department Dział, w którym wystąpił błąd.
@@ -55,7 +92,7 @@ class MP_Pipeline_Logger {
 			)
 		);
 
-		$this->notify_admin( $department, $result );
+		$this->notify_admin( $department, $result, $context );
 	}
 
 	/**
@@ -80,7 +117,7 @@ class MP_Pipeline_Logger {
 			array(
 				'lead_id'     => $context->get( 'lead_id' ),
 				'action'      => 'pipeline_exception',
-				'description' => sprintf( 'Nieoczekiwany wyjątek w dziale %d: %s', (int) $dept_num, $e->getMessage() ),
+				'description' => sprintf( 'Nieoczekiwany wyjątek w %s: %s', $this->department_label( $dept_num ), $e->getMessage() ),
 				'user_id'     => get_current_user_id() ? get_current_user_id() : null,
 				'ip_address'  => isset( $_SERVER['REMOTE_ADDR'] ) ? MP_Lead_Intake_DB::anonymize_ip( sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) ) : null,
 				'meta_json'   => wp_json_encode(
@@ -101,25 +138,86 @@ class MP_Pipeline_Logger {
 		set_transient( $throttle_key, 1, 15 * MINUTE_IN_SECONDS );
 
 		$to = get_option( 'admin_email' );
+
+		/*
+		 * Brak adresu administratora to TAKŻE niedostarczony alarm.
+		 *
+		 * Wyjście po cichu zostawiało dziennik w stanie nie do odróżnienia od
+		 * alarmu dostarczonego poprawnie: był wpis o awarii, nie było wpisu
+		 * `admin_alert_failed`. Pracownik przeglądający historię po incydencie
+		 * przyjmował, że administrator został powiadomiony — a zawiadomienia
+		 * nawet nie próbowano wysłać.
+		 */
 		if ( ! $to ) {
+			$this->log_alert_failure(
+				sprintf(
+					'Alarm o wyjątku w %s NIE został wysłany — w ustawieniach witryny nie ma adresu administratora (admin_email).',
+					$this->department_label( $dept_num )
+				),
+				array(
+					'alert'      => 'pipeline_exception',
+					'department' => (int) $dept_num,
+					'reason'     => 'brak_admin_email',
+				)
+			);
+
 			return;
 		}
 
 		$sent = wp_mail(
 			$to,
-			sprintf( '[MP Lead Intake] Nieoczekiwany wyjątek w pipeline (dział %d)', (int) $dept_num ),
-			sprintf( "Pipeline przerwany wyjątkiem w dziale %d.\nTyp: %s\nKomunikat: %s\n", (int) $dept_num, get_class( $e ), $e->getMessage() )
+			sprintf( '[MP Lead Intake] Nieoczekiwany wyjątek w pipeline (%s)', $this->department_label( $dept_num ) ),
+			sprintf(
+				"Pipeline przerwany wyjątkiem w %s.\nTyp: %s\nKomunikat: %s\n%s",
+				$this->department_label( $dept_num ),
+				get_class( $e ),
+				$e->getMessage(),
+				$this->alert_footer( $context )
+			)
 		);
 
 		if ( ! $sent ) {
 			$this->log_alert_failure(
-				sprintf( 'Alarm o wyjątku w dziale %d NIE został wysłany — serwer poczty odrzucił wiadomość.', (int) $dept_num ),
+				sprintf(
+					'Alarm o wyjątku w %s NIE został wysłany — %s',
+					$this->department_label( $dept_num ),
+					$this->delivery_failure_note()
+				),
 				array(
 					'alert'      => 'pipeline_exception',
 					'department' => (int) $dept_num,
 				)
 			);
 		}
+	}
+
+	/**
+	 * Stopka alarmu: identyfikatory zdarzenia i informacja o wyciszeniu.
+	 *
+	 * Treść alarmu nie zawierała ŻADNEGO identyfikatora, więc nie dało się
+	 * ustalić, którego zgłoszenia dotyczy — a przy tym nie mówiła, że przez
+	 * kolejny kwadrans dalsze alarmy z tego samego miejsca są wyciszone.
+	 * Administrator czytał ją jak opis pojedynczego, zamkniętego incydentu.
+	 * Przy błędzie konfiguracji zatrzymującym 50 zgłoszeń w ciągu kwadransa
+	 * obsługiwał jedno i uznawał sprawę za załatwioną.
+	 *
+	 * @param MP_Context $context Kontekst pipeline.
+	 * @return string
+	 */
+	protected function alert_footer( MP_Context $context ) {
+		$lead_id    = (int) $context->get( 'lead_id' );
+		$request_id = (string) $context->get( 'request_id', '' );
+
+		return sprintf(
+			"\n%s\n%s\n%s\n",
+			$lead_id > 0
+				? sprintf( 'Zgłoszenie (lead_id): %d', $lead_id )
+				: 'Zgłoszenie (lead_id): jeszcze nie powstało — awaria wystąpiła przed zapisem.',
+			'' !== $request_id
+				? sprintf( 'Identyfikator żądania: %s', $request_id )
+				: 'Identyfikator żądania: brak w kontekście.',
+			'UWAGA: przez najbliższe 15 minut kolejne alarmy z tego samego miejsca są wyciszone. Ta wiadomość może więc dotyczyć WIĘKSZEJ liczby zgłoszeń — sprawdź dziennik aktywności, zanim uznasz sprawę za zamkniętą.'
+		);
 	}
 
 	/**
@@ -164,9 +262,10 @@ class MP_Pipeline_Logger {
 	 *
 	 * @param MP_Department $department Dział.
 	 * @param MP_Result     $result     Wynik.
+	 * @param MP_Context    $context    Kontekst pipeline (identyfikatory do treści).
 	 * @return void
 	 */
-	protected function notify_admin( MP_Department $department, MP_Result $result ) {
+	protected function notify_admin( MP_Department $department, MP_Result $result, MP_Context $context ) {
 		$throttle_key = 'mp_notify_' . $department->get_key();
 		if ( get_transient( $throttle_key ) ) {
 			return;
@@ -174,17 +273,48 @@ class MP_Pipeline_Logger {
 		set_transient( $throttle_key, 1, 15 * MINUTE_IN_SECONDS );
 
 		$to = get_option( 'admin_email' );
+
+		// Ten sam powód, co przy wyjątku: brak adresu to niedostarczony alarm,
+		// a nie brak alarmu.
 		if ( ! $to ) {
+			$this->log_alert_failure(
+				sprintf(
+					'Alarm o zatrzymaniu działu %d (%s) NIE został wysłany — w ustawieniach witryny nie ma adresu administratora (admin_email).',
+					$department->get_number(),
+					$department->get_key()
+				),
+				array(
+					'alert'      => 'pipeline_error',
+					'department' => $department->get_number(),
+					'code'       => $result->get_code(),
+					'reason'     => 'brak_admin_email',
+				)
+			);
+
 			return;
 		}
 
 		$subject = sprintf( '[MP Lead Intake] Błąd w dziale %d (%s)', $department->get_number(), $department->get_key() );
-		$body    = sprintf(
-			"Pipeline zatrzymany w dziale %d (%s).\nKod: %s\nBłędy: %s\n",
+
+		/*
+		 * `wp_json_encode()` zwraca false przy danych, których nie da się zakodować
+		 * (niepoprawny UTF-8 z zewnętrznego API, zasób). `sprintf( '%s', false )`
+		 * daje pusty ciąg, więc mail kończył się linią „Błędy: " — komunikat
+		 * wyglądający na kompletny, bez ani jednego szczegółu awarii.
+		 */
+		$errors_json = wp_json_encode( $result->get_errors() );
+
+		if ( ! is_string( $errors_json ) ) {
+			$errors_json = '[nie udało się zakodować szczegółów do JSON — zajrzyj do dziennika aktywności]';
+		}
+
+		$body = sprintf(
+			"Pipeline zatrzymany w dziale %d (%s).\nKod: %s\nBłędy: %s\n%s",
 			$department->get_number(),
 			$department->get_key(),
 			$result->get_code(),
-			wp_json_encode( $result->get_errors() )
+			$errors_json,
+			$this->alert_footer( $context )
 		);
 
 		$sent = wp_mail( $to, $subject, $body );
@@ -192,9 +322,10 @@ class MP_Pipeline_Logger {
 		if ( ! $sent ) {
 			$this->log_alert_failure(
 				sprintf(
-					'Alarm o zatrzymaniu działu %d (%s) NIE został wysłany — serwer poczty odrzucił wiadomość.',
+					'Alarm o zatrzymaniu działu %d (%s) NIE został wysłany — %s',
 					$department->get_number(),
-					$department->get_key()
+					$department->get_key(),
+					$this->delivery_failure_note()
 				),
 				array(
 					'alert'      => 'pipeline_error',
