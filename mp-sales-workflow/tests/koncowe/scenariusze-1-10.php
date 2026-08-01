@@ -753,7 +753,32 @@ mp_ok( 1 === $reg, 'w rejestrze zdarzen dokladnie jeden wiersz na event_id', 'wi
 $dupes = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$notif_t} WHERE flow_id = %d AND event_id = %s", $flow_id, $eid ) ); // phpcs:ignore
 mp_ok( $dupes <= 1, 'powtorka nie wygenerowala drugiego powiadomienia', 'powiadomien=' . $dupes );
 
-// Konflikt wersji: zapis „ze starym tokenem" ma odbic sie o wartownika.
+/*
+ * Konflikt wersji: zapis „ze starym tokenem" ma odbic sie o wartownika.
+ *
+ * TEST-F1. Sama asercja „0 wierszy" nie wystarcza i to najostrzejszy przypadek
+ * tej rodziny w calym projekcie: `$wpdb->query()` oddaje przy BLEDZIE `false`,
+ * a `(int) false` to takze 0. Literowka w nazwie tabeli, zla kolumna albo
+ * niedostepna baza daja wiec dokladnie ten sam wynik, co dzialajacy wartownik —
+ * test raportowalby PASS przy calkowicie zepsutym zapytaniu.
+ *
+ * Kontrola pozytywna PRZED asercja na zero: ten sam UPDATE z WLASCIWYM tokenem
+ * musi ruszyc dokladnie jeden wiersz. Dopiero to dowodzi, ze zapytanie, tabela
+ * i identyfikator sa poprawne — a zero ponizej pochodzi od wartownika, nie od
+ * awarii. Stan przywracamy od razu, zeby dalsze asercje zastaly go nietkniety.
+ */
+$status_przed = (string) $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$flow_t} WHERE id = %d", $flow_id ) ); // phpcs:ignore
+$status_proba = ( 'lost' === $status_przed ) ? 'won' : 'lost';
+$trafione     = $wpdb->query( $wpdb->prepare( "UPDATE {$flow_t} SET status = %s WHERE id = %d AND lock_version = %d", $status_proba, $flow_id, $lock_2 ) ); // phpcs:ignore
+
+mp_ok(
+	1 === (int) $trafione,
+	'kontrola pozytywna: ten sam UPDATE z WLASCIWYM tokenem rusza dokladnie 1 wiersz',
+	'trafione=' . var_export( $trafione, true ) . ' (false = zapytanie padlo)'
+);
+
+$wpdb->query( $wpdb->prepare( "UPDATE {$flow_t} SET status = %s WHERE id = %d", $status_przed, $flow_id ) ); // phpcs:ignore
+
 $stale = $wpdb->query( $wpdb->prepare( "UPDATE {$flow_t} SET status = 'won' WHERE id = %d AND lock_version = %d", $flow_id, $lock_2 - 5 ) ); // phpcs:ignore
 mp_ok( 0 === (int) $stale, 'zapis ze starym tokenem blokady nie ruszyl zadnego wiersza (0 wierszy)' );
 

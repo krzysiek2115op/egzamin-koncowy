@@ -561,6 +561,29 @@ $r_i5    = MP_SW_Events::from_hook(
 $c5 = $r_i5['context'];
 chk( 1 === $c5->get_db_reads(), 'I-5 db_reads = 1 (jest ' . $c5->get_db_reads() . ')' );
 chk( 1 === $c5->get_db_writes(), 'I-5 db_writes = 1 (jest ' . $c5->get_db_writes() . ')' );
+/*
+ * TEST-F1, ta sama rodzina. „Zero wysylek" jest dowodem tylko wtedy, gdy licznik
+ * w ogole potrafi pokazac niezero. Straznik wisi na filtrze `wp_mail`
+ * (MP_SW_D7_Notifier::install_guard()); gdyby nie zostal wpiety, `mail_attempts()`
+ * oddawaloby zero ZAWSZE i ta asercja przechodzilaby przy kazdej liczbie realnych
+ * wysylek. Kontrola pozytywna odpala sam filtr — bez maszynerii pocztowej,
+ * bo sprawdzamy przyrzad pomiarowy, a nie wysylke.
+ */
+$mail_przed_kontrola = MP_SW_D7_Notifier::mail_attempts();
+apply_filters( 'wp_mail', array( 'to' => 'kontrola@example.test', 'subject' => 'kontrola licznika', 'message' => '' ) );
+
+chk(
+	MP_SW_D7_Notifier::mail_attempts() > $mail_przed_kontrola,
+	'kontrola pozytywna: licznik wysylek reaguje, wiec zero ponizej cos znaczy (bylo '
+		. $mail_przed_kontrola . ', jest ' . MP_SW_D7_Notifier::mail_attempts() . ')'
+);
+
+MP_SW_D7_Notifier::reset_mail_attempts();
+$r_i5 = MP_SW_Events::from_hook(
+	MP_SW_Pipeline_Factory::EVENT_LEAD_CREATED,
+	array( 'entity' => array( 'lead_id' => $lead_i5 ), 'actor' => array( 'user_id' => 0 ), 'event_id' => MP_SW_Events::derive_event_id( 'lead.created', array( $lead_i5 ) ) )
+);
+
 chk( 0 === MP_SW_D7_Notifier::mail_attempts(), 'I-5 zero wysylek w zadaniu' );
 
 // I-6: sekrety ze stalych.
