@@ -30,6 +30,21 @@ class MP_D7_Agent_Dedup extends MP_Abstract_Agent {
 	 * @return MP_Result
 	 */
 	public function run( MP_Context $context ) {
+		/*
+		 * Warunkiem jest FAKT ODCZYTU, nie obecność klucza. Wcześniej `$dup`
+		 * wynikało z samej pustki w kopercie, więc „nie ma takiej firmy",
+		 * „nikt nie pytał" i „zapytanie padło" dawały tę samą odpowiedź:
+		 * unikalność potwierdzona. Dział 1 melduje teraz `leads_checked`
+		 * i bez tego meldunku 7.1 odmawia, zamiast zgadywać.
+		 */
+		if ( true !== $context->get( 'leads_checked' ) ) {
+			return MP_Result::fail(
+				'Unikalność firmy niesprawdzona — odczyt leadów z BD-3 się nie odbył.',
+				array( 'errors' => array( 'leads_checked' ) ),
+				'dedup_not_checked'
+			);
+		}
+
 		$nip = (string) $context->get( 'nip', '' );
 		// Reużycie wyniku działu 1.1 (już pobrał aktywne leady po tym samym,
 		// znormalizowanym NIP) zamiast powtórnego zapytania do BD-3 — audyt

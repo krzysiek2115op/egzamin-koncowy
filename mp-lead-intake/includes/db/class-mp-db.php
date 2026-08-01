@@ -72,18 +72,33 @@ class MP_Lead_Intake_DB {
 	 * Klucz unikalności to (country, nip), nie sam nip — lokalne numery firmowe
 	 * różnych krajów UE mogą się cyfrowo pokrywać (od 1.4.0, patrz DB_VERSION).
 	 *
+	 * NIEUDANY odczyt oddaje `null`, nie pustą tablicę. `wpdb::get_results()` na
+	 * błędzie zwraca pustą tablicę i zostawia powód wyłącznie w `last_error`, więc
+	 * bez tego rozróżnienia awaria bazy wygląda dokładnie tak samo jak „takiej
+	 * firmy nie ma" — a to jedyna odpowiedź, której po nieudanym zapytaniu zgadywać
+	 * nie wolno: na niej stoi dedup Działu 7.
+	 *
 	 * @param string $nip     NIP firmy.
 	 * @param string $country Kod kraju ISO 3166-1 alpha-2 (np. 'PL').
-	 * @return array Lista wierszy (ARRAY_A); pusta, gdy brak.
+	 * @return array|null Lista wierszy (ARRAY_A); pusta, gdy brak; null, gdy odczyt się nie udał.
 	 */
 	public static function get_leads_by_nip( $nip, $country ) {
 		global $wpdb;
 		$table = self::leads_table();
 
+		// Zerowane PRZED zapytaniem, żeby po nim czytać błąd tego zapytania, a nie
+		// ślad po poprzednim (realny wpdb robi to sam w query(); atrapa z harnessu
+		// procesu — nie, a od tej wartości zależy dalej `leads_checked`).
+		$wpdb->last_error = '';
+
 		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			$wpdb->prepare( "SELECT * FROM $table WHERE nip = %s AND country = %s AND deleted_at IS NULL", $nip, $country ),
 			ARRAY_A
 		);
+
+		if ( '' !== (string) $wpdb->last_error ) {
+			return null;
+		}
 
 		return is_array( $rows ) ? $rows : array();
 	}

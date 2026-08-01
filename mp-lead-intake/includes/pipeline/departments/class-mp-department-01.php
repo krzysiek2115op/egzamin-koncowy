@@ -50,9 +50,25 @@ class MP_D1_Agent_Fetch_Leads extends MP_Abstract_Agent {
 		if ( ! preg_match( '/^[A-Z]{2}$/', $country ) ) {
 			$country = 'PL';
 		}
-		$leads = ( '' === $nip ) ? array() : MP_Lead_Intake_DB::get_leads_by_nip( $nip, $country );
+		$rows = ( '' === $nip ) ? null : MP_Lead_Intake_DB::get_leads_by_nip( $nip, $country );
 
-		return MP_Result::ok( array( 'leads' => $leads ) );
+		/*
+		 * `leads_checked` mówi, że zapytanie SIĘ ODBYŁO i SIĘ UDAŁO — czym innym
+		 * niż „lista jest pusta". Bez tego znacznika Dział 7 rozstrzygał unikalność
+		 * firmy po samej pustce w kopercie, więc brak NIP-u (nie ma czego szukać)
+		 * i awaria odczytu (nie wiadomo, czy jest czego szukać) wyglądały tak samo
+		 * jak potwierdzone „takiej firmy nie ma".
+		 *
+		 * `leads` zostaje tablicą zawsze, bo tego wymagają K1.1 i QA1 — brak
+		 * odpowiedzi z bazy nie ma prawa zmieniać KSZTAŁTU koperty, tylko jej
+		 * wiarygodność.
+		 */
+		return MP_Result::ok(
+			array(
+				'leads'         => is_array( $rows ) ? $rows : array(),
+				'leads_checked' => is_array( $rows ),
+			)
+		);
 	}
 }
 
