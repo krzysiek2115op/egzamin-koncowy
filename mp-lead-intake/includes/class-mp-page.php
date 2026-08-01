@@ -249,9 +249,17 @@ class MP_Lead_Intake_Page {
 		$blad_strony = (string) get_option( self::OPTION_PAGE_ERROR, '' );
 
 		if ( '' !== $blad_strony ) {
+			/*
+			 * Krótki kod MUSI się tu pokazać. Wcześniej zdanie kończyło się dwukropkiem
+			 * („wstawiając na niej krótki kod:"), a w bloku <code> stała treść błędu
+			 * WordPressa — człowiek dostawał więc obietnicę kodu do przeklejenia,
+			 * a w miejscu tego kodu komunikat awarii. Jedyna rzecz, którą miał zrobić
+			 * ręcznie, była jedyną, której nie dostał.
+			 */
 			printf(
-				'<div class="notice notice-error"><p><strong>MP Lead Intake:</strong> %s</p><p>%s <code>%s</code></p></div>',
+				'<div class="notice notice-error"><p><strong>MP Lead Intake:</strong> %s <code>%s</code></p><p>%s <code>%s</code></p></div>',
 				esc_html__( 'Strona z formularzem zapytania ofertowego NIE POWSTAŁA podczas aktywacji, więc klienci nie mają gdzie go wypełnić. Wyłącz i włącz wtyczkę ponownie albo utwórz stronę ręcznie, wstawiając na niej krótki kod:', 'mp-lead-intake' ),
+				esc_html( '[' . MP_Lead_Intake_Form::SHORTCODE . ']' ),
 				esc_html__( 'Powód zgłoszony przez WordPress:', 'mp-lead-intake' ),
 				esc_html( $blad_strony )
 			);
@@ -295,7 +303,16 @@ class MP_Lead_Intake_Page {
 		$reason = (string) get_option( self::OPTION_MENU_REASON, self::MENU_NO_LOCATIONS );
 
 		if ( self::MENU_NO_ASSIGNED === $reason ) {
-			return __( 'Twój motyw ma lokalizacje menu, ale żadna nie ma PRZYPISANEGO menu — przypisz je w Wygląd → Menu, a link do formularza dołoży się sam. Tymczasem wtyczka spróbowała dołożyć go do wykrytego menu strony; sprawdź, czy się pojawił, a jeśli nie, dodaj ręcznie link do:', 'mp-lead-intake' );
+			/*
+			 * Bez zdania o „spróbowała dołożyć". W tej gałęzi żadna próba się NIE
+			 * odbyła: pętla po lokalizacjach robi `continue` zanim dojdzie do
+			 * wp_update_nav_menu_item(), więc ten powód powstaje właśnie dlatego,
+			 * że nie było gdzie wstawiać. Zdanie zostało tu przeklejone z gałęzi
+			 * „motyw nie rejestruje menu", gdzie fallback po elemencie <nav>
+			 * naprawdę działa — i kazało człowiekowi szukać na stronie linku,
+			 * którego nikt nie próbował dodać.
+			 */
+			return __( 'Twój motyw ma lokalizacje menu, ale żadna nie ma PRZYPISANEGO menu — nie było więc gdzie wstawić linku. Przypisz menu w Wygląd → Menu, a link do formularza dołoży się sam przy następnej aktywacji. Możesz też dodać ręcznie link do:', 'mp-lead-intake' );
 		}
 
 		if ( self::MENU_INSERT_FAILED === $reason ) {

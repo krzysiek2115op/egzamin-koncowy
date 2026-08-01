@@ -113,6 +113,33 @@ class MP_SW_D7_Notifier {
 	 * @param string $text Tekst po podstawieniu.
 	 * @return string[]
 	 */
+	/**
+	 * Znaczniki SZABLONU, dla ktorych nie ma zmiennej — czyli te, ktore zostana
+	 * w tresci nietkniete.
+	 *
+	 * Rozstrzygamy PRZED podstawieniem, bo tylko wtedy da sie odroznic znacznik od
+	 * klamer, ktore przyszly jako WARTOSC zmiennej. Po podstawieniu jedno i drugie
+	 * wyglada tak samo, a znaczy co innego.
+	 *
+	 * @param string $template Szablon (przed podstawieniem).
+	 * @param array  $vars     Zmienne.
+	 * @return array Lista nazw znacznikow bez pokrycia.
+	 */
+	public static function unresolved_in_template( $template, array $vars ) {
+		$found = array();
+
+		if ( preg_match_all( self::MARKER, (string) $template, $matches ) ) {
+			foreach ( $matches[1] as $nazwa ) {
+				$klucz = strtolower( $nazwa );
+				if ( ! array_key_exists( $klucz, $vars ) ) {
+					$found[] = $nazwa;
+				}
+			}
+		}
+
+		return array_values( array_unique( $found ) );
+	}
+
 	public static function unresolved_markers( $text ) {
 		$found = array();
 
@@ -580,6 +607,21 @@ class MP_SW_D7_Agent_Content extends MP_SW_Abstract_Agent {
 				'header_attempt'   => MP_SW_Mailer::has_injection( $subject ) || MP_SW_Mailer::has_injection( $recipient['name'] ),
 				'link'             => (string) $vars['link'],
 				'body'             => MP_SW_D7_Notifier::render( $tpl['body'], $vars ),
+
+				/*
+				 * Nierozwiązane znaczniki liczone z SZABLONU, nie z gotowej treści.
+				 * Skanowanie wyniku myliło dwie różne rzeczy: znacznik, którego nikt
+				 * nie podstawił, i klamry, które przyszły jako WARTOŚĆ zmiennej —
+				 * np. nazwa firmy albo tytuł oferty zawierające „{{…}}". Taka
+				 * wiadomość była odrzucana przez Krytyka 7.2, czyli przejście statusu
+				 * nie dochodziło do skutku z powodu danych, które z szablonem nie
+				 * miały nic wspólnego. Tutaj znamy jedno i drugie naraz — szablon
+				 * i zmienne — więc odpowiedź jest jednoznaczna.
+				 */
+				'unresolved'       => array_merge(
+					MP_SW_D7_Notifier::unresolved_in_template( $tpl['subject'], $vars ),
+					MP_SW_D7_Notifier::unresolved_in_template( $tpl['body'], $vars )
+				),
 				'reason'           => (string) $recipient['reason'],
 			);
 		}
@@ -691,10 +733,20 @@ class MP_SW_D7_Critic_Empty_Fields extends MP_SW_Abstract_Critic {
 		}
 
 		foreach ( $messages as $message ) {
-			$unresolved = array_merge(
-				MP_SW_D7_Notifier::unresolved_markers( $message['subject'] ),
-				MP_SW_D7_Notifier::unresolved_markers( $message['body'] )
-			);
+			/*
+			 * Lista pochodzi z Agenta 7.2, który liczy ją na SZABLONIE — jedyne
+			 * miejsce, gdzie widać naraz szablon i zmienne. Skanowanie gotowej treści
+			 * (tak było wcześniej) uznawało za nierozwiązany znacznik także klamry,
+			 * które przyszły jako WARTOŚĆ zmiennej, więc nazwa firmy z „{{" blokowała
+			 * przejście statusu. Wiadomość bez tego klucza pochodzi spoza agenta —
+			 * wtedy zostaje stary, ostrożniejszy odczyt z treści.
+			 */
+			$unresolved = array_key_exists( 'unresolved', $message )
+				? (array) $message['unresolved']
+				: array_merge(
+					MP_SW_D7_Notifier::unresolved_markers( $message['subject'] ),
+					MP_SW_D7_Notifier::unresolved_markers( $message['body'] )
+				);
 
 			if ( ! empty( $unresolved ) ) {
 				// Wiadomość z widocznym „{{offer_number}}" jest gorsza niż jej brak:

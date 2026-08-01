@@ -229,6 +229,46 @@ zs_ok(
 	'wynik=' . $podstepny
 );
 
+$GLOBALS['mp_zs']['lines'][] = '';
+$GLOBALS['mp_zs']['lines'][] = '=== Y. klamry W WARTOSCI zmiennej to nie jest nierozwiazany znacznik ===';
+
+/*
+ * `unresolved_markers()` przegladalo tresc JUZ PODSTAWIONA, wiec nie umialo
+ * odroznic dwoch roznych rzeczy: znacznika, ktorego nikt nie podstawil, od klamer,
+ * ktore przyszly jako WARTOSC zmiennej. Nazwa firmy albo tytul oferty z ciagiem
+ * „{{cos}}" wygladaly wiec jak bledny szablon — Krytyk 7.2 odrzucal cala koperte
+ * i przejscie statusu nie dochodzilo do skutku przez dane, ktore z szablonem nie
+ * mialy nic wspolnego. Rozstrzygac trzeba PRZED podstawieniem.
+ */
+$zs_vars = array(
+	'client_name'  => 'Firma {{nawiasowa}} sp. z o.o.',
+	'offer_number' => 'OF/2026/07',
+);
+
+zs_ok(
+	array() === MP_SW_D7_Notifier::unresolved_in_template( 'Oferta {{offer_number}} dla {{client_name}}', $zs_vars ),
+	'Y1: szablon z kompletem zmiennych nie ma nierozwiazanych znacznikow, choc WARTOSC zawiera klamry'
+);
+
+$zs_tresc = MP_SW_D7_Notifier::render( 'Oferta {{offer_number}} dla {{client_name}}', $zs_vars );
+
+zs_ok(
+	array() !== MP_SW_D7_Notifier::unresolved_markers( $zs_tresc ),
+	'Y2: DOWOD, ze stary sposob dawal falszywy alarm — w gotowej tresci klamry nadal widac',
+	'tresc=' . $zs_tresc
+);
+
+zs_ok(
+	array( 'brakujacy' ) === MP_SW_D7_Notifier::unresolved_in_template( 'Numer {{brakujacy}}', $zs_vars ),
+	'Y3: KONTR-ASERCJA — prawdziwie brakujaca zmienna nadal jest zglaszana',
+	'wynik=' . implode( ',', MP_SW_D7_Notifier::unresolved_in_template( 'Numer {{brakujacy}}', $zs_vars ) )
+);
+
+zs_ok(
+	array() === MP_SW_D7_Notifier::unresolved_in_template( 'Bez znacznikow', $zs_vars ),
+	'Y4: KONTR-ASERCJA — tekst bez znacznikow nie zglasza niczego'
+);
+
 echo implode( "\n", $GLOBALS['mp_zs']['lines'] ) . "\n";
 echo sprintf( "\n----- PASS: %d / FAIL: %d -----\n", $GLOBALS['mp_zs']['pass'], $GLOBALS['mp_zs']['fail'] );
 echo ( 0 === $GLOBALS['mp_zs']['fail'] ) ? "VERDICT_ALL_PASS\n" : "VERDICT_HAS_FAILURES\n";

@@ -253,6 +253,74 @@ if ( $stara_strona > 0 ) {
 	update_option( MP_Lead_Intake_Page::OPTION, $stara_strona );
 }
 
+$GLOBALS['mp_oa']['lines'][] = '';
+$GLOBALS['mp_oa']['lines'][] = '=== Z. ostrzezenie daje to, co obiecuje, i nie obiecuje tego, czego nie zrobilo ===';
+
+/*
+ * DWA KOMUNIKATY, JEDNA WADA: mowily o czyms, czego nie bylo.
+ *
+ * 1. Ostrzezenie o nieudanej pod-stronie konczylo sie slowami „wstawiajac na niej
+ *    krotki kod:", po czym w bloku <code> stala tresc bledu WordPressa. Czlowiek
+ *    dostawal obietnice kodu do przeklejenia, a w miejscu tego kodu — komunikat
+ *    awarii. Jedyna rzecz, ktora mial zrobic recznie, byla jedyna, ktorej nie dostal.
+ *
+ * 2. Ostrzezenie MENU_NO_ASSIGNED twierdzilo, ze „wtyczka sprobowala dolozyc" link
+ *    do wykrytego menu. W tej galezi zadna proba sie nie odbyla: petla po
+ *    lokalizacjach robi `continue` ZANIM dojdzie do wp_update_nav_menu_item(),
+ *    a ten powod powstaje wlasnie dlatego, ze nie bylo gdzie wstawiac. Zdanie
+ *    zostalo przeklejone z galezi „motyw nie rejestruje menu", gdzie fallback
+ *    naprawde dziala — i kazalo szukac na stronie linku, ktorego nikt nie dodawal.
+ */
+oa_wyczysc();
+update_option( MP_Lead_Intake_Page::OPTION_PAGE_ERROR, 'Nie udalo sie utworzyc strony (blad testowy).' );
+$oa_html_strona = oa_ostrzezenia();
+oa_wyczysc();
+
+oa_ok(
+	false !== strpos( $oa_html_strona, '[' . MP_Lead_Intake_Form::SHORTCODE . ']' ),
+	'Z1: ostrzezenie o nieudanej pod-stronie POKAZUJE krotki kod, ktory kaze wstawic',
+	'html=' . wp_strip_all_tags( $oa_html_strona )
+);
+oa_ok(
+	false !== strpos( $oa_html_strona, 'Nie udalo sie utworzyc strony (blad testowy).' ),
+	'Z2: i nadal podaje powod zgloszony przez WordPressa — nic nie zniklo',
+	'html=' . wp_strip_all_tags( $oa_html_strona )
+);
+
+oa_wyczysc();
+
+/*
+ * Ostrzezenie o menu wypisuje sie tylko wtedy, gdy strona formularza ISTNIEJE —
+ * bez niej nie ma dokad linkowac. Zakladamy ja wiec na czas tego przypadku,
+ * inaczej sekcja mierzylaby brak strony, a nie tresc komunikatu.
+ */
+$oa_strona = wp_insert_post(
+	array(
+		'post_title'   => 'MP test ostrzezenia',
+		'post_content' => '[' . MP_Lead_Intake_Form::SHORTCODE . ']',
+		'post_status'  => 'publish',
+		'post_type'    => 'page',
+	)
+);
+update_option( MP_Lead_Intake_Page::OPTION, (int) $oa_strona );
+update_option( MP_Lead_Intake_Page::OPTION_MENU_OK, '0' );
+update_option( MP_Lead_Intake_Page::OPTION_MENU_REASON, MP_Lead_Intake_Page::MENU_NO_ASSIGNED );
+$oa_html_menu = oa_ostrzezenia();
+wp_delete_post( (int) $oa_strona, true );
+oa_wyczysc();
+
+oa_ok(
+	false === stripos( $oa_html_menu, 'sprobowala dolozyc' )
+		&& false === stripos( $oa_html_menu, 'spróbowała dołożyć' ),
+	'Z3: przy braku przypisanego menu nie twierdzimy, ze cokolwiek probowalismy dolozyc',
+	'html=' . wp_strip_all_tags( $oa_html_menu )
+);
+oa_ok(
+	'' !== trim( wp_strip_all_tags( $oa_html_menu ) ),
+	'Z4: KONTR-ASERCJA — ostrzezenie nadal jest wypisywane, nie zniklo razem z nieprawda',
+	'html=' . wp_strip_all_tags( $oa_html_menu )
+);
+
 echo implode( "\n", $GLOBALS['mp_oa']['lines'] ) . "\n";
 echo sprintf( "\n----- PASS: %d / FAIL: %d -----\n", $GLOBALS['mp_oa']['pass'], $GLOBALS['mp_oa']['fail'] );
 echo ( 0 === $GLOBALS['mp_oa']['fail'] ) ? "VERDICT_ALL_PASS\n" : "VERDICT_HAS_FAILURES\n";

@@ -41,6 +41,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 global $wpdb;
 
+$GLOBALS['mp_am_miejsca'] = array();
+
 $GLOBALS['mp_am'] = array(
 	'pass'  => 0,
 	'fail'  => 0,
@@ -110,6 +112,23 @@ function am_reset() {
 
 	delete_transient( 'mp_notify_exception' );
 	delete_transient( 'mp_notify_dzial-testowy' );
+
+	/*
+	 * Wyjatki BEZ ustalonego dzialu maja kubelek liczony z ich POCHODZENIA
+	 * (plik:linia), wiec nie da sie ich wyliczyc numerami — a kazda sekcja rzuca
+	 * z innej linii. Kasujemy wiec wszystko, co ma ten prefiks: inaczej test padal
+	 * z powodu swojego POPRZEDNIEGO przebiegu, bo transient zyje kwadrans.
+	 */
+	global $wpdb;
+	$klucze = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$wpdb->prepare(
+			"SELECT option_name FROM $wpdb->options WHERE option_name LIKE %s",
+			$wpdb->esc_like( '_transient_mp_notify_exception_' ) . '%'
+		)
+	);
+	foreach ( (array) $klucze as $klucz ) {
+		delete_transient( substr( $klucz, strlen( '_transient_' ) ) );
+	}
 	$GLOBALS['mp_am_mail'] = array();
 }
 
@@ -450,6 +469,57 @@ $GLOBALS['mp_am_powodzi'] = true;
 // Sprzatanie: przywrocenie adresu i wpisow testowych.
 update_option( 'admin_email', $stary_admin );
 $wpdb->query( $wpdb->prepare( "DELETE FROM {$log_t} WHERE id > %d AND action IN ('pipeline_exception','admin_alert_failed')", $max_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+am_reset();
+
+$GLOBALS['mp_am']['lines'][] = '';
+$GLOBALS['mp_am']['lines'][] = '=== H. dzial NIEUSTALONY to nie jest jeden dzial ===';
+
+/*
+ * `dept_num = 0` znaczy „nie wiemy, gdzie to bylo", a nie „dzial numer zero".
+ * Wszystkie takie wyjatki dzielily jednak jeden kubelek wyciszania, wiec awaria
+ * w jednym nieznanym miejscu uciszala na kwadrans awarie w innym, zupelnie
+ * niezaleznym. To ten sam blad, ktory P1-G15 naprawil dla dzialow 1-11, tylko
+ * schowany w wartosci domyslnej.
+ *
+ * Dwa wyjatki rzucamy z DWOCH ROZNYCH linii tego pliku — to ich pochodzenie ma
+ * je rozroznic.
+ */
+$am_pierwszy = new RuntimeException( 'awaria w nieznanym miejscu A' );
+$am_drugi    = new RuntimeException( 'awaria w nieznanym miejscu B' );
+
+$GLOBALS['mp_am_miejsca'] = array(
+	$am_pierwszy->getFile() . ':' . $am_pierwszy->getLine(),
+	$am_drugi->getFile() . ':' . $am_drugi->getLine(),
+);
+
+am_reset();
+
+$am_logger = new MP_Pipeline_Logger();
+$am_logger->log_exception( $am_pierwszy, am_kontekst(), 0 );
+$am_po_pierwszym = count( $GLOBALS['mp_am_mail'] );
+
+$am_logger->log_exception( $am_drugi, am_kontekst(), 0 );
+$am_po_drugim = count( $GLOBALS['mp_am_mail'] );
+
+am_ok(
+	1 === $am_po_pierwszym,
+	'H1: pierwszy wyjatek bez ustalonego dzialu wysyla alarm',
+	'wiadomosci=' . $am_po_pierwszym
+);
+am_ok(
+	2 === $am_po_drugim,
+	'H2: drugi, z INNEGO miejsca, tez wysyla — nie jest wyciszony przez pierwszy',
+	'wiadomosci=' . $am_po_drugim
+);
+
+$am_logger->log_exception( $am_pierwszy, am_kontekst(), 0 );
+
+am_ok(
+	2 === count( $GLOBALS['mp_am_mail'] ),
+	'H3: KONTR-ASERCJA — powtorka z TEGO SAMEGO miejsca nadal milczy',
+	'wiadomosci=' . count( $GLOBALS['mp_am_mail'] )
+);
+
 am_reset();
 
 echo implode( "\n", $GLOBALS['mp_am']['lines'] ) . "\n";

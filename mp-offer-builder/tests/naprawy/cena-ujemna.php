@@ -234,3 +234,39 @@ cu_ok(
 	'produkt z cena efektywna nizsza od regularnej przechodzi',
 	'kod=' . $wynik_promo->get_code()
 );
+
+$GLOBALS['mp_cu']['lines'][] = '';
+$GLOBALS['mp_cu']['lines'][] = '=== X. cennik BRUTTO: konwersja nie moze zgubic minusa ===';
+
+/*
+ * SONDA, nie zalozenie. Audyt zglosil, ze kontrola ceny ujemnej bada wartosci JUZ
+ * przekonwertowane brutto->netto, a komentarz obok obiecuje chronic przed surowymi
+ * danymi z katalogu. Pytanie brzmi wiec konkretnie: czy konwersja moze zamienic
+ * liczbe ujemna w cokolwiek innego niz ujemna. Zamiast rozumowac — sprawdzamy na
+ * WLACZONYM cenniku brutto, bo tylko wtedy ta galaz w ogole sie wykonuje.
+ *
+ * Wynik sondy rozstrzygnal ustalenie jako falszywy alarm, a sekcja zostaje jako
+ * straznik: gdyby konwersja kiedykolwiek zaczela zwracac 0 albo pusty ciag dla
+ * wartosci ujemnej, ujemna pozycja weszlaby na dokument handlowy bez slowa.
+ */
+$cu_stare_ceny = get_option( 'woocommerce_prices_include_tax' );
+update_option( 'woocommerce_prices_include_tax', 'yes' );
+
+$cu_id_brutto = cu_produkt( 'MP test P2 — cennik brutto, cena ujemna', '-123', '-123' );
+$cu_wynik     = cu_ceny( $cu_id_brutto );
+
+$cu_id_ok = cu_produkt( 'MP test P2 — cennik brutto, cena dodatnia', '123', '123' );
+$cu_wynik_ok = cu_ceny( $cu_id_ok );
+
+update_option( 'woocommerce_prices_include_tax', false === $cu_stare_ceny ? 'no' : $cu_stare_ceny );
+
+cu_ok(
+	! $cu_wynik->is_ok(),
+	'X1: przy cenniku brutto cena ujemna nadal jest zatrzymana — minus przezywa konwersje',
+	'kod=' . $cu_wynik->get_code()
+);
+cu_ok(
+	$cu_wynik_ok->is_ok(),
+	'X2: KONTR-ASERCJA — dodatnia cena przy cenniku brutto nadal przechodzi',
+	'kod=' . $cu_wynik_ok->get_code()
+);

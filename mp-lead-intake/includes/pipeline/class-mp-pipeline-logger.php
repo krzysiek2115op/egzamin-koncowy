@@ -146,7 +146,19 @@ class MP_Pipeline_Logger {
 		 * górną granicą jest jedna wiadomość na dział na kwadrans. Ścieżka błędu
 		 * działu (`notify_admin()`) liczy się tak samo od zawsze.
 		 */
-		$throttle_key = 'mp_notify_exception_' . (int) $dept_num;
+
+		/*
+		 * Dział 0 znaczy „miejsce NIEUSTALONE", a nie „miejsce numer zero". Wszystkie
+		 * takie wyjątki dzieliły więc jeden kubełek, czyli dokładnie ten sam błąd
+		 * w mniejszej skali: awaria w jednym nieznanym miejscu uciszała na kwadrans
+		 * awarię w innym, równie nieznanym. Gdy działu nie znamy, bierzemy za
+		 * tożsamość miejsca pochodzenie wyjątku — plik i linię, w których powstał.
+		 */
+		$miejsce = (int) $dept_num > 0
+			? (string) (int) $dept_num
+			: 'x' . substr( md5( $e->getFile() . ':' . $e->getLine() ), 0, 8 );
+
+		$throttle_key = 'mp_notify_exception_' . $miejsce;
 		if ( get_transient( $throttle_key ) ) {
 			return;
 		}

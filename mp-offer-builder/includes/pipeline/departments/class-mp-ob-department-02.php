@@ -45,7 +45,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class MP_OB_D2_Agent_Products extends MP_OB_Abstract_Agent {
 
 	public function __construct() {
-		parent::__construct( '2.1', 'Agent 2.1 — produkty', 'Produkty i warianty jedną partią przez oficjalne API — tylko opublikowane i możliwe do sprzedaży' );
+		parent::__construct( '2.1', 'Agent 2.1 — produkty', 'Produkty i warianty jedną partią przez oficjalne API — filtruje po statusie publikacji, a możliwość sprzedaży zapisuje do snapshotu (egzekwuje ją Dział 3)' );
 	}
 
 	/**
@@ -181,6 +181,27 @@ class MP_OB_D2_Agent_Prices extends MP_OB_Abstract_Agent {
 			$on_sale   = $product->is_on_sale();
 			$active    = $product->get_price();
 			$effective = ( '' !== (string) $active && is_numeric( $active ) ) ? (float) $active : (float) $regular;
+
+			/*
+			 * Cena ujemna odrzucana NA SUROWYCH danych z katalogu, PRZED konwersją.
+			 * Wcześniej sprawdzenie stało dopiero za nią i przy cenniku brutto
+			 * przepuszczało `-123`: `wc_get_price_excluding_tax()` nie jest zwykłym
+			 * dzieleniem przez stawkę i dla wartości ujemnej nie oddaje wartości
+			 * ujemnej, więc warunek `< 0` nie miał już czego złapać. Komentarz niżej
+			 * obiecywał ochronę właśnie przed surową zawartością `_regular_price`,
+			 * a badał liczbę, która nie była już tą liczbą.
+			 *
+			 * Ta gałąź wykonuje się tylko przy `prices_include_tax = yes`, czyli
+			 * w sklepach z cennikiem brutto — dlatego luka przetrwała testy
+			 * prowadzone na cenniku netto.
+			 */
+			if ( (float) $regular < 0.0 || $effective < 0.0 ) {
+				$errors[] = array(
+					'field'   => (float) $regular < 0.0 ? "items.$i.regular_price" : "items.$i.price",
+					'message' => 'Cena pozycji jest ujemna — nie można zbudować oferty.',
+				);
+				continue;
+			}
 
 			// Sprowadzenie do NETTO na samej granicy odczytu — dalej caly pipeline
 			// pracuje juz na jednej, jednoznacznej jednostce.
