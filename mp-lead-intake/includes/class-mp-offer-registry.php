@@ -71,7 +71,7 @@ class MP_Lead_Intake_Offer_Registry {
 					'lead_id'     => isset( $payload['lead_id'] ) ? absint( $payload['lead_id'] ) : null,
 					'action'      => 'offer_registry_exception',
 					'description' => sprintf( 'Wyjątek przy zapisie wskaźnika oferty %d: %s', (int) $offer_id, $e->getMessage() ),
-					'created_at'  => current_time( 'mysql' ),
+					'created_at'  => current_time( 'mysql', true ),
 				)
 			);
 
@@ -117,7 +117,8 @@ class MP_Lead_Intake_Offer_Registry {
 		}
 
 		$offers = MP_Lead_Intake_DB::offers_table();
-		$now    = current_time( 'mysql' );
+		// GMT — kolumny datetime w BD-3 są w GMT (patrz class-mp-db.php).
+		$now = current_time( 'mysql', true );
 
 		$dane = array(
 			'lead_id'      => $lead_id,

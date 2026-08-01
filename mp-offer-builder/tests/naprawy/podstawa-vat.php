@@ -190,6 +190,136 @@ pv_ok(
 	'kod=' . $odwrotne->get_code() . ' vat=' . var_export( pv_pole( $odwrotne, 'vat_grosze' ), true )
 );
 
+$GLOBALS['mp_pv']['lines'][] = '';
+$GLOBALS['mp_pv']['lines'][] = '=== F. jedna podstawa obowiazuje KAZDY mechanizm, nie tylko krajowy ===';
+
+/*
+ * Kontrola zgodnosci podstaw siedziala WYLACZNIE w galezi 'domestic'. Dla
+ * odwrotnego obciazenia i poza zakresem VAT bylo 0% z mocy prawa, wiec problem
+ * „VAT policzony od innej kwoty" faktycznie nie moze tam wystapic — i to jest
+ * powod, dla ktorego ustalenie audytu NIE zostalo przyjete w calosci.
+ *
+ * Zostaje jednak druga polowa szkody, wspolna dla wszystkich mechanizmow: gdy
+ * pozycje SA, ale nie sumuja sie do podstawy, dokument pokazuje liste pozycji,
+ * ktora nie dodaje sie do wlasnego netto. Dzial 10 zapisuje pozycje po jednej,
+ * wiec rozjazd trafia wprost na papier dla klienta.
+ *
+ * ZAWEZENIE, ktore to godzi: kontrola obejmuje kazdy mechanizm, ale tylko gdy
+ * pozycje sa NIEPUSTE. Oferta bez pozycji zostaje dopuszczona tak jak dotad —
+ * to osobna, swiadoma decyzja, ktorej pilnuje asercja tuz powyzej.
+ */
+$odwrotne_rozjazd = pv_licz(
+	array(
+		'tax_mechanism'   => 'reverse_charge',
+		'subtotal_grosze' => 100000,
+		'discount_total'  => 0,
+		'lines'           => array(
+			array( 'line_grosze' => 50000 ),
+		),
+		'products'        => array(
+			array( 'tax_class' => '' ),
+		),
+	)
+);
+
+pv_ok(
+	! $odwrotne_rozjazd->is_ok() && 'tax_base_mismatch' === $odwrotne_rozjazd->get_code(),
+	'F1: odwrotne obciazenie z pozycjami, ktore nie sumuja sie do podstawy, jest zatrzymane',
+	'kod=' . $odwrotne_rozjazd->get_code()
+);
+
+$poza_rozjazd = pv_licz(
+	array(
+		'tax_mechanism'   => 'out_of_scope',
+		'subtotal_grosze' => 100000,
+		'discount_total'  => 0,
+		'lines'           => array(
+			array( 'line_grosze' => 120000 ),
+		),
+		'products'        => array(
+			array( 'tax_class' => '' ),
+		),
+	)
+);
+
+pv_ok(
+	! $poza_rozjazd->is_ok() && 'tax_base_mismatch' === $poza_rozjazd->get_code(),
+	'F2: poza zakresem VAT tak samo — rozjazd w gore tez jest rozjazdem',
+	'kod=' . $poza_rozjazd->get_code()
+);
+
+$odwrotne_zgodne = pv_licz(
+	array(
+		'tax_mechanism'   => 'reverse_charge',
+		'subtotal_grosze' => 100000,
+		'discount_total'  => 0,
+		'lines'           => array(
+			array( 'line_grosze' => 100000 ),
+		),
+		'products'        => array(
+			array( 'tax_class' => '' ),
+		),
+	)
+);
+
+pv_ok(
+	$odwrotne_zgodne->is_ok() && 0 === pv_pole( $odwrotne_zgodne, 'vat_grosze' ),
+	'F3: KONTR-ASERCJA — zgodne pozycje przy odwrotnym obciazeniu nadal przechodza, nadal 0%',
+	'kod=' . $odwrotne_zgodne->get_code()
+);
+
+pv_ok(
+	$odwrotne->is_ok(),
+	'F4: KONTR-ASERCJA — oferta BEZ pozycji nadal przechodzi, decyzja z tego pliku zostaje',
+	'kod=' . $odwrotne->get_code()
+);
+
+$GLOBALS['mp_pv']['lines'][] = '';
+$GLOBALS['mp_pv']['lines'][] = '=== G. pozycja bez odpowiednika w snapshocie nie znika po cichu ===';
+
+/*
+ * `$products[ $i ]` bylo czytane bez isset() dokladnie w linii poprzedzajacej te,
+ * ktora ten sam odczyt guardem juz oslania. Brak wpisu dawal wiec ostrzezenie PHP
+ * i klase podatkowa '' — czyli pozycja wpadala do kubelka stawki podstawowej,
+ * zamiast zatrzymac oferte. Test mierzy to ostrzezeniem, bo to jedyny slad, jaki
+ * ten blad po sobie zostawia.
+ */
+$GLOBALS['mp_pv_ostrzezenia'] = array();
+set_error_handler(
+	static function ( $nr, $tekst ) {
+		$GLOBALS['mp_pv_ostrzezenia'][] = $tekst;
+
+		return true;
+	},
+	E_WARNING | E_NOTICE
+);
+
+$bez_snapshotu = pv_licz(
+	array(
+		'tax_mechanism'   => 'domestic',
+		'subtotal_grosze' => 100000,
+		'discount_total'  => 0,
+		'lines'           => array(
+			array( 'line_grosze' => 100000 ),
+		),
+		'products'        => array(),
+	)
+);
+
+restore_error_handler();
+
+pv_ok(
+	array() === $GLOBALS['mp_pv_ostrzezenia'],
+	'G1: brak pozycji w snapshocie nie wywoluje ostrzezenia PHP o nieistniejacym kluczu',
+	'ostrzezenia=' . implode( ' | ', $GLOBALS['mp_pv_ostrzezenia'] )
+);
+
+pv_ok(
+	! $bez_snapshotu->is_ok(),
+	'G2: i nie konczy sie po cichu sukcesem z klasa podatkowa wzieta z powietrza',
+	'kod=' . $bez_snapshotu->get_code() . ' vat=' . var_export( pv_pole( $bez_snapshotu, 'vat_grosze' ), true )
+);
+
 echo implode( "\n", $GLOBALS['mp_pv']['lines'] ) . "\n";
 echo sprintf( "\n----- PASS: %d / FAIL: %d -----\n", $GLOBALS['mp_pv']['pass'], $GLOBALS['mp_pv']['fail'] );
 echo ( 0 === $GLOBALS['mp_pv']['fail'] ) ? "VERDICT_ALL_PASS\n" : "VERDICT_HAS_FAILURES\n";

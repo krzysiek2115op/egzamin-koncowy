@@ -286,7 +286,7 @@ class MP_D7_Agent_Create extends MP_Abstract_Agent {
 			array(
 				'lead_id'          => $lead_id,
 				'status'           => 'new',
-				'created_at'       => current_time( 'mysql' ),
+				'created_at'       => current_time( 'mysql', true ),
 				'lead_reactivated' => ( $reactivate_id > 0 ),
 			)
 		);

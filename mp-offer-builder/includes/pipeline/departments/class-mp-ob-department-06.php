@@ -248,6 +248,19 @@ class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 			foreach ( $lines as $i => $line ) {
 				// S3-02: produkt ze statusem 'none' (zwolniony z VAT) trafia do
 				// odrębnej klasy 0% — NIE dostaje stawki wg tax_class.
+				// Pozycja bez odpowiednika w snapshocie to nie jest pozycja „bez klasy" —
+				// to znak, że Dział 2 i Dział 4 rozjechały się co do zbioru pozycji.
+				// Bez tego guardu PHP oddawał ostrzeżenie o nieistniejącym kluczu, a klasa
+				// podatkowa wychodziła '' — czyli pozycja wpadała do stawki podstawowej.
+				// Następna linia guard już miała; ta go nie miała, choć czyta to samo.
+				if ( ! isset( $products[ $i ] ) ) {
+					return MP_OB_Result::fail(
+						'Pozycja bez odpowiednika w snapshocie produktów — nie zgadujemy jej klasy podatkowej.',
+						array( 'line_index' => $i ),
+						'line_without_product'
+					);
+				}
+
 				$is_exempt = MP_OB_Products::zwolniona_z_vat( (array) $products[ $i ] );
 				$tc        = $is_exempt ? self::TAX_NONE : ( isset( $products[ $i ]['tax_class'] ) ? (string) $products[ $i ]['tax_class'] : '' );
 				$lg        = isset( $line['line_grosze'] ) ? (int) $line['line_grosze'] : 0;
@@ -350,6 +363,39 @@ class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 			$rate         = ( 1 === count( $class_subtotal ) && $line_tax_rates ) ? (float) reset( $line_tax_rates ) : null;
 			$gross_grosze = $net_grosze + $vat_grosze;
 		} else {
+			/*
+			 * Tu VAT wynosi 0 z mocy prawa, więc rozjazd podstaw NIE MOŻE dać złego
+			 * podatku — i dlatego kontrola z gałęzi krajowej nie została tu przeniesiona
+			 * w całości. Zostaje jednak druga połowa szkody, wspólna dla każdego
+			 * mechanizmu: gdy pozycje SĄ, ale nie sumują się do podstawy, dokument
+			 * pokazuje listę pozycji, która nie dodaje się do własnego netto. Dział 10
+			 * zapisuje pozycje po jednej, więc rozjazd trafia wprost na papier klienta.
+			 *
+			 * Warunek jest zawężony do pozycji NIEPUSTYCH, bo oferta bez pozycji przy
+			 * odwrotnym obciążeniu jest dopuszczona świadomie (patrz sekcja F testu
+			 * podstawa-vat.php) — inaczej niż w gałęzi krajowej, gdzie puste pozycje
+			 * przy niezerowej podstawie są właśnie tym błędem, którego szuka P2-G10.
+			 */
+			$pozycje = is_array( $context->get( 'lines' ) ) ? $context->get( 'lines' ) : array();
+			if ( $pozycje ) {
+				$suma_pozycji = 0;
+				foreach ( $pozycje as $pozycja ) {
+					$suma_pozycji += isset( $pozycja['line_grosze'] ) ? (int) $pozycja['line_grosze'] : 0;
+				}
+
+				$podstawa = (int) $context->get( 'subtotal_grosze', 0 );
+				if ( $suma_pozycji !== $podstawa ) {
+					return MP_OB_Result::fail(
+						'Podstawa niezgodna z sumą pozycji — dokument pokazywałby pozycje, które nie dodają się do netto.',
+						array(
+							'subtotal_grosze' => $podstawa,
+							'lines_grosze'    => $suma_pozycji,
+						),
+						'tax_base_mismatch'
+					);
+				}
+			}
+
 			// reverse_charge / out_of_scope — zawsze 0%, z RÓŻNYCH podstaw prawnych
 			// (patrz tax_basis z Agenta 6.1), ale ten sam wynik liczbowy. line_tax_rates
 			// zostają puste -> Dział 10 zapisze 0.00 dla każdej pozycji (fallback).

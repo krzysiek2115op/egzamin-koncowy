@@ -274,10 +274,23 @@ bl_ok(
 	is_string( $zrodlo_d3 ) && false === strpos( $zrodlo_d3, "gmdate( 'Y-m-d' )" ),
 	'data nie jest juz liczona w UTC'
 );
+/*
+ * ZMIANA REGULY (P1-Z2). Ta asercja wymagala wczesniej `current_time( 'Y-m-d' )`,
+ * czyli daty ze strefy WITRYNY. Bylo to lepsze niz UTC, ale nadal zalezne od
+ * ustawienia w panelu — a na DOMYSLNEJ instalacji WordPressa (pusty
+ * timezone_string, gmt_offset 0) `current_time` daje dokladnie to samo co
+ * `gmdate`, wiec deklarowana naprawa nie dzialala tam wcale. Biala lista jest
+ * rejestrem POLSKIM, wiec doba ma wynikac z prawa, nie z konfiguracji witryny.
+ */
 bl_ok(
-	is_string( $zrodlo_d3 ) && 2 === substr_count( $zrodlo_d3, "current_time( 'Y-m-d' )" ),
-	'obie daty — pytania do API i klucza cache — w strefie witryny',
-	'wystapien: ' . ( is_string( $zrodlo_d3 ) ? substr_count( $zrodlo_d3, "current_time( 'Y-m-d' )" ) : 0 )
+	is_string( $zrodlo_d3 ) && 0 === substr_count( $zrodlo_d3, "current_time( 'Y-m-d' )" ),
+	'data nie jest juz brana ze strefy witryny',
+	'wystapien: ' . ( is_string( $zrodlo_d3 ) ? substr_count( $zrodlo_d3, "current_time( 'Y-m-d' )" ) : -1 )
+);
+bl_ok(
+	is_string( $zrodlo_d3 ) && 2 === substr_count( $zrodlo_d3, 'self::polish_date()' ),
+	'obie daty — pytania do API i klucza cache — licza dobe POLSKA',
+	'wystapien: ' . ( is_string( $zrodlo_d3 ) ? substr_count( $zrodlo_d3, 'self::polish_date()' ) : 0 )
 );
 
 /*

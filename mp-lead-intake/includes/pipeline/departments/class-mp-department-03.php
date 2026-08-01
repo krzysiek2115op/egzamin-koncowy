@@ -349,20 +349,39 @@ class MP_D3_Agent_Company_Status extends MP_Abstract_Agent {
 	}
 
 	/**
+	 * Doba POLSKA — ta, której dotyczy rejestr, niezależnie od ustawień witryny.
+	 *
+	 * Biała lista jest rejestrem polskiego Ministerstwa Finansów i zwraca status NA
+	 * DANY DZIEŃ, więc doba wynika z prawa, a nie z tego, jak administrator ustawił
+	 * strefę czasową w panelu. Poprzednia wersja liczyła ją przez `current_time()`,
+	 * czyli właśnie z ustawienia witryny. Na DOMYŚLNEJ instalacji WordPressa
+	 * (`timezone_string` pusty, `gmt_offset` 0) dawało to dokładnie to samo co
+	 * `gmdate()` — deklarowana w komentarzu naprawa nie działała wtedy wcale.
+	 * Między północą a 1:00/2:00 czasu polskiego pytanie szło o poprzednią dobę,
+	 * a odpowiedź utrwalała się w transiencie na złą dobę razem ze znacznikiem
+	 * `company_status_checked = true`, więc nikt do niej nie wracał.
+	 *
+	 * @param int|null $timestamp Znacznik czasu; null = teraz.
+	 * @return string Data 'Y-m-d' w strefie Europe/Warsaw.
+	 */
+	public static function polish_date( $timestamp = null ) {
+		$ts = is_null( $timestamp ) ? time() : (int) $timestamp;
+
+		$chwila = new DateTimeImmutable( '@' . $ts );
+
+		return $chwila->setTimezone( new DateTimeZone( 'Europe/Warsaw' ) )->format( 'Y-m-d' );
+	}
+
+	/**
 	 * Klucz cache (transient) statusu firmy z Białej listy dla NIP na dany dzień.
 	 *
 	 * @param string $nip  NIP (same cyfry).
-	 * @param string $date Data 'Y-m-d' (domyślnie dziś, UTC).
+	 * @param string $date Data 'Y-m-d' (domyślnie dziś wg doby polskiej).
 	 * @return string
 	 */
 	public static function wl_cache_key( $nip, $date = '' ) {
 		if ( '' === $date ) {
-			// Data w strefie WITRYNY, nie w UTC. Biala lista zwraca status NA DANY DZIEN,
-			// a w polskiej strefie (UTC+1/UTC+2) gmdate() miedzy polnoca a 1:00/2:00
-			// wskazuje jeszcze dzien poprzedni. Firma zarejestrowana jako podatnik VAT
-			// czynny od dzis dostawala wtedy status 'Niezarejestrowany' — stan na wczoraj —
-			// i taki wynik byl zapisywany jako sprawdzony, razem z kluczem cache na zla dobe.
-			$date = current_time( 'Y-m-d' );
+			$date = self::polish_date();
 		}
 		return 'mp_wl_' . $nip . '_' . $date;
 	}
@@ -401,7 +420,8 @@ class MP_D3_Agent_Company_Status extends MP_Abstract_Agent {
 
 		// Ta sama doba co w zapytaniu wyzej — inaczej klucz cache i pytanie do API
 		// dotyczylyby roznych dni.
-		$date      = current_time( 'Y-m-d' );
+		// Ta sama doba co w kluczu cache — polska, bo polski jest rejestr.
+		$date      = self::polish_date();
 		$cache_key = self::wl_cache_key( $nip, $date );
 		$cached    = get_transient( $cache_key );
 

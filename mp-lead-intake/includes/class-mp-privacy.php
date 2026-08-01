@@ -122,7 +122,7 @@ class MP_Lead_Intake_Privacy {
 				array(
 					'email'      => sprintf( self::PATTERN, $lead_id ),
 					'phone'      => '',
-					'updated_at' => current_time( 'mysql' ),
+					'updated_at' => current_time( 'mysql', true ),
 				),
 				array( 'id' => $lead_id )
 			);
@@ -141,7 +141,7 @@ class MP_Lead_Intake_Privacy {
 					'lead_id'     => $lead_id,
 					'action'      => 'lead_anonymized',
 					'description' => 'Dane kontaktowe usunięte na żądanie (RODO).',
-					'created_at'  => current_time( 'mysql' ),
+					'created_at'  => current_time( 'mysql', true ),
 				)
 			);
 
