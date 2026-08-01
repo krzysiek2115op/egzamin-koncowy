@@ -172,6 +172,50 @@ if ( '' === $katalog || ! is_dir( $katalog ) ) {
 	);
 }
 
+echo "\n== E. rejestr zapisany dwoma konwencjami — obie musza byc czytelne ==\n";
+
+/*
+ * Rejestr ma dwa pola, ktore wypelniane sa niejednolicie:
+ *
+ *   `plik`  — 82 wpisy bez numeru linii, 2 z numerem (`...php:497`),
+ *   `test`  — 80 wpisow wzgledem katalogu wtyczki, 4 z przedrostkiem wtyczki.
+ *
+ * Para 2.6 czytala tylko wieksza polowe. Numer linii nie wystepuje na liscie
+ * plikow commita, wiec wpis z `:497` NIE MIAL SZANS trafic — sprawdzenie bylo
+ * niewykonalne, a wynik zawsze brzmial „test-osobno". To gorsze niz brak
+ * sprawdzenia: wyglada jak ustalenie o produkcie, a jest ustaleniem o formacie
+ * zapisu. Przedrostek wtyczki w `test` dawal to samo z drugiej strony —
+ * `git log` uruchamiany w katalogu wtyczki nie widzi sciezki zaczynajacej sie
+ * od jej nazwy, wiec historia wychodzila pusta.
+ */
+$wynik = MP_AU_A26_Dowod_Naprawy::dopasuj_commit( $historia_p2k2, $zrodlo . ':497' );
+
+au_ok(
+	'test-z-naprawa' === $wynik['werdykt'],
+	'zrodlo z numerem linii trafia w ten sam commit co bez numeru'
+);
+
+$sciezka = MP_AU_A26_Dowod_Naprawy::sciezka_testu( 'mp-sales-workflow', 'mp-sales-workflow/tests/naprawy/x.php' );
+
+au_ok(
+	'tests/naprawy/x.php' === $sciezka,
+	'sciezka testu z przedrostkiem wtyczki sprowadza sie do sciezki wzgledem wtyczki'
+);
+
+$sciezka = MP_AU_A26_Dowod_Naprawy::sciezka_testu( 'mp-sales-workflow', 'tests/naprawy/x.php' );
+
+au_ok(
+	'tests/naprawy/x.php' === $sciezka,
+	'KONTR-ASERCJA: sciezka juz wzgledna zostaje nietknieta'
+);
+
+$wynik = MP_AU_A26_Dowod_Naprawy::dopasuj_commit( $historia_p2k2, 'includes/class-mp-czegos-takiego-nie-ma.php:1' );
+
+au_ok(
+	'test-osobno' === $wynik['werdykt'],
+	'KONTR-ASERCJA: obciecie numeru linii nie zamienia sie w dopasowywanie czegokolwiek'
+);
+
 echo "\n== PODSUMOWANIE ==\n";
 echo 'PASS: ' . $pass . '  FAIL: ' . $fail . "\n";
 echo ( 0 === $fail ) ? "WYNIK: PASS\n" : "WYNIK: FAIL\n";

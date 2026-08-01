@@ -446,9 +446,12 @@ final class MP_AU_A26_Dowod_Naprawy extends MP_AU_Agent {
 		$wyniki  = array();
 
 		foreach ( (array) ( $rejestr['bledy'] ?? array() ) as $blad ) {
-			$test    = trim( (string) preg_replace( '/\s*\(.*\)$/', '', (string) ( $blad['test'] ?? '' ) ) );
-			$zrodlo  = (string) ( $blad['plik'] ?? '' );
 			$wtyczka = (string) ( $blad['wtyczka'] ?? '' );
+			$test    = self::sciezka_testu(
+				$wtyczka,
+				trim( (string) preg_replace( '/\s*\(.*\)$/', '', (string) ( $blad['test'] ?? '' ) ) )
+			);
+			$zrodlo  = (string) ( $blad['plik'] ?? '' );
 			$katalog = $kontekst->workspace->katalog( $wtyczka );
 
 			if ( '' === $test || '' === $zrodlo || '' === $katalog ) {
@@ -501,17 +504,48 @@ final class MP_AU_A26_Dowod_Naprawy extends MP_AU_Agent {
 	}
 
 	/**
-	 * Szuka w historii pliku testu commita, ktory dotyka takze poprawianego zrodla.
+	 * Sprowadza sciezke testu z rejestru do postaci wzglednej wobec katalogu wtyczki.
+	 *
+	 * @param string $wtyczka Nazwa katalogu wtyczki.
+	 * @param string $test    Sciezka z pola `test` rejestru.
+	 * @return string
+	 */
+	public static function sciezka_testu( string $wtyczka, string $test ): string {
+		/*
+		 * `git log` idzie w katalogu WTYCZKI, wiec sciezka testu musi byc wzgledem
+		 * niego. Rejestr zapisuje ja dwojako — 80 wpisow jako `tests/naprawy/x.php`
+		 * i 4 jako `mp-sales-workflow/tests/naprawy/x.php`. Ta druga postac dawala
+		 * pusta historie, a w raporcie „Nie znaleziono commita dotykajacego pliku"
+		 * — zdanie o naszym niedopatrzeniu przebrane za ustalenie o projekcie.
+		 */
+		if ( '' !== $wtyczka && 0 === strpos( $test, $wtyczka . '/' ) ) {
+			return substr( $test, strlen( $wtyczka ) + 1 );
+		}
+
+		return $test;
+	}
+
+	/**
+	 * Werdykt dla jednego wpisu rejestru.
 	 *
 	 * Wydzielone z `zbierz()` swiadomie: to jedyny kawalek tej pary, ktory da sie
-	 * sprawdzic testem bez zywego repozytorium i bez rejestru. Dostaje gotowa
-	 * historie (od najnowszego commita) i oddaje werdykt razem z dowodem.
+	 * sprawdzic testem bez zywego repozytorium i bez rejestru.
 	 *
 	 * @param array  $historia Lista array( 'commit' => sha, 'pliki' => string[] ).
-	 * @param string $zrodlo   Sciezka poprawianego zrodla (fragment).
+	 * @param string $zrodlo   Sciezka poprawianego zrodla (fragment, numer linii dozwolony).
 	 * @return array array( 'commit', 'werdykt', 'dowod' )
 	 */
 	public static function dopasuj_commit( array $historia, string $zrodlo ): array {
+		/*
+		 * Rejestr wskazuje zrodlo raz jako `plik.php`, a raz jako `plik.php:497`.
+		 * Lista plikow commita numeru linii nie zawiera, wiec wpis w tej drugiej
+		 * postaci NIE MIAL SZANS trafic — sprawdzenie bylo niewykonalne i konczylo
+		 * sie zawsze werdyktem „test-osobno". Ustalenie mowiace niby o produkcie,
+		 * a w rzeczywistosci o formacie zapisu w rejestrze, jest gorsze niz brak
+		 * sprawdzenia: wyglada jak wynik.
+		 */
+		$zrodlo = (string) preg_replace( '/:\d+$/', '', $zrodlo );
+
 		if ( empty( $historia ) ) {
 			return array(
 				'commit'  => '',
