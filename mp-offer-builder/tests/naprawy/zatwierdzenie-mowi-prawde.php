@@ -204,13 +204,33 @@ $GLOBALS['mp_zm']['lines'][] = '=== C. komunikat sukcesu nie obiecuje cudzej pra
  * @return string
  */
 function zm_komunikat( $kod ) {
-	$_GET[ MP_Offer_Builder_Approval::NOTICE_ARG ] = $kod;
+	// Od P2-G17 wynik akcji nie jedzie w adresie, tylko siedzi w transiencie
+	// zwiazanym z uzytkownikiem — inaczej sam link z zakladki pokazywalby
+	// „Oferta zatwierdzona" bez zadnej operacji. Tresci komunikatow, ktorych
+	// pilnuje ten test, nie zmienily sie: zmienil sie sposob ich dostarczenia.
+	// Komunikat nalezy do konkretnego uzytkownika, wiec ktos musi byc zalogowany.
+	// Ten test nie loguje nikogo — bierzemy pierwszego administratora witryny.
+	$uzytkownik = get_current_user_id();
+
+	if ( $uzytkownik <= 0 ) {
+		$admini     = get_users(
+			array(
+				'role'   => 'administrator',
+				'number' => 1,
+				'fields' => 'ID',
+			)
+		);
+		$uzytkownik = empty( $admini ) ? 0 : (int) $admini[0];
+		wp_set_current_user( $uzytkownik );
+	}
+
+	MP_Offer_Builder_Approval::remember_notice( $kod, '', $uzytkownik );
 
 	ob_start();
 	MP_Offer_Builder_Approval::notice();
 	$html = (string) ob_get_clean();
 
-	unset( $_GET[ MP_Offer_Builder_Approval::NOTICE_ARG ] );
+	MP_Offer_Builder_Approval::forget_notice( $uzytkownik );
 
 	return $html;
 }

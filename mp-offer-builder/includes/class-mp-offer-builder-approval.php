@@ -40,8 +40,21 @@ class MP_Offer_Builder_Approval {
 	/** Nazwa akcji `admin_post_*` obsługującej przycisk z listy ofert. */
 	const ACTION = 'mp_ob_approve_offer';
 
-	/** Parametr komunikatu w adresie powrotnym. */
-	const NOTICE_ARG = 'mp_ob_approved';
+	/**
+	 * Prefiks transientu z wynikiem ostatniej akcji (doklejany identyfikator użytkownika).
+	 *
+	 * Komunikat jechał wcześniej w adresie powrotnym (`&mp_ob_approved=ok`) i
+	 * `notice()` czytał wyłącznie ten parametr. Adres da się zapisać w zakładce,
+	 * zostaje w historii i można go komuś podesłać — a wtedy zielone „Oferta
+	 * zatwierdzona" pokazywało się przy każdym wejściu na stronę ofert, choć nic
+	 * się nie wydarzyło (`=db_error` tak samo straszył awarią, której nie było).
+	 * Nie mówił też, KTÓREJ oferty dotyczy.
+	 *
+	 * Wynik akcji jest więc stanem po stronie serwera: związanym z użytkownikiem,
+	 * jednorazowym (odczyt kasuje) i krótkim — komunikat ma przeżyć jedno
+	 * przekierowanie, nie dzień pracy.
+	 */
+	const NOTICE_TRANSIENT = 'mp_ob_notice_';
 
 	/**
 	 * Wpina obsługę akcji z panelu.
@@ -311,19 +324,66 @@ class MP_Offer_Builder_Approval {
 			wp_die( esc_html__( 'Brak uprawnień.', 'mp-offer-builder' ), '', array( 'response' => 403 ) );
 		}
 
-		$result = self::approve( $offer_id, get_current_user_id() );
-		$code   = is_wp_error( $result ) ? $result->get_error_code() : 'ok';
+		$user_id = get_current_user_id();
+		$result  = self::approve( $offer_id, $user_id );
+		$code    = is_wp_error( $result ) ? $result->get_error_code() : 'ok';
+
+		/*
+		 * Numer bierzemy PO operacji i wprost z bazy — komunikat ma mówić o tym,
+		 * co w niej stoi, a nie o tym, co wysłała przeglądarka. Przy `offer_not_found`
+		 * numeru z natury nie ma; komunikaty radzą sobie z pustym.
+		 */
+		$offer  = $offer_id > 0 ? MP_Offer_Builder_DB::get_offer( $offer_id ) : null;
+		$number = ( is_array( $offer ) && isset( $offer['offer_number'] ) ) ? (string) $offer['offer_number'] : '';
+
+		self::remember_notice( $code, $number, $user_id );
 
 		wp_safe_redirect(
 			add_query_arg(
-				array(
-					'page'           => MP_Offer_Builder_Admin::PAGE_SLUG,
-					self::NOTICE_ARG => $code,
-				),
+				array( 'page' => MP_Offer_Builder_Admin::PAGE_SLUG ),
 				admin_url( 'admin.php' )
 			)
 		);
 		exit;
+	}
+
+	/**
+	 * Zapamiętuje wynik akcji dla użytkownika, który ją wykonał.
+	 *
+	 * @param string $code     Kod wyniku (klucz słownika komunikatów).
+	 * @param string $number   Numer oferty (może być pusty).
+	 * @param int    $user_id  Kto ma zobaczyć komunikat.
+	 * @return void
+	 */
+	public static function remember_notice( $code, $number, $user_id ) {
+		$user_id = (int) $user_id;
+
+		if ( $user_id <= 0 ) {
+			return;
+		}
+
+		set_transient(
+			self::NOTICE_TRANSIENT . $user_id,
+			array(
+				'code'   => (string) $code,
+				'number' => (string) $number,
+			),
+			MINUTE_IN_SECONDS
+		);
+	}
+
+	/**
+	 * Kasuje zapamiętany komunikat (odczyt przez notice() robi to samo).
+	 *
+	 * @param int $user_id Właściciel komunikatu.
+	 * @return void
+	 */
+	public static function forget_notice( $user_id ) {
+		$user_id = (int) $user_id;
+
+		if ( $user_id > 0 ) {
+			delete_transient( self::NOTICE_TRANSIENT . $user_id );
+		}
 	}
 
 	/**
@@ -332,11 +392,31 @@ class MP_Offer_Builder_Approval {
 	 * @return void
 	 */
 	public static function notice() {
-		if ( empty( $_GET[ self::NOTICE_ARG ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$user_id = get_current_user_id();
+
+		if ( $user_id <= 0 ) {
 			return;
 		}
 
-		$code = sanitize_key( wp_unslash( $_GET[ self::NOTICE_ARG ] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$stored = get_transient( self::NOTICE_TRANSIENT . $user_id );
+
+		if ( ! is_array( $stored ) || empty( $stored['code'] ) ) {
+			return;
+		}
+
+		// Jednorazowo: odświeżenie strony ma NIE powtarzać komunikatu o operacji,
+		// która wydarzyła się raz.
+		self::forget_notice( $user_id );
+
+		$code   = sanitize_key( $stored['code'] );
+		$number = isset( $stored['number'] ) ? (string) $stored['number'] : '';
+		$label  = '' !== $number
+			? sprintf(
+				/* translators: %s: numer oferty. */
+				__( 'Oferta %s', 'mp-offer-builder' ),
+				$number
+			)
+			: __( 'Oferta', 'mp-offer-builder' );
 
 		$messages = array(
 
@@ -354,16 +434,54 @@ class MP_Offer_Builder_Approval {
 			'ok'               => array(
 				'success',
 				has_action( self::HOOK )
-					? __( 'Oferta zatwierdzona. Moduł sprzedażowy przejmuje wysyłkę do klienta.', 'mp-offer-builder' )
-					: __( 'Oferta zatwierdzona, ale ŻADEN moduł nie nasłuchuje wysyłki — wyślij ją klientowi ręcznie albo włącz wtyczkę MP Sales Workflow.', 'mp-offer-builder' ),
+					? sprintf(
+						/* translators: %s: „Oferta OF/2026/000123" albo samo „Oferta". */
+						__( '%s zatwierdzona. Moduł sprzedażowy przejmuje wysyłkę do klienta.', 'mp-offer-builder' ),
+						$label
+					)
+					: sprintf(
+						/* translators: %s: „Oferta OF/2026/000123" albo samo „Oferta". */
+						__( '%s zatwierdzona, ale ŻADEN moduł nie nasłuchuje wysyłki — wyślij ją klientowi ręcznie albo włącz wtyczkę MP Sales Workflow.', 'mp-offer-builder' ),
+						$label
+					),
 			),
-			'already_approved' => array( 'info', __( 'Ta oferta była już zatwierdzona — nic się nie zmieniło.', 'mp-offer-builder' ) ),
+			'already_approved' => array(
+				'info',
+				sprintf(
+					/* translators: %s: „Oferta OF/2026/000123" albo samo „Oferta". */
+					__( '%s była już zatwierdzona — nic się nie zmieniło.', 'mp-offer-builder' ),
+					$label
+				),
+			),
 			// Poziom „error" jest tu istotą sprawy: zapis się NIE udał, więc
 			// komunikat nie może wyglądać jak potwierdzenie, że wszystko gra.
-			'db_error'         => array( 'error', __( 'Nie udało się zapisać zatwierdzenia — spróbuj ponownie za chwilę, a jeśli problem wraca, zgłoś to administratorowi.', 'mp-offer-builder' ) ),
-			'no_document'      => array( 'error', __( 'Oferta nie ma jeszcze numeru i pliku PDF — najpierw ją dokończ i wygeneruj dokument.', 'mp-offer-builder' ) ),
+			'db_error'         => array(
+				'error',
+				sprintf(
+					/* translators: %s: „Oferta OF/2026/000123" albo samo „Oferta". */
+					__( '%s: nie udało się zapisać zatwierdzenia — spróbuj ponownie za chwilę, a jeśli problem wraca, zgłoś to administratorowi.', 'mp-offer-builder' ),
+					$label
+				),
+			),
+			'no_document'      => array(
+				'error',
+				sprintf(
+					/* translators: %s: „Oferta OF/2026/000123" albo samo „Oferta". */
+					__( '%s nie ma jeszcze numeru i pliku PDF — najpierw ją dokończ i wygeneruj dokument.', 'mp-offer-builder' ),
+					$label
+				),
+			),
+			// Bez numeru z rozmysłem: nieistniejąca i cudza oferta mają dawać ten
+			// sam komunikat, więc nie wolno go różnicować numerem (patrz approve()).
 			'offer_not_found'  => array( 'error', __( 'Oferta nie istnieje albo nie masz do niej dostępu.', 'mp-offer-builder' ) ),
-			'wrong_status'     => array( 'error', __( 'Oferta jest w stanie, z którego nie da się jej zatwierdzić.', 'mp-offer-builder' ) ),
+			'wrong_status'     => array(
+				'error',
+				sprintf(
+					/* translators: %s: „Oferta OF/2026/000123" albo samo „Oferta". */
+					__( '%s jest w stanie, z którego nie da się jej zatwierdzić.', 'mp-offer-builder' ),
+					$label
+				),
+			),
 		);
 
 		if ( ! isset( $messages[ $code ] ) ) {
