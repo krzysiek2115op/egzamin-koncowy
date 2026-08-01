@@ -309,10 +309,52 @@ class MP_OB_D2_Agent_Tax extends MP_OB_Abstract_Agent {
 				);
 				continue;
 			}
-			$first               = reset( $found );
+
+			/*
+			 * WSZYSTKIE dopasowane stawki, nie pierwsza z brzegu.
+			 *
+			 * `get_base_tax_rates()` zwraca TABLICĘ stawek pasujących do bazy sklepu
+			 * — dokumentacja WooCommerce mówi wprost o „array of matching rates".
+			 * Wcześniej `reset( $found )` brało pierwszy wiersz, a resztę wtyczka
+			 * po cichu wyrzucała i kończyła dział statusem OK. Sklep z dwiema
+			 * skonfigurowanymi stawkami dla klasy (np. 20% + 3% dopłaty lokalnej)
+			 * dostawał na ofercie 20% — VAT i kwota brutto NIŻSZE niż w sklepie,
+			 * bez błędu i bez śladu.
+			 *
+			 * Stawki zwykłe sumujemy, bo WooCommerce nalicza każdą od tej samej
+			 * podstawy netto. Stawki ZŁOŻONEJ (compound) tak przedstawić się nie da
+			 * — liczy się ją od kwoty już opodatkowanej, więc jednej liczbie
+			 * procentowej nie odpowiada. Zamiast zgadywać, odmawiamy: dokument
+			 * handlowy z wymyśloną stawką jest gorszy niż brak dokumentu.
+			 */
+			$rate   = 0.0;
+			$labels = array();
+
+			foreach ( $found as $wiersz ) {
+				if ( isset( $wiersz['compound'] ) && 'yes' === $wiersz['compound'] ) {
+					return MP_OB_Result::fail(
+						sprintf( 'Klasa podatkowa "%s" ma stawkę złożoną (compound) — oferta nie potrafi jej przedstawić jedną stawką.', $tax_class ),
+						array(
+							'errors' => array(
+								array(
+									'field'   => "tax_class.$tax_class",
+									'message' => 'Stawka złożona (compound) nie jest obsługiwana w ofercie.',
+								),
+							),
+						),
+						'compound_tax_rate'
+					);
+				}
+
+				$rate    += isset( $wiersz['rate'] ) ? (float) $wiersz['rate'] : 0.0;
+				$labels[] = isset( $wiersz['label'] ) ? (string) $wiersz['label'] : '';
+			}
+
+			$labels = array_filter( array_unique( $labels ) );
+
 			$rates[ $tax_class ] = array(
-				'rate'  => isset( $first['rate'] ) ? (float) $first['rate'] : null,
-				'label' => isset( $first['label'] ) ? (string) $first['label'] : '',
+				'rate'  => $rate,
+				'label' => implode( ' + ', $labels ),
 			);
 		}
 
