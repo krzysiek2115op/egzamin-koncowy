@@ -4,7 +4,7 @@ Tags: oferty, pdf, woocommerce, cennik
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.3
+Stable tag: 1.3.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -59,6 +59,17 @@ RODO/GDPR:
 * Sugerowana treść polityki prywatności jest dodawana w Ustawienia → Prywatność.
 
 == Changelog ==
+
+= 1.3.4 =
+
+* KOMUNIKAT "OFERTA ZATWIERDZONA" brał się wyłącznie z adresu strony. Wystarczyło
+  mieć ten adres w zakładce albo w historii przeglądarki, żeby przy KAŻDYM
+  wejściu na listę ofert zobaczyć zielone potwierdzenie, choć nic się nie
+  wydarzyło; ten sam adres z innym parametrem straszył awarią zapisu, której nie
+  było. Komunikat nie mówił też, której oferty dotyczy — przy zatwierdzaniu kilku
+  ofert pod rząd za każdym razem brzmiał tak samo. Teraz wynik operacji jest
+  zapamiętywany po stronie serwera, dla konkretnego użytkownika, pokazuje się RAZ
+  i podaje numer oferty.
 
 = 1.3.3 =
 

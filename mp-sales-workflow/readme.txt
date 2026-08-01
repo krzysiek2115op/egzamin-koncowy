@@ -4,7 +4,7 @@ Tags: sprzedaz, crm, workflow, follow-up
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.3
+Stable tag: 1.3.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,6 +33,22 @@ rekordow SPF/DKIM/DMARC oraz blokady katalogu z ofertami PDF. Pelna checklista:
 powiadomien do klientow.
 
 == Changelog ==
+
+= 1.3.4 =
+
+* KONTROLA SKUTKÓW ZMIANY STATUSU nie sprawdzała tego, co miała. Kontroler liczył
+  oczekiwane następstwa z dokładnie tego samego miejsca, z którego brał je
+  wykonawca, więc porównanie zawsze wychodziło na zero. Nikt nie pilnował
+  najważniejszego: czy status, na który proces przechodzi, jest tym, o który
+  prosi zdarzenie. Podmieniona wartość przechodziła bez słowa, a powiadomienia
+  i zamknięcie zadań wykonywały się dla CUDZEGO statusu. Kontroler wyprowadza
+  teraz status docelowy niezależnie, wprost z rodzaju zdarzenia.
+* SCHEMAT BAZY obiecywał, że powtórka tego samego zdarzenia dostanie odtworzoną
+  odpowiedź z pierwszego przebiegu. Kolumna na tę odpowiedź istniała, ale nic jej
+  nigdy nie zapisywało ani nie czytało. Obietnica znika ze schematu; zabezpieczenie
+  przed podwójną obsługą działa jak dotąd i nigdy na tej kolumnie nie stało.
+  Aktualizacja podnosi schemat bazy do 0.4.0 i usuwa martwą kolumnę — dane
+  klientów są nietknięte, kolumna była pusta w każdej instalacji.
 
 = 1.3.3 =
 

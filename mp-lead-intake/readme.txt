@@ -4,7 +4,7 @@ Tags: leads, formularz, b2b, nip, vat
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.3.3
+Stable tag: 1.3.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,19 @@ Pierwsza z trzech wtyczek procesu "formularz → oferta". Odpowiada za odbiór
 zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej bazy.
 
 == Changelog ==
+
+= 1.3.4 =
+
+* SPRAWDZENIE, CZY FIRMA JUŻ ISTNIEJE, opierało się na tym, że w kopercie danych
+  nie ma leadów — a to samo znaczyło "takiej firmy nie ma", "nikt nie pytał"
+  i "zapytanie do bazy padło". Sam WordPress zwraca po nieudanym odczycie pustą
+  listę, więc awaria bazy wyglądała dokładnie jak nowy klient: zgłoszenie szło
+  do zapisu, tam odbijało się o klucz unikalności i zgłaszający dostawał ogólne
+  "nie udało się utworzyć leada" zamiast informacji, że baza nie odpowiada.
+  Dział 1 potwierdza teraz, że odczyt SIĘ ODBYŁ, a Dział 7 tego wymaga.
+  Uczciwie o skali: pozostałe drogi do tego stanu były zamknięte (zgłoszenie bez
+  NIP-u nie dochodzi do dedupu, a baza ma klucz unikalny na parze kraj+NIP), więc
+  to wzmocnienie obrony, a nie naprawa przepuszczanych duplikatów.
 
 = 1.3.3 =
 
