@@ -99,31 +99,53 @@ r117_ok(
 );
 
 /*
- * Kontrola samego testu: gdyby na main nie bylo ANI JEDNEGO katalogu z wieloma
- * plikami, sekcja A przechodzilaby z powodu braku danych, a nie z powodu
- * poprawnej reguly. Sonda ma padac wtedy, kiedy trzeba — takze sama na siebie.
+ * Kontrola samego testu. Sekcja A przechodzi takze wtedy, gdy w repozytorium NIE
+ * MA ani jednego katalogu z wieloma plikami — a wtedy nie dowodzi niczego
+ * o regule, tylko o zawartosci repozytorium.
+ *
+ * Pierwsza wersja tej kontroli liczyla wielo-plikowe katalogi na `main` i zadala
+ * co najmniej jednego. Dzialalo to do chwili, w ktorej dokumentacje faktycznie
+ * scalono do jednego pliku na dzial (U-12) — i test zaczal padac za to, ze
+ * repozytorium jest w porzadku. Kontrola nie moze wymagac ISTNIENIA wady.
+ * Podstawiamy wiec katalog z trzema plikami sami i sprawdzamy, ze regula nadal
+ * nie robi z tego ustalenia.
  */
-$doki       = (array) ( $zebrane->dane['doki'] ?? array() );
-$wielo      = 0;
-$przyklad   = '';
-foreach ( $doki as $branch => $katalogi ) {
-	foreach ( $katalogi as $nazwa => $pliki ) {
-		if ( preg_match( '/:meta$/', (string) $nazwa ) ) {
-			continue;
-		}
-		if ( count( (array) $pliki ) > 1 ) {
-			++$wielo;
-			if ( '' === $przyklad ) {
-				$przyklad = $branch . '/docs/' . $nazwa . ' (' . count( (array) $pliki ) . ' plikow)';
-			}
-		}
+$wielo_plikowy = MP_AU_Wynik::ok(
+	array(
+		'dzialy' => array( 'mp-lead-intake' => array( 1 ) ),
+		'doki'   => array(
+			'mp-lead-intake' => array(
+				'dzial-01'      => array(
+					'mp-lead-intake/docs/dzial-01/zrodlo-a.md',
+					'mp-lead-intake/docs/dzial-01/zrodlo-b.md',
+					'mp-lead-intake/docs/dzial-01/zrodlo-c.md',
+				),
+				'dzial-01:meta' => array(
+					array(
+						'plik'    => 'mp-lead-intake/docs/dzial-01/zrodlo-a.md',
+						'url'     => 2,
+						'data'    => 2,
+						'rozmiar' => 900,
+					),
+				),
+			),
+		),
+	)
+);
+
+$wynik_wielo = $krytyk->ocen( $wielo_plikowy, $kontekst );
+$o_liczbie_w = array();
+
+foreach ( (array) $wynik_wielo->ustalenia as $u ) {
+	if ( false !== strpos( $u->opis, 'plikow dokumentacji zamiast jednego' ) ) {
+		$o_liczbie_w[] = $u->opis;
 	}
 }
 
 r117_ok(
-	$wielo > 0,
-	'kontrola sondy: na main SA katalogi z wieloma plikami, wiec sekcja A cos znaczy',
-	'katalogow wielo-plikowych: ' . $wielo
+	empty( $o_liczbie_w ),
+	'kontrola sondy: katalog z TRZEMA plikami podstawiony wprost tez nie jest ustaleniem',
+	count( $o_liczbie_w ) . ' zgloszen, np.: ' . ( $o_liczbie_w ? $o_liczbie_w[0] : '' )
 );
 
 echo "\n== B. kontr-asercje: kontrole, ktore sie bronia, zostaja ==\n";

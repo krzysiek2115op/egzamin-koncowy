@@ -1084,6 +1084,19 @@
             "lekcja": "Ta sama pulapka co z current_time() ignorujacym parametr $gmt (audyt 2026-07-23): stub, ktory nie umie odtworzyc badanego zachowania, potwierdza je BEZWARUNKOWO. Przed oparciem kontraktu na mechanizmie WordPressa trzeba sprawdzic, czy rusztowanie ten mechanizm w ogole ma.",
             "test": "mp-lead-intake/tests/process-harness/run-process.php — niezmienniki 26c (filtr respektowany) i 26d (kontr-asercja: bez odpowiedzi kolumna zostaje pusta)",
             "para": "(spoza narzedzia)"
+        },
+        {
+            "id": "U-18",
+            "wtyczka": "mp-sales-workflow",
+            "tytul": "Pierwsze zgloszenie po instalacji ginelo, bo nie bylo jeszcze handlowcow",
+            "klasa": "brak-warunku-brzegowego-uznany-za-ostroznosc",
+            "plik": "mp-sales-workflow/includes/pipeline/departments/class-mp-sw-department-04.php:497",
+            "dowod": "MP_SW_D4_QA_Critic odrzucal kazdy wynik z pustym qa_owner ('fatal' => true), a MP_SW_D4_Critic_Coverage robil to samo pietro nizej. Pusty wybor powstaje takze wtedy, gdy WP_User_Query dla roli mp_handlowiec nie zwraca nikogo — czyli na kazdej swiezej instalacji przed zalozeniem kont. Odmowa krytyka konczy caly pipeline, wiec Dzial 8 nigdy nie zapisywal wiersza w wp_mp_sw_flow ani wpisu w wp_mp_sw_activity. MP_SW_Hooks::dispatch() lapie odmowe i loguje ja przez error_log() tylko przy WP_DEBUG.",
+            "skutek": "Klient wysyla formularz, wtyczka 1 zapisuje lead w BD-3, wtyczka 2 robi szkic oferty w BD-2, a procesu w BD-1 nie ma w ogole — ani wiersza, ani sladu w dzienniku. Krok 2 i 3 zlecenia (przypisanie handlowca, prowadzenie procesu) nie wykonuja sie dla pierwszych zgloszen, a administrator nie ma jak sie o tym dowiedziec. Kryterium 5.5 (dziennik od pierwszego zdarzenia) niespelnione.",
+            "lekcja": "Stan poczatkowy produktu to tez stan produkcyjny. Bramka, ktora zamiast zapisac niepelny wynik odrzuca cale zdarzenie, zamienia ostroznosc w utrate danych. Zabraniac nalezy CISZY, nie niekompletnosci: brak wlasciciela wolno zapisac, o ile zapisany jest powod. Osobno: sonda swiezej instalacji kasowala tabele, ale nie konta — resztki po wczesniejszych przebiegach innych testow ukrywaly ten blad przez cala serie wydan. Swieza baza to nie to samo co swiezy swiat.",
+            "test": "mp-sales-workflow/tests/naprawy/pierwszy-lead-bez-handlowcow.php (9 asercji; przed naprawa padalo 6)",
+            "para": "1.25",
+            "data": "2026-08-01"
         }
     ]
 }
