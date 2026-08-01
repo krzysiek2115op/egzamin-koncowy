@@ -28,7 +28,7 @@ nie rozjeżdżają się.
 Treść jest utrzymywana ręcznie w zgodzie z realnym kodem wtyczki v1.0.0:
 
 - **ERD** (`schemat-bazy-danych.js`) odwzorowuje `CREATE TABLE` z
-  `includes/db/class-mp-sales-workflow-db.php` (DB_VERSION 0.3.0) — 5 tabel,
+  `includes/db/class-mp-sales-workflow-db.php` (DB_VERSION 0.4.0) — 5 tabel,
   kolumny/typy/klucze 1:1, z `claimed_at` i `claim_token` oznaczonymi jako
   dodane przy utwardzeniu. Dwa twarde więzy (`tasks.flow_id`,
   `notifications.flow_id` → `flow.id` ON DELETE CASCADE) zakłada osobny ALTER,

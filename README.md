@@ -20,9 +20,9 @@ danych między formularzem, WooCommerce i pocztą.
 
 | # | Wtyczka | Wersja | Baza | Opis |
 |---|---------|--------|------|------|
-| 1 | `mp-lead-intake` | 1.3.3 | BD-3 | Przyjęcie i kwalifikacja lead-a z formularza |
-| 2 | `mp-offer-builder` | 1.3.3 | BD-2 | Kalkulacja cenowa, integracja WooCommerce, oferty PDF |
-| 3 | `mp-sales-workflow` | 1.3.3 | BD-1 | Statusy procesu, handlowiec, powiadomienia, follow-up, dashboard |
+| 1 | `mp-lead-intake` | 1.3.4 | BD-3 | Przyjęcie i kwalifikacja lead-a z formularza |
+| 2 | `mp-offer-builder` | 1.3.4 | BD-2 | Kalkulacja cenowa, integracja WooCommerce, oferty PDF |
+| 3 | `mp-sales-workflow` | 1.3.4 | BD-1 | Statusy procesu, handlowiec, powiadomienia, follow-up, dashboard |
 
 Kolejność instalacji ma znaczenie: **1, potem 2, potem 3**. Wtyczka 2 nasłuchuje
 zdarzenia z wtyczki 1, a wtyczka 3 — zdarzeń z obu poprzednich. Gotowe paczki
@@ -159,7 +159,11 @@ z owej niepowtarzalności — błędnie. Niepowtarzalne jest to, **czy** ustalen
 pojawi, a nie to, czy jest prawdziwe. Przegląd tej warstwy przeprowadzony
 31.07.2026 potwierdził testem sześć realnych defektów, w tym niepełną
 anonimizację RODO i możliwość dwukrotnej wysyłki tej samej oferty. Wszystkie
-zamknięte w wydaniu 1.3.3.
+zamknięte w wydaniu 1.3.3, a ostatnie cztery ustalenia z tej fali — w **1.3.4**
+(01.08.2026): krytyk maszyny statusów, który sprawdzał wynik agenta zamiast jego
+wejścia; dedup czytający brak danych jako potwierdzoną unikalność; komunikat
+panelu brany z parametru adresu; kolumna zadeklarowana w schemacie, której kod
+nigdy nie używał.
 
 Wniosek, który wart jest zapamiętania bardziej niż sam werdykt: **„GO" znaczy
 „nie wróciło nic, co już znamy"** — nie „nie ma błędów". Deterministyczne pary

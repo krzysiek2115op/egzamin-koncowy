@@ -3,7 +3,7 @@
 // działów (25 par Agent+Krytyk, bramka jakości po każdym dziale) → jedna
 // transakcja zapisu → wyjście po COMMIT.
 //
-// Źródło prawdy: kod wtyczki v1.0.0 (DB_VERSION 0.3.0):
+// Źródło prawdy: kod wtyczki (DB_VERSION 0.4.0):
 //   - liczby par: MP_SW_Pipeline_Factory::make() → get_pairs() (3,5,2,3,2,2,3,3,2)
 //   - macierz kanałów: MP_SW_Origin::matrix()
 //   - transakcja: wyłącznie Dział 8; kolejka e-mail rusza PO COMMIT (Dział 9)

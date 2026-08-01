@@ -1,7 +1,7 @@
 {
   "title": "MP Sales Workflow — instrukcja instalacji (techniczna)",
   "subtitle": "Wymagania, stałe w wp-config.php, poczta, cron, role i profile handlowców, deinstalacja. Dla administratora serwera lub osoby wdrażającej.",
-  "footer": "MP Sales Workflow v1.0.0 · instrukcja instalacji (techniczna) · schemat bazy 0.3.0",
+  "footer": "MP Sales Workflow v1.0.0 · instrukcja instalacji (techniczna) · schemat bazy 0.4.0",
   "accent": "7c3aed",
   "blocks": [
     {"t":"h1","text":"Wymagania"},
@@ -87,7 +87,7 @@
     {"t":"pagebreak"},
     {"t":"h1","text":"Baza danych"},
     {"t":"p","text":"Wtyczka zakłada pięć tabel z prefiksem wp_mp_sw_: flow (proces), tasks (zadania follow-up), notifications (kolejka e-mail), activity (dziennik), events (rejestr zdarzeń, idempotencja). Szczegóły kolumn i relacji są na schemacie bazy danych dołączonym do tej dokumentacji."},
-    {"t":"p","text":"Wersja schematu: 0.3.0. Migracja idzie przez dbDelta na haku plugins_loaded, czyli przy pierwszym wejściu na witrynę po wgraniu plików — nie ma osobnego przycisku „aktualizuj bazę”. Dlatego kopia zapasowa przed wdrożeniem jest w tej instrukcji krokiem pierwszym, a nie ostatnim."},
+    {"t":"p","text":"Wersja schematu: 0.4.0. Migracja idzie na haku plugins_loaded, czyli przy pierwszym wejściu na witrynę po wgraniu plików — nie ma osobnego przycisku „aktualizuj bazę”. Krok 0.3.0 → 0.4.0 usuwa z rejestru zdarzeń martwą kolumnę (dbDelta kolumn nie kasuje, więc idzie osobnym ALTER-em); kolumna była pusta w każdej instalacji, więc żadne dane nie giną. Dlatego kopia zapasowa przed wdrożeniem jest w tej instrukcji krokiem pierwszym, a nie ostatnim."},
     {"t":"p","text":"Funkcja dbDelta nie tworzy kluczy obcych, więc dwa więzy (tasks.flow_id i notifications.flow_id → flow.id ON DELETE CASCADE) zakłada osobny ALTER. Zakłada je tylko na InnoDB i tylko wtedy, gdy w tabelach nie ma wierszy-sierot — inaczej po cichu pomija, zamiast przerywać instalację."},
     {"t":"p","text":"Retencja: zdarzenia starsze niż 90 dni kasuje zadanie mp_sw_retention. Dziennik aktywności nie jest czyszczony nigdy — to on odtwarza historię procesu."},
 

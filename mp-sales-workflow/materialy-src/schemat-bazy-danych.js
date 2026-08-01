@@ -1,6 +1,6 @@
 // Generator schematu BD-1 (ERD) → .drawio (kształty table/tableRow, edytowalny
 // w draw.io) + .svg (→ PDF przez rsvg-convert). JEDNO źródło = realny CREATE
-// TABLE z includes/db/class-mp-sales-workflow-db.php (DB_VERSION 0.3.0).
+// TABLE z includes/db/class-mp-sales-workflow-db.php (DB_VERSION 0.4.0).
 //
 // Uwaga o więzach: dbDelta NIE tworzy kluczy obcych, więc dwa twarde więzy
 // (tasks.flow_id, notifications.flow_id → flow.id ON DELETE CASCADE) zakłada
@@ -15,6 +15,8 @@ const OUT = process.argv[2] || 'out/schemat-bazy-danych';
 const RH = 22;      // wysokość wiersza
 const HDR = 30;     // wysokość nagłówka tabeli
 const SEC = 'SEC';  // znacznik kolumny dodanej przy utwardzeniu (0.3.0)
+// 0.4.0: z wp_mp_sw_events znika `result_json` — kolumna byla martwa od poczatku
+// (nikt jej nie zapisywal ani nie czytal), wiec schemat nie ma prawa jej pokazywac.
 
 // [nazwa, typ, tag(PK|UQ|K|K→P1|K→P2|''), SEC?]
 const tables = [
@@ -62,7 +64,7 @@ const tables = [
     cols: [
       ['id', 'bigint', 'PK'], ['event_id', 'char(36)', 'UQ'], ['type', 'varchar(64)', 'K'],
       ['lead_id', 'bigint', ''], ['offer_id', 'bigint', ''], ['actor_id', 'bigint', ''],
-      ['status', 'varchar(20)', ''], ['result_json', 'longtext', ''], ['trace_id', 'char(36)', ''],
+      ['status', 'varchar(20)', ''], ['trace_id', 'char(36)', ''],
       ['created_at', 'datetime', 'K'], ['updated_at', 'datetime', ''],
     ],
   },
@@ -92,7 +94,7 @@ svg += `<rect width="${PW}" height="${PH}" fill="#ffffff"/>`;
 svg += `<defs><marker id="one" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto"><path d="M6 2 L6 12" stroke="#94a3b8" stroke-width="1.6"/></marker>`;
 svg += `<marker id="many" markerWidth="16" markerHeight="16" refX="2" refY="8" orient="auto"><path d="M14 8 L2 2 M14 8 L2 14 M14 8 L2 8" stroke="#94a3b8" stroke-width="1.4" fill="none"/></marker></defs>`;
 svg += `<text x="40" y="42" font-size="20" font-weight="bold" fill="#1f2a44">Schemat bazy danych — BD-1 (MP Sales Workflow)</text>`;
-svg += `<text x="40" y="66" font-size="12" fill="#64748b">5 tabel · InnoDB · utf8mb4 · czas w GMT (datetime) · DB_VERSION 0.3.0 · dwa twarde więzy ON DELETE CASCADE, reszta relacji logiczna</text>`;
+svg += `<text x="40" y="66" font-size="12" fill="#64748b">5 tabel · InnoDB · utf8mb4 · czas w GMT (datetime) · DB_VERSION 0.4.0 · dwa twarde więzy ON DELETE CASCADE, reszta relacji logiczna</text>`;
 svg += `<text x="40" y="86" font-size="11" fill="#94a3b8">Wtyczka 3 nie czyta tabel wtyczek 1 i 2 przez klucze obce — granice modułów biegną po zdarzeniach.</text>`;
 
 function midY(t, i) { return t.y + HDR + i * RH + RH / 2; }
@@ -185,7 +187,7 @@ function dEdge(src, tgt, label, dashed) {
 }
 
 let cells = `<mxCell id="t1" value="Schemat bazy danych — BD-1 (MP Sales Workflow)" style="text;html=1;fontSize=18;fontStyle=1;fontColor=#1f2a44;" vertex="1" parent="1"><mxGeometry x="40" y="16" width="820" height="30" as="geometry"/></mxCell>`;
-cells += `<mxCell id="t2" value="5 tabel · InnoDB · utf8mb4 · czas w GMT · DB_VERSION 0.3.0 · dwa twarde więzy ON DELETE CASCADE, reszta relacji logiczna" style="text;html=1;fontSize=11;fontColor=#64748b;" vertex="1" parent="1"><mxGeometry x="40" y="46" width="980" height="20" as="geometry"/></mxCell>`;
+cells += `<mxCell id="t2" value="5 tabel · InnoDB · utf8mb4 · czas w GMT · DB_VERSION 0.4.0 · dwa twarde więzy ON DELETE CASCADE, reszta relacji logiczna" style="text;html=1;fontSize=11;fontColor=#64748b;" vertex="1" parent="1"><mxGeometry x="40" y="46" width="980" height="20" as="geometry"/></mxCell>`;
 cells += `<mxCell id="p1leads" value="wp_mp_leads — Plugin 1 (BD-3)&#10;adres i firma klienta czytane po lead_id" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=#f1f5f9;strokeColor=#64748b;fontColor=#334155;fontSize=11;align=left;spacingLeft=10;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="430" y="620" width="310" height="66" as="geometry"/></mxCell>`;
 cells += `<mxCell id="p2offers" value="wp_mp_ob_offers — Plugin 2 (BD-2)&#10;ścieżka PDF i numer oferty czytane po offer_id" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=#f1f5f9;strokeColor=#64748b;fontColor=#334155;fontSize=11;align=left;spacingLeft=10;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="430" y="720" width="310" height="66" as="geometry"/></mxCell>`;
 cells += `<mxCell id="evnote" value="Bez więzu do procesu — wspólny jest tylko lead_id." style="text;html=1;fontSize=10;fontColor=#64748b;align=left;" vertex="1" parent="1"><mxGeometry x="60" y="${560 + th(byId.events) + 6}" width="330" height="18" as="geometry"/></mxCell>`;

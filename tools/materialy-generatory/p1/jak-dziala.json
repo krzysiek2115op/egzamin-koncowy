@@ -1,0 +1,76 @@
+{
+  "title": "MP Lead Intake — jak działa wtyczka",
+  "subtitle": "Przewodnik po działaniu: część biznesowa (o co chodzi i co daje) oraz część techniczna (jak to działa w środku).",
+  "footer": "MP Lead Intake v1.2.3 · jak działa wtyczka",
+  "accent": "2563eb",
+  "blocks": [
+    {"t":"h1","text":"CZĘŚĆ 1 — dla każdego: o co chodzi"},
+
+    {"t":"h2","text":"Po co jest ta wtyczka"},
+    {"t":"p","text":"MP Lead Intake to pierwsza z trzech wtyczek procesu „formularz → oferta”. Odpowiada za początek: przyjmuje zapytania ofertowe od klientów przez formularz na stronie, sprawdza i porządkuje dane, a następnie tworzy uporządkowany „lead” (zapytanie) gotowy do obsługi przez handlowca."},
+    {"t":"p","text":"Dzięki temu żadne zapytanie nie ginie i nie trafia do handlowca „surowe”: dane są zwalidowane, firma sprawdzona w rejestrach, a lead oceniony i przypisany do właściwej osoby."},
+
+    {"t":"h2","text":"Dla kogo"},
+    {"t":"bullet","text":"Klient — wypełnia prosty formularz zapytania na stronie."},
+    {"t":"bullet","text":"Handlowiec — dostaje gotowy, oceniony lead z kompletem danych."},
+    {"t":"bullet","text":"Firma — porządek w zapytaniach, brak duplikatów, zgodność z RODO."},
+
+    {"t":"h2","text":"Jak przebiega proces"},
+    {"t":"num","n":1,"text":"Klient wypełnia formularz: dane firmy (nazwa, NIP), kontakt, kraj i czego potrzebuje."},
+    {"t":"num","n":2,"text":"System sprawdza dane, wykrywa duplikaty i nadaje leadowi punktację jakości."},
+    {"t":"num","n":3,"text":"W tle (klient nie czeka) potwierdza NIP/VAT w rejestrach — VIES oraz Biała lista VAT."},
+    {"t":"num","n":4,"text":"Lead zostaje przypisany właściwemu handlowcowi wraz z oceną i segmentem."},
+    {"t":"num","n":5,"text":"Wszystko zapisuje się z pełną historią (audyt), gotowe do dalszej obsługi i przygotowania oferty."},
+
+    {"t":"h2","text":"Co konkretnie robi"},
+    {"t":"bullet","text":"Udostępnia formularz zapytania na automatycznie utworzonej pod-stronie, dopasowanej wyglądem do motywu strony."},
+    {"t":"bullet","text":"Waliduje dane wejściowe i blokuje spam (pułapka honeypot, ograniczenie liczby zgłoszeń, zabezpieczenie CSRF)."},
+    {"t":"bullet","text":"Potwierdza status VAT firmy w VIES i na Białej liście — asynchronicznie, bez spowalniania klienta."},
+    {"t":"bullet","text":"Ocenia i segmentuje lead oraz przypisuje handlowca i kategorię klienta."},
+    {"t":"bullet","text":"Zapisuje zgody (marketing, RODO) ze znacznikiem czasu i pełną historię aktywności."},
+
+    {"t":"h2","text":"Co to daje"},
+    {"t":"bullet","text":"Szybko dla klienta — strona nie „wisi”; potwierdzanie NIP/VAT dzieje się w tle."},
+    {"t":"bullet","text":"Żaden lead nie ginie — duplikaty wykrywane, wszystko trafia do właściwej osoby."},
+    {"t":"bullet","text":"Wyższa jakość — handlowiec dostaje ocenione, kompletne zapytanie."},
+    {"t":"bullet","text":"Zgodność z RODO — zgody ze znacznikiem czasu, adres IP anonimizowany."},
+
+    {"t":"pagebreak"},
+    {"t":"h1","text":"CZĘŚĆ 2 — technicznie: jak to działa w środku"},
+
+    {"t":"h2","text":"Architektura: pipeline 11 działów"},
+    {"t":"p","text":"Przetwarzanie zapytania to jednokierunkowy potok (pipeline) 11 działów. Każdy dział ma Agentów (wykonują pracę) i Krytyków (weryfikują wynik), a po każdym dziale działa bramka jakości (QA). Dane płyną między działami jako JSON. Błąd zatrzymuje proces (STOP), trafia do dziennika aktywności i — jeśli trzeba — powiadamia administratora. Wtyczka ma jedno wejście („1 AJAX”)."},
+    {"t":"bullet","text":"1. Pobranie danych kontekstu (istniejące leady/oferty/aktywność) — jednym odczytem."},
+    {"t":"bullet","text":"2. Walidacja formularza (wstępna) — formaty pól, kraj, telefon."},
+    {"t":"bullet","text":"3. Sprawdzenie NIP/VAT — status firmy i unikalność."},
+    {"t":"bullet","text":"4. Przypisanie kraju i segmentu — kategoria klienta."},
+    {"t":"bullet","text":"5. Zabezpieczenie formularza — antyspam, CSRF, ograniczenie liczby zgłoszeń."},
+    {"t":"bullet","text":"6. Zapis zgód — marketing + RODO + znacznik czasu."},
+    {"t":"bullet","text":"7. Utworzenie leada (wp_mp_leads)."},
+    {"t":"bullet","text":"8. Zapis historii aktywności (audyt)."},
+    {"t":"bullet","text":"9. Telemetria startu obsługi procesu."},
+    {"t":"bullet","text":"10. Zwrócenie wyniku do wtyczki (odpowiedź dla formularza)."},
+    {"t":"bullet","text":"11. Zakończenie pipeline — raport i zdarzenie mp_lead_created (dla Pluginu 2/3)."},
+
+    {"t":"h2","text":"Asynchroniczne potwierdzanie VAT (VIES + Biała lista)"},
+    {"t":"p","text":"Odpytywanie zewnętrznych rejestrów jest wolne i zawodne, więc nie odbywa się w trakcie wysyłki formularza. Lead powstaje natychmiast ze statusem „oczekuje”, a potwierdzenie NIP/VAT realizuje zadanie w tle (WP-Cron) z ograniczoną liczbą prób. Wynik (ważny / nieważny / nieznany) jest dopisywany do leada, a dla kolejnych wtyczek wystawiane jest zdarzenie mp_lead_created wraz ze statusem VAT."},
+
+    {"t":"h2","text":"Ocena i segmentacja"},
+    {"t":"p","text":"Lead otrzymuje punktację jakości (score) oraz segment/kategorię klienta na podstawie danych z formularza i wyniku weryfikacji. To ułatwia priorytetyzację i automatyczne przypisanie do handlowca."},
+
+    {"t":"h2","text":"Deduplikacja i archiwizacja"},
+    {"t":"p","text":"Duplikaty firm są wykrywane po parze (kraj, NIP) — ten sam NIP w różnych krajach nie jest traktowany jako kolizja. Leady nie są kasowane fizycznie, lecz archiwizowane (miękkie usuwanie). Powtórne zapytanie od zarchiwizowanej firmy bezpiecznie reaktywuje istniejący rekord (atomowo, bez wyścigu)."},
+
+    {"t":"h2","text":"Bezpieczeństwo i RODO"},
+    {"t":"bullet","text":"Ochrona przed spamem: pułapka honeypot + ograniczenie liczby zgłoszeń, egzekwowane zanim dane trafią głębiej."},
+    {"t":"bullet","text":"Ochrona CSRF: każde wysłanie formularza weryfikowane tokenem (nonce)."},
+    {"t":"bullet","text":"RODO: zgody ze znacznikiem czasu i wersją; adres IP w dzienniku anonimizowany; dane usuwalne na potrzeby żądań RODO."},
+    {"t":"bullet","text":"Wszystkie zapytania do bazy parametryzowane; dane wyjściowe escapowane."},
+
+    {"t":"h2","text":"Formularz i pod-strona"},
+    {"t":"p","text":"Po aktywacji wtyczka automatycznie tworzy pod-stronę z formularzem zapytania (dostępny też jako shortcode). Pod-strona dziedziczy wygląd aktywnego motywu strony i jest punktem, w którym osadzają się kolejne wtyczki procesu."},
+
+    {"t":"h2","text":"Baza danych (BD-3) i technologie"},
+    {"t":"p","text":"Dane żyją w trzech tabelach: wp_mp_leads (zapytania/leady, wraz z punktacją, segmentem, zgodami i statusem VAT), wp_mp_offers (powiązanie z ofertami) oraz wp_mp_activity_log (dziennik audytu). Silnik InnoDB, kodowanie utf8mb4. Cała logika to deterministyczny kod PHP zgodny ze standardami WordPress (WPCS), pokryty zestawem testów."}
+  ]
+}
