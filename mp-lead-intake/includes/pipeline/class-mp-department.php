@@ -89,6 +89,23 @@ class MP_Department {
 				// Krytyk wykrył błąd -> STOP (zasada procesu). Przenosimy szczegóły
 				// błędów pól (z danych krytyka) do logu diagnostycznego.
 				$review_data = $review->get_data();
+
+				/*
+				 * KOD KRYTYKA IDZIE DALEJ, jeśli krytyk go nadał.
+				 *
+				 * Dotąd stała tu na sztywno wartość `critic_failed` — ta sama dla
+				 * każdej odmowy w całym pipelinie. Warstwa AJAX dostawała więc jedną
+				 * informację: „któryś krytyk powiedział nie". Nie dało się odróżnić
+				 * „ta firma już u nas jest" od „zła suma kontrolna NIP", więc nadawca
+				 * formularza słyszał zawsze to samo „sprawdź dane" — także wtedy, gdy
+				 * nie miał czego sprawdzać.
+				 *
+				 * Domyślka zostaje: krytyk bez własnego kodu pilnuje niezmiennika
+				 * wewnętrznego i nie ma nadawcy nic do powiedzenia. To samo
+				 * rozwiązanie, co kilka linijek wyżej przy `agent_failed`.
+				 */
+				$kod_odmowy = $review->get_code() ? $review->get_code() : 'critic_failed';
+
 				return MP_Result::fail(
 					$review->get_errors(),
 					array(
@@ -96,7 +113,7 @@ class MP_Department {
 						'critic' => $critic->get_id(),
 						'errors' => isset( $review_data['errors'] ) ? $review_data['errors'] : array(),
 					),
-					'critic_failed'
+					$kod_odmowy
 				);
 			}
 

@@ -603,7 +603,7 @@ class MP_Department_03 {
 		$pairs = array(
 			array(
 				'agent'  => new MP_D3_Agent_Nip(),
-				'critic' => new MP_Flag_Critic( 'K3.1', 'Krytyk 3.1 — weryfikuje NIP', 'nip_valid' ),
+				'critic' => new MP_Flag_Critic( 'K3.1', 'Krytyk 3.1 — weryfikuje NIP', 'nip_valid', 'errors', 'nip_invalid' ),
 			),
 			array(
 				'agent'  => new MP_D3_Agent_Vat(),

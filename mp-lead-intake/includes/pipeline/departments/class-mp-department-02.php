@@ -280,7 +280,7 @@ class MP_Department_02 {
 		$pairs = array(
 			array(
 				'agent'  => new MP_D2_Agent_Required_Fields(),
-				'critic' => new MP_Flag_Critic( 'K2.1', 'Krytyk 2.1 — weryfikuje kompletność pól', 'required_ok' ),
+				'critic' => new MP_Flag_Critic( 'K2.1', 'Krytyk 2.1 — weryfikuje kompletność pól', 'required_ok', 'errors', 'required_missing' ),
 			),
 			array(
 				'agent'  => new MP_D2_Agent_Normalize(),
@@ -288,7 +288,7 @@ class MP_Department_02 {
 			),
 			array(
 				'agent'  => new MP_D2_Agent_Validate_Formats(),
-				'critic' => new MP_Flag_Critic( 'K2.3', 'Krytyk 2.3 — weryfikuje formaty', 'form_valid' ),
+				'critic' => new MP_Flag_Critic( 'K2.3', 'Krytyk 2.3 — weryfikuje formaty', 'form_valid', 'errors', 'format_invalid' ),
 			),
 		);
 

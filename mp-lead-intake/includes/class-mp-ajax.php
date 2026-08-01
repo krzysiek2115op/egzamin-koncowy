@@ -30,6 +30,61 @@ class MP_Lead_Intake_Ajax {
 	const ACTION = 'mp_lead_intake_submit';
 
 	/**
+	 * Komunikat dla NADAWCY formularza — jedyne miejsce, w którym powstaje.
+	 *
+	 * Do 1.3.6 każda odmowa kończyła się zdaniem „Nie udało się przetworzyć
+	 * zgłoszenia. Sprawdź dane i spróbuj ponownie." Także ta, po której nadawca
+	 * nie ma czego sprawdzać, bo jego dane są poprawne: powtórne zgłoszenie tej
+	 * samej firmy. Odmowa jest wtedy słuszna (kryterium odbioru żąda braku
+	 * duplikatów), ale człowiek po drugiej stronie poprawiał dane, które są dobre.
+	 *
+	 * Słownik jest ZAMKNIĘTY i to jest jego sens. Kod spoza słownika dostaje
+	 * komunikat generyczny, więc żaden nowy kod wewnętrzny nie wycieknie do
+	 * odpowiedzi przez samo powstanie. Świadomie NIE MA tu:
+	 *
+	 *  - odmów Działu 5 (antyspam, CSRF, limit tempa) rozbitych na powody —
+	 *    powiedzenie botowi, która straż zadziałała, jest instrukcją obejścia;
+	 *  - nazw pól i kodów wewnętrznych — szczegóły siedzą w dzienniku BD-3 pod
+	 *    tym samym `request_id`, który nadawca dostaje w odpowiedzi.
+	 *
+	 * @param string $code Kod odmowy z pipeline'u albo z warstwy wejściowej.
+	 * @return string
+	 */
+	public static function public_message( $code ) {
+		switch ( (string) $code ) {
+			case 'duplicate_company':
+				return __( 'Ta firma jest już u nas zarejestrowana — nie zakładamy zgłoszenia drugi raz. Jeśli sprawa jest nowa, odpowiedz na naszą ostatnią wiadomość albo zadzwoń.', 'mp-lead-intake' );
+
+			case 'nip_invalid':
+				return __( 'Podany NIP jest nieprawidłowy — sprawdź, czy nie brakuje cyfry.', 'mp-lead-intake' );
+
+			case 'required_missing':
+				return __( 'Nie wszystkie wymagane pola zostały wypełnione.', 'mp-lead-intake' );
+
+			case 'format_invalid':
+				return __( 'Któreś z pól ma nieprawidłowy format — sprawdź adres e-mail i numer telefonu.', 'mp-lead-intake' );
+
+			case 'consent_required':
+				return __( 'Bez zgody na przetwarzanie danych nie możemy przyjąć zgłoszenia.', 'mp-lead-intake' );
+
+			case 'payload_too_large':
+				return __( 'Zgłoszenie jest zbyt duże.', 'mp-lead-intake' );
+
+			case 'invalid_nonce':
+				return __( 'Nieprawidłowy token bezpieczeństwa. Odśwież stronę i spróbuj ponownie.', 'mp-lead-intake' );
+
+			case 'invalid_origin':
+				return __( 'Żądanie z niedozwolonego źródła.', 'mp-lead-intake' );
+
+			case 'rate_limited':
+				return __( 'Nie udało się przetworzyć zgłoszenia. Spróbuj ponownie za chwilę.', 'mp-lead-intake' );
+
+			default:
+				return __( 'Nie udało się przetworzyć zgłoszenia. Sprawdź dane i spróbuj ponownie.', 'mp-lead-intake' );
+		}
+	}
+
+	/**
 	 * Rejestruje akcje AJAX (zalogowani i niezalogowani — formularz publiczny).
 	 *
 	 * @return void
@@ -58,7 +113,7 @@ class MP_Lead_Intake_Ajax {
 			wp_send_json_error(
 				array(
 					'code'       => 'payload_too_large',
-					'message'    => 'Zgłoszenie jest zbyt duże.',
+					'message'    => self::public_message( 'payload_too_large' ),
 					'request_id' => $request_id,
 				),
 				413
@@ -70,7 +125,7 @@ class MP_Lead_Intake_Ajax {
 			wp_send_json_error(
 				array(
 					'code'       => 'invalid_nonce',
-					'message'    => 'Nieprawidłowy token bezpieczeństwa. Odśwież stronę i spróbuj ponownie.',
+					'message'    => self::public_message( 'invalid_nonce' ),
 					'request_id' => $request_id,
 				),
 				403
@@ -82,7 +137,7 @@ class MP_Lead_Intake_Ajax {
 			wp_send_json_error(
 				array(
 					'code'       => 'invalid_origin',
-					'message'    => 'Żądanie z niedozwolonego źródła.',
+					'message'    => self::public_message( 'invalid_origin' ),
 					'request_id' => $request_id,
 				),
 				403
@@ -115,7 +170,7 @@ class MP_Lead_Intake_Ajax {
 			wp_send_json_error(
 				array(
 					'code'       => 'request_rejected',
-					'message'    => 'Nie udało się przetworzyć zgłoszenia. Spróbuj ponownie za chwilę.',
+					'message'    => self::public_message( 'rate_limited' ),
 					'request_id' => $request_id,
 				),
 				429
@@ -141,7 +196,7 @@ class MP_Lead_Intake_Ajax {
 			wp_send_json_error(
 				array(
 					'code'       => 'processing_failed',
-					'message'    => 'Nie udało się przetworzyć zgłoszenia. Sprawdź dane i spróbuj ponownie.',
+					'message'    => self::public_message( 'processing_failed' ),
 					'request_id' => $request_id,
 				),
 				500
@@ -153,7 +208,7 @@ class MP_Lead_Intake_Ajax {
 			wp_send_json_success(
 				array(
 					'lead_id'    => isset( $data['lead_id'] ) ? (int) $data['lead_id'] : null,
-					'message'    => 'Dziękujemy! Zapytanie zostało zarejestrowane.',
+					'message'    => __( 'Dziękujemy! Zapytanie zostało zarejestrowane.', 'mp-lead-intake' ),
 					'request_id' => $request_id,
 				)
 			);
@@ -164,7 +219,7 @@ class MP_Lead_Intake_Ajax {
 		wp_send_json_error(
 			array(
 				'code'       => 'processing_failed',
-				'message'    => 'Nie udało się przetworzyć zgłoszenia. Sprawdź dane i spróbuj ponownie.',
+				'message'    => self::public_message( $result->get_code() ),
 				'request_id' => $request_id,
 			),
 			400

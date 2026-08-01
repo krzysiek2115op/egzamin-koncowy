@@ -179,8 +179,17 @@ class MP_SW_Admin {
 		// wyglądała na pulpicie jak błąd wewnętrzny MP3-E500.
 		$kod = MP_SW_Errors::code( $result->get_code() );
 
+		/*
+		 * Kod jest PODPISANY, a nie doklejony. Wcześniej za zdaniem po polsku stało
+		 * gołe `MP3-Exxx` bez słowa wyjaśnienia — dla człowieka wyglądało to na
+		 * usterkę samego komunikatu albo na wyciek czegoś wewnętrznego. Kod jest
+		 * przydatny, tylko trzeba powiedzieć, po co go pokazujemy.
+		 */
 		echo '<div class="notice notice-error is-dismissible"><p>'
-			. esc_html( MP_SW_Errors::message( $kod ) ) . ' <code>' . esc_html( $kod ) . '</code>'
+			. esc_html( MP_SW_Errors::message( $kod ) )
+			. '</p><p class="description">'
+			. esc_html__( 'Kod do zgłoszenia awarii:', 'mp-sales-workflow' )
+			. ' <code>' . esc_html( $kod ) . '</code>'
 			. '</p></div>';
 
 		return true;
@@ -284,10 +293,18 @@ class MP_SW_Admin {
 
 		echo '<table class="wp-list-table widefat fixed striped"><thead><tr>';
 
-		$naglowki = array( 'Lead', 'Klient', 'Status', 'Handlowiec', 'Termin SLA', 'Otwarte zadania', 'Aktualizacja' );
+		$naglowki = array(
+			__( 'Lead', 'mp-sales-workflow' ),
+			__( 'Klient', 'mp-sales-workflow' ),
+			__( 'Status', 'mp-sales-workflow' ),
+			__( 'Handlowiec', 'mp-sales-workflow' ),
+			__( 'Termin SLA', 'mp-sales-workflow' ),
+			__( 'Otwarte zadania', 'mp-sales-workflow' ),
+			__( 'Aktualizacja', 'mp-sales-workflow' ),
+		);
 
 		if ( current_user_can( MP_SW_Roles::CAP_CHANGE_STATUS ) ) {
-			$naglowki[] = 'Akcje';
+			$naglowki[] = __( 'Akcje', 'mp-sales-workflow' );
 		}
 
 		foreach ( $naglowki as $naglowek ) {

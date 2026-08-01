@@ -77,7 +77,7 @@ class MP_Offer_Builder_Ajax {
 			wp_send_json_error(
 				array(
 					'code'    => 'invalid_nonce',
-					'message' => 'Nieprawidłowy token bezpieczeństwa. Odśwież stronę i spróbuj ponownie.',
+					'message' => __( 'Nieprawidłowy token bezpieczeństwa. Odśwież stronę i spróbuj ponownie.', 'mp-offer-builder' ),
 				),
 				403
 			);
@@ -90,7 +90,7 @@ class MP_Offer_Builder_Ajax {
 			wp_send_json_error(
 				array(
 					'code'    => 'forbidden',
-					'message' => 'Brak uprawnień do budowania ofert.',
+					'message' => __( 'Brak uprawnień do budowania ofert.', 'mp-offer-builder' ),
 				),
 				403
 			);
@@ -101,7 +101,7 @@ class MP_Offer_Builder_Ajax {
 			wp_send_json_error(
 				array(
 					'code'    => 'rate_limited',
-					'message' => 'Zbyt wiele żądań. Odczekaj chwilę i spróbuj ponownie.',
+					'message' => __( 'Zbyt wiele żądań. Odczekaj chwilę i spróbuj ponownie.', 'mp-offer-builder' ),
 				),
 				429
 			);
@@ -116,7 +116,7 @@ class MP_Offer_Builder_Ajax {
 			wp_send_json_error(
 				array(
 					'code'    => 'payload_too_large',
-					'message' => 'Żądanie jest zbyt duże.',
+					'message' => __( 'Żądanie jest zbyt duże.', 'mp-offer-builder' ),
 				),
 				413
 			);
@@ -192,7 +192,7 @@ class MP_Offer_Builder_Ajax {
 			wp_send_json_error(
 				array(
 					'code'     => 'processing_failed',
-					'message'  => 'Nie udało się zbudować oferty. Spróbuj ponownie.',
+					'message'  => __( 'Nie udało się zbudować oferty. Spróbuj ponownie.', 'mp-offer-builder' ),
 					'trace_id' => $request_id,
 				),
 				500
@@ -244,7 +244,7 @@ class MP_Offer_Builder_Ajax {
 		wp_send_json_error(
 			array(
 				'code'     => 'processing_failed',
-				'message'  => 'Nie udało się zbudować oferty. Sprawdź dane i spróbuj ponownie.',
+				'message'  => __( 'Nie udało się zbudować oferty. Sprawdź dane i spróbuj ponownie.', 'mp-offer-builder' ),
 				'trace_id' => $request_id,
 			),
 			self::http_status_for_code( $result->get_code() )

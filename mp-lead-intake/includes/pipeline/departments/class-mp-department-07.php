@@ -359,7 +359,7 @@ class MP_Department_07 {
 		$pairs = array(
 			array(
 				'agent'  => new MP_D7_Agent_Dedup(),
-				'critic' => new MP_Flag_Critic( 'K7.1', 'Krytyk 7.1 — weryfikuje unikalność', 'unique_ok' ),
+				'critic' => new MP_Flag_Critic( 'K7.1', 'Krytyk 7.1 — weryfikuje unikalność', 'unique_ok', 'errors', 'duplicate_company' ),
 			),
 			array(
 				'agent'  => new MP_D7_Agent_Prepare(),

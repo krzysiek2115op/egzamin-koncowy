@@ -129,7 +129,7 @@ class MP_Department_06 {
 			),
 			array(
 				'agent'  => new MP_D6_Agent_Rodo(),
-				'critic' => new MP_Flag_Critic( 'K6.2', 'Krytyk 6.2 — weryfikuje zgodę RODO', 'rodo_ok' ),
+				'critic' => new MP_Flag_Critic( 'K6.2', 'Krytyk 6.2 — weryfikuje zgodę RODO', 'rodo_ok', 'errors', 'consent_required' ),
 			),
 			array(
 				'agent'  => new MP_D6_Agent_Consent_Meta(),
