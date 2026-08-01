@@ -269,6 +269,31 @@ final class MP_AU_Raport {
 		$out .= 'odczytow plikow:   ' . $this->kontekst->odczyty() . "\n";
 		$out .= 'zapytan do modelu: ' . $this->kontekst->model->ile_zapytan() . "\n";
 
+		/*
+		 * BILANS USTALEN. Podsumowanie par podaje liczbe SPRZED weryfikacji,
+		 * a tresc raportu — liczbe PO niej, bo `wedlug_wagi()` pomija odrzucone.
+		 * Bez tych trzech liczb roznicy nie da sie rozliczyc: czytelnik widzi
+		 * „[BLAD] 1.5 kod-kontra-DDL: 14 ustalen", nie znajduje pod spodem ani
+		 * jednego i nie wie, czy zostaly odrzucone jako falszywe alarmy, czy
+		 * zgubione po drodze. W przebiegu z 01.08.2026 roznica wynosila 37 na 89,
+		 * a w przebiegu bez modelu 34 na 48 — dosc, zeby podwazyc caly raport.
+		 * Raport, ktorego nie da sie zbilansowac, kaze wierzyc na slowo, a audyt
+		 * istnieje wlasnie po to, zeby nie trzeba bylo.
+		 */
+		$zgloszone = count( $this->kontekst->ustalenia() );
+		$odrzucone = 0;
+
+		foreach ( $this->kontekst->ustalenia() as $u ) {
+			if ( MP_AU_Ustalenie::ODRZUCONE === $u->status ) {
+				++$odrzucone;
+			}
+		}
+
+		$out .= 'ustalen zgloszonych: ' . $zgloszone . "\n";
+		$out .= 'odrzuconych w weryfikacji: ' . $odrzucone
+			. " (para 2.2: trafienie w komentarz, nieistniejacy plik, linia poza plikiem, duplikat)\n";
+		$out .= 'w tresci raportu: ' . ( $zgloszone - $odrzucone ) . "\n";
+
 		foreach ( $this->przebiegi as $p ) {
 			$out .= sprintf(
 				"dzial %d:           %s s, par %d/%d%s\n",
