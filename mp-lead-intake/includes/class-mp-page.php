@@ -68,10 +68,42 @@ class MP_Lead_Intake_Page {
 	 */
 	public static function create() {
 		$existing = (int) get_option( self::OPTION );
-		if ( $existing && get_post( $existing ) ) {
+		$wpis     = $existing ? get_post( $existing ) : null;
+
+		if ( $wpis instanceof WP_Post && 'publish' === $wpis->post_status ) {
 			// Strona już istnieje — nie duplikujemy, ale ewentualnie dołóż do
 			// menu (np. motyw dostał przypisane menu PO utworzeniu strony).
+			delete_option( self::OPTION_PAGE_ERROR );
 			update_option( self::OPTION_MENU_OK, self::add_to_menus( $existing ) ? 1 : 0 );
+			return;
+		}
+
+		/*
+		 * WPIS W KOSZU TO NIE JEST ISTNIEJĄCA STRONA.
+		 *
+		 * Warunek brzmiał `if ( $existing && get_post( $existing ) )` — bez
+		 * porównania `post_status`. `get_post()` oddaje jednak także wpis w koszu,
+		 * w szkicu i prywatny, a gałąź kończyła się `return`, więc żaden ślad nie
+		 * powstawał i `maybe_admin_notice()` milczało. Gorzej: `add_to_menus()`
+		 * dokładało pozycję menu wskazującą na wpis w koszu i ZWRACAŁO SUKCES,
+		 * więc `OPTION_MENU_OK` szła na 1. Panel wyglądał dokładnie tak jak przy
+		 * pełnym powodzeniu, klient klikał w menu i trafiał donikąd, a jedyna
+		 * informacja, jaką dostawał człowiek, to „Wtyczka włączona".
+		 *
+		 * Nie odtwarzamy strony po cichu: wpis w koszu bywa świadomą decyzją
+		 * administratora, a szkic — pracą w toku. Mówimy, co widzimy, i zostawiamy
+		 * decyzję jemu.
+		 */
+		if ( $wpis instanceof WP_Post ) {
+			update_option(
+				self::OPTION_PAGE_ERROR,
+				sprintf(
+					/* translators: %s: status wpisu WordPressa (np. trash, draft). */
+					__( 'Strona z formularzem istnieje, ale ma status „%s" zamiast „opublikowana" — klienci jej nie zobaczą. Przywróć ją do publikacji albo aktywuj wtyczkę ponownie.', 'mp-lead-intake' ),
+					$wpis->post_status
+				)
+			);
+
 			return;
 		}
 
@@ -125,10 +157,57 @@ class MP_Lead_Intake_Page {
 	 */
 	public static function refresh_menu_status() {
 		$page_id = (int) get_option( self::OPTION );
-		if ( ! $page_id || ! get_post( $page_id ) ) {
+		$wpis    = $page_id ? get_post( $page_id ) : null;
+
+		// Ten sam warunek co w create(): dokładanie do menu wpisu w koszu albo
+		// szkicu daje pozycję prowadzącą donikąd i melduje sukces.
+		if ( ! $wpis instanceof WP_Post || 'publish' !== $wpis->post_status ) {
 			return;
 		}
+
 		update_option( self::OPTION_MENU_OK, self::add_to_menus( $page_id ) ? 1 : 0 );
+	}
+
+	/**
+	 * Czy formularz stoi już na jakiejś opublikowanej stronie — i jeśli tak,
+	 * przyjmujemy ją za swoją.
+	 *
+	 * Ostrzeżenie o nieutworzonej stronie podaje DWIE drogi naprawy: ponowną
+	 * aktywację wtyczki albo ręczne założenie strony ze skrótem. Gaszone było
+	 * tylko przez pierwszą — jedyne `delete_option( OPTION_PAGE_ERROR )` stało
+	 * w gałęzi sukcesu `create()`. Administrator, który wybrał drugą, miał
+	 * działający formularz i wiszący na każdym ekranie panelu komunikat, że
+	 * formularza nie ma. Komunikat, który przeczy temu, co człowiek właśnie zrobił,
+	 * uczy ignorowania wszystkich komunikatów.
+	 *
+	 * Sprawdzamy więc STAN FAKTYCZNY, a nie sam ślad po błędzie. Zapytanie idzie
+	 * wyłącznie wtedy, gdy ślad istnieje, i gaśnie razem z nim.
+	 *
+	 * @return bool Czy znaleziono stronę i skasowano ślad po błędzie.
+	 */
+	public static function adopt_existing_page() {
+		$znalezione = get_posts(
+			array(
+				'post_type'        => 'page',
+				'post_status'      => 'publish',
+				'numberposts'      => 1,
+				'fields'           => 'ids',
+				's'                => '[' . MP_Lead_Intake_Form::SHORTCODE . ']',
+				'suppress_filters' => false,
+			)
+		);
+
+		if ( empty( $znalezione ) ) {
+			return false;
+		}
+
+		$page_id = (int) $znalezione[0];
+
+		update_option( self::OPTION, $page_id );
+		delete_option( self::OPTION_PAGE_ERROR );
+		update_option( self::OPTION_MENU_OK, self::add_to_menus( $page_id ) ? 1 : 0 );
+
+		return true;
 	}
 
 	/**
@@ -248,6 +327,13 @@ class MP_Lead_Intake_Page {
 		 */
 		$blad_strony = (string) get_option( self::OPTION_PAGE_ERROR, '' );
 
+		// Zanim cokolwiek powiemy — sprawdzamy, czy problem nadal istnieje.
+		// Administrator mógł w międzyczasie założyć stronę ręcznie, czyli wykonać
+		// DRUGĄ z dwóch dróg, które ten komunikat sam mu podaje.
+		if ( '' !== $blad_strony && self::adopt_existing_page() ) {
+			$blad_strony = '';
+		}
+
 		if ( '' !== $blad_strony ) {
 			/*
 			 * Krótki kod MUSI się tu pokazać. Wcześniej zdanie kończyło się dwukropkiem
@@ -257,7 +343,9 @@ class MP_Lead_Intake_Page {
 			 * ręcznie, była jedyną, której nie dostał.
 			 */
 			printf(
-				'<div class="notice notice-error"><p><strong>MP Lead Intake:</strong> %s <code>%s</code></p><p>%s <code>%s</code></p></div>',
+				// `is-dismissible` jak przy ostrzeżeniu o menu niżej. Komunikatu bez
+				// tej klasy nie da się zamknąć — wisiał na każdym ekranie panelu.
+				'<div class="notice notice-error is-dismissible"><p><strong>MP Lead Intake:</strong> %s <code>%s</code></p><p>%s <code>%s</code></p></div>',
 				esc_html__( 'Strona z formularzem zapytania ofertowego NIE POWSTAŁA podczas aktywacji, więc klienci nie mają gdzie go wypełnić. Wyłącz i włącz wtyczkę ponownie albo utwórz stronę ręcznie, wstawiając na niej krótki kod:', 'mp-lead-intake' ),
 				esc_html( '[' . MP_Lead_Intake_Form::SHORTCODE . ']' ),
 				esc_html__( 'Powód zgłoszony przez WordPress:', 'mp-lead-intake' ),

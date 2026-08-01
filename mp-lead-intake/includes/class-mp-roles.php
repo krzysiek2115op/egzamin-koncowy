@@ -24,11 +24,48 @@ class MP_Lead_Intake_Roles {
 	const MANAGER = 'mp_manager_sprzedazy';
 	const SALES   = 'mp_handlowiec';
 
+	/** Podgląd leadów (wejście na ekran „Leady"). */
+	const CAP_VIEW = 'mp_view_leads';
+
+	/** Zmiana danych leada. */
+	const CAP_MANAGE = 'mp_manage_leads';
+
+	/** Rozdzielanie leadów — kto je ma, widzi WSZYSTKIE, nie tylko własne. */
+	const CAP_ASSIGN = 'mp_assign_leads';
+
 	/** Uprawnienia wtyczki. */
-	const CAPS = array( 'mp_view_leads', 'mp_manage_leads', 'mp_assign_leads' );
+	const CAPS = array( self::CAP_VIEW, self::CAP_MANAGE, self::CAP_ASSIGN );
+
+	/**
+	 * Uprawnienia tej wtyczki per rola — wzorzec, do którego doprowadza `create()`.
+	 *
+	 * @return array<string,string[]>
+	 */
+	public static function caps_for_roles() {
+		return array(
+			self::MANAGER => self::CAPS,
+			self::SALES   => array( self::CAP_VIEW ),
+		);
+	}
 
 	/**
 	 * Tworzy role i nadaje uprawnienia (wywoływane przy aktywacji).
+	 *
+	 * ROLE SĄ WSPÓŁDZIELONE Z MODUŁEM SPRZEDAŻOWYM — `mp_manager_sprzedazy`
+	 * i `mp_handlowiec` to te same slugi, których używa wtyczka 3. Metoda
+	 * `remove()` niżej o tym wie i dlatego ról nie kasuje; `create()` do 1.3.6
+	 * o tym nie wiedziała i na tym polegał błąd:
+	 *
+	 * `add_role()` przy ISTNIEJĄCEJ roli nie robi NIC i zwraca null. Jeśli więc
+	 * wtyczka 3 (albo poprzednia instalacja) założyła te role wcześniej, żadne
+	 * z uprawnień tej wtyczki na nie nie trafiało. Rola nazywała się „Handlowiec",
+	 * człowiek miał ją przypisaną — i dostawał „Brak uprawnień do podglądu leadów",
+	 * bo `mp_view_leads` nigdy mu nie nadano. Wynik zależał od KOLEJNOŚCI aktywacji
+	 * wtyczek, więc na jednej witrynie działało, a na drugiej nie.
+	 *
+	 * Uprawnienia dokładamy więc osobno, po `add_role()`, i tylko WŁASNE: pętla
+	 * chodzi po `CAPS` tej wtyczki, nigdy po wszystkich, jakie rola posiada.
+	 * Uprawnienia `mp_sw_*` należą do wtyczki 3 i nie mamy prawa ich ruszać.
 	 *
 	 * @return void
 	 */
@@ -52,6 +89,25 @@ class MP_Lead_Intake_Roles {
 				'mp_view_leads' => true,
 			)
 		);
+
+		foreach ( self::caps_for_roles() as $slug => $wanted ) {
+			$role = get_role( $slug );
+
+			if ( ! $role ) {
+				continue;
+			}
+
+			foreach ( self::CAPS as $cap ) {
+				if ( in_array( $cap, $wanted, true ) ) {
+					$role->add_cap( $cap );
+				} else {
+					// Zawężenie musi działać przy aktualizacji, nie tylko przy
+					// pierwszej instalacji — inaczej handlowiec z dawnej wersji
+					// zostałby z uprawnieniem, którego ta wersja mu nie daje.
+					$role->remove_cap( $cap );
+				}
+			}
+		}
 
 		// Administrator otrzymuje pełne uprawnienia wtyczki.
 		$admin = get_role( 'administrator' );

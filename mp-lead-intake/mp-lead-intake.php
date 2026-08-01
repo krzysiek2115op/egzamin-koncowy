@@ -57,6 +57,9 @@ require_once MP_LEAD_INTAKE_DIR . 'includes/class-mp-security.php';
 require_once MP_LEAD_INTAKE_DIR . 'includes/class-mp-vat-verifier.php';
 require_once MP_LEAD_INTAKE_DIR . 'includes/class-mp-offer-registry.php';
 require_once MP_LEAD_INTAKE_DIR . 'includes/class-mp-salesman-sync.php';
+
+// --- Panel: ekran leadów (jedyne miejsce, w którym widać zawartość BD-3) ---
+require_once MP_LEAD_INTAKE_DIR . 'includes/admin/class-mp-admin.php';
 require_once MP_LEAD_INTAKE_DIR . 'includes/class-mp-privacy.php';
 
 // --- Front: endpoint AJAX ("1 AJAX") i formularz ---
@@ -140,6 +143,8 @@ function mp_lead_intake_bootstrap() {
 	MP_Lead_Intake_Offer_Registry::register();
 	// Handlowiec przy leadzie nadaza za decyzja wtyczki 3 (rotacja, przepisanie).
 	MP_Lead_Intake_Salesman_Sync::register();
+	// Ekran leadow w panelu — z punktacja, ktorej dotad nie pokazywal zaden widok.
+	MP_Lead_Intake_Admin::register();
 	MP_Lead_Intake_Privacy::register();
 	// "1 AJAX" — endpoint (drzwi we wtyczce), który uruchamia cały pipeline.
 	MP_Lead_Intake_Ajax::register();

@@ -395,6 +395,17 @@ hjw_ok(
 	'brak filtra mp_lead_assign_salesman w Dziale 7'
 );
 
+/*
+ * Sprzatanie PO tescie, nie tylko przed. Unikalnosc firmy (kraj, NIP) jest wspolna
+ * dla calej bazy, wiec zostawiony wiersz wywala CUDZY test uzywajacy tego samego
+ * numeru — i wyglada to na regresje w Dziale 7, a nie na smiec po sasiedzie.
+ */
+foreach ( array_map( 'intval', (array) $wpdb->get_col( "SELECT id FROM {$leads_t} WHERE email LIKE 'hjw-%@example.test'" ) ) as $do_kasacji ) { // phpcs:ignore WordPress.DB
+	$wpdb->delete( $flow_t, array( 'lead_id' => $do_kasacji ), array( '%d' ) ); // phpcs:ignore WordPress.DB
+	$wpdb->delete( $ob_t, array( 'lead_id' => $do_kasacji ), array( '%d' ) ); // phpcs:ignore WordPress.DB
+	$wpdb->delete( $leads_t, array( 'id' => $do_kasacji ), array( '%d' ) ); // phpcs:ignore WordPress.DB
+}
+
 echo implode( "\n", $GLOBALS['hjw']['lines'] ) . "\n";
 echo sprintf( "\n----- PASS: %d / FAIL: %d -----\n", $GLOBALS['hjw']['pass'], $GLOBALS['hjw']['fail'] );
 echo ( 0 === $GLOBALS['hjw']['fail'] ) ? "VERDICT_ALL_PASS\n" : "VERDICT_HAS_FAILURES\n";
