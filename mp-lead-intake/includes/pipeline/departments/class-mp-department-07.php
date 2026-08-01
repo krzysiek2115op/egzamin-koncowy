@@ -142,7 +142,24 @@ class MP_D7_Agent_Prepare extends MP_Abstract_Agent {
 		 * class-mp-vat-verifier.php. Bez niego wtyczka 2 nie mogła odróżnić leada
 		 * z ważnym VAT UE i odwrotne obciążenie było ze ścieżki leada nieosiągalne.
 		 */
-		if ( $vat_pending ) {
+
+		/*
+		 * `null` ZNACZY „NIE WIEMY", A NIE „SPRAWDZONE".
+		 *
+		 * Gałąź `else` łapała wcześniej dwie różne rzeczy naraz: potwierdzone
+		 * `false` (sprawdzono, numer nieważny) i `null` (weryfikacja się NIE
+		 * rozstrzygnęła). W trybie synchronicznym `resolve_vies()` zwraca właśnie
+		 * `null` przy awarii VIES albo odpowiedzi bez `isValid` — i to BEZ flagi
+		 * `vat_pending`, bo ta powstaje tylko przy cache-missie w trybie async.
+		 *
+		 * Skutek był trwały: lead dostawał `vat_status = 'checked'` i znacznik
+		 * czasu sprawdzenia, więc dla wtyczki 2, raportów i weryfikatora w tle
+		 * wyglądał na rozstrzygniętego. Weryfikator bierze WYŁĄCZNIE wiersze
+		 * ze statusem `pending` (class-mp-vat-verifier.php), a `vat_attempts`
+		 * zapisujemy tu jako 0 — nikt więc nigdy nie wracał do tego numeru, mimo
+		 * że jedyne, co o nim wiadomo, to że nic nie wiadomo.
+		 */
+		if ( $vat_pending || is_null( $vat_valid ) ) {
 			$vat_status = 'pending';
 		} elseif ( true === $vat_valid ) {
 			$vat_status = 'valid';
@@ -172,7 +189,10 @@ class MP_D7_Agent_Prepare extends MP_Abstract_Agent {
 			// od razu do 'unknown', pomijając weryfikację w tle.
 			'vat_attempts'         => 0,
 			// GMT — spójne z tą samą kolumną zapisywaną w class-mp-vat-verifier.php.
-			'vat_checked_at'       => $vat_pending ? null : current_time( 'mysql', true ),
+			// Znacznik idzie za STATUSEM, nie za samą flagą `vat_pending`: data
+			// sprawdzenia przy nierozstrzygniętej weryfikacji byłaby datą czegoś,
+			// co się nie odbyło.
+			'vat_checked_at'       => 'pending' === $vat_status ? null : current_time( 'mysql', true ),
 			'consent_marketing'    => (int) $context->get( 'consent_marketing', 0 ),
 			'consent_rodo'         => (int) $context->get( 'consent_rodo', 0 ),
 			'consent_marketing_at' => $context->get( 'consent_marketing_at' ),
