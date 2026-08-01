@@ -119,7 +119,32 @@ class MP_D2_Agent_Validate_Formats extends MP_Abstract_Agent {
 		if ( '' === $nip ) {
 			$errors['nip'] = 'NIP jest wymagany';
 		} elseif ( 10 !== strlen( $nip ) ) {
-			$errors['nip'] = 'NIP powinien mieć 10 cyfr';
+			/*
+			 * Kontrola formatu jest POLSKA i taka zostaje — to decyzja zakresu,
+			 * nie przeoczenie. Zmienia się wyłącznie to, co czyta człowiek.
+			 *
+			 * Formularz pozwala wybrać kraj UE, bo kod kraju jest potrzebny do
+			 * VIES i do klucza UNIQUE (country, nip) w BD-3. Numer VAT większości
+			 * państw ma jednak inną długość niż polskie 10 cyfr, więc niemiecka
+			 * firma dostawała „NIP powinien mieć 10 cyfr" — komunikat sugerujący
+			 * literówkę w numerze, który jest w pełni poprawny, tylko w innym
+			 * kraju. Człowiek poprawiał numer, zamiast dowiedzieć się, że tego
+			 * kraju nie obsługujemy.
+			 *
+			 * Kod kraju wchodzi do treści tylko wtedy, gdy ma kształt ISO 3166-1.
+			 * Sprawdza to Agent 2.4, ale biegnie niezależnie od tego agenta, więc
+			 * nie zakładamy jego wyniku. Przy czymkolwiek innym zostaje zdanie bez
+			 * kodu — komunikat nie ma być kanałem na cudzy tekst.
+			 */
+			$country = strtoupper( trim( (string) $context->get( 'country', '' ) ) );
+
+			if ( '' !== $country && 'PL' !== $country ) {
+				$errors['nip'] = preg_match( '/^[A-Z]{2}$/', $country )
+					? sprintf( 'Sprawdzamy wyłącznie polski NIP (10 cyfr) — numer VAT z kraju %s ma inny format.', $country )
+					: 'Sprawdzamy wyłącznie polski NIP (10 cyfr).';
+			} else {
+				$errors['nip'] = 'NIP powinien mieć 10 cyfr';
+			}
 		}
 
 		// Limity długości zgodne z kolumnami BD-3 (unikamy „Data too long"/obcięcia w dziale 7).

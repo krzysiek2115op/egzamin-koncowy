@@ -197,6 +197,123 @@ kn_ok(
 	'kolejnosc=' . implode( ',', $kolejnosc )
 );
 
+$GLOBALS['mp_kn']['lines'][] = '';
+$GLOBALS['mp_kn']['lines'][] = '=== D. kraj inny niz PL: komunikat mowi, CZEGO nie sprawdzamy ===';
+
+/*
+ * Formularz pozwala wybrac kraj UE, ale kontrola formatu jest polska: 10 cyfr
+ * plus polska suma kontrolna. To DECYZJA ZAKRESU, nie blad — klient obsluguje
+ * polskich kontrahentow i tak ma zostac. Blad byl w tym, co czytal czlowiek:
+ * niemiecka firma z numerem USt-IdNr. dostawala „NIP powinien miec 10 cyfr",
+ * czyli komunikat sugerujacy literowke w numerze, ktory jest poprawny — tylko
+ * w innym kraju.
+ *
+ * ZAKRES TEJ ZMIANY. Zmienia sie WYLACZNIE tresc komunikatu i wylacznie wtedy,
+ * gdy kraj jest podany i rozny od PL. Zbior przyjmowanych i odrzucanych numerow
+ * zostaje NIETKNIETY — pilnuje tego sekcja E.
+ */
+$kn_dzial2 = static function ( $nip, $country ) {
+	$wynik = ( new MP_D2_Agent_Validate_Formats() )->run(
+		new MP_Context(
+			array(
+				'nip'     => $nip,
+				'email'   => 'kontakt@example.test',
+				'country' => $country,
+			)
+		)
+	);
+	$dane = $wynik->get_data();
+
+	return isset( $dane['errors']['nip'] ) ? (string) $dane['errors']['nip'] : '';
+};
+
+$kn_dzial3 = static function ( $nip, $country ) {
+	$wynik = ( new MP_D3_Agent_Nip() )->run(
+		new MP_Context(
+			array(
+				'nip'     => $nip,
+				'country' => $country,
+			)
+		)
+	);
+	$dane = $wynik->get_data();
+
+	return isset( $dane['errors']['nip'] ) ? (string) $dane['errors']['nip'] : '';
+};
+
+// Niemiecki USt-IdNr. po normalizacji Dzialu 2 zostawia 9 cyfr — zatrzymuje go
+// kontrola dlugosci w Dziale 2 i to jej komunikat widzi czlowiek.
+$kn_de = $kn_dzial2( '123456789', 'DE' );
+
+kn_ok(
+	'' !== $kn_de,
+	'D1: numer z kraju DE nadal jest odrzucany',
+	'komunikat=' . $kn_de
+);
+kn_ok(
+	false !== stripos( $kn_de, 'polski' ),
+	'D2: komunikat mowi wprost, ze sprawdzamy polski NIP',
+	'komunikat=' . $kn_de
+);
+kn_ok(
+	false !== strpos( $kn_de, 'DE' ),
+	'D3: komunikat nazywa kraj, ktory czlowiek wybral',
+	'komunikat=' . $kn_de
+);
+
+/*
+ * Slowacki numer VAT ma DOKLADNIE dziesiec cyfr, wiec przechodzi kontrole
+ * dlugosci w Dziale 2 i dociera do polskiej sumy kontrolnej w Dziale 3. Tam
+ * dostawal „Niepoprawna suma kontrolna NIP" — komunikat mylacy podwojnie, bo
+ * numer jest poprawny, tylko liczony inna regula.
+ */
+$kn_sk = $kn_dzial3( '2020123456', 'SK' );
+
+kn_ok(
+	'' !== $kn_sk && false === stripos( $kn_sk, 'suma kontrolna' ),
+	'D4: dziesieciocyfrowy numer z kraju SK nie jest opisany jako blad sumy kontrolnej',
+	'komunikat=' . $kn_sk
+);
+kn_ok(
+	false !== stripos( $kn_sk, 'polski' ) && false !== strpos( $kn_sk, 'SK' ),
+	'D5: mowi, ze regula jest polska, i nazywa kraj',
+	'komunikat=' . $kn_sk
+);
+
+$GLOBALS['mp_kn']['lines'][] = '';
+$GLOBALS['mp_kn']['lines'][] = '=== E. KONTR-ASERCJE: zmienia sie TEKST, nie to, co przechodzi ===';
+
+/*
+ * Najwazniejsza czesc tej zmiany. Gdyby przy okazji poluzowala sie kontrola,
+ * do BD-3 zaczelyby wchodzic numery, ktorych zaden dzial dalej nie rozumie —
+ * a UNIQUE (country, nip) i weryfikator w tle licza na numer kanoniczny.
+ */
+kn_ok(
+	'' === $kn_dzial2( '1234563218', 'DE' ),
+	'E1: poprawny polski NIP przy kraju DE nadal PRZECHODZI Dzial 2',
+	'komunikat=' . $kn_dzial2( '1234563218', 'DE' )
+);
+kn_ok(
+	'' === $kn_dzial3( '1234563218', 'DE' ),
+	'E2: i nadal przechodzi Dzial 3 — sama zmiana kraju niczego nie odrzuca',
+	'komunikat=' . $kn_dzial3( '1234563218', 'DE' )
+);
+kn_ok(
+	'' !== $kn_dzial2( '123456789', 'PL' ) && '' !== $kn_dzial3( '2020123456', 'PL' ),
+	'E3: przy kraju PL zly numer nadal jest odrzucany',
+	'dzial2=' . $kn_dzial2( '123456789', 'PL' ) . ' | dzial3=' . $kn_dzial3( '2020123456', 'PL' )
+);
+kn_ok(
+	false !== stripos( $kn_dzial2( '123456789', 'PL' ), '10 cyfr' ),
+	'E4: przy kraju PL komunikat zostaje DOKLADNIE taki, jaki byl',
+	'komunikat=' . $kn_dzial2( '123456789', 'PL' )
+);
+kn_ok(
+	false !== stripos( kn_komunikat( '123456' ), '10 cyfr' ),
+	'E5: bez podanego kraju komunikat tez zostaje bez zmian',
+	'komunikat=' . kn_komunikat( '123456' )
+);
+
 echo implode( "\n", $GLOBALS['mp_kn']['lines'] ) . "\n";
 echo sprintf( "\n----- PASS: %d / FAIL: %d -----\n", $GLOBALS['mp_kn']['pass'], $GLOBALS['mp_kn']['fail'] );
 echo ( 0 === $GLOBALS['mp_kn']['fail'] ) ? "VERDICT_ALL_PASS\n" : "VERDICT_HAS_FAILURES\n";

@@ -70,25 +70,48 @@ class MP_D3_Agent_Nip extends MP_Abstract_Agent {
 	 * decyzja, tylko opisana słowami. Żaden komunikat nie mówi nic ponad to, co
 	 * naprawdę sprawdzono.
 	 *
-	 * @param string $nip Wartość z kontekstu (po normalizacji Działu 2).
+	 * Kod kraju służy WYŁĄCZNIE doborowi słów — reguła zostaje polska niezależnie
+	 * od niego, bo to decyzja zakresu, nie przeoczenie. Sedno: numer VAT Słowacji
+	 * ma dokładnie dziesięć cyfr, więc przechodzi kontrolę długości w Dziale 2
+	 * i dociera tutaj, gdzie odrzuca go polska suma kontrolna. Zdanie
+	 * „Niepoprawna suma kontrolna NIP" myliło wtedy podwójnie: numer jest
+	 * poprawny, tylko liczony inną regułą, a człowiek szukał błędu rachunkowego
+	 * tam, gdzie go nie ma.
+	 *
+	 * @param string $nip     Wartość z kontekstu (po normalizacji Działu 2).
+	 * @param string $country Kod kraju z formularza; pusty albo „PL" = treść bez zmian.
 	 * @return string Pusty ciąg, gdy NIP jest poprawny.
 	 */
-	public static function rejection_reason( $nip ) {
-		$nip = (string) $nip;
+	public static function rejection_reason( $nip, $country = '' ) {
+		$nip     = (string) $nip;
+		$country = strtoupper( trim( (string) $country ) );
+
+		// Kod kraju trafia do treści tylko w kształcie ISO 3166-1 — komunikat nie
+		// ma być kanałem na cudzy tekst.
+		$obcy  = '' !== $country && 'PL' !== $country;
+		$nazwa = $obcy && preg_match( '/^[A-Z]{2}$/', $country ) ? sprintf( ' z kraju %s', $country ) : '';
 
 		if ( '' === $nip ) {
 			return 'NIP jest wymagany';
 		}
 
 		if ( ! preg_match( '/\A\d{10}\z/', $nip ) ) {
-			return 'NIP powinien mieć 10 cyfr';
+			return $obcy
+				? sprintf( 'Sprawdzamy wyłącznie polski NIP (10 cyfr) — numer VAT%s ma inny format.', $nazwa )
+				: 'NIP powinien mieć 10 cyfr';
 		}
 
 		if ( preg_match( '/\A(\d)\1{9}\z/', $nip ) ) {
 			return 'NIP z samych powtórzonych cyfr nie jest prawdziwym numerem';
 		}
 
-		return self::checksum_valid( $nip ) ? '' : 'Niepoprawna suma kontrolna NIP';
+		if ( self::checksum_valid( $nip ) ) {
+			return '';
+		}
+
+		return $obcy
+			? sprintf( 'Sprawdzamy wyłącznie polski NIP — numer%s nie przechodzi polskiej sumy kontrolnej.', $nazwa )
+			: 'Niepoprawna suma kontrolna NIP';
 	}
 
 	/**
@@ -98,7 +121,7 @@ class MP_D3_Agent_Nip extends MP_Abstract_Agent {
 	public function run( MP_Context $context ) {
 		$nip   = (string) $context->get( 'nip', '' );
 		$valid = self::checksum_valid( $nip );
-		$powod = self::rejection_reason( $nip );
+		$powod = self::rejection_reason( $nip, (string) $context->get( 'country', '' ) );
 
 		return MP_Result::ok(
 			array(
