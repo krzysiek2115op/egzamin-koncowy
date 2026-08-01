@@ -17,19 +17,39 @@ demonstracji drugiej osobie.
 
 ## Co widać po wejściu
 
-Strona otwiera się na **Procesy sprzedażowe** (wtyczka 3). Oglądający jest
-zalogowany jako administrator, więc ma dostęp do wszystkiego.
+Strona otwiera się na **Procesach sprzedażowych** (wtyczka 3). Oglądający jest
+zalogowany jako administrator.
+
+W menu panelu są **dwie** pozycje tego projektu — i tak ma być:
 
 | Gdzie | Co tam jest |
 |---|---|
-| Procesy sprzedażowe | Proces w statusie „oferta robocza", przypisany handlowiec, dziennik aktywności |
-| MP Offer Builder | Oferta `OF/2026/000001` z wygenerowanym plikiem PDF |
-| Leady (wtyczka 1) | Zgłoszenie firmy z NIP-em i statusem weryfikacji VAT |
-| `/zapytanie-ofertowe/` | Publiczny formularz — można wysłać własne zgłoszenie i zobaczyć, jak przechodzi przez trzy wtyczki |
+| Procesy sprzedażowe (wtyczka 3) | Proces „Zakłady Metalowe Wisła", przypisany handlowiec Anna Kowalska, dziennik aktywności |
+| MP Offer Builder (wtyczka 2) | Oferta `OF/2026/000001` z gotowym PDF-em do pobrania i przyciskiem „Zatwierdź" |
+| `/zapytanie-ofertowe/` (wtyczka 1) | Publiczny formularz — jedyny interfejs tej wtyczki |
 
-Zasiane zgłoszenie **przeszło prawdziwą drogą** — przez pipeline wtyczki 1, a nie
-przez ręcznie wystawione zdarzenie. Dlatego dane są we wszystkich trzech bazach,
-a nie tylko w dwóch.
+**Wtyczka 1 nie ma własnego ekranu w panelu i to nie jest brak.** Jej zadaniem
+jest przyjąć zgłoszenie i przekazać je dalej; nie prowadzi obsługi, więc nie
+dubluje list, które prowadzą wtyczki 2 i 3. Jej baza (BD-3) jest źródłem danych,
+które widać w obu pozostałych modułach.
+
+### Dwie rzeczy warte kliknięcia
+
+**1. Wyślij formularz.** Otwórz `/zapytanie-ofertowe/`, wypełnij i wyślij.
+Natychmiast po wysłaniu w „Procesach sprzedażowych" pojawia się nowy proces
+z przypisanym handlowcem, a w „MP Offer Builder" nowy szkic oferty. Ten jeden
+klik pokazuje wszystkie trzy bazy naraz: proces nie mógłby powstać, gdyby
+wtyczka 1 nie zapisała leada do BD-3 i nie wystawiła zdarzenia.
+
+Uwaga: **jedna firma = jedno zgłoszenie**. Para „kraj + NIP" jest w BD-3 kluczem
+niepowtarzalnym, więc powtórne wysłanie tego samego NIP-u zostanie odrzucone.
+Do własnej próby użyj innego numeru niż `5252248481` (ten jest już zajęty przez
+zasiane zgłoszenie).
+
+**2. Zatwierdź ofertę.** W „MP Offer Builder" kliknij „Zatwierdź" przy ofercie
+`OF/2026/000001`. Proces we wtyczce 3 przechodzi z „oferta robocza" na „oferta
+wysłana" i sam zakłada dwa zadania follow-up — na trzeci i siódmy dzień. Zdarzenie
+przechodzi z wtyczki 2 do wtyczki 3 bez żadnego ręcznego kroku.
 
 ## Skąd bierze się kod
 
