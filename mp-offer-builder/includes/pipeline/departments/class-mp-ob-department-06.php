@@ -257,6 +257,34 @@ class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 				$class_subtotal[ $tc ] += $lg;
 			}
 
+			/*
+			 * DWIE PODSTAWY MUSZĄ BYĆ TĄ SAMĄ PODSTAWĄ.
+			 *
+			 * `net_grosze` powstaje z `subtotal_grosze - discount_total`, a VAT —
+			 * z sumy `lines[*]['line_grosze']`. Nikt tych dwóch liczb ze sobą nie
+			 * porównywał, a rozjazd nie daje żadnego błędu, tylko INNY PODATEK:
+			 * przy pustych `lines` i niezerowym `subtotal` wychodziło netto 1000 zł
+			 * z VAT-em 0 zł, a przy `lines` mniejszych od `subtotal` — VAT policzony
+			 * od ułamka kwoty (netto 1000 zł, VAT 23 zł, czyli 2,3% w mechanizmie
+			 * krajowym). Bramka QA6 tego nie widzi, bo sprawdza wyłącznie
+			 * `netto + VAT = brutto`, a ta równość jest wtedy spełniona.
+			 *
+			 * Krytyk Działu 4 pilnuje tej samej sumy kontrolnej i w pełnym przebiegu
+			 * zatrzymałby rozjazd wcześniej. Dział 6 nie może jednak opierać
+			 * poprawności PODATKU na kontroli z innego działu — to tutaj powstaje
+			 * liczba, która trafia na dokument handlowy.
+			 */
+			if ( array_sum( $class_subtotal ) !== $subtotal ) {
+				return MP_OB_Result::fail(
+					'Podstawa VAT niezgodna z sumą pozycji — nie liczymy podatku od innej kwoty niż netto.',
+					array(
+						'subtotal_grosze' => $subtotal,
+						'lines_grosze'    => array_sum( $class_subtotal ),
+					),
+					'tax_base_mismatch'
+				);
+			}
+
 			// Każda występująca klasa MUSI mieć stawkę (Dział 2 ją zebrał; brak = FAIL,
 			// nigdy domyślne 23% — ta sama zasada co Agent 2.3).
 			foreach ( array_keys( $class_subtotal ) as $tc ) {
