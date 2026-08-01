@@ -107,7 +107,14 @@ class MP_Offer_Builder_List_Table extends WP_List_Table {
 			case 'version':
 				return esc_html( (string) $item['version'] );
 			case 'updated_at':
-				return esc_html( (string) $item['updated_at'] );
+				/*
+				 * W bazie trzymamy UTC (porównywalność i sortowanie), a człowiek ma
+				 * zobaczyć SWOJĄ godzinę. Wcześniej kolumna szła na ekran surowa,
+				 * więc handlowiec w Polsce czytał czas o godzinę lub dwie wcześniejszy
+				 * niż faktyczny i nie miał jak tego zauważyć — data wyglądała
+				 * poprawnie, była tylko z innej strefy.
+				 */
+				return esc_html( get_date_from_gmt( (string) $item['updated_at'], 'Y-m-d H:i' ) );
 			case 'actions':
 				return $this->column_actions( $item );
 			default:

@@ -154,7 +154,15 @@ class MP_Offer_Builder_Approval {
 			array(
 				'status'       => MP_Offer_Builder_DB::STATUS_APPROVED,
 				'lock_version' => (int) $offer['lock_version'] + 1,
-				'updated_at'   => current_time( 'mysql' ),
+
+				/*
+				 * UTC, tak samo jak zapis Działu 10 (`gmdate`). Wcześniej to jedno
+				 * miejsce zapisywało czas WITRYNY, więc kolumna `updated_at` niosła
+				 * dwie różne strefy naraz — a lista ofert domyślnie sortuje właśnie
+				 * po niej. W strefie innej niż UTC oferta zatwierdzona później
+				 * potrafiła wylądować na liście przed ofertą zapisaną wcześniej.
+				 */
+				'updated_at'   => current_time( 'mysql', true ),
 			),
 			array(
 				'id'     => $offer_id,
@@ -331,6 +339,7 @@ class MP_Offer_Builder_Approval {
 		$code = sanitize_key( wp_unslash( $_GET[ self::NOTICE_ARG ] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		$messages = array(
+
 			/*
 			 * Komunikat sukcesu MÓWI TO, CO WIADOMO.
 			 *

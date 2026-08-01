@@ -462,7 +462,17 @@ class MP_OB_D10_Agent_Transaction extends MP_OB_Abstract_Agent {
 			// Inkrement w pamięci jest niezależny od snapshotu i deterministyczny;
 			// przy N równoległych zapisach kolejne próby (MAX_ATTEMPTS) rozwiązują
 			// kolizję, każda podbijając numer o 1.
-			$year = (int) gmdate( 'Y' );
+
+			/*
+			 * ROK NUMERU TO WARTOŚĆ KALENDARZOWA FIRMY, NIE ZNACZNIK MASZYNOWY.
+			 *
+			 * Działy 2 i 8 liczą go przez `current_time( 'Y' )`, ta ścieżka liczyła
+			 * przez `gmdate( 'Y' )`. 1 stycznia między północą a 1:00 czasu polskiego
+			 * ponowienie po kolizji budowało numer z ROKU POPRZEDNIEGO — numer spoza
+			 * bieżącej serii na dokumencie handlowym, w dodatku tylko przy retry,
+			 * czyli w sytuacji, której nikt nie odtworzy na żądanie.
+			 */
+			$year = (int) current_time( 'Y' );
 			$seq  = 1; // ostateczny fallback: pierwsza oferta (np. przełom roku, brak ofert w nowym roku).
 			if ( 1 === preg_match( '/^OF\/' . $year . '\/(\d{6})$/', (string) $plan['header']['offer_number'], $m ) ) {
 				$seq = ( (int) $m[1] ) + 1;
