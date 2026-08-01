@@ -239,7 +239,29 @@ class MP_Lead_Intake_Page {
 
 		$locations = get_nav_menu_locations();
 		if ( empty( $locations ) ) {
-			update_option( self::OPTION_MENU_REASON, self::MENU_NO_LOCATIONS );
+			/*
+			 * Pustka z `get_nav_menu_locations()` opisuje DWIE rozne sytuacje, bo ta
+			 * funkcja zwraca PRZYPISANIA, a nie rejestracje: motyw bez lokalizacji
+			 * oraz motyw z lokalizacja, do ktorej nikt nie przypisal menu. Druga to
+			 * stan kazdego motywu swiezo po instalacji — czyli ten, ktory widuje sie
+			 * najczesciej. Do 1.3.7 obie dostawaly komunikat „Twoj motyw nie
+			 * rejestruje standardowego menu WordPressa", co dla drugiej jest
+			 * nieprawda i kieruje administratora do naprawy, ktorej nie ma co robic.
+			 *
+			 * O rejestracje pyta sie `get_registered_nav_menus()`. Rozroznienie
+			 * istnialo juz w kodzie (P1-G9), ale bylo osiagalne wylacznie dla
+			 * ksztaltu `array( 'primary' => 0 )` — takiego WordPress w tej sytuacji
+			 * nie produkuje, wiec galaz z wlasciwym komunikatem byla martwa.
+			 */
+			$zarejestrowane = function_exists( 'get_registered_nav_menus' )
+				? (array) get_registered_nav_menus()
+				: array();
+
+			update_option(
+				self::OPTION_MENU_REASON,
+				empty( $zarejestrowane ) ? self::MENU_NO_LOCATIONS : self::MENU_NO_ASSIGNED
+			);
+
 			return false;
 		}
 

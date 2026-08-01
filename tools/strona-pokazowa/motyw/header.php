@@ -2,6 +2,8 @@
 /**
  * Nagłówek motywu Kredyt Kompas (identyczny na wszystkich stronach).
  */
+defined( 'ABSPATH' ) || exit; // Szablon ladowany przez WordPressa, nie wywolywany wprost.
+
 $kk_slug = kk_current_slug();
 ?><!DOCTYPE html>
 <html lang="pl">

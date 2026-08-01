@@ -221,10 +221,22 @@ update_option( MP_Lead_Intake_Page::OPTION, (int) $strona_id );
 $bez_lokalizacji = function () {
 	return array();
 };
+
+/*
+ * „Motyw nie rejestruje menu" trzeba odtworzyc W CALOSCI: nie wystarczy pusta
+ * lista PRZYPISAN, bo od 1.3.7 wtyczka pyta osobno o REJESTRACJE. Aktywny motyw
+ * w tym srodowisku lokalizacje rejestruje, wiec bez schowania rejestru test
+ * mierzylby przypadek sasiedni — ten z sekcji nizej.
+ */
+$oa_rejestr_kopia                     = $GLOBALS['_wp_registered_nav_menus'] ?? array();
+$GLOBALS['_wp_registered_nav_menus']  = array();
+
 add_filter( 'theme_mod_nav_menu_locations', $bez_lokalizacji, 99 );
 MP_Lead_Intake_Page::refresh_menu_status();
 $html_bez_lokalizacji = oa_ostrzezenia();
 remove_filter( 'theme_mod_nav_menu_locations', $bez_lokalizacji, 99 );
+
+$GLOBALS['_wp_registered_nav_menus'] = $oa_rejestr_kopia;
 
 oa_ok(
 	'' !== trim( $html_bez_lokalizacji ),
@@ -263,6 +275,54 @@ oa_ok(
 	wp_strip_all_tags( $html_puste ) !== wp_strip_all_tags( $html_bez_lokalizacji ),
 	'dwie rozne przyczyny daja dwa rozne komunikaty'
 );
+
+/*
+ * Przypadek, ktorego powyzsza symulacja NIE odtwarzala, a ktory daje KAZDY
+ * prawdziwy motyw swiezo po instalacji: `register_nav_menu()` wywolane, ale
+ * zaden obiekt menu nie zostal do lokalizacji przypisany. WordPress zwraca
+ * wtedy z `get_nav_menu_locations()` PUSTA tablice — tak samo jak dla motywu,
+ * ktory zadnych lokalizacji nie rejestruje. Wtyczka rozpoznawala to po pustce
+ * i mowila administratorowi „Twoj motyw nie rejestruje standardowego menu",
+ * czyli nieprawde: motyw rejestruje, brakuje tylko przypisania.
+ *
+ * Symulacja `array( 'primary' => 0 )` opisuje ksztalt, ktorego WordPress w tej
+ * sytuacji nie produkuje — dlatego naprawa P1-G9 wygladala na kompletna, a stan
+ * spotykany najczesciej dostawal zla z trzech diagnoz.
+ */
+oa_wyczysc();
+
+$oa_strona_lok = wp_insert_post(
+	array(
+		'post_title'   => 'MP test lokalizacji',
+		'post_content' => '[' . MP_Lead_Intake_Form::SHORTCODE . ']',
+		'post_status'  => 'publish',
+		'post_type'    => 'page',
+	)
+);
+update_option( MP_Lead_Intake_Page::OPTION, (int) $oa_strona_lok );
+
+$oa_nic_nieprzypisane = function () {
+	return array();
+};
+
+register_nav_menu( 'glowne', 'Menu glowne' );
+add_filter( 'theme_mod_nav_menu_locations', $oa_nic_nieprzypisane, 99 );
+MP_Lead_Intake_Page::refresh_menu_status();
+$html_zarejestrowana = oa_ostrzezenia();
+remove_filter( 'theme_mod_nav_menu_locations', $oa_nic_nieprzypisane, 99 );
+
+oa_ok(
+	false === stripos( $html_zarejestrowana, 'nie rejestruje' ),
+	'motyw, ktory lokalizacje ZAREJESTROWAL, nie jest oskarzany o jej brak',
+	'html=' . wp_strip_all_tags( $html_zarejestrowana )
+);
+oa_ok(
+	false !== stripos( $html_zarejestrowana, 'przypisan' ),
+	'komunikat kieruje tam, gdzie trzeba: menu nie jest przypisane do lokalizacji',
+	'html=' . wp_strip_all_tags( $html_zarejestrowana )
+);
+
+wp_delete_post( (int) $oa_strona_lok, true );
 
 $GLOBALS['mp_oa']['lines'][] = '';
 $GLOBALS['mp_oa']['lines'][] = '=== C. KONTR-ASERCJE: przy powodzeniu cisza jest wlasciwa ===';

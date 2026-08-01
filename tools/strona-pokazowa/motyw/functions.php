@@ -171,6 +171,34 @@ function kk_seed_content() {
 		update_option( 'page_on_front', $ids['index'] );
 	}
 
+	/*
+	 * Menu WordPressa przypisane do lokalizacji `glowne`.
+	 *
+	 * Sama `register_nav_menu()` NIE WYSTARCZY: dopóki do lokalizacji nie jest
+	 * przypisany obiekt menu, `get_nav_menu_locations()` zwraca pustkę i wtyczka
+	 * MP Lead Intake nie ma gdzie dopisać swojej podstrony — sięga wtedy po ścieżkę
+	 * awaryjną, czyli przepuszczenie całego kodu strony przez `preg_replace`.
+	 * Rejestracja bez przypisania zostawiała więc dokładnie ten stan, który miała
+	 * usunąć, a administrator dostawał w panelu ostrzeżenie o menu.
+	 *
+	 * Menu zostaje PUSTE. Motyw rysuje własne pozycje z `kk_menu_items()`; to menu
+	 * istnieje po to, żeby wtyczki miały gdzie dopisać swoje strony standardową
+	 * drogą — i tylko takie pozycje w nim będą.
+	 */
+	$menu_glowne = wp_get_nav_menu_object( 'Menu główne' );
+
+	if ( ! $menu_glowne ) {
+		$menu_id = wp_create_nav_menu( 'Menu główne' );
+	} else {
+		$menu_id = (int) $menu_glowne->term_id;
+	}
+
+	if ( ! is_wp_error( $menu_id ) && (int) $menu_id > 0 ) {
+		$lokalizacje            = (array) get_theme_mod( 'nav_menu_locations', array() );
+		$lokalizacje['glowne']  = (int) $menu_id;
+		set_theme_mod( 'nav_menu_locations', $lokalizacje );
+	}
+
 	// Ładne permalinki.
 	update_option( 'permalink_structure', '/%postname%/' );
 	if ( function_exists( 'flush_rewrite_rules' ) ) {

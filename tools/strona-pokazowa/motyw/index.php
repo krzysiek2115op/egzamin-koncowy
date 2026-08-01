@@ -3,6 +3,8 @@
  * Fallback motywu. Strony korzystają z page.php; to obsługuje pozostałe
  * widoki (archiwa, 404, wyniki wyszukiwania) w minimalnej formie.
  */
+defined( 'ABSPATH' ) || exit; // Szablon ladowany przez WordPressa, nie wywolywany wprost.
+
 get_header();
 if ( have_posts() ) :
 	while ( have_posts() ) :

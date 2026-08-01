@@ -1,3 +1,4 @@
+<?php defined( 'ABSPATH' ) || exit; // Szablon ladowany przez WordPressa, nie wywolywany wprost. ?>
 </main>
 <footer><div class="container">
 <div class="foot-grid">
