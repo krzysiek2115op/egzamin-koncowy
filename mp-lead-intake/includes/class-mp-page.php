@@ -33,6 +33,28 @@ class MP_Lead_Intake_Page {
 	/** Opcja: czy stronę udało się umieścić w co najmniej jednym menu motywu. */
 	const OPTION_MENU_OK = 'mp_lead_intake_menu_ok';
 
+	/**
+	 * Opcja: KTÓRA z trzech przyczyn zablokowała wpis w menu.
+	 *
+	 * Flaga 0/1 wystarczała kodowi, ale nie człowiekowi. `add_to_menus()` zwraca
+	 * false w trzech różnych sytuacjach, a ostrzeżenie podawało zawsze tę samą,
+	 * jedną z nich — administrator motywu, który menu rejestruje poprawnie,
+	 * dostawał diagnozę nieprawdziwą i instrukcję naprawy, która nie może pomóc.
+	 */
+	const OPTION_MENU_REASON = 'mp_lead_intake_menu_reason';
+
+	/** Opcja: ślad po nieudanym utworzeniu pod-strony (pusta = strona jest). */
+	const OPTION_PAGE_ERROR = 'mp_lead_intake_page_error';
+
+	/** Powód: motyw nie rejestruje żadnej lokalizacji menu. */
+	const MENU_NO_LOCATIONS = 'brak_lokalizacji';
+
+	/** Powód: lokalizacje są, ale żadna nie ma przypisanego menu. */
+	const MENU_NO_ASSIGNED = 'lokalizacje_bez_menu';
+
+	/** Powód: wp_update_nav_menu_item() nie zapisało pozycji. */
+	const MENU_INSERT_FAILED = 'zapis_nieudany';
+
 	/** Tytuł pod-strony — jedno źródło prawdy (post_title, wpis menu, H1, fallback linku). */
 	const TITLE = 'Zapytanie ofertowe';
 
@@ -65,8 +87,30 @@ class MP_Lead_Intake_Page {
 
 		if ( $page_id && ! is_wp_error( $page_id ) ) {
 			update_option( self::OPTION, (int) $page_id );
+			delete_option( self::OPTION_PAGE_ERROR );
 			update_option( self::OPTION_MENU_OK, self::add_to_menus( (int) $page_id ) ? 1 : 0 );
+
+			return;
 		}
+
+		/*
+		 * NIEUDANE UTWORZENIE STRONY NIE MOŻE BYĆ CISZĄ.
+		 *
+		 * Gałąź `else` nie istniała: przy porażce `wp_insert_post()` nie zapisywano
+		 * ani strony, ani śladu. Jedyne ostrzeżenie w adminie było przy tym
+		 * WYCISZONE domyślką — `maybe_admin_notice()` wychodzi, gdy OPTION_MENU_OK
+		 * ma wartość inną niż '0', a opcja nieustawiona zwraca domyślne '1'.
+		 * Administrator widział komunikat WordPressa „Wtyczka włączona" i zakładał,
+		 * że formularz działa; klienci nie mieli gdzie go wypełnić.
+		 *
+		 * Zapisujemy powód, a nie samą flagę: przy WP_Error jest to komunikat
+		 * tego, kto zapis zablokował, i to jedyna wskazówka, jaką administrator
+		 * dostanie.
+		 */
+		update_option(
+			self::OPTION_PAGE_ERROR,
+			is_wp_error( $page_id ) ? $page_id->get_error_message() : __( 'WordPress odrzucił zapis strony bez podania przyczyny.', 'mp-lead-intake' )
+		);
 	}
 
 	/**
@@ -116,15 +160,23 @@ class MP_Lead_Intake_Page {
 
 		$locations = get_nav_menu_locations();
 		if ( empty( $locations ) ) {
+			update_option( self::OPTION_MENU_REASON, self::MENU_NO_LOCATIONS );
 			return false;
 		}
 
 		$added_anywhere = false;
+		$any_assigned   = false;
+
 		foreach ( array_unique( $locations ) as $menu_id ) {
 			$menu_id = (int) $menu_id;
 			if ( $menu_id <= 0 ) {
+				// Lokalizacja zarejestrowana przez motyw, ale administrator nie
+				// przypisał do niej menu. To zupełnie inna sprawa niż motyw bez
+				// lokalizacji — i naprawia ją kto inny, w innym miejscu panelu.
 				continue;
 			}
+
+			$any_assigned = true;
 
 			$items   = wp_get_nav_menu_items( $menu_id );
 			$in_menu = false;
@@ -157,7 +209,19 @@ class MP_Lead_Intake_Page {
 			}
 		}
 
-		return $added_anywhere;
+		if ( $added_anywhere ) {
+			delete_option( self::OPTION_MENU_REASON );
+
+			return true;
+		}
+
+		// Trzy różne porażki, trzy różne rzeczy do zrobienia przez człowieka.
+		update_option(
+			self::OPTION_MENU_REASON,
+			$any_assigned ? self::MENU_INSERT_FAILED : self::MENU_NO_ASSIGNED
+		);
+
+		return false;
 	}
 
 	/**
@@ -173,6 +237,28 @@ class MP_Lead_Intake_Page {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
+
+		/*
+		 * NAJPIERW SPRAWA POWAŻNIEJSZA: BRAK SAMEJ STRONY.
+		 *
+		 * Ta gałąź nie istniała, a wyjście poniżej („OPTION_MENU_OK inne niż '0'")
+		 * wyciszało wszystko, bo przy nieudanym utworzeniu strony flaga menu nie
+		 * była nawet ustawiana i domyślka '1' kończyła metodę. Administrator nie
+		 * miał jak się dowiedzieć, że kluczowa funkcja wtyczki nie powstała.
+		 */
+		$blad_strony = (string) get_option( self::OPTION_PAGE_ERROR, '' );
+
+		if ( '' !== $blad_strony ) {
+			printf(
+				'<div class="notice notice-error"><p><strong>MP Lead Intake:</strong> %s</p><p>%s <code>%s</code></p></div>',
+				esc_html__( 'Strona z formularzem zapytania ofertowego NIE POWSTAŁA podczas aktywacji, więc klienci nie mają gdzie go wypełnić. Wyłącz i włącz wtyczkę ponownie albo utwórz stronę ręcznie, wstawiając na niej krótki kod:', 'mp-lead-intake' ),
+				esc_html__( 'Powód zgłoszony przez WordPress:', 'mp-lead-intake' ),
+				esc_html( $blad_strony )
+			);
+
+			return;
+		}
+
 		if ( '0' !== (string) get_option( self::OPTION_MENU_OK, '1' ) ) {
 			return; // Brak flagi porażki (albo jeszcze nie ustawiona, albo sukces).
 		}
@@ -187,10 +273,36 @@ class MP_Lead_Intake_Page {
 
 		printf(
 			'<div class="notice notice-warning is-dismissible"><p><strong>MP Lead Intake:</strong> %s <a href="%s" target="_blank" rel="noopener">%s</a></p></div>',
-			esc_html__( 'Twój motyw nie rejestruje standardowego menu WordPressa — wtyczka spróbowała automatycznie dołożyć link do formularza w wykrytym menu strony (element <nav>). Sprawdź na stronie, czy się pojawił; jeśli nie, dodaj ręcznie link do:', 'mp-lead-intake' ),
+			esc_html( self::menu_notice_text() ),
 			esc_url( $url ),
 			esc_html( $url )
 		);
+	}
+
+	/**
+	 * Treść ostrzeżenia o menu — dobrana do RZECZYWISTEJ przyczyny.
+	 *
+	 * Wcześniej komunikat był jeden: „Twój motyw nie rejestruje standardowego menu
+	 * WordPressa". `add_to_menus()` zwraca jednak false w trzech sytuacjach, a dwie
+	 * z nich nie mają z rejestracją menu nic wspólnego. Administrator motywu, który
+	 * menu rejestruje poprawnie, dostawał diagnozę nieprawdziwą i instrukcję,
+	 * która nie mogła pomóc — a prawdziwa naprawa (przypisanie menu do lokalizacji)
+	 * jest jednym kliknięciem w Wygląd → Menu.
+	 *
+	 * @return string
+	 */
+	private static function menu_notice_text() {
+		$reason = (string) get_option( self::OPTION_MENU_REASON, self::MENU_NO_LOCATIONS );
+
+		if ( self::MENU_NO_ASSIGNED === $reason ) {
+			return __( 'Twój motyw ma lokalizacje menu, ale żadna nie ma PRZYPISANEGO menu — przypisz je w Wygląd → Menu, a link do formularza dołoży się sam. Tymczasem wtyczka spróbowała dołożyć go do wykrytego menu strony; sprawdź, czy się pojawił, a jeśli nie, dodaj ręcznie link do:', 'mp-lead-intake' );
+		}
+
+		if ( self::MENU_INSERT_FAILED === $reason ) {
+			return __( 'Menu motywu jest przypisane, ale WordPress nie zapisał w nim pozycji z linkiem do formularza (mogła to zablokować inna wtyczka albo uprawnienia). Dodaj ręcznie link do:', 'mp-lead-intake' );
+		}
+
+		return __( 'Twój motyw nie rejestruje standardowego menu WordPressa — wtyczka spróbowała automatycznie dołożyć link do formularza w wykrytym menu strony (element <nav>). Sprawdź na stronie, czy się pojawił; jeśli nie, dodaj ręcznie link do:', 'mp-lead-intake' );
 	}
 
 	/**
