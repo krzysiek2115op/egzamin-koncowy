@@ -173,13 +173,24 @@ class MP_SW_D9_Agent_Events extends MP_SW_Abstract_Agent {
 
 		if ( $writes > 0 ) {
 			$transition = (array) $context->get( 'transition', array() );
+			$assignment = (array) $context->get( 'assignment', array() );
 
 			$payload = array(
-				'event_id' => $event_id,
-				'lead_id'  => isset( $event['entity']['lead_id'] ) ? (int) $event['entity']['lead_id'] : 0,
-				'flow_id'  => (int) $context->get( 'flow_id', 0 ),
-				'status'   => isset( $transition['to'] ) ? (string) $transition['to'] : '',
-				'trace_id' => (string) $context->get( 'trace_id', $event_id ),
+				'event_id'         => $event_id,
+				'lead_id'          => isset( $event['entity']['lead_id'] ) ? (int) $event['entity']['lead_id'] : 0,
+				'flow_id'          => (int) $context->get( 'flow_id', 0 ),
+				'status'           => isset( $transition['to'] ) ? (string) $transition['to'] : '',
+
+				/*
+				 * Właściciel procesu jedzie razem ze zdarzeniem, bo poza tą wtyczką
+				 * nikt nie ma prawa go odczytać — `wp_mp_sw_flow` należy do BD-1.
+				 * Wtyczka 1 trzyma przy leadzie kolumnę `salesman_id` i to z tego
+				 * pola dowiaduje się, kogo tam wpisać (i kogo wpisać po rotacji
+				 * albo przepisaniu przez managera). Zero znaczy „to zdarzenie nie
+				 * niesie decyzji o przypisaniu", a nie „odbierz handlowca".
+				 */
+				'assigned_user_id' => isset( $assignment['user_id'] ) ? (int) $assignment['user_id'] : 0,
+				'trace_id'         => (string) $context->get( 'trace_id', $event_id ),
 			);
 
 			if ( MP_SW_D9_Emitter::emit( MP_SW_D9_Emitter::HOOK_FLOW_UPDATED, $event_id, $payload ) ) {

@@ -3,7 +3,7 @@
  * Dział 7 — Utworzenie leada.
  *
  * 7.1 dedup (unikalność firmy po NIP), 7.2 przygotowanie danych (scoring +
- * przypisanie handlowca), 7.3 zapis leada do wp_mp_leads (BD-3).
+ * handlowiec z wtyczki 3), 7.3 zapis leada do wp_mp_leads (BD-3).
  *
  * Źródła (oficjalne/oryginalne) — Golden Rule #2. Dokumentacja czytana przez agentów:
  *  - docs/dzial-07/wordpress-wpdb-insert.md
@@ -99,12 +99,12 @@ class MP_D7_Agent_Dedup extends MP_Abstract_Agent {
 }
 
 /**
- * Agent 7.2 — przygotowuje dane leada (scoring + przypisanie handlowca).
+ * Agent 7.2 — przygotowuje dane leada (scoring + handlowiec z wtyczki 3).
  */
 class MP_D7_Agent_Prepare extends MP_Abstract_Agent {
 
 	public function __construct() {
-		parent::__construct( '7.2', 'Przygotowuje dane leada', 'Scoring + przypisanie handlowca + mapowanie pól' );
+		parent::__construct( '7.2', 'Przygotowuje dane leada', 'Scoring + handlowiec wskazany przez wtyczkę 3 + mapowanie pól' );
 	}
 
 	/**
@@ -130,23 +130,56 @@ class MP_D7_Agent_Prepare extends MP_Abstract_Agent {
 	}
 
 	/**
-	 * Przypisanie handlowca (użytkownik z rolą mp_handlowiec).
+	 * Handlowiec dla leada — PYTANIE, nie decyzja.
 	 *
-	 * @param string $nip NIP (deterministyczny wybór).
+	 * Ta wtyczka handlowca NIE WYBIERA. Zlecenie mówi to trzy razy, niezależnie
+	 * od siebie: cel biznesowy żąda skierowania zadania do „odpowiedniego"
+	 * handlowca, tabela zakresu przypisuje wtyczce 1 „przypisanie kraju
+	 * i segmentu" (handlowiec należy do wtyczki 3), a BD-1 opisano jako
+	 * „logiczne powiązanie użytkownika z krajem, zespołem, językiem i zakresem
+	 * obsługi". Cała wiedza potrzebna do wyboru leży więc po drugiej stronie.
+	 *
+	 * Do wersji 1.3.6 stało tu:
+	 *
+	 *     $index = abs( crc32( (string) $nip ) ) % count( $users );
+	 *
+	 * Hasz numeru NIP rozrzucał leady równomiernie po wszystkich kontach z rolą
+	 * handlowca — bez kraju, języka, zespołu i obciążenia, czyli bez niczego,
+	 * co przesądza o tym, czy handlowiec jest ODPOWIEDNI. Ponieważ wtyczka 3
+	 * dobierała właściciela procesu naprawdę (Dział 4), jedno zgłoszenie kończyło
+	 * się DWOMA różnymi handlowcami: innym w BD-3 i innym w BD-1. Niemiecka firma
+	 * trafiała do polskiego handlowca w jednej bazie i do niemieckiego w drugiej.
+	 *
+	 * Odpowiedź `null` znaczy „nie ma kto wybrać" i jest informacją prawdziwą.
+	 * Wymyślony handlowiec prawdziwą informacją nie był — wyglądał na decyzję.
+	 *
+	 * @param MP_Context $context Kontekst zgłoszenia.
 	 * @return int|null
 	 */
-	protected function assign_salesman( $nip ) {
-		$users = get_users(
+	protected function assign_salesman( MP_Context $context ) {
+		/**
+		 * Kto ma poprowadzić tego leada.
+		 *
+		 * Odpowiada wtyczka 3 (MP_SW_Hooks::answer_owner) tym samym doborem,
+		 * którego użyje później dla procesu sprzedażowego — dzięki temu obie
+		 * bazy zapisują tego samego człowieka. Brak wtyczki 3 to brak odpowiedzi.
+		 *
+		 * @param int|null $user_id Wybrany handlowiec albo null.
+		 * @param array    $lead    Dane leada istotne dla doboru.
+		 */
+		$chosen = apply_filters(
+			'mp_lead_assign_salesman',
+			null,
 			array(
-				'role'   => 'mp_handlowiec',
-				'fields' => 'ID',
+				'nip'     => (string) $context->get( 'nip', '' ),
+				'country' => (string) $context->get( 'country', 'PL' ),
+				'lang'    => (string) $context->get( 'lang', 'pl' ),
+				'segment' => (string) $context->get( 'segment', '' ),
+				'email'   => (string) $context->get( 'email', '' ),
 			)
 		);
-		if ( empty( $users ) ) {
-			return null;
-		}
-		$index = abs( crc32( (string) $nip ) ) % count( $users );
-		return (int) $users[ $index ];
+
+		return ( is_numeric( $chosen ) && (int) $chosen > 0 ) ? (int) $chosen : null;
 	}
 
 	/**
@@ -156,7 +189,7 @@ class MP_D7_Agent_Prepare extends MP_Abstract_Agent {
 	public function run( MP_Context $context ) {
 		$score    = $this->calculate_score( $context );
 		$nip      = (string) $context->get( 'nip', '' );
-		$salesman = $this->assign_salesman( $nip );
+		$salesman = $this->assign_salesman( $context );
 
 		$company = (string) $context->get( 'company_name', '' );
 		$email   = (string) $context->get( 'email', '' );
@@ -347,7 +380,7 @@ class MP_Department_07 {
 			7,
 			'create-lead',
 			'Utworzenie leada',
-			'Dedup po NIP, scoring, przypisanie handlowca i zapis leada do wp_mp_leads.',
+			'Dedup po NIP, scoring, zapytanie o handlowca i zapis leada do wp_mp_leads.',
 			$pairs,
 			$gate
 		);

@@ -624,12 +624,18 @@ printf(
 //     (current_time('mysql', true) → z powrotem 'mysql' bez GMT) przeszłaby niezauważona
 //     mimo 25/25 PASS (audyt 2026-07-23, patrz komentarz przy current_time() w wp-stubs.php).
 $reset_async();
-// Handlowiec w bazie testowej jest tu potrzebny wyłącznie po to, żeby Dział 7
-// w ogóle ZAPISAŁ salesman_assigned_at (bez przypisania kolumna zostaje null,
-// a niezmiennik 26b sprawdzałby wtedy nie strefę, tylko własną konfigurację).
-// Przywracane zaraz za 26b — dalsze niezmienniki zakładają bazę bez handlowców.
-$users_przed26                  = isset( $GLOBALS['__mp_cfg']['users'] ) ? $GLOBALS['__mp_cfg']['users'] : array();
-$GLOBALS['__mp_cfg']['users']   = array( 501, 502 );
+// Przypisany handlowiec jest tu potrzebny wyłącznie po to, żeby Dział 7 w ogóle
+// ZAPISAŁ salesman_assigned_at (bez przypisania kolumna zostaje null, a niezmiennik
+// 26b sprawdzałby wtedy nie strefę, tylko własną konfigurację).
+//
+// Od 1.3.7 wtyczka 1 handlowca NIE WYBIERA — pyta o niego filtrem, a odpowiada
+// wtyczka 3 (U-1: hasz crc32(NIP) dawał innego handlowca w BD-3 niż w BD-1).
+// W tym harnessie wtyczki 3 nie ma, więc na filtr odpowiada sam test. To nie jest
+// obejście: dokładnie tak wygląda kontrakt, który wtyczka 1 ma spełniać.
+$odpowiedz_na_filtr = static function () {
+	return 501;
+};
+add_filter( 'mp_lead_assign_salesman', $odpowiedz_na_filtr );
 $prov26 = run_pipeline( base_input( $VALID_NIP ) );
 $lid26  = (int) ( isset( $prov26['final_data']['lead_id'] ) ? $prov26['final_data']['lead_id'] : 0 );
 $GLOBALS['__mp_cfg']['http_responses'] = array(
@@ -662,6 +668,35 @@ printf(
 	$inv26b ? 'PASS' : 'FAIL',
 	'' !== $assigned_at26b ? $assigned_at26b : '-',
 	PHP_INT_MAX === $drift26b ? '-' : $drift26b
+);
+
+// 26c) U-1: wtyczka 1 zapisuje handlowca, o KTÓREGO ZAPYTAŁA. Nie wybiera go sama.
+$inv26c = $row26 && 501 === (int) $row26['salesman_id'];
+printf(
+	"[%-4s] Dział 7 zapisuje handlowca wskazanego przez filtr, nie własny wybór (salesman_id=%s)\n",
+	$inv26c ? 'PASS' : 'FAIL',
+	$row26 ? var_export( $row26['salesman_id'], true ) : '-'
+);
+
+// 26d) KONTR-ASERCJA. Bez odpowiedzi na filtr kolumna zostaje PUSTA. Do 1.3.6 stał tu
+//      hasz `abs(crc32($nip)) % count($users)`, który przy zaludnionej bazie zawsze
+//      kogoś wskazywał — dlatego rozjazd między BD-3 i BD-1 nie miał jak się ujawnić.
+remove_filter( 'mp_lead_assign_salesman', $odpowiedz_na_filtr );
+// Ten sam NIP co wyżej, więc bez wyczyszczenia magazynu dedup z Działu 7 odrzuciłby
+// zgłoszenie i test oceniałby brak wiersza zamiast pustej kolumny (identyczna pułapka
+// jak przy niezmienniku 3 — patrz reset tuż nad nim).
+$GLOBALS['__mp_transients']          = array();
+$GLOBALS['__mp_cfg']['leads_by_nip'] = array();
+$GLOBALS['wpdb']->rows_leads         = array();
+$users_przed26                = isset( $GLOBALS['__mp_cfg']['users'] ) ? $GLOBALS['__mp_cfg']['users'] : array();
+$GLOBALS['__mp_cfg']['users'] = array( 501, 502 );
+$prov26d                      = run_pipeline( base_input( $VALID_NIP ) );
+$row26d                       = $find_lead( (int) ( isset( $prov26d['final_data']['lead_id'] ) ? $prov26d['final_data']['lead_id'] : 0 ) );
+$inv26d                       = $row26d && null === $row26d['salesman_id'] && null === $row26d['salesman_assigned_at'];
+printf(
+	"[%-4s] KONTR-ASERCJA: bez odpowiedzi na filtr wtyczka 1 NIE wymyśla handlowca (salesman_id=%s)\n",
+	$inv26d ? 'PASS' : 'FAIL',
+	$row26d ? var_export( $row26d['salesman_id'], true ) : '-'
 );
 $GLOBALS['__mp_cfg']['users'] = $users_przed26;
 

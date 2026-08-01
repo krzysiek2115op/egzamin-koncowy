@@ -34,6 +34,9 @@ class MP_SW_Hooks {
 	/** Hak wtyczki 2: oferta zatwierdzona (opcjonalny). */
 	const HOOK_OFFER_APPROVED = 'mp_offer_approved';
 
+	/** Filtr wtyczki 1: kto ma poprowadzić tego leada. */
+	const FILTER_ASSIGN_SALESMAN = 'mp_lead_assign_salesman';
+
 	/**
 	 * Wpina nasłuch.
 	 *
@@ -43,6 +46,67 @@ class MP_SW_Hooks {
 		add_action( self::HOOK_LEAD_CREATED, array( __CLASS__, 'on_lead_created' ), 10, 2 );
 		add_action( self::HOOK_OFFER_CREATED, array( __CLASS__, 'on_offer_created' ), 10, 2 );
 		add_action( self::HOOK_OFFER_APPROVED, array( __CLASS__, 'on_offer_approved' ), 10, 2 );
+		add_filter( self::FILTER_ASSIGN_SALESMAN, array( __CLASS__, 'answer_owner' ), 10, 2 );
+	}
+
+	/**
+	 * Odpowiedź na pytanie wtyczki 1: kto ma poprowadzić tego leada.
+	 *
+	 * Przypisanie handlowca należy do tej wtyczki — zlecenie umieszcza je w jej
+	 * zakresie, a BD-1 istnieje właśnie po to, żeby powiązać użytkownika
+	 * z krajem, zespołem, językiem i zakresem obsługi. Wtyczka 1 wybierała
+	 * dotąd sama, haszem numeru NIP, i jeden lead kończył się dwoma różnymi
+	 * handlowcami: innym w BD-3, innym w BD-1.
+	 *
+	 * Odpowiadamy TYM SAMYM doborem, którego użyje potem Dział 4 dla procesu
+	 * (`MP_SW_D4_Assigner::decide`), na tych samych danych wejściowych. Proces
+	 * jeszcze nie istnieje, więc obciążenie liczy się przed jego założeniem —
+	 * dokładnie tak, jak policzy je Dział 4 chwilę później, bo pomiędzy tymi
+	 * dwoma momentami nie przybywa procesów.
+	 *
+	 * Gdy nie ma kogo wskazać, oddajemy wartość wejściową nietkniętą. Wtyczka 1
+	 * zapisze wtedy pustą kolumnę i to jest odpowiedź prawdziwa.
+	 *
+	 * @param int|null $current Wartość dotychczasowa (zwykle null).
+	 * @param array    $lead    Dane leada istotne dla doboru.
+	 * @return int|null
+	 */
+	public static function answer_owner( $current, $lead = array() ) {
+		if ( ! class_exists( 'MP_SW_D2_Reader' ) || ! class_exists( 'MP_SW_D4_Assigner' ) ) {
+			return $current;
+		}
+
+		$lead    = is_array( $lead ) ? $lead : array();
+		$country = isset( $lead['country'] ) ? strtoupper( trim( (string) $lead['country'] ) ) : '';
+		$lang    = isset( $lead['lang'] ) ? strtolower( trim( (string) $lead['lang'] ) ) : '';
+
+		// Ten sam domyślny język co w kopercie zdarzenia (MP_SW_Events) — inaczej
+		// odpowiedź i późniejszy dobór Działu 4 szłyby z różnych założeń.
+		if ( '' === $lang ) {
+			$lang = 'pl';
+		}
+
+		try {
+			$inputs = MP_SW_D2_Reader::assignment_inputs();
+
+			$decision = MP_SW_D4_Assigner::decide(
+				isset( $inputs['salesmen']['complete'] ) ? (array) $inputs['salesmen']['complete'] : array(),
+				isset( $inputs['workload'] ) ? (array) $inputs['workload'] : array(),
+				$country,
+				$lang
+			);
+		} catch ( \Throwable $e ) {
+			/*
+			 * Odpowiadamy na filtr w środku CUDZEGO pipeline'u. Wyjątek stąd
+			 * wywróciłby zakładanie leada — czyli rzecz główną — z powodu
+			 * niepowodzenia rzeczy pomocniczej.
+			 */
+			MP_SW_Log::notice( 'assign.filter_failed', array( 'message' => $e->getMessage() ) );
+
+			return $current;
+		}
+
+		return empty( $decision['user_id'] ) ? $current : (int) $decision['user_id'];
 	}
 
 	/**

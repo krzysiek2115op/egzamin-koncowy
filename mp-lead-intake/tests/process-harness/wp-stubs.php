@@ -40,6 +40,7 @@ $GLOBALS['__mp_mails']      = array();
 $GLOBALS['__mp_posts']      = array();
 $GLOBALS['__mp_actions']    = array(); // do_action zliczone
 $GLOBALS['__mp_hooks']      = array(); // add_action: tag => [{cb, priority, args}, ...] (realny pub/sub)
+$GLOBALS['__mp_filters']    = array(); // add_filter: tag => [{cb, priority, args}, ...] (realny pub/sub)
 $GLOBALS['__mp_cron']       = array(); // zaplanowane zdarzenia (wp_schedule_single_event)
 $GLOBALS['__mp_http_calls'] = 0;       // licznik wywołań wp_remote_get (weryfikacja: 0 w ścieżce żądania)
 // Sterowanie testami: co zwraca get_leads_by_nip; czy insert leada ma udać.
@@ -218,8 +219,37 @@ function add_action( $tag, $callback, $priority = 10, $accepted_args = 1 ) {
 	);
 	return true;
 }
-function add_filter( ...$a ) {
-	return true; }
+/*
+ * Filtry działają NAPRAWDĘ, tak jak akcje wyżej.
+ *
+ * Do 1.3.6 `add_filter()` zwracał `true` i nic nie zapisywał, a `apply_filters()`
+ * oddawał wartość wejściową nietkniętą. Dopóki żaden kontrakt wtyczki nie stał na
+ * filtrze, było to nieszkodliwe uproszczenie. Przestało być: przypisanie handlowca
+ * odbywa się przez `mp_lead_assign_salesman` (U-1), a przy pustym stubie harness
+ * meldowałby PASS niezależnie od tego, czy wtyczka o cokolwiek pyta i czy słucha
+ * odpowiedzi. To ta sama pułapka co z `current_time()` ignorującym $gmt — stub,
+ * który nie umie odtworzyć badanego zachowania, potwierdza je bezwarunkowo.
+ */
+function add_filter( $tag, $callback, $priority = 10, $accepted_args = 1 ) {
+	$GLOBALS['__mp_filters'][ $tag ][] = array(
+		'cb'       => $callback,
+		'priority' => $priority,
+		'args'     => $accepted_args,
+	);
+	return true;
+}
+function remove_filter( $tag, $callback, $priority = 10 ) {
+	if ( empty( $GLOBALS['__mp_filters'][ $tag ] ) ) {
+		return false;
+	}
+	foreach ( $GLOBALS['__mp_filters'][ $tag ] as $i => $h ) {
+		if ( $h['cb'] === $callback && (int) $h['priority'] === (int) $priority ) {
+			unset( $GLOBALS['__mp_filters'][ $tag ][ $i ] );
+			return true;
+		}
+	}
+	return false;
+}
 function do_action( $tag, ...$a ) {
 	$GLOBALS['__mp_actions'][ $tag ] = ( $GLOBALS['__mp_actions'][ $tag ] ?? 0 ) + 1;
 	if ( empty( $GLOBALS['__mp_hooks'][ $tag ] ) ) {
@@ -237,7 +267,22 @@ function do_action( $tag, ...$a ) {
 	}
 }
 function apply_filters( $tag, $value, ...$a ) {
-	return $value; }
+	if ( empty( $GLOBALS['__mp_filters'][ $tag ] ) ) {
+		return $value;
+	}
+	$hooks = $GLOBALS['__mp_filters'][ $tag ];
+	usort(
+		$hooks,
+		function ( $x, $y ) {
+			return $x['priority'] <=> $y['priority'];
+		}
+	);
+	foreach ( $hooks as $h ) {
+		$args  = array_slice( array_merge( array( $value ), $a ), 0, max( 1, (int) $h['args'] ) );
+		$value = call_user_func_array( $h['cb'], $args );
+	}
+	return $value;
+}
 function add_shortcode( ...$a ) {
 	return true; }
 

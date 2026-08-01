@@ -103,6 +103,26 @@ class MP_SW_D2_Reader {
 	}
 
 	/**
+	 * Same dane potrzebne do doboru handlowca, bez reszty snapshotu.
+	 *
+	 * Snapshot buduje się w kontekście pipeline'u i czyta przy okazji role,
+	 * proces i szablony. Dobór handlowca potrzebuje z tego dwóch rzeczy, a bywa
+	 * pytany spoza pipeline'u — przez filtr `mp_lead_assign_salesman`, którym
+	 * wtyczka 1 pyta o właściciela ZANIM jakikolwiek proces powstanie.
+	 *
+	 * Czytniki zostają prywatne: to jest wąskie okno na konkretną potrzebę,
+	 * a nie otwarcie całego snapshotu na świat.
+	 *
+	 * @return array Klucze `salesmen` (jak w snapshocie) i `workload`.
+	 */
+	public static function assignment_inputs() {
+		return array(
+			'salesmen' => self::read_salesmen(),
+			'workload' => self::read_workload(),
+		);
+	}
+
+	/**
 	 * Handlowcy wraz z konfiguracją; niekompletni trafiają na osobną listę.
 	 *
 	 * @return array
