@@ -824,6 +824,19 @@
       "lekcja": "Komunikat o tym, co sie WYDARZYLO, jest stanem serwera, nie parametrem adresu: transient zwiazany z uzytkownikiem, jednorazowy, krotki. Numer bierzemy po operacji z bazy. Wyjatkiem zostaje offer_not_found — nieistniejaca i cudza oferta maja dawac ten sam komunikat, wiec roznicowanie go numerem zrobiloby z niego wyrocznie do wyliczania cudzych ofert.",
       "test": "tests/naprawy/komunikat-z-adresu.php",
       "para": "1.26"
+    },
+    {
+      "id": "P1-G12",
+      "data": "2026-08-01",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Odczyt archiwum firm mylil brak wiersza z nieudanym zapytaniem",
+      "klasa": "brak-danych-czytany-jako-potwierdzony-wynik",
+      "plik": "includes/db/class-mp-db.php",
+      "dowod": "get_archived_lead_by_nip() konczylo sie na `return is_array( $row ) ? $row : null;` - a wpdb::get_row() oddaje przy bledzie dokladnie null, czyli to samo, co przy braku pasujacego wiersza. Ta sama klasa co P1-G11, jedna funkcje nizej w tym samym pliku, przeoczona przy tamtej naprawie.",
+      "skutek": "Firma raz zarchiwizowana ma swoj wiersz w BD-3 nadal - soft-delete zostawia go pod UNIQUE (country, nip). Gdy zapytanie o archiwum padalo, Agent 7.1 czytal null jako brak archiwum, nie ustawial reactivate_lead_id, a Agent 7.3 szedl na INSERT. INSERT bil w UNIQUE i wracal generycznym insert_failed. Powracajacy klient nie dostawal ani reaktywacji, ani prawdziwego powodu odmowy.",
+      "lekcja": "Naprawiajac blad tej klasy, przeszukaj CALA warstwe pod tym samym katem zamiast poprawiac sama znaleziona funkcje. Sentinel dobiera sie do calej klasy, nie do pojedynczej metody: null z metody odczytu znaczy zawsze 'odczyt sie nie odbyl', a potwierdzony brak to pusta tablica. Normalizacja musi siedziec w warstwie DB, nie u wolajacego - atrapa harnessu procesu oddaje dla braku archiwum null, wiec przeniesienie regulacji wyzej zbiloby 110 asercji harnessu.",
+      "test": "tests/naprawy/archiwum-bez-odczytu.php",
+      "para": "1.25"
     }
   ]
 }
