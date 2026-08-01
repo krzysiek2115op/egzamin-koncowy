@@ -187,3 +187,36 @@ Uczciwa granica zakresu:
 - **Fizyczne pobranie pliku PDF przez HTTP.** Sprawdzany jest podpis, termin
   ważności i odporność na podmianę; samo strumieniowanie pliku wymaga serwera WWW,
   którego w tym środowisku nie ma.
+
+---
+
+## Stan na wydanie 1.3.7 (01.08.2026)
+
+Pełna regresja: **65 / 65 PASS** (63 pliki testowe przez `wp eval-file`
++ 2 harnessy na własnym shimie). Scenariusze odbioru **102 / 102 PASS**.
+PHPCS wspólnym `.phpcs.xml.dist`: **0 błędów, 0 ostrzeżeń, kod wyjścia 0**.
+Surowe wyjście obu narzędzi leży w [`raporty/PRZEBIEG-TESTOW.md`](../../raporty/PRZEBIEG-TESTOW.md).
+
+Uruchomienie całości jednym poleceniem:
+
+```
+tools/test-env/regresja.sh
+```
+
+Skrypt bierze listę z katalogów `tests/`, więc nowy plik dołącza do regresji
+przez samo powstanie. Ten sam skrypt uruchamia CI (zadanie `integracja`) —
+z innym klientem WP-CLI, ale z tą samą regułą oceny werdyktu.
+
+### Dwie rzeczy, których poprzednie wydania nie sprawdzały
+
+**CI była CZERWONA od chwili powstania, z wydaniem 1.3.6 włącznie.** Brama
+wydania meldowała „PHPCS 0 błędów" i to była prawda; nikt nie sprawdził KODU
+WYJŚCIA. PHPCS kończy się jedynką także przy samych OSTRZEŻENIACH, więc trzy
+ostrzeżenia opisywane jako „stan bazowy" wywracały bramkę przy każdym pushu.
+Naprawione u źródła, nie wyciszone.
+
+**Wtyczka 3 nie miała w CI żadnego testu wykonywanego.** Nie z przeoczenia — jej
+testy wymagają WordPressa z bazą — ale skutek był taki sam: trzecia wtyczka
+i cała integracja między trzema wtyczkami przechodziły przez bramkę na
+podstawie składni i stylu kodu. Zadanie `integracja` stawia WordPressa z MySQL
+i uruchamia komplet.

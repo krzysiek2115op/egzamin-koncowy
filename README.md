@@ -20,9 +20,9 @@ danych między formularzem, WooCommerce i pocztą.
 
 | # | Wtyczka | Wersja | Baza | Opis |
 |---|---------|--------|------|------|
-| 1 | `mp-lead-intake` | 1.3.6 | BD-3 | Przyjęcie i kwalifikacja lead-a z formularza |
-| 2 | `mp-offer-builder` | 1.3.6 | BD-2 | Kalkulacja cenowa, integracja WooCommerce, oferty PDF |
-| 3 | `mp-sales-workflow` | 1.3.6 | BD-1 | Statusy procesu, handlowiec, powiadomienia, follow-up, dashboard |
+| 1 | `mp-lead-intake` | 1.3.7 | BD-3 | Przyjęcie i kwalifikacja lead-a z formularza |
+| 2 | `mp-offer-builder` | 1.3.7 | BD-2 | Kalkulacja cenowa, integracja WooCommerce, oferty PDF |
+| 3 | `mp-sales-workflow` | 1.3.7 | BD-1 | Statusy procesu, handlowiec, powiadomienia, follow-up, dashboard |
 
 Kolejność instalacji ma znaczenie: **1, potem 2, potem 3**. Wtyczka 2 nasłuchuje
 zdarzenia z wtyczki 1, a wtyczka 3 — zdarzeń z obu poprzednich. Gotowe paczki
@@ -219,6 +219,66 @@ co dałoby się wziąć za prawdziwy adres.
 
 Raporty z kolejnych przebiegów leżą w `audyt/raport-*.txt` na gałęzi
 `audyt-projektu`, a szczegółowy opis narzędzia — w `audyt/README.md`.
+
+---
+
+## Wydanie 1.3.7 — po recenzji zewnętrznej
+
+Recenzent zgłosił jedenaście usterek **bez listy**: jedną dużą, jedną średnią,
+sześć drobnych i trzy w stronie pokazowej. Nasze narzędzia dawały wtedy wynik
+czysty — komplet testów bez porażki, PHPCS bez błędu, bramka audytu „GO". To
+znaczyło jedno: znalazł rzeczy, których te narzędzia **z definicji nie widzą**.
+Siatka regresyjna sprawdza wyłącznie to, co już kiedyś w tym projekcie
+zepsuliśmy; bramka audytu porównuje kod z rejestrem własnych pomyłek, a nie
+z treścią zlecenia; żaden test nie oceniał demo ani tego, czy produkt robi to,
+co zamówiono.
+
+Zamiast zgadywać, rozpisaliśmy zlecenie **zdanie po zdaniu** i każdemu wymogowi
+przypisaliśmy werdykt z dowodem `plik:linia`. Znalazło się siedemnaście ustaleń
+w kodzie i pięć w demo — więcej, niż zgłosił recenzent, więc część na pewno się
+nie pokrywa. Naprawione są wszystkie realne; przy braku listy to jedyna sensowna
+reakcja.
+
+**Duże.** Jeden lead miał DWÓCH różnych handlowców. Wtyczka 1 wybierała go sama,
+haszem `crc32(NIP) % liczba_handlowców` — bez kraju, języka, zespołu i obciążenia,
+czyli bez niczego, co przesądza, czy handlowiec jest *odpowiedni*. Równolegle
+wtyczka 3 dobierała właściciela procesu naprawdę. Niemiecka firma trafiała do
+polskiego handlowca w BD-3 i do niemieckiego w BD-1 — z tego samego zgłoszenia,
+w tym samym żądaniu. Żaden test tego nie widział, bo każda wtyczka **z osobna**
+zachowywała się spójnie. Zlecenie mówi to samo trzy razy niezależnie: cel
+biznesowy żąda „odpowiedniego" handlowca, tabela zakresu umieszcza przypisanie
+we wtyczce 3, a BD-1 opisuje jako powiązanie użytkownika z krajem, zespołem
+i językiem. Naprawa nie przenosi kodu — zamienia decyzję w **pytanie**.
+
+**Średnie.** Punktacja leada była liczona przy każdym zgłoszeniu i nie pokazywał
+jej żaden ekran w żadnej z trzech wtyczek. Zlecenie wymienia scoring jako element
+kwalifikacji; liczba, której nikt nie widzi, niczego nie kwalifikuje.
+
+**Znalezione przy okazji, a niewidoczne wcześniej dla nikogo:**
+
+- **CI była czerwona od chwili powstania**, z wydaniem 1.3.6 włącznie. Brama
+  wydania czytała z PHPCS liczbę błędów — zgadzała się — i nigdy jego **kodu
+  wyjścia**. PHPCS kończy się jedynką także przy samych ostrzeżeniach.
+- **Wtyczka 2 obiecywała PHP 7.4**, na którym jej autoloader kończy się fatalem
+  (dołączony dompdf wymaga 8.1). Komentarz przy macierzy CI mówił wprost, że bez
+  tego sprawdzenia deklaracja zgodności jest gołosłowna. Była.
+- **Dwie wtyczki definiowały te same role.** `add_role()` przy istniejącej roli
+  nie robi nic, więc uprawnienia dostawała tylko ta aktywowana pierwsza —
+  handlowiec czytał „Brak uprawnień" albo nie, zależnie od kolejności instalacji.
+- **Motyw strony pokazowej istniał wyłącznie na maszynie autora.** Archiwum
+  w wydaniu powstawało z katalogu spoza repozytorium; nikt poza autorem nie mógł
+  odtworzyć tego, co ogląda recenzent.
+
+Dwa zarzuty **odrzuciliśmy z uzasadnieniem**, bo były fałszywymi alarmami — i to
+też jest wynik, zapisany po to, żeby nikt nie wracał do nich drugi raz. Jedno
+z naszych własnych ustaleń okazało się przy naprawie odwrotne do prawdy: zarzut
+o łamaniu zasady „jeden plik na dział" przez wtyczkę 3 wziął się z błędu
+w liczeniu (`ls | wc -l` liczył też `index.php`). To ona jedyna zasady
+przestrzegała; łamały ją wtyczki 1 i 2.
+
+Pełny rozpis: [`audyt/zgodnosc-ze-zleceniem.md`](https://github.com/krzysiek2115op/egzamin-koncowy/blob/audyt-projektu/audyt/zgodnosc-ze-zleceniem.md)
+(gałąź `audyt-projektu`). Zapis z przebiegu testów:
+[`raporty/PRZEBIEG-TESTOW.md`](raporty/PRZEBIEG-TESTOW.md).
 
 ## Licencja
 
