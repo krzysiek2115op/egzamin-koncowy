@@ -183,6 +183,35 @@ class MP_Offer_Builder_Approval {
 		}
 
 		if ( 1 !== (int) $changed ) {
+			/*
+			 * ZERO ZMIENIONYCH WIERSZY NIE ZNACZY „JUŻ ZATWIERDZONA".
+			 *
+			 * `WHERE status = 'draft'` nie trafia z każdego powodu, nie z jednego:
+			 * ktoś zatwierdził ofertę pierwszy, ale też — Dział 10 zapisał w tym
+			 * czasie inny status, albo wiersz zniknął. Bezwarunkowe
+			 * `already_approved` (poziom „info": „nic się nie zmieniło") mówiło
+			 * wtedy pracownikowi, że sprawa jest załatwiona, choć oferta NIE
+			 * przeszła w `approved`, zdarzenie nie wyszło i nikt jej nie wyśle.
+			 *
+			 * Pytamy więc bazę o STAN FAKTYCZNY. Odczyt jest po nieudanym zapisie,
+			 * czyli na ścieżce wyjątkowej — nie obciąża normalnego przebiegu.
+			 */
+			$aktualna = MP_Offer_Builder_DB::get_offer( $offer_id );
+
+			if ( ! $aktualna ) {
+				return new WP_Error(
+					'offer_not_found',
+					__( 'Oferta nie istnieje albo nie masz do niej dostępu.', 'mp-offer-builder' )
+				);
+			}
+
+			if ( MP_Offer_Builder_DB::STATUS_APPROVED !== (string) $aktualna['status'] ) {
+				return new WP_Error(
+					'wrong_status',
+					__( 'Oferta jest w stanie, z którego nie da się jej zatwierdzić.', 'mp-offer-builder' )
+				);
+			}
+
 			return new WP_Error(
 				'already_approved',
 				__( 'Ta oferta była już zatwierdzona.', 'mp-offer-builder' )
