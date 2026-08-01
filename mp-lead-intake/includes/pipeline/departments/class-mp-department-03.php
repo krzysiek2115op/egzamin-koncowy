@@ -214,8 +214,19 @@ class MP_D3_Agent_Vat extends MP_Abstract_Agent {
 		 *
 		 * Ta sama zasada co w agencie 3.3 przy Białej liście: „nie ustalono" to
 		 * nie to samo co „ustalono, że nie".
+		 *
+		 * Pytamy o WERDYKT, nie o obecność klucza. Pierwsza wersja tej straży
+		 * sprawdzała samo `array_key_exists()` — a `isValid: null` klucz ma, więc
+		 * przechodziła i lądowała dokładnie tam, przed czym broni: `! empty( null )`
+		 * dawało `false`, łagodny fallback wymaga niepustego `userError`, i pusta
+		 * odpowiedź kończyła jako „numer nieważny" z zerem w cache na dobę.
+		 *
+		 * Użyteczny werdykt VIES to wartość logiczna. Gdyby API zaczęło kiedyś
+		 * oddawać 1/0 zamiast true/false, ten warunek zdegraduje się do „nie
+		 * ustalono" i ponowi próbę — czyli w stronę bezpieczną, a nie w stronę
+		 * odrzucenia leada.
 		 */
-		if ( ! array_key_exists( 'isValid', $body ) ) {
+		if ( ! array_key_exists( 'isValid', $body ) || ! is_bool( $body['isValid'] ) ) {
 			return array(
 				'vat_valid'   => null,
 				'vat_checked' => false,

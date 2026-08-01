@@ -254,5 +254,90 @@ $wynik_nieustalony = $krytyk->review(
 
 vs_ok( $wynik_nieustalony->is_ok(), 'ale „nie ustalono" przepuszcza — lead nie ginie przez awarie VIES' );
 
+/* ==================================================================== G */
+
+$GLOBALS['mp_vs']['lines'][] = '';
+$GLOBALS['mp_vs']['lines'][] = '=== G. pole isValid OBECNE, ale bez tresci ===';
+
+/*
+ * Ustalenie 1.25 (P1-G13). Straz z sekcji D pytala wylacznie o OBECNOSC klucza:
+ *
+ *   if ( ! array_key_exists( 'isValid', $body ) ) { ... }
+ *
+ * `isValid: null` klucz ma, wiec straz go przepuszczala. Ponizej `! empty( null )`
+ * dawalo `false`, lagodny fallback wymaga NIEPUSTEGO `userError`, wiec tez nie
+ * lapal — i odpowiedz bez zadnego werdyktu konczyla sie jako „numer niewazny",
+ * z zerem w cache na 24 h i twardym STOP-em krytyka 3.2. Dokladnie ten skutek,
+ * przed ktorym sekcja D mial bronic; straz pytala o zla rzecz.
+ *
+ * Prawidlowe pytanie brzmi „czy VIES dal uzyteczny werdykt", a uzyteczny werdykt
+ * to wartosc logiczna. Gdyby VIES kiedys zaczal oddawac 1/0 zamiast true/false,
+ * kod zdegraduje sie do „nie ustalono" i ponowi probe — czyli w strone bezpieczna,
+ * a nie w strone odrzucenia leada.
+ */
+foreach ( array(
+	'null'         => null,
+	'pusty ciag'   => '',
+	'zero tekstem' => '0',
+) as $opis => $wartosc ) {
+	vs_wyczysc();
+	vs_udawaj(
+		array(
+			'requestDate' => '2026-07-31',
+			'isValid'     => $wartosc,
+		)
+	);
+
+	$g = MP_D3_Agent_Vat::resolve_vies( $kraj, $nip );
+
+	vs_ok(
+		null === $g['vat_valid'],
+		sprintf( 'isValid = %s NIE znaczy „niewazny"', $opis ),
+		'vat_valid=' . var_export( $g['vat_valid'], true )
+	);
+	vs_ok(
+		empty( $g['vat_checked'] ),
+		sprintf( 'isValid = %s nie liczy sie jako sprawdzenie', $opis )
+	);
+	vs_ok(
+		false === get_transient( MP_D3_Agent_Vat::vies_cache_key( $kraj, $nip ) ),
+		sprintf( 'isValid = %s nie zostawia werdyktu w cache na 24 h', $opis )
+	);
+}
+
+/*
+ * Kontr-asercja do sekcji G: zaostrzenie strazy nie ma prawa ruszyc jedynych
+ * dwoch odpowiedzi, ktore VIES naprawde rozstrzyga. Bez tego „naprawa" mogloby
+ * znaczyc „nic juz nie rozstrzyga".
+ */
+vs_wyczysc();
+vs_udawaj(
+	array(
+		'requestDate' => '2026-07-31',
+		'isValid'     => false,
+	)
+);
+$g_false = MP_D3_Agent_Vat::resolve_vies( $kraj, $nip );
+vs_ok(
+	false === $g_false['vat_valid'] && ! empty( $g_false['vat_checked'] ),
+	'logiczne false nadal rozstrzyga jako „numer niewazny"',
+	'vat_valid=' . var_export( $g_false['vat_valid'], true )
+);
+
+vs_wyczysc();
+vs_udawaj(
+	array(
+		'requestDate' => '2026-07-31',
+		'isValid'     => true,
+		'name'        => 'FIRMA TESTOWA',
+	)
+);
+$g_true = MP_D3_Agent_Vat::resolve_vies( $kraj, $nip );
+vs_ok(
+	true === $g_true['vat_valid'] && ! empty( $g_true['vat_checked'] ),
+	'logiczne true nadal rozstrzyga jako „numer wazny"',
+	'vat_valid=' . var_export( $g_true['vat_valid'], true )
+);
+
 vs_wyczysc();
 remove_all_filters( 'pre_http_request' );
