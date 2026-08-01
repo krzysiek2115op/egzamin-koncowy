@@ -306,12 +306,13 @@ final class MP_AU_A111_Rodo extends MP_AU_Agent {
 
 		foreach ( $kontekst->workspace->branche() as $branch ) {
 			$stan = array(
-				'kolumny'     => array(),
-				'eraser'      => false,
-				'exporter'    => false,
-				'czyszczone'  => array(),
-				'sygnal_stop' => false,
-				'pliki_rodo'  => array(),
+				'kolumny'       => array(),
+				'eraser'        => false,
+				'exporter'      => false,
+				'czyszczone'    => array(),
+				'sygnal_stop'   => false,
+				'zeruje_adres'  => false,
+				'pliki_rodo'    => array(),
 			);
 
 			foreach ( $kontekst->workspace->pliki_php( $branch, true ) as $plik ) {
@@ -364,6 +365,15 @@ final class MP_AU_A111_Rodo extends MP_AU_Agent {
 
 				if ( preg_match( '/function\s+is_anonymized|@invalid/', $tresc ) ) {
 					$stan['sygnal_stop'] = true;
+				}
+
+				/*
+				 * Czy anonimizacja ZERUJE kolumne adresu, czy PODSTAWIA w nia
+				 * adres zastepczy. To rozroznienie rozstrzyga o regule „sygnalu
+				 * anonimizacji" nizej.
+				 */
+				if ( preg_match( '/[\'"`][a-z_]*email[a-z_]*[\'"`]\s*=>\s*null\b/i', $tresc ) ) {
+					$stan['zeruje_adres'] = true;
 				}
 
 				if ( $czy_rodo ) {
@@ -454,7 +464,26 @@ final class MP_AU_K111_Rodo extends MP_AU_Krytyk {
 				);
 			}
 
-			if ( ! $stan['sygnal_stop'] && $stan['eraser'] ) {
+			/*
+			 * SYGNAL ANONIMIZACJI — tylko tam, gdzie jest co rozpoznawac.
+			 *
+			 * Blad P3-K3 wzial sie stad, ze anonimizacja PODSTAWIALA w kolumne
+			 * adresu adres zastepczy `deleted+N@invalid`. Taki wiersz wyglada
+			 * dalej na kompletny — ma adres, wiec kolejka powiadomien probuje na
+			 * niego wysylac. Dopiero `is_anonymized()` pozwala go odroznic.
+			 *
+			 * Wtyczka, ktora kolumne adresu ZERUJE (`client_email => null`), nie
+			 * ma tego problemu: nie ma adresu, ktory dalo by sie wziac za
+			 * prawdziwy, wiec nie ma tez czego rozpoznawac. Regula bez tego
+			 * rozroznienia zglaszala „mp-offer-builder" w kazdym przebiegu.
+			 *
+			 * Zawezenie idzie po SPOSOBIE ANONIMIZACJI, nie po obecnosci wysylki:
+			 * pierwsza wersja tej poprawki pytala o `wp_mail()` i nadal
+			 * zglaszala te wtyczke, bo ta owszem wysyla poczte — ale wylacznie
+			 * alarmy do administratora, nigdy na adres z anonimizowanej kolumny.
+			 * Test: `tests/regula-1-11.php`.
+			 */
+			if ( ! $stan['sygnal_stop'] && $stan['eraser'] && empty( $stan['zeruje_adres'] ) ) {
 				$ustalenia[] = new MP_AU_Ustalenie(
 					'1.11',
 					'Wtyczka „' . $branch . '" anonimizuje dane, ale nie wystawia sygnalu „ten rekord jest juz anonimowy".',

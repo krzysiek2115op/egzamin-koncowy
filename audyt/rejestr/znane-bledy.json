@@ -1032,6 +1032,32 @@
       "lekcja": "Informacja O ustaleniu to nie jest ustalenie. Para 2.8 wie cos wartosciowego — w ktorych zmianach szukac przyczyny — ale to cecha znalezionego juz problemu, nie osobny problem. Miejscem takiej wiedzy jest dowod, dokladnie tak jak przy parach 2.2 i 2.9, ktore adnotuja i niczego nie dokladaja. Drugi wniosek, ten sam co przy NARZ-F2: narzedzie audytujace samo potrzebuje audytu, bo jego bledy nie wygladaja jak bledy — wygladaja jak wyniki.",
       "test": "audyt/tests/regresja-nie-dubluje.php (8 asercji, w tym kontr-asercja C3 na ustalenie znane z poprzedniego przebiegu)",
       "para": "-"
+    },
+    {
+      "id": "NARZ-F4",
+      "data": "2026-08-01",
+      "wtyczka": "audyt (narzedzie)",
+      "tytul": "Para 1.21 czytala z wp_schedule_event() czestotliwosc zamiast nazwy zadania",
+      "klasa": "regula-bierze-nie-ten-argument",
+      "plik": "audyt/includes/pary/dzial-01-integracja.php",
+      "dowod": "Agent 1.21 wyciagal nazwe haka wyrazeniem bioracym PIERWSZY napis w cudzyslowie po nazwie funkcji. Sygnatura WordPressa to wp_schedule_event( $timestamp, $recurrence, $hook ), wiec pierwszym napisem jest czestotliwosc. Z mp-lead-intake.php:88 i :94 para zapisywala 'daily' i 'hourly' jako nazwy zadan, a nastepnie szukala wp_clear_scheduled_hook('daily') — wywolania, ktore nie ma prawa istniec. W przebiegu z 1.08.2026 dalo to dwa ustalenia sredniej wagi, podczas gdy oba haki sa sprzatane w mp-lead-intake.php:112-113 i powtornie w uninstall.php:26-27.",
+      "skutek": "Dwa fałszywe alarmy sredniej wagi w kazdym przebiegu — ale gorszy byl drugi koniec: skoro pod nazwa zadania zapisywano czestotliwosc, prawdziwa nazwa haka nie trafiala do zestawienia w ogole. Zadanie faktycznie niesprzatniete przeszloby przez te pare bez slowa, a to jedyna rzecz, ktorej ta para ma pilnowac. Regula byla wiec jednoczesnie halasliwa i slepa.",
+      "lekcja": "Pozycja argumentu jest czescia kontraktu funkcji i nie da sie jej zgadnac jedna regula dla wielu funkcji: wp_schedule_single_event() ma hak na drugiej pozycji, wp_schedule_event() na trzeciej. Wyrazenie regularne szukajace 'jakiegos napisu w poblizu' zawsze trafi w cos — i wlasnie dlatego nie widac po nim, ze trafilo w zle miejsce. Fałszywy alarm i slepota to czesto ta sama wada ogladana z dwoch stron.",
+      "test": "audyt/tests/regula-1-21.php (7 asercji, w tym C1 na hak podany zmienna i C2 na dwa wywolania w jednym pliku)",
+      "para": "1.21"
+    },
+    {
+      "id": "NARZ-F5",
+      "data": "2026-08-01",
+      "wtyczka": "audyt (narzedzie)",
+      "tytul": "Para 1.11 zadala sygnalu anonimizacji od wtyczki, ktora kolumne adresu zeruje",
+      "klasa": "regula-uogolniona-poza-warunek-szkody",
+      "plik": "audyt/includes/pary/dzial-01-bezpieczenstwo.php",
+      "dowod": "Krytyk 1.11 zglaszal brak funkcji rozpoznajacej anonimizacje u kazdej wtyczki majacej kasownik RODO. mp-offer-builder ustawia client_email na NULL (class-mp-offer-builder-privacy.php:204), kasuje PDF i czysci pdf_path — nie zostawia adresu, ktory dalo by sie wziac za prawdziwy. Ustalenie sredniej wagi wracalo w kazdym przebiegu.",
+      "skutek": "Stale ustalenie sredniej wagi bez pokrycia w kodzie. Werdykt 'GO WITH MINOR FIXES' zamiast 'GO' — a poniewaz liczba ustalen sredniej wagi jest tym, na co patrzy sie przy odbiorze, falszywy alarm w tej wadze kosztuje najwiecej: albo sie go naprawia bez potrzeby, albo uczy sie ignorowac cala sekcje.",
+      "lekcja": "Regula wywiedziona z konkretnego bledu musi zachowac WARUNEK, przy ktorym tamten blad szkodzil. P3-K3 szkodzil dlatego, ze anonimizacja PODSTAWIALA adres zastepczy — wiersz wygladal na kompletny i kolejka probowala na niego wysylac. Zerowanie kolumny tego warunku nie spelnia. Osobna lekcja o metodzie: pierwsza wersja tej poprawki zawezala regule po obecnosci wp_mail() i przeszla wlasny test — bo test byl zbudowany na tym samym blednym zalozeniu co poprawka. Falsz wyszedl dopiero na pelnym przebiegu audytu, na prawdziwym kodzie. Test napisany z tej samej hipotezy co naprawa potrafi ja tylko potwierdzic.",
+      "test": "audyt/tests/regula-1-11.php (5 asercji, w tym B1/B2 pilnujace, ze wykrycie bledu P3-K3 nie znikneło, i C1/C2 na pozostale reguly pary)",
+      "para": "1.11"
     }
   ]
 }

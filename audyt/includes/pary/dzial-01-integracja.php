@@ -438,6 +438,141 @@ final class MP_AU_K118_Idempotencja extends MP_AU_Krytyk {
  */
 final class MP_AU_A121_Cykl_Zycia extends MP_AU_Agent {
 
+	/*
+	 * NA KTOREJ POZYCJI STOI NAZWA HAKA (liczac od zera).
+	 *
+	 * Sygnatury WordPressa nie sa zgodne miedzy soba:
+	 *   wp_schedule_event( $timestamp, $recurrence, $hook )   -> hak trzeci
+	 *   wp_schedule_single_event( $timestamp, $hook )         -> hak drugi
+	 *
+	 * Wczesniejsza wersja brala PIERWSZY napis w cudzyslowie, wiec z pierwszej
+	 * z tych funkcji wyciagala czestotliwosc („daily", „hourly") i uznawala ja
+	 * za nazwe zadania. Konsekwencje byly dwie i obie zle: para zglaszala
+	 * nieistniejacy brak `wp_clear_scheduled_hook( 'daily' )` — wywolania, ktore
+	 * nie ma prawa istniec, bo sprzata sie hak, nie czestotliwosc — a prawdziwa
+	 * nazwa haka nie trafiala do zestawienia w ogole, wiec zadanie faktycznie
+	 * niesprzatniete przeszloby bez slowa. Test: `tests/regula-1-21.php`.
+	 */
+	const POZYCJA_HAKA = array(
+		'wp_schedule_event'        => 2,
+		'wp_schedule_single_event' => 1,
+	);
+
+	/**
+	 * Nazwy hakow zaplanowanych danym wywolaniem.
+	 *
+	 * Bierze argument z pozycji wlasciwej DLA TEJ FUNKCJI i tylko wtedy, gdy
+	 * jest napisem doslownym. Hak podany zmienna zostaje pominiety: zgadnieta
+	 * nazwa bylaby gorsza niz jej brak, bo weszlaby do porownania z lista
+	 * sprzatanych hakow i wygenerowala alarm o nieistniejacym zadaniu.
+	 *
+	 * @param string $funkcja Nazwa funkcji planujacej.
+	 * @param string $tresc   Kod bez komentarzy.
+	 * @return string[]
+	 */
+	public static function haki_z_planowania( string $funkcja, string $tresc ): array {
+		if ( ! isset( self::POZYCJA_HAKA[ $funkcja ] ) ) {
+			return array();
+		}
+
+		$pozycja = (int) self::POZYCJA_HAKA[ $funkcja ];
+		$haki    = array();
+
+		if ( ! preg_match_all( '/\b' . preg_quote( $funkcja, '/' ) . '\s*\(/i', $tresc, $t, PREG_OFFSET_CAPTURE ) ) {
+			return array();
+		}
+
+		foreach ( $t[0] as $trafienie ) {
+			$argumenty = self::argumenty( $tresc, (int) $trafienie[1] + strlen( (string) $trafienie[0] ) );
+
+			if ( ! isset( $argumenty[ $pozycja ] ) ) {
+				continue;
+			}
+
+			if ( preg_match( '/\A[\'"]([a-z0-9_]+)[\'"]\z/i', trim( $argumenty[ $pozycja ] ), $m ) ) {
+				$haki[] = $m[1];
+			}
+		}
+
+		return array_values( array_unique( $haki ) );
+	}
+
+	/**
+	 * Rozbija liste argumentow na czesci, liczac tylko przecinki NAJWYZSZEGO poziomu.
+	 *
+	 * Bez tego `array( $a, $b )` w argumencie rozpadloby sie na dwa argumenty
+	 * i przesunelo wszystkie nastepne pozycje.
+	 *
+	 * @param string $tresc Kod.
+	 * @param int    $od    Pozycja tuz za nawiasem otwierajacym.
+	 * @return string[] Pusta tablica, gdy wywolanie nie zostalo domkniete.
+	 */
+	private static function argumenty( string $tresc, int $od ): array {
+		$argumenty = array();
+		$biezacy   = '';
+		$glebokosc = 0;
+		$cudzyslow = '';
+		$dlugosc   = strlen( $tresc );
+
+		for ( $i = $od; $i < $dlugosc; $i++ ) {
+			$znak = $tresc[ $i ];
+
+			if ( '' !== $cudzyslow ) {
+				$biezacy .= $znak;
+
+				if ( '\\' === $znak && $i + 1 < $dlugosc ) {
+					++$i;
+					$biezacy .= $tresc[ $i ];
+					continue;
+				}
+
+				if ( $znak === $cudzyslow ) {
+					$cudzyslow = '';
+				}
+				continue;
+			}
+
+			if ( '\'' === $znak || '"' === $znak ) {
+				$cudzyslow = $znak;
+				$biezacy  .= $znak;
+				continue;
+			}
+
+			if ( '(' === $znak || '[' === $znak ) {
+				++$glebokosc;
+				$biezacy .= $znak;
+				continue;
+			}
+
+			if ( ']' === $znak ) {
+				--$glebokosc;
+				$biezacy .= $znak;
+				continue;
+			}
+
+			if ( ')' === $znak ) {
+				if ( 0 === $glebokosc ) {
+					$argumenty[] = $biezacy;
+					return $argumenty;
+				}
+
+				--$glebokosc;
+				$biezacy .= $znak;
+				continue;
+			}
+
+			if ( ',' === $znak && 0 === $glebokosc ) {
+				$argumenty[] = $biezacy;
+				$biezacy     = '';
+				continue;
+			}
+
+			$biezacy .= $znak;
+		}
+
+		return array();
+	}
+
 	/**
 	 * @param MP_AU_Kontekst $kontekst Kontekst.
 	 * @return MP_AU_Wynik
@@ -471,11 +606,9 @@ final class MP_AU_A121_Cykl_Zycia extends MP_AU_Agent {
 				$stan['dbdelta']        = $stan['dbdelta'] || false !== strpos( $tresc, 'dbDelta' );
 				$stan['tworzy_tabele']  = $stan['tworzy_tabele'] || false !== stripos( $tresc, 'CREATE TABLE' );
 
-				foreach ( array( 'wp_schedule_event' => 'harmonogram', 'wp_schedule_single_event' => 'harmonogram' ) as $funkcja => $kubelek ) {
-					if ( preg_match_all( '/' . $funkcja . '\s*\([^;]{0,200}?[\'"]([a-z0-9_]+)[\'"]/i', $tresc, $t, PREG_SET_ORDER ) ) {
-						foreach ( $t as $trafienie ) {
-							$stan[ $kubelek ][] = $trafienie[1];
-						}
+				foreach ( array_keys( self::POZYCJA_HAKA ) as $funkcja ) {
+					foreach ( self::haki_z_planowania( (string) $funkcja, $tresc ) as $hak ) {
+						$stan['harmonogram'][] = $hak;
 					}
 				}
 
