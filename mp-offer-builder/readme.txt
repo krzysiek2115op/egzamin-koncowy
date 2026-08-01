@@ -3,8 +3,8 @@ Contributors: krzysiek2115op
 Tags: oferty, pdf, woocommerce, cennik
 Requires at least: 6.0
 Tested up to: 6.8
-Requires PHP: 7.4
-Stable tag: 1.3.6
+Requires PHP: 8.1
+Stable tag: 1.3.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -60,6 +60,19 @@ RODO/GDPR:
 
 == Changelog ==
 
+
+= 1.3.7 =
+* `Requires PHP` mowi teraz prawde: 8.1, nie 7.4. Dolaczony dompdf 3.1 wymaga
+  PHP >= 8.1, wiec autoloader wtyczki KONCZYL SIE FATALEM na 7.4 — a naglowek
+  obiecywal, ze wtyczka tam dziala. Wtyczki 1 i 3 nadal wymagaja 7.4.
+* Nowy ekran „Reguly rabatowe": progi wolumenu i procenty bez edycji kodu.
+  Kazdy zapis nadaje NOWA wersje slownika, wiec `rules_version` zapisany przy
+  ofercie dalej jednoznacznie opisuje, wedlug czego policzono jej rabat.
+  Pusta konfiguracja znaczy „reguly wbudowane", nie „brak rabatow".
+* Walidacja odrzuca rabat 100% (oferta na zero zlotych), rabat ujemny
+  (podwyzka udajaca rabat), nieznany wariant cenowy i prog zerowy.
+* Komunikaty AJAX przechodza przez funkcje tlumaczaca.
+* Wlasciciel szkicu oferty bierze sie z doboru wtyczki 3, a nie z hasza NIP-u.
 = 1.3.6 =
 
 * CENA UJEMNA W KATALOGU trafiała na ofertę, jeśli sklep prowadzi cennik

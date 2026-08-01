@@ -3,9 +3,9 @@
  * Plugin Name:       MP Offer Builder
  * Plugin URI:        https://github.com/krzysiek2115op/egzamin-koncowy
  * Description:       Kalkulacja cenowa, integracja z WooCommerce, generowanie ofert PDF. Drugi element procesu formularz → oferta.
- * Version:           1.3.6
+ * Version:           1.3.7
  * Requires at least: 6.0
- * Requires PHP:      7.4
+ * Requires PHP:      8.1
  * Requires Plugins:  woocommerce
  * Author:            krzysiek2115op
  * License:           GPL-2.0-or-later
@@ -38,7 +38,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // --- Stałe wtyczki ---
-define( 'MP_OFFER_BUILDER_VERSION', '1.3.6' );
+define( 'MP_OFFER_BUILDER_VERSION', '1.3.7' );
 define( 'MP_OFFER_BUILDER_FILE', __FILE__ );
 define( 'MP_OFFER_BUILDER_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MP_OFFER_BUILDER_URL', plugin_dir_url( __FILE__ ) );

@@ -19,10 +19,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 7.4 = deklarowane minimum wtyczek (readme.txt "Requires PHP"), 8.3 = wersja
-        # deweloperska. Obie musza przejsc — inaczej deklaracja zgodnosci jest goloslowna.
-        # dompdf dolaczony do wtyczki 2 dopuszcza ^7.1 || ^8.0, wiec obie wersje sa dla
-        # niego wazne.
+        # 7.4 = deklarowane minimum wtyczek 1 i 3, 8.3 = wersja deweloperska. Obie
+        # musza przejsc — inaczej deklaracja zgodnosci jest goloslowna, a wlasnie tak
+        # bylo: dopoki krok PHPCS wywracal cala prace przed testami, to sprawdzenie
+        # nigdy sie nie wykonalo i nikt nie zauwazyl, ze wtyczka 2 na 7.4 nie wstaje.
         php: [ '7.4', '8.3' ]
     steps:
       - name: Checkout
@@ -52,7 +52,12 @@ jobs:
       - name: Weryfikacja procesu — wtyczka 1
         run: php mp-lead-intake/tests/process-harness/run-process.php
 
+      # Wtyczka 2 dolacza dompdf 3.1, ktory wymaga PHP >= 8.1 — jej autoloader
+      # KONCZY SIE FATALEM na 7.4. Naglowek wtyczki mowil dotad „Requires PHP: 7.4"
+      # i bylo to nieprawda; teraz mowi 8.1, a ten krok nie udaje, ze da sie ja
+      # uruchomic tam, gdzie sie nie da. Wtyczki 1 i 3 nadal musza przejsc na 7.4.
       - name: Weryfikacja procesu — wtyczka 2
+        if: matrix.php != '7.4'
         run: php mp-offer-builder/tests/process-harness/run-process.php
 
   # Wtyczka 3 nie miala w CI ZADNEGO testu wykonywanego (U-8). Nie z przeoczenia:
@@ -121,7 +126,10 @@ jobs:
       - name: Pelna regresja (wszystkie wersjonowane pliki testowe)
         env:
           MP_WP_CMD: wp --allow-root --path=wp
-          MP_PLUGINS_PATH: wp-content/plugins/
+          # Wzgledem katalogu biezacego, nie --path: `wp eval-file` szuka pliku
+          # w CWD. Lokalnie kontener startuje w /var/www/html i przedrostek jest
+          # krotszy — tu stoimy w korzeniu checkoutu.
+          MP_PLUGINS_PATH: wp/wp-content/plugins/
           # Harnessy wtyczek 1 i 2 chodza tu na PHP z runnera, nie na przenosnym
           # binarium ze srodowiska lokalnego.
           MP_PHP: php

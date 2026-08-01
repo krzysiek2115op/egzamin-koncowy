@@ -4,7 +4,7 @@ Tags: leads, formularz, b2b, nip, vat
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.3.6
+Stable tag: 1.3.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -17,6 +17,27 @@ zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej 
 
 == Changelog ==
 
+
+= 1.3.7 =
+* Handlowca wybiera wtyczka 3, ta o niego PYTA (filtr `mp_lead_assign_salesman`).
+  Do 1.3.6 stal tu hasz `crc32(NIP) % liczba_handlowcow` — bez kraju, jezyka
+  i zespolu — wiec jeden lead mial dwoch roznych handlowcow: innego w BD-3,
+  innego w BD-1. Brak wtyczki 3 zostawia kolumne pusta zamiast zmyslac wybor.
+* Nowy ekran „Leady" w panelu. Wtyczka nie miala dotad ZADNEGO ekranu, mimo ze
+  od poczatku zakladala dwie role i trzy uprawnienia. Ekran pokazuje PUNKTACJE —
+  liczona przy kazdym zgloszeniu i niewidoczna dotad nigdzie.
+* Handlowiec widzi wlasne leady, manager i administrator wszystkie.
+* Uprawnienia wtyczki trafiaja na role rowniez wtedy, gdy zalozyla je wtyczka 3
+  (wspolne slugi `mp_handlowiec` / `mp_manager_sprzedazy`). Dotad `add_role()`
+  milczal przy istniejacej roli i wynik zalezal od KOLEJNOSCI aktywacji wtyczek.
+* Odmowa mowi, o co chodzi: powtorzone zgloszenie tej samej firmy dostaje
+  komunikat o duplikacie zamiast „sprawdz dane". Odmowy Dzialu 5 (antyspam,
+  CSRF, limit) pozostaja celowo generyczne.
+* Komunikaty AJAX przechodza przez funkcje tlumaczaca.
+* Ostrzezenie o nieutworzonej stronie gasnie takze po recznym zalozeniu strony
+  ze skrotem — czyli po DRUGIEJ z dwoch drog, ktore samo zaleca — i da sie je
+  zamknac. Strona w koszu nie uchodzi juz za istniejaca.
+* Pole formularza nazywa sie „Rynek (kraj klienta)".
 = 1.3.6 =
 
 * FORMULARZ POZWALAŁ WYBRAĆ KRAJ Z CAŁEJ UNII, ale zgłoszenie z numerem VAT

@@ -4,7 +4,7 @@ Tags: sprzedaz, crm, workflow, follow-up
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.6
+Stable tag: 1.3.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -34,6 +34,20 @@ powiadomien do klientow.
 
 == Changelog ==
 
+
+= 1.3.7 =
+* Zdarzenie `mp_sw_flow_updated` niesie `assigned_user_id`, a wtyczka 1 sie na
+  nie wpina — dzieki temu przypisanie handlowca w BD-3 nadaza za rotacja
+  i przepisaniem procesu przez managera.
+* Wtyczka odpowiada na filtr `mp_lead_assign_salesman` tym samym doborem
+  (kraj, jezyk, zespol, obciazenie), ktorego uzywa Dzial 4 dla procesu.
+* Manager sprzedazy ma wlasny widok: „Podsumowanie zespolu" z rozkladem
+  statusow, obciazeniem handlowcow i liczba procesow po terminie SLA.
+  Liczone z wierszy JUZ POBRANYCH — zasada „jeden strzal odczytu" zostaje.
+* Kod bledu w panelu jest podpisany („Kod do zgloszenia awarii"), a nie
+  doklejony za zdaniem bez wyjasnienia.
+* Naglowki pulpitu przechodza przez funkcje tlumaczaca.
+* Wtyczka ma wreszcie testy w CI (zadanie `integracja`: WordPress + MySQL).
 = 1.3.6 =
 
 * POWIADOMIENIE E-MAIL BYWAŁO UZNAWANE ZA NIEGOTOWE Z POWODU WŁASNEJ TREŚCI.
