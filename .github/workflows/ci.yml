@@ -104,6 +104,11 @@ jobs:
             --url=http://localhost --title="CI" \
             --admin_user=admin --admin_password=admin --admin_email=ci@example.test \
             --skip-email
+          # WooCommerce jest TWARDA zaleznoscia wtyczki 2 (naglowek `Requires
+          # Plugins: woocommerce`, a bootstrap sam sie dezaktywuje przy jej braku).
+          # Bez tej linii aktywowaly sie dwie wtyczki z trzech i to wlasnie
+          # przewracalo cale zadanie.
+          wp plugin install woocommerce --activate --path=wp
           # Wtyczki ida z checkoutu, nie z kopii: test ma sprawdzac TEN kod.
           for w in mp-lead-intake mp-offer-builder mp-sales-workflow; do
             ln -s "$PWD/$w" "wp/wp-content/plugins/$w"

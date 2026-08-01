@@ -357,6 +357,10 @@ class MP_SW_Privacy {
 	 * @return array
 	 */
 	public static function erase_by_email( $email, $page = 1 ) {
+		// Rdzen stronicuje kasowanie i podaje numer strony; my konczymy prace za
+		// jednym razem i zwracamy `done => true`, wiec numer nas nie interesuje.
+		unset( $page );
+
 		global $wpdb;
 
 		$flow_table = MP_Sales_Workflow_DB::flow_table();

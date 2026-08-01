@@ -99,17 +99,22 @@ class MP_SW_Meta_Guard {
 	/**
 	 * Oznacza klucze `mp_*` jako chronione.
 	 *
-	 * @param bool   $protected Decyzja domyslna.
+	 * Nazwa parametru NIE brzmi `$protected` (jak w dokumentacji haka), bo
+	 * „protected" jest slowem kluczowym jezyka — nazwa zastrzezona w miejscu
+	 * parametru czyta sie mylnie i zglasza ja analiza statyczna. WordPress
+	 * przekazuje argumenty pozycyjnie, wiec nazwa nie ma znaczenia dla kontraktu.
+	 *
+	 * @param bool   $domyslna  Decyzja domyslna.
 	 * @param string $meta_key  Klucz meta.
 	 * @param string $meta_type Rodzaj obiektu.
 	 * @return bool
 	 */
-	public static function mark_protected( $protected, $meta_key, $meta_type ) {
+	public static function mark_protected( $domyslna, $meta_key, $meta_type ) {
 		if ( 'user' === $meta_type && self::is_ours( $meta_key ) ) {
 			return true;
 		}
 
-		return (bool) $protected;
+		return (bool) $domyslna;
 	}
 
 	/**
@@ -131,6 +136,11 @@ class MP_SW_Meta_Guard {
 	 * @return mixed Null przepuszcza zapis, false go zatrzymuje.
 	 */
 	public static function block_update( $check, $object_id, $meta_key, $meta_value ) {
+		// Wartosc jest czescia kontraktu haka `update_user_metadata`, ale decyzja
+		// zapada wylacznie po KLUCZU: chronimy przestrzen `mp_*` niezaleznie od tego,
+		// co ktos probuje w nia wpisac. To samo rozwiazanie co w MP_Flag_Critic.
+		unset( $meta_value );
+
 		if ( ! self::is_ours( $meta_key ) ) {
 			return $check;
 		}
