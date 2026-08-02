@@ -104,8 +104,22 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 		// draftu bez właściciela -> bieżący użytkownik; draft z JUŻ USTAWIONYM created_by
 		// (Dział 2, Agent 2.5, TEN SAM odczyt co existing_offer_number) -> zachowany bez
 		// zmian — pierwszy handlowiec zostaje właścicielem na stałe, korekty go nie podmieniają.
+		$offer_id            = (int) $context->get( 'offer_id', 0 );
 		$existing_created_by = isset( $numbering['existing_created_by'] ) ? $numbering['existing_created_by'] : null;
-		$created_by          = null !== $existing_created_by ? (int) $existing_created_by : get_current_user_id();
+
+		/*
+		 * „Brak właściciela" ma w bazie DOKŁADNIE jedną reprezentację: NULL.
+		 *
+		 * `get_current_user_id()` oddaje 0, gdy zapis idzie bez zalogowanego
+		 * użytkownika (cron, WP-CLI). Zapisane zero czytało się przy następnym
+		 * dokończeniu draftu nie jako „nikt", tylko jako właściciel o numerze zero
+		 * — czyli KTOŚ INNY. Kontrola niżej odmawiała wtedy zapisu każdemu poza
+		 * administratorem i szkic stawał się nietykalny.
+		 */
+		$biezacy    = (int) get_current_user_id();
+		$created_by = null !== $existing_created_by
+			? (int) $existing_created_by
+			: ( $biezacy > 0 ? $biezacy : null );
 
 		// Blokada optymistyczna: token CELOWO NIEZALEŻNY od `version` (numeru
 		// wersji BIZNESOWEJ, Dział 8) — patrz docblock kolumny `lock_version`
@@ -113,7 +127,35 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 		// draftu jest zawsze 1, więc jako token blokady nie wykrywałby zapisu
 		// konkurenta). `lock_version` rośnie bezwarunkowo przy KAŻDYM zapisie.
 		$existing_lock_version = isset( $numbering['existing_lock_version'] ) ? (int) $numbering['existing_lock_version'] : null;
-		$new_lock_version      = null !== $existing_lock_version ? $existing_lock_version + 1 : 1;
+
+		/*
+		 * `offer_id > 0` znaczy UPDATE, a Dział 2 czyta wtedy wiersz i ZAWSZE oddaje
+		 * `existing_lock_version` (kolumna ma DEFAULT 1). Pusto może więc znaczyć
+		 * tylko jedno: wiersza nie odczytano — oferta zniknęła między działami albo
+		 * ktoś podmienił kontekst.
+		 *
+		 * Wcześniej token wracał w tym miejscu do 1, czyli do wartości „to nowa
+		 * oferta". Blokada optymistyczna porównywała się wtedy z liczbą wziętą
+		 * z powietrza i przestawała chronić dokładnie w chwili, w której już coś
+		 * poszło nie tak. Docblock pola `expected_lock_version` deklarował przy tym
+		 * niezmiennik („null tylko gdy to NOWA oferta"), którego kod nie pilnował.
+		 */
+		if ( $offer_id > 0 && null === $existing_lock_version ) {
+			return MP_OB_Result::fail(
+				'Zapis istniejącej oferty bez odczytanego wiersza — Dział 2 nie dostarczył tokenu blokady.',
+				array(
+					'errors' => array(
+						array(
+							'field'   => 'numbering.existing_lock_version',
+							'message' => 'Brak tokenu blokady dla istniejącej oferty (wiersz nieodczytany).',
+						),
+					),
+				),
+				'offer_row_not_read'
+			);
+		}
+
+		$new_lock_version = null !== $existing_lock_version ? $existing_lock_version + 1 : 1;
 
 		// Obrona w głąb przeciw IDOR: Dział 1 już blokuje zapis cudzej oferty PRZED
 		// uruchomieniem reszty pipeline'u, ale Dział 10 (jedyny dział z prawem zapisu)
@@ -151,7 +193,6 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 			'updated_at'        => gmdate( 'Y-m-d H:i:s' ),
 		);
 
-		$offer_id = (int) $context->get( 'offer_id', 0 );
 		if ( $offer_id > 0 ) {
 			// Dokończenie draftu z Kroku 2.5 (Dział 1, offer_mode='draft') — UPDATE, nie INSERT.
 			$header['id'] = $offer_id;
@@ -161,14 +202,55 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 		// jednej stawki oferty tylko gdy brak mapy (np. reverse_charge/out_of_scope=0.00).
 		$line_tax_rates = is_array( $context->get( 'line_tax_rates' ) ) ? $context->get( 'line_tax_rates' ) : array();
 		$item_rows      = array();
+		$item_errors    = array();
+
 		foreach ( $items as $i => $item ) {
+			/*
+			 * Pozycje i ich wyliczenia łączy INDEKS TABLICY. Brak odpowiednika dawał
+			 * ciche 0: wiersz pozycji szedł do bazy z ceną zerową, podczas gdy
+			 * nagłówek niósł pełne kwoty z Działu 4. Dokument dla klienta i suma
+			 * w bazie mówiły wtedy dwie różne rzeczy, a nic tego nie zgłaszało.
+			 */
+			if ( ! isset( $lines[ $i ]['unit_grosze'], $lines[ $i ]['line_grosze'] ) ) {
+				$item_errors[] = array(
+					'field'   => "items.$i",
+					'message' => 'Pozycja bez odpowiadającego wyliczenia z Działu 4 — zapis z ceną zero jest niedopuszczalny.',
+				);
+				continue;
+			}
+
+			/*
+			 * Brak CAŁEJ mapy stawek to dokumentowany fallback (reverse_charge,
+			 * out_of_scope — jedna stawka 0.00 na ofertę). Mapa, która istnieje, ale
+			 * nie ma tej pozycji, to co innego: dziura w danych, nie tryb pracy.
+			 */
+			if ( ! empty( $line_tax_rates ) && ! isset( $line_tax_rates[ $i ] ) ) {
+				$item_errors[] = array(
+					'field'   => "items.$i",
+					'message' => 'Pozycja bez stawki VAT, mimo że mapa stawek istnieje.',
+				);
+				continue;
+			}
+
+			$qty   = (int) ( isset( $item['qty'] ) ? $item['qty'] : 0 );
+			$linia = (int) $lines[ $i ]['line_grosze'];
+
+			/*
+			 * WSZYSTKIE TRZY KWOTY WIERSZA OPISUJĄ CAŁĄ LINIĘ, nie sztukę.
+			 *
+			 * `price_base_grosze` dostawało cenę JEDNOSTKOWĄ, a `price_final_grosze`
+			 * wartość całej linii — przy `discount_grosze` równym zeru. Dla każdej
+			 * pozycji z qty > 1 trzy kolumny tego samego wiersza przeczyły sobie
+			 * nawzajem: „100 zł bazowo, 0 zł rabatu, 300 zł do zapłaty". Teraz
+			 * zachodzi base - rabat = final, więc wiersz da się sprawdzić rachunkiem.
+			 */
 			$item_rows[] = array(
 				'product_id'         => (int) ( isset( $item['product_id'] ) ? $item['product_id'] : 0 ),
 				'variation_id'       => ! empty( $item['variation_id'] ) ? (int) $item['variation_id'] : null,
-				'qty'                => (int) ( isset( $item['qty'] ) ? $item['qty'] : 0 ),
-				'price_base_grosze'  => (int) ( isset( $lines[ $i ]['unit_grosze'] ) ? $lines[ $i ]['unit_grosze'] : 0 ),
+				'qty'                => $qty,
+				'price_base_grosze'  => (int) $lines[ $i ]['unit_grosze'] * $qty,
 				'discount_grosze'    => 0, // rabat naliczany NA SUMIE (Dział 5), nie per-pozycja — patrz docs/dzial-05.
-				'price_final_grosze' => (int) ( isset( $lines[ $i ]['line_grosze'] ) ? $lines[ $i ]['line_grosze'] : 0 ),
+				'price_final_grosze' => $linia,
 				'tax_rate'           => isset( $line_tax_rates[ $i ] ) ? (float) $line_tax_rates[ $i ] : (float) $context->get( 'tax_rate', 0 ),
 			);
 		}
@@ -200,7 +282,30 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 			'meta_json'   => wp_json_encode( $before_after ),
 		);
 
-		$errors = array();
+		$errors = $item_errors;
+
+		/*
+		 * Górne limity długości to nie cała „zgodność z DDL".
+		 *
+		 * Sprawdzane było wyłącznie, czy pole nie jest ZA DŁUGIE — więc pusty numer
+		 * oferty i wersja 0 przechodziły jako poprawne (0 <= 30). A to klucz
+		 * biznesowy oferty: numer trafia do dokumentu, do ścieżki pliku PDF
+		 * i do wyszukiwania po numerze, a wersja jest numerowana od 1 (Dział 8).
+		 */
+		if ( '' === trim( (string) $header['offer_number'] ) ) {
+			$errors[] = array(
+				'field'   => 'header.offer_number',
+				'message' => 'Pusty numer oferty — to klucz biznesowy oferty i podstawa nazwy pliku PDF.',
+			);
+		}
+
+		if ( (int) $header['version'] < 1 ) {
+			$errors[] = array(
+				'field'   => 'header.version',
+				'message' => 'Wersja oferty musi być liczbą co najmniej 1 — numeracja wersji zaczyna się od jedynki.',
+			);
+		}
+
 		foreach ( self::FIELD_LIMITS as $field => $max ) {
 			if ( isset( $header[ $field ] ) && self::dlugosc_znakow( (string) $header[ $field ] ) > $max ) {
 				$errors[] = array(
@@ -209,12 +314,20 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 				);
 			}
 		}
-		if ( ! in_array( $header['status'], self::ALLOWED_STATUSES, true ) ) {
-			$errors[] = array(
-				'field'   => 'header.status',
-				'message' => 'Status spoza słownika dozwolonych wartości.',
-			);
-		}
+
+		/*
+		 * Statusu nie ma tu czego sprawdzać i to jest w porządku.
+		 *
+		 * Stało tu porównanie `$header['status']` ze słownikiem `ALLOWED_STATUSES` —
+		 * jednoelementową listą zawierającą DOKŁADNIE tę samą stałą, którą kilkanaście
+		 * linii wyżej przypisano literałem. Nie istniało wejście, dla którego warunek
+		 * mógłby się nie powieść: sprawdzenie wyglądało jak zabezpieczenie, a było
+		 * tautologią.
+		 *
+		 * Plan zawsze zapisuje szkic, bo Dział 1 wpuszcza do pipeline'u wyłącznie
+		 * ofertę w statusie `draft` (albo żadnej — wtedy INSERT). Prawdziwą bramką
+		 * jest więc tamten warunek i to jego pilnuje test.
+		 */
 		if ( empty( $item_rows ) ) {
 			$errors[] = array(
 				'field'   => 'items',
