@@ -30,7 +30,8 @@
  *
  * Źródła (oficjalne) — Golden Rule #2:
  *  - docs/dzial-02/woocommerce-wc_get_products.md
- *  - docs/dzial-02/woocommerce-wc_get_products.md
+ *  - WC_Product  https://woocommerce.github.io/code-reference/classes/WC-Product.html
+ *  - WC_Tax      https://woocommerce.github.io/code-reference/classes/WC-Tax.html
  *
  * @package MP_Offer_Builder
  */
@@ -134,7 +135,23 @@ class MP_OB_D2_Agent_Prices extends MP_OB_Abstract_Agent {
 		 * `wc_get_price_excluding_tax()` zdejmuje podatek wg klasy podatkowej
 		 * produktu; przy sklepie z cenami netto zwraca te sama liczbe.
 		 */
-		$ceny_z_podatkiem = function_exists( 'wc_prices_include_tax' ) && wc_prices_include_tax();
+
+		/*
+		 * Brak funkcji do ODCZYTU ustawienia był traktowany inaczej niż brak funkcji
+		 * do PRZELICZENIA (warunek niżej): tamten kończy dział twardym FAIL-em, ten
+		 * przechodził cicho w „cennik jest netto". To dokładnie to samo ryzyko —
+		 * doliczenie VAT-u do ceny, która już go zawiera — tylko wpisane w wartość
+		 * domyślną koniunkcji zamiast w jawną decyzję.
+		 */
+		if ( ! function_exists( 'wc_prices_include_tax' ) ) {
+			return MP_OB_Result::fail(
+				'WooCommerce nie udostępnia ustawienia „Ceny wprowadzone z podatkiem" — bez niego nie wiadomo, czy cennik jest netto, czy brutto.',
+				array(),
+				'tax_setting_unavailable'
+			);
+		}
+
+		$ceny_z_podatkiem = wc_prices_include_tax();
 
 		if ( $ceny_z_podatkiem && ! function_exists( 'wc_get_price_excluding_tax' ) ) {
 			// Twardy FAIL zamiast liczenia dalej: milczace doliczenie VAT-u do ceny,
@@ -180,7 +197,30 @@ class MP_OB_D2_Agent_Prices extends MP_OB_Abstract_Agent {
 			// produkt z wygasłą/zaplanowaną promocją brałby błędnie cenę promo.
 			$on_sale   = $product->is_on_sale();
 			$active    = $product->get_price();
-			$effective = ( '' !== (string) $active && is_numeric( $active ) ) ? (float) $active : (float) $regular;
+			$ma_cene   = '' !== (string) $active && is_numeric( $active );
+			$effective = $ma_cene ? (float) $active : (float) $regular;
+
+			/*
+			 * „PROMOCJA" BEZ CENY PROMOCYJNEJ TO NIE PROMOCJA.
+			 *
+			 * Gdy katalog zgłasza aktywną promocję, a `get_price()` nie oddaje
+			 * liczby (rozjechane meta `_price` i `_sale_price` po imporcie cennika
+			 * bez synchronizacji), cena promocyjna była po cichu zastępowana
+			 * regularną — i tak trafiała do snapshotu: `sale_price` równe
+			 * `regular_price` przy `on_sale = true`. Snapshot deklarował promocję,
+			 * której wartość nie jest ceną promocyjną, a dokument dla klienta
+			 * obiecywał rabat równy zeru.
+			 *
+			 * Nie zgadujemy, ile ta promocja miała wynosić. Pozycja idzie do błędów,
+			 * tak samo jak brak ceny regularnej kilka linii wyżej.
+			 */
+			if ( $on_sale && ! $ma_cene ) {
+				$errors[] = array(
+					'field'   => "items.$i.sale_price",
+					'message' => 'Produkt jest oznaczony jako promocyjny, ale nie ma aktywnej ceny promocyjnej — nie zgadujemy jej wysokości.',
+				);
+				continue;
+			}
 
 			/*
 			 * Cena ujemna odrzucana NA SUROWYCH danych z katalogu, PRZED konwersją.
@@ -194,6 +234,17 @@ class MP_OB_D2_Agent_Prices extends MP_OB_Abstract_Agent {
 			 * Ta gałąź wykonuje się tylko przy `prices_include_tax = yes`, czyli
 			 * w sklepach z cennikiem brutto — dlatego luka przetrwała testy
 			 * prowadzone na cenniku netto.
+			 *
+			 * Sprawdzamy OBIE ceny, nie tylko efektywną. `_price` i `_regular_price`
+			 * to dwa osobne pola meta i potrafią się rozjechać: import cennika bez
+			 * synchronizacji, zapis SQL, wtyczka do promocji. Przy
+			 * `_regular_price = -100` i `_price = 50` cena efektywna jest dodatnia,
+			 * więc warunek na samej efektywnej nie łapał — a produkt bez aktywnej
+			 * promocji ma `on_sale = false`, czyli Agent 4.1 bierze wprost
+			 * `regular_price`. Na dokument handlowy szła wtedy ujemna wartość
+			 * pozycji przy przechodzących bramkach, bo arytmetyka pozostaje
+			 * wewnętrznie spójna. Cena 0 zostaje dopuszczona (pozycja gratis:
+			 * 0 netto → 0 VAT).
 			 */
 			if ( (float) $regular < 0.0 || $effective < 0.0 ) {
 				$errors[] = array(
@@ -224,27 +275,15 @@ class MP_OB_D2_Agent_Prices extends MP_OB_Abstract_Agent {
 			}
 
 			/*
-			 * Cena UJEMNA nigdy nie jest poprawna (błędna konfiguracja WC) — jawny
-			 * FAIL zamiast cichego ujemnego netto/VAT/brutto w ofercie. Cena 0 jest
-			 * dopuszczona (legalna pozycja gratis: 0 netto → 0 VAT, arytmetyka spójna).
+			 * Drugiego sprawdzenia ceny ujemnej TU NIE MA i nie jest to przeoczenie.
 			 *
-			 * Sprawdzamy OBIE ceny, nie tylko efektywną. `_price` i `_regular_price`
-			 * to dwa osobne pola meta i potrafią się rozjechać: import cennika bez
-			 * synchronizacji, zapis SQL, wtyczka do promocji. Przy
-			 * `_regular_price = -100` i `_price = 50` cena efektywna jest dodatnia,
-			 * więc dawny warunek nie łapał — a produkt bez aktywnej promocji ma
-			 * `on_sale = false`, czyli Agent 4.1 bierze wprost `regular_price`.
-			 * Na dokument handlowy szła ujemna wartość pozycji przy przechodzących
-			 * bramkach, bo arytmetyka pozostaje wewnętrznie spójna.
+			 * Stało tu powtórzenie warunku sprzed konwersji — ten sam zakres (obie
+			 * ceny), ta sama granica. Nie istniało wejście, które przeszłoby przez
+			 * pierwsze i wpadło w drugie: po pierwszym obie wartości są nieujemne,
+			 * a `wc_get_price_excluding_tax()` — wedle komentarza przy tamtym
+			 * sprawdzeniu — wartości ujemnej z nieujemnej nie robi. Martwy blok
+			 * wyglądał jak druga linia obrony, a był kopią pierwszej.
 			 */
-			if ( $effective < 0.0 || (float) $regular < 0.0 ) {
-				$errors[] = array(
-					'field'   => $effective < 0.0 ? "items.$i.price" : "items.$i.regular_price",
-					'message' => 'Cena pozycji jest ujemna — nie można zbudować oferty.',
-				);
-				continue;
-			}
-
 			$prices[ $i ] = array(
 				'regular_price' => (float) $regular,
 				'sale_price'    => $on_sale ? $effective : null,
@@ -260,10 +299,19 @@ class MP_OB_D2_Agent_Prices extends MP_OB_Abstract_Agent {
 			return MP_OB_Result::fail( 'Nieprawidłowa lub brakująca cena pozycji.', array( 'errors' => $errors ), 'incomplete_prices' );
 		}
 
+		/*
+		 * Klucz nazywa ZAWARTOŚĆ tego wyniku, a nie ustawienie sklepu.
+		 *
+		 * `prices_include_tax` znaczyło „sklep ma cennik brutto" — a ceny w tym
+		 * samym wyniku były już przeliczone na netto, czyli podatku NIE zawierały.
+		 * Czytelnik snapshotu dowiadywał się czegoś dokładnie odwrotnego niż stan
+		 * rzeczy. Pole per pozycja (`from_gross`) nazywało to poprawnie od początku
+		 * i teraz oba mówią to samo.
+		 */
 		return MP_OB_Result::ok(
 			array(
-				'prices'             => $prices,
-				'prices_include_tax' => $ceny_z_podatkiem,
+				'prices'            => $prices,
+				'prices_from_gross' => $ceny_z_podatkiem,
 			)
 		);
 	}

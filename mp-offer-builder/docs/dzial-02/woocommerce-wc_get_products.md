@@ -112,9 +112,18 @@ gdy promocja aktywna).
 albo `false`) działa identycznie dla produktu prostego I wariantu (ID wariantu zwraca
 `WC_Product_Variation extends WC_Product`) — dlatego Agent 2.1/2.2 nie rozróżnia
 przypadków `product_id` / `variation_id`, tylko wybiera właściwe ID do przekazania.
-Agent 2.2 liczy `on_sale` samodzielnie (`sale_price < regular_price`) zamiast wołać
-`get_price()`, żeby jawnie zapisać ŹRÓDŁO ceny (`sale`/`regular`) w snapshocie —
-wymóg kryt. 5.3 diagramu ("źródło ceny... zapisane przy pozycji").
+Agent 2.2 bierze `on_sale` z `is_on_sale()`, a cenę aktywną z `get_price()` — obie
+metody uwzględniają HARMONOGRAM promocji (`date_on_sale_from` / `date_on_sale_to`).
+Samodzielne porównanie `sale_price < regular_price` czytało surowe meta bez okna dat,
+więc produkt z promocją wygasłą albo dopiero zaplanowaną dostawał cenę promocyjną
+(naprawa S3-01). ŹRÓDŁO ceny (`sale` / `regular`) nadal jest zapisywane przy pozycji —
+wymóg kryt. 5.3 diagramu ("źródło ceny... zapisane przy pozycji") — tylko wyznaczane
+jest tym, co mówi katalog, a nie tym, co da się wyczytać z dwóch pól meta.
+
+Produkt oznaczony jako promocyjny, dla którego `get_price()` nie oddaje liczby
+(rozjechane meta po imporcie cennika), kończy się BŁĘDEM pozycji. Wcześniej cena
+promocyjna była po cichu zastępowana regularną i snapshot deklarował promocję
+o zerowej wysokości.
 
 ---
 

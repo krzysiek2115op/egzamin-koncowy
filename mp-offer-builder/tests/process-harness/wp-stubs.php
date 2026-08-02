@@ -291,6 +291,20 @@ class WC_Product {
 	public function get_id() {
 		return isset( $this->data['id'] ) ? (int) $this->data['id'] : 0; }
 }
+/**
+ * Ustawienie „Ceny wprowadzone z podatkiem".
+ *
+ * Harness pracuje na cenniku NETTO, wiec funkcja oddaje falsz — ale MUSI
+ * istniec: Agent 2.2 odmawia pracy, gdy nie da sie tego ustawienia odczytac.
+ * Wczesniej brak funkcji byl przez agenta traktowany jak „cennik netto", czyli
+ * to samo zalozenie wchodzilo tylnymi drzwiami, tyle ze bez decyzji.
+ *
+ * @return bool
+ */
+function wc_prices_include_tax() {
+	return ! empty( $GLOBALS['__mp_ob_wc_prices_include_tax'] );
+}
+
 function wc_get_product( $id ) {
 	if ( ! isset( $GLOBALS['__mp_ob_wc_products'][ $id ] ) ) {
 		return false;
