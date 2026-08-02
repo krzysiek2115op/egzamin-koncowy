@@ -1201,6 +1201,19 @@
             "lekcja": "Komunikat ma nazwac stan faktyczny i nastepny krok, a wpis do dziennika nie moze wyprzedzac zdarzenia, ktore opisuje — jesli powstaje wczesniej (celowo, zeby przezyl padniecie subskrybenta), to czas przyszly jest jedyna prawda. Ponowny odczyt wolno przyjac tylko wtedy, gdy nadal spelnia sprawdzony niezmiennik.",
             "test": "mp-offer-builder/tests/naprawy/zatwierdzenie-komunikaty.php (11 asercji; przed naprawa padalo 7)",
             "para": "1.26"
+        },
+        {
+            "id": "U-27",
+            "data": "2026-08-03",
+            "wtyczka": "mp-lead-intake",
+            "tytul": "Sonda Bialej listy liczyla dobe w UTC, produkt liczy ja po polsku",
+            "klasa": "narzedzie-pomiaru-mowi-nieprawde",
+            "plik": "mp-lead-intake/tests/naprawy/biala-lista-niepelna-odpowiedz.php:127",
+            "dowod": "Test bral 'dzisiejsza date' z gmdate('Y-m-d'), a produkt liczy dobe Bialej listy przez polish_date() w strefie Europe/Warsaw — bo to rejestr polskiego MF i doba wynika z prawa, nie z ustawien witryny. Miedzy polnoca a 2:00 czasu polskiego (lato: UTC+2) daty sa rozne, wiec asercja czytala transient spod innego klucza niz ten, pod ktory produkt zapisal, i meldowala 'cache=false'. Sekcja I TEGO SAMEGO pliku zabrania gmdate('Y-m-d') w zrodle dzialu.",
+            "skutek": "Falszywy alarm o wadzie produktu, ktorej nie ma, widoczny wylacznie w dwugodzinnym oknie na dobe — przez pozostale 22 godziny test przechodzil, wiec CI i wszystkie wczesniejsze przebiegi wydan byly zielone. Odwrotny wariant jest grozniejszy: sonda liczaca czas inaczej niz produkt potrafi rownie dobrze PRZEOCZYC realna wade poza tym oknem.",
+            "lekcja": "Sonda nie ma prawa wymyslac wlasnej definicji 'teraz'. Jesli produkt ma dla czasu regule wynikajaca z dziedziny (doba rejestru MF, dzien rozliczeniowy, strefa umowy), test musi wolac TE SAMA funkcje, a nie odtwarzac ja z pamieci. Testy zalezne od pory doby sa zielone wtedy, kiedy sie je pisze.",
+            "test": "mp-lead-intake/tests/naprawy/biala-lista-niepelna-odpowiedz.php sekcja J (3 asercje: klucz testu = klucz produktu; roznica doby polskiej i UTC UDOWODNIONA dla chwili 00:30; polish_date() oddaje dzien polski)",
+            "para": "audyt koncowy 1.3.8 (przebieg o 00:20)"
         }
     ]
 }
