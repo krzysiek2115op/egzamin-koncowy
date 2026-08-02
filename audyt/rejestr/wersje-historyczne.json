@@ -1,0 +1,11 @@
+{
+  "opis": "Niezgodnosci wersji w tagach JUZ OPUBLIKOWANYCH, przyjete swiadomie. Tag wskazuje drzewo, z ktorego zbudowano zalaczniki wydania; przesuniecie go rozjechaloby opublikowana paczke z tym drzewem, wiec byloby gorsze niz sama niezgodnosc. Wpis pilnuje DOKLADNYCH zastanych wartosci: gdy tag kiedykolwiek sie zmieni, bramka odezwie sie z powrotem.",
+  "wpisy": [
+    {
+      "tag": "mp-lead-intake/v1.2.1",
+      "naglowek": "1.2.1",
+      "stable": "1.0.0",
+      "powod": "Tag i wydanie z 22.07.2026. Podbito naglowek wtyczki i stala wersji, a `Stable tag:` w readme.txt zostal na 1.0.0. Poprawione na stale od mp-lead-intake/v1.2.3 — kazdy pozniejszy tag ma trzy wartosci zgodne. Tag zostaje tam, gdzie jest."
+    }
+  ]
+}

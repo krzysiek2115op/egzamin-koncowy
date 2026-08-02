@@ -5,6 +5,9 @@ obecny tylko wtedy, gdy w main lezy dokladnie ta sama zawartosc.
 """
 import collections, hashlib, io, json, os, re, subprocess, sys, urllib.request, zipfile
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import repo_wyjatki
+
 REPO = "/home/krzysiek/3 pluginy 3 bazy danych "
 SLUGI = ["mp-lead-intake", "mp-offer-builder", "mp-sales-workflow"]
 OWNER_REPO = "krzysiek2115op/egzamin-koncowy"
@@ -14,6 +17,9 @@ bledy, ostrzezenia, ok = [], [], []
 # ich blob z zalozenia rozni sie od kazdej z galezi. Dla nich sprawdzamy nie
 # rownosc, tylko czy scalona wersja zawiera to, co wnosila galaz.
 SCALANE = {".gitignore", ".phpcs.xml.dist", "README.md", "composer.json", "composer.lock"}
+
+# Niezgodnosci wersji w tagach JUZ OPUBLIKOWANYCH — patrz repo_wyjatki.
+WYJATKI_WERSJI = repo_wyjatki.wczytaj()
 
 
 def git(*a):
@@ -145,7 +151,7 @@ print("=" * 72)
 for slug in SLUGI:
     tagi = sorted([t for t in lokalne if re.fullmatch(r"%s/v\d+\.\d+\.\d+" % re.escape(slug), t)],
                   key=lambda t: [int(x) for x in t.rsplit("/v", 1)[1].split(".")])
-    zle = []
+    zle, przyjete = [], []
     for t in tagi:
         wer = t.rsplit("/v", 1)[1]
         glowny = git("show", "%s:%s/%s.php" % (t, slug, slug))
@@ -155,12 +161,24 @@ for slug in SLUGI:
         m2 = re.search(r"^Stable tag:\s*(\S+)", rt, re.M)
         stable = m2.group(1) if m2 else "?"
         if naglowek != wer or stable != wer:
-            zle.append("%s: naglowek=%s stable=%s" % (t, naglowek, stable))
-    print("  %-20s %2d tagow wersyjnych, niezgodnosci: %d" % (slug, len(tagi), len(zle)))
+            opis = "%s: naglowek=%s stable=%s" % (t, naglowek, stable)
+            if repo_wyjatki.przyjeta(t, naglowek, stable, WYJATKI_WERSJI):
+                przyjete.append(opis)
+            else:
+                zle.append(opis)
+    print("  %-20s %2d tagow wersyjnych, niezgodnosci: %d%s"
+          % (slug, len(tagi), len(zle),
+             "  (+%d przyjetych)" % len(przyjete) if przyjete else ""))
     for z in zle:
         print("     ! %s" % z)
+    for z in przyjete:
+        print("     ~ %s" % z)
+        print("       przyjete: %s" % repo_wyjatki.powod(z.split(":")[0], WYJATKI_WERSJI))
     if zle:
         bledy.append("%s: niezgodnosc wersji w %d tagach" % (slug, len(zle)))
+    elif przyjete:
+        ok.append("%s: wersje zgodne poza %d tagiem przyjetym swiadomie (rejestr)"
+                  % (slug, len(przyjete)))
     else:
         ok.append("%s: wersje zgodne we wszystkich tagach" % slug)
 
