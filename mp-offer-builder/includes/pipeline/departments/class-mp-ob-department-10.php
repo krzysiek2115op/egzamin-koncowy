@@ -267,9 +267,20 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 			),
 		);
 
+		/*
+		 * `wp_json_encode()` oddaje FALSE, gdy danych nie da się zakodować —
+		 * niepoprawny UTF-8 z zewnętrznego API, zasób, rekurencja. `false` wpisane
+		 * do kolumny `data_json` zapisuje się jako pusty ciąg, więc historia wersji
+		 * traciła CAŁY zapis stanu: dokładnie to, po co ta kolumna istnieje
+		 * (odtwarzalność oferty po latach). Największa wartość zapisu była zarazem
+		 * jedyną, której nikt nie sprawdzał — mimo że dokumentacja działu wskazuje
+		 * Agenta 10.1 jako miejsce wychwytywania takich rzeczy PRZED transakcją.
+		 */
+		$data_json = wp_json_encode( $context->all() );
+
 		$version_row = array(
 			'version_number' => $version,
-			'data_json'      => wp_json_encode( $context->all() ),
+			'data_json'      => $data_json,
 			'pdf_path'       => $pdf_path,
 			'created_by'     => get_current_user_id(),
 			'change_log'     => 'correction' === $mode ? 'Korekta oferty.' : 'Utworzenie oferty.',
@@ -283,6 +294,13 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 		);
 
 		$errors = $item_errors;
+
+		if ( ! is_string( $data_json ) ) {
+			$errors[] = array(
+				'field'   => 'version.data_json',
+				'message' => 'Pełnego stanu oferty nie da się zakodować do JSON — historia wersji byłaby pusta.',
+			);
+		}
 
 		/*
 		 * Górne limity długości to nie cała „zgodność z DDL".

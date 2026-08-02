@@ -360,6 +360,41 @@ pz_ok(
 	'status=' . ( $pz_naglowek['status'] ?? '(brak)' )
 );
 
+$GLOBALS['mp_pz']['lines'][] = '';
+$GLOBALS['mp_pz']['lines'][] = '=== G. najwiekszy zapis tez ma byc sprawdzony ===';
+
+/*
+ * `data_json` to PELNY stan oferty — kolumna, dla ktorej istnieje historia
+ * wersji i po ktorej po latach odtwarza sie, dlaczego oferta wyglada tak,
+ * a nie inaczej. `wp_json_encode()` oddaje FALSE dla danych, ktorych nie da
+ * sie zakodowac (niepoprawny UTF-8 z zewnetrznego API, zasob, rekurencja),
+ * a `false` wpisane do kolumny zapisuje sie jako pusty ciag. Najwieksza
+ * wartosc zapisu byla zarazem jedyna, ktorej nikt nie sprawdzal.
+ */
+/*
+ * Niepoprawny UTF-8 sie do tego nie nadaje: `wp_json_encode()` sam go oczyszcza
+ * i oddaje jednak ciag. Zasobu (uchwytu pliku) oczyscic sie nie da — i to jest
+ * przypadek, w ktorym funkcja naprawde oddaje FALSE.
+ */
+$pz_uchwyt   = fopen( 'php://memory', 'r' );
+$pz_zly_utf8 = pz_plan( pz_kontekst( array( 'notatka' => $pz_uchwyt ) ) );
+fclose( $pz_uchwyt );
+
+pz_ok(
+	! $pz_zly_utf8->is_ok() && false !== strpos( pz_pola( $pz_zly_utf8 ), 'version.data_json' ),
+	'G1: stanu, ktorego nie da sie zakodowac, plan nie przepuszcza',
+	'kod=' . $pz_zly_utf8->get_code() . ' pola=' . pz_pola( $pz_zly_utf8 )
+);
+
+$pz_dane_json = (array) $pz_kontrola->get_data();
+$pz_wersja    = isset( $pz_dane_json['write_plan']['version'] ) ? (array) $pz_dane_json['write_plan']['version'] : array();
+
+pz_ok(
+	is_string( $pz_wersja['data_json'] ?? null ) && '' !== $pz_wersja['data_json'],
+	'G2: KONTR-ASERCJA — normalny kontekst nadal daje pelny zapis stanu',
+	'data_json=' . substr( (string) ( $pz_wersja['data_json'] ?? '' ), 0, 60 )
+);
+
 echo implode( "\n", $GLOBALS['mp_pz']['lines'] ) . "\n";
 echo sprintf( "\n----- PASS: %d / FAIL: %d -----\n", $GLOBALS['mp_pz']['pass'], $GLOBALS['mp_pz']['fail'] );
 echo ( 0 === $GLOBALS['mp_pz']['fail'] ) ? "VERDICT_ALL_PASS\n" : "VERDICT_HAS_FAILURES\n";
