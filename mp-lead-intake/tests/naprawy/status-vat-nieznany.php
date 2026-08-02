@@ -64,15 +64,26 @@ function sv_ok( $warunek, $opis, $detal = '' ) {
  * @param bool  $vat_pending Czy weryfikacja zostala odlozona do tla.
  * @return array
  */
-function sv_lead( $vat_valid, $vat_pending ) {
+function sv_lead( $vat_valid, $vat_pending, array $dodatki = array() ) {
 	$kontekst = new MP_Context(
-		array(
-			'company_name' => 'Firma Testowa VAT',
-			'nip'          => '1234563218',
-			'email'        => 'vat@example.test',
-			'country'      => 'PL',
-			'vat_valid'    => $vat_valid,
-			'vat_pending'  => $vat_pending,
+		array_merge(
+			array(
+				'company_name' => 'Firma Testowa VAT',
+				'nip'          => '1234563218',
+				'email'        => 'vat@example.test',
+				'country'      => 'PL',
+				'vat_valid'    => $vat_valid,
+				'vat_pending'  => $vat_pending,
+				/*
+				 * Biala lista ROZSTRZYGNIETA — to jest stan bazowy fikstury, a nie
+				 * szczegol. Od 1.3.7 nierozstrzygnieta Biala lista sama z siebie
+				 * odklada leada do weryfikacji, wiec przypadek, ktory bada wylacznie
+				 * VAT, musi powiedziec, co z drugim zrodlem; inaczej mierzy dwie
+				 * rzeczy naraz. Przypadki sekcji D nadpisuja ta wartosc przez $dodatki.
+				 */
+				'company_status' => 'Czynny',
+			),
+			$dodatki
 		)
 	);
 
@@ -169,6 +180,66 @@ sv_ok(
 	'pending' === (string) $odlozony['vat_status'] && null === $odlozony['vat_checked_at'],
 	'cache-miss w trybie async nadal odklada weryfikacje do tla',
 	'vat_status=' . (string) $odlozony['vat_status']
+);
+
+$GLOBALS['mp_sv']['lines'][] = '';
+$GLOBALS['mp_sv']['lines'][] = '=== D. Biala lista: nierozstrzygniete to nie sprawdzone ===';
+
+/*
+ * Ta sama klasa bledu co w sekcji A, tylko w drugim ze zrodel weryfikacji.
+ * Warunek statusu patrzyl wylacznie na `vat_valid`; `company_status` byl
+ * odczytywany i nieuzywany. `resolve_wl()` zwraca `company_status => null`
+ * przy awarii HTTP, odpowiedzi bez `subject` i przy blednym ciele — w trybie
+ * SYNCHRONICZNYM bez zadnej flagi, bo `company_status_pending` powstaje tylko
+ * przy cache-missie w trybie async. Lead dostawal wiec „sprawdzone", nigdy nie
+ * wracal do weryfikatora, a nieznany status firmy i tak wchodzil do punktacji.
+ */
+$wl_nieznany = sv_lead( true, false, array( 'company_status' => null ) );
+
+sv_ok(
+	'pending' === (string) $wl_nieznany['vat_status'],
+	'D1: nierozstrzygnieta Biala lista odklada leada do weryfikacji',
+	'vat_status=' . (string) $wl_nieznany['vat_status']
+);
+sv_ok(
+	null === $wl_nieznany['vat_checked_at'],
+	'D2: i nie stawia daty sprawdzenia, ktorego nie bylo'
+);
+
+/*
+ * KONTR-ASERCJA, i to najwazniejsza w tym pliku. `company_status === null`
+ * znaczy DWIE rozne rzeczy. Dla firmy spoza Polski Biala lista po prostu NIE MA
+ * ZASTOSOWANIA — Dzial 3 oznacza to zakresem `pl_only` i nie pyta API. Gdyby
+ * naprawa patrzyla na sam null, kazdy lead zagraniczny szedlby w nieskonczonosc
+ * do weryfikatora, ktory nie ma czego rozstrzygnac.
+ */
+$wl_poza_zakresem = sv_lead(
+	true,
+	false,
+	array(
+		'country'              => 'DE',
+		'company_status'       => null,
+		'company_status_scope' => 'pl_only',
+	)
+);
+
+sv_ok(
+	'pending' !== (string) $wl_poza_zakresem['vat_status'],
+	'D3: KONTR-ASERCJA — firma spoza Polski NIE trafia do kolejki z powodu Bialej listy',
+	'vat_status=' . (string) $wl_poza_zakresem['vat_status']
+);
+sv_ok(
+	'valid' === (string) $wl_poza_zakresem['vat_status'],
+	'D4: i zachowuje status wynikajacy z potwierdzonego numeru VAT',
+	'vat_status=' . (string) $wl_poza_zakresem['vat_status']
+);
+
+$wl_rozstrzygniety = sv_lead( true, false, array( 'company_status' => 'Czynny' ) );
+
+sv_ok(
+	'valid' === (string) $wl_rozstrzygniety['vat_status'],
+	'D5: KONTR-ASERCJA — rozstrzygnieta Biala lista niczego nie odklada',
+	'vat_status=' . (string) $wl_rozstrzygniety['vat_status']
 );
 
 echo implode( "\n", $GLOBALS['mp_sv']['lines'] ) . "\n";

@@ -225,7 +225,26 @@ class MP_D7_Agent_Prepare extends MP_Abstract_Agent {
 		 * zapisujemy tu jako 0 — nikt więc nigdy nie wracał do tego numeru, mimo
 		 * że jedyne, co o nim wiadomo, to że nic nie wiadomo.
 		 */
-		if ( $vat_pending || is_null( $vat_valid ) ) {
+
+		/*
+		 * To samo rozumowanie dotyczy DRUGIEGO źródła weryfikacji. `company_status`
+		 * był tu odczytywany i nieużywany, więc nierozstrzygnięta Biała lista nie
+		 * odkładała leada do kolejki: `resolve_wl()` oddaje `null` przy awarii HTTP,
+		 * odpowiedzi bez `subject` i przy błędnym ciele — w trybie synchronicznym
+		 * BEZ żadnej flagi, bo `company_status_pending` powstaje wyłącznie przy
+		 * cache-missie w trybie async. Status firmy wchodzi do punktacji (+20),
+		 * więc nieznany wynik podnosił ocenę leada tak samo jak potwierdzony.
+		 *
+		 * Rozróżnienie, które MUSI tu zostać: `null` znaczy dwie różne rzeczy.
+		 * Dla firmy spoza Polski Biała lista nie ma zastosowania — Dział 3 oznacza
+		 * to zakresem `pl_only` i nawet nie pyta API. Takiego leada nie ma po co
+		 * odkładać, bo nie ma czego rozstrzygać; weryfikator w tle brałby go
+		 * w kółko bez końca.
+		 */
+		$wl_nierozstrzygnieta = is_null( $company_status )
+			&& 'pl_only' !== (string) $context->get( 'company_status_scope', '' );
+
+		if ( $vat_pending || is_null( $vat_valid ) || $wl_nierozstrzygnieta ) {
 			$vat_status = 'pending';
 		} elseif ( true === $vat_valid ) {
 			$vat_status = 'valid';

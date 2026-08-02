@@ -22,15 +22,34 @@ Wynik zapisywany w `wp_mp_leads.score`.
 
 ## Przypisanie handlowca
 
-- Kandydaci: użytkownicy WordPress z rolą **`mp_handlowiec`**.
-- Wybór deterministyczny: `index = abs(crc32(nip)) % liczba_handlowców`.
-- Brak handlowców → `salesman_id = NULL` (przypisanie ręczne później).
+**Od 1.3.7 ta wtyczka handlowca NIE WYBIERA — pyta o niego.**
+
+- Pytanie idzie filtrem `mp_lead_assign_salesman` z kompletem danych leada
+  (NIP, kraj, język, segment, e-mail).
+- Odpowiada ten, kto ma czym odpowiedzieć: wtyczka 3 (MP Sales Workflow, Dział 4)
+  dobiera handlowca po kraju, języku, zespole i obciążeniu.
+- Brak odpowiedzi → `salesman_id = NULL`. Puste pole jest uczciwsze niż wpisany
+  przypadkowy człowiek; przypisania dokonuje się później ręcznie.
+- Rotacja i przepisanie procesu przez managera docierają tu zdarzeniem
+  `mp_sw_flow_updated` (pole `assigned_user_id`), więc BD-3 nadąża za BD-1.
 
 Wynik zapisywany w `wp_mp_leads.salesman_id`.
 
+### Co było wcześniej i dlaczego to był błąd
+
+Do 1.3.6 włącznie wybór robiła ta wtyczka, deterministycznie:
+`index = abs(crc32(nip)) % liczba_handlowców`. Hasz numeru NIP rozrzucał leady
+równomiernie po wszystkich kontach z rolą handlowca — bez kraju, języka, zespołu
+i obciążenia, czyli **bez niczego, co przesądza, czy handlowiec jest odpowiedni**.
+Ponieważ wtyczka 3 równolegle dobierała właściciela procesu naprawdę, jedno
+zgłoszenie kończyło się DWOMA różnymi handlowcami: innym w BD-3 i innym w BD-1.
+Żaden test tego nie widział, bo każda wtyczka **z osobna** była spójna.
+
 ## Uwaga
 Rola `mp_handlowiec` (oraz administrator / manager sprzedaży) — utworzenie ról to część
-spraw technicznych (krok 4). Do tego czasu przy braku użytkowników z rolą przypisanie = NULL.
+spraw technicznych (krok 4). Rolę definiują wtyczki 1 i 3, a uprawnienia każda
+dokłada **własne**, po `add_role()` — przy istniejącej roli `add_role()` nic nie robi,
+więc inaczej komplet dostawałaby tylko ta aktywowana pierwsza.
 
 ---
 

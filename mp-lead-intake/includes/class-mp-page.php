@@ -94,12 +94,21 @@ class MP_Lead_Intake_Page {
 		 * administratora, a szkic — pracą w toku. Mówimy, co widzimy, i zostawiamy
 		 * decyzję jemu.
 		 */
+
+		/*
+		 * Komunikat NIE odsyła już do ponownej aktywacji — ta droga nie może
+		 * zadziałać. Ponowna aktywacja wchodzi dokładnie w tę samą gałąź (wpis nadal
+		 * istnieje, status nadal inny niż publish), nadpisuje ten sam ślad i kończy
+		 * się `return`; strona nie zostaje odtworzona. Rada odsyłająca człowieka do
+		 * czynności bez skutku jest gorsza niż jej brak, bo każe mu uwierzyć, że
+		 * zrobił, co trzeba.
+		 */
 		if ( $wpis instanceof WP_Post ) {
 			update_option(
 				self::OPTION_PAGE_ERROR,
 				sprintf(
 					/* translators: %s: status wpisu WordPressa (np. trash, draft). */
-					__( 'Strona z formularzem istnieje, ale ma status „%s" zamiast „opublikowana" — klienci jej nie zobaczą. Przywróć ją do publikacji albo aktywuj wtyczkę ponownie.', 'mp-lead-intake' ),
+					__( 'Strona z formularzem istnieje, ale ma status „%s" zamiast „opublikowana" — klienci jej nie zobaczą. Przywróć ją do publikacji w Strony → Wszystkie strony.', 'mp-lead-intake' ),
 					$wpis->post_status
 				)
 			);
@@ -159,11 +168,40 @@ class MP_Lead_Intake_Page {
 		$page_id = (int) get_option( self::OPTION );
 		$wpis    = $page_id ? get_post( $page_id ) : null;
 
-		// Ten sam warunek co w create(): dokładanie do menu wpisu w koszu albo
-		// szkicu daje pozycję prowadzącą donikąd i melduje sukces.
-		if ( ! $wpis instanceof WP_Post || 'publish' !== $wpis->post_status ) {
+		// Bez zapisanej strony nie ma o czym mówić — ten stan opisuje aktywacja,
+		// a nie odświeżanie statusu menu.
+		if ( ! $page_id ) {
 			return;
 		}
+
+		/*
+		 * Ten sam warunek co w create(): dokładanie do menu wpisu w koszu albo
+		 * szkicu daje pozycję prowadzącą donikąd i melduje sukces.
+		 *
+		 * Samo `return` było jednak CISZĄ w tym samym stanie awaryjnym, który
+		 * `create()` opisuje komunikatem. `OPTION_MENU_OK` zostawało na 1 z czasów,
+		 * gdy strona była opublikowana, więc panel wyglądał na w pełni zdrowy,
+		 * a formularza nie było. Metoda wykrywa awarię — więc ma ją zapisać.
+		 */
+		if ( ! $wpis instanceof WP_Post || 'publish' !== $wpis->post_status ) {
+			update_option( self::OPTION_MENU_OK, 0 );
+			update_option(
+				self::OPTION_PAGE_ERROR,
+				$wpis instanceof WP_Post
+					? sprintf(
+						/* translators: %s: status wpisu WordPressa. */
+						__( 'Strona z formularzem istnieje, ale ma status „%s" zamiast „opublikowana" — klienci jej nie zobaczą. Przywróć ją do publikacji.', 'mp-lead-intake' ),
+						(string) $wpis->post_status
+					)
+					: __( 'Strona z formularzem została usunięta. Opublikuj stronę z krótkim kodem formularza.', 'mp-lead-intake' )
+			);
+
+			return;
+		}
+
+		// Stan zdrowy kasuje slad po awarii — inaczej komunikat przezylby naprawe,
+		// dokladnie tak jak przed U-13.
+		delete_option( self::OPTION_PAGE_ERROR );
 
 		update_option( self::OPTION_MENU_OK, self::add_to_menus( $page_id ) ? 1 : 0 );
 	}
@@ -186,22 +224,45 @@ class MP_Lead_Intake_Page {
 	 * @return bool Czy znaleziono stronę i skasowano ślad po błędzie.
 	 */
 	public static function adopt_existing_page() {
-		$znalezione = get_posts(
+		/*
+		 * `s` to WYSZUKIWARKA WordPressa, nie sprawdzenie obecności skrótu:
+		 * przeszukuje tytuł, zajawkę i treść, dzieli frazę na słowa i dopasowuje
+		 * częściowo. Strona z instrukcją („wstaw krótki kod [mp_lead_intake_form]
+		 * tam, gdzie ma stanąć formularz") pasowała tak samo dobrze jak strona
+		 * z formularzem. Po takim trafieniu gaśnie ostrzeżenie mówiące prawdę,
+		 * a do menu trafia pozycja prowadząca na stronę bez formularza.
+		 *
+		 * Zapytanie zostaje — zawęża zbiór kandydatów jednym zapytaniem do bazy —
+		 * ale rozstrzyga dopiero `has_shortcode()` na treści, czyli ta sama funkcja,
+		 * którą WordPress decyduje, czy skrót zostanie WYKONANY.
+		 */
+		$kandydaci = get_posts(
 			array(
 				'post_type'        => 'page',
 				'post_status'      => 'publish',
-				'numberposts'      => 1,
+				'numberposts'      => 20,
+				'orderby'          => 'ID',
+				'order'            => 'ASC',
 				'fields'           => 'ids',
 				's'                => '[' . MP_Lead_Intake_Form::SHORTCODE . ']',
 				'suppress_filters' => false,
 			)
 		);
 
-		if ( empty( $znalezione ) ) {
-			return false;
+		$page_id = 0;
+
+		foreach ( (array) $kandydaci as $kandydat ) {
+			$wpis = get_post( (int) $kandydat );
+
+			if ( $wpis instanceof WP_Post && has_shortcode( (string) $wpis->post_content, MP_Lead_Intake_Form::SHORTCODE ) ) {
+				$page_id = (int) $wpis->ID;
+				break;
+			}
 		}
 
-		$page_id = (int) $znalezione[0];
+		if ( $page_id <= 0 ) {
+			return false;
+		}
 
 		update_option( self::OPTION, $page_id );
 		delete_option( self::OPTION_PAGE_ERROR );

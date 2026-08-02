@@ -149,7 +149,33 @@ $a = MP_D3_Agent_Vat::resolve_vies( $kraj, $nip );
 
 vs_ok( true === $a['vat_valid'], 'wazny numer daje vat_valid = true', 'vat_valid=' . var_export( $a['vat_valid'], true ) );
 vs_ok( ! empty( $a['vat_checked'] ), 'i jest oznaczony jako sprawdzony' );
-vs_ok( '1' === (string) get_transient( MP_D3_Agent_Vat::vies_cache_key( $kraj, $nip ) ), 'wynik trafia do cache' );
+/*
+ * Cache trzyma WYNIK RAZEM Z NAZWA, nie sama wartosc logiczna. Do 1.3.7 leciala
+ * tam jedynka, wiec odpowiedz z trafienia w cache nie miala `vat_name` — ten sam
+ * numer dawal dwa rozne zestawy danych zaleznie wylacznie od tego, czy transient
+ * akurat zyje.
+ */
+$wpis_cache = get_transient( MP_D3_Agent_Vat::vies_cache_key( $kraj, $nip ) );
+
+vs_ok( is_array( $wpis_cache ) && 1 === (int) $wpis_cache['valid'], 'wynik trafia do cache' );
+vs_ok(
+	is_array( $wpis_cache ) && 'MP Test sp. z o.o.' === (string) $wpis_cache['name'],
+	'i razem z nazwa firmy zwrocona przez VIES',
+	'name=' . var_export( is_array( $wpis_cache ) ? $wpis_cache['name'] : null, true )
+);
+
+// Trafienie w cache daje TE SAMA odpowiedz co zapytanie do VIES — z nazwa wlacznie.
+$z_cache = MP_D3_Agent_Vat::resolve_vies( $kraj, $nip );
+
+vs_ok(
+	isset( $z_cache['vat_source'] ) && 'cache' === $z_cache['vat_source'],
+	'kolejne pytanie idzie juz z cache'
+);
+vs_ok(
+	isset( $z_cache['vat_name'] ) && 'MP Test sp. z o.o.' === (string) $z_cache['vat_name'],
+	'i niesie nazwe firmy, a nie sam werdykt',
+	'vat_name=' . var_export( $z_cache['vat_name'] ?? null, true )
+);
 
 /* ==================================================================== B */
 
@@ -173,7 +199,12 @@ $b = MP_D3_Agent_Vat::resolve_vies( $kraj, $nip );
 
 vs_ok( false === $b['vat_valid'], 'jawnie niewazny numer daje vat_valid = false', 'vat_valid=' . var_export( $b['vat_valid'], true ) );
 vs_ok( ! empty( $b['vat_checked'] ), 'i liczy sie jako sprawdzony' );
-vs_ok( '0' === (string) get_transient( MP_D3_Agent_Vat::vies_cache_key( $kraj, $nip ) ), 'odrzucenie tez trafia do cache' );
+$wpis_odrzucony = get_transient( MP_D3_Agent_Vat::vies_cache_key( $kraj, $nip ) );
+
+vs_ok(
+	is_array( $wpis_odrzucony ) && 0 === (int) $wpis_odrzucony['valid'],
+	'odrzucenie tez trafia do cache'
+);
 
 /* ==================================================================== C */
 

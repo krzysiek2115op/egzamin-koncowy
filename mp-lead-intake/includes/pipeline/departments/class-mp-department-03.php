@@ -102,6 +102,7 @@ class MP_D3_Agent_Nip extends MP_Abstract_Agent {
 		return 'Niepoprawna suma kontrolna NIP';
 	}
 
+
 	/**
 	 * @param MP_Context $context Kontekst.
 	 * @return MP_Result
@@ -150,6 +151,28 @@ class MP_D3_Agent_Nip extends MP_Abstract_Agent {
  * Agent 3.2 — weryfikacja VAT UE w VIES (oficjalne REST API).
  */
 class MP_D3_Agent_Vat extends MP_Abstract_Agent {
+
+	/**
+	 * Odpowiedź zbudowana z wpisu w cache VIES.
+	 *
+	 * Przyjmuje oba kształty: nowy (tablica z wynikiem i nazwą) oraz stary
+	 * (sam `1`/`0`), bo wpisy sprzed aktualizacji dożywają w bazie jeszcze dobę.
+	 * Stary kształt nie niesie nazwy i nie ma skąd jej wziąć — wtedy `vat_name`
+	 * zostaje `null`, czyli „nie wiemy", zamiast wartości zmyślonej.
+	 *
+	 * @param mixed $cached Wpis z transienta.
+	 * @return array
+	 */
+	private static function z_cache_vies( $cached ) {
+		$tablica = is_array( $cached );
+
+		return array(
+			'vat_valid'   => (bool) ( $tablica ? ( $cached['valid'] ?? 0 ) : $cached ),
+			'vat_checked' => true,
+			'vat_source'  => 'cache',
+			'vat_name'    => $tablica && isset( $cached['name'] ) ? $cached['name'] : null,
+		);
+	}
 
 	public function __construct() {
 		parent::__construct( '3.2', 'Weryfikuje VAT UE', 'Oficjalne VIES REST (cache + timeout + łagodny fallback)' );
@@ -202,11 +225,7 @@ class MP_D3_Agent_Vat extends MP_Abstract_Agent {
 		$cache_key = self::vies_cache_key( $country, $nip );
 		$cached    = get_transient( $cache_key );
 		if ( false !== $cached ) {
-			return array(
-				'vat_valid'   => (bool) $cached,
-				'vat_checked' => true,
-				'vat_source'  => 'cache',
-			);
+			return self::z_cache_vies( $cached );
 		}
 
 		$url  = sprintf( 'https://ec.europa.eu/taxation_customs/vies/rest-api/ms/%s/vat/%s', rawurlencode( $country ), rawurlencode( $nip ) );
@@ -285,7 +304,23 @@ class MP_D3_Agent_Vat extends MP_Abstract_Agent {
 		}
 
 		$valid = $is_valid;
-		set_transient( $cache_key, $valid ? 1 : 0, DAY_IN_SECONDS );
+
+		/*
+		 * W cache ląduje WYNIK RAZEM Z NAZWĄ, nie sama wartość logiczna. Wcześniej
+		 * zapisywane było `1`/`0`, więc odpowiedź z trafienia w cache nie miała
+		 * `vat_name` — ten sam NIP dawał dwa różne zestawy danych zależnie wyłącznie
+		 * od tego, czy transient akurat żyje. Kod czytający jest przygotowany także
+		 * na stary kształt (skalar), bo wpisy sprzed aktualizacji dożywają w bazie
+		 * jeszcze dobę.
+		 */
+		set_transient(
+			$cache_key,
+			array(
+				'valid' => $valid ? 1 : 0,
+				'name'  => isset( $body['name'] ) ? (string) $body['name'] : null,
+			),
+			DAY_IN_SECONDS
+		);
 
 		return array(
 			'vat_valid'   => $valid,
@@ -317,13 +352,7 @@ class MP_D3_Agent_Vat extends MP_Abstract_Agent {
 		if ( self::async_enabled() ) {
 			$cached = get_transient( self::vies_cache_key( $country, $nip ) );
 			if ( false !== $cached ) {
-				return MP_Result::ok(
-					array(
-						'vat_valid'   => (bool) $cached,
-						'vat_checked' => true,
-						'vat_source'  => 'cache',
-					)
-				);
+				return MP_Result::ok( self::z_cache_vies( $cached ) );
 			}
 			return MP_Result::ok(
 				array(
