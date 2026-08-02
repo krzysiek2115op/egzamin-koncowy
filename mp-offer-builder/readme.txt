@@ -4,7 +4,7 @@ Tags: oferty, pdf, woocommerce, cennik
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 8.1
-Stable tag: 1.3.7
+Stable tag: 1.3.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -60,6 +60,38 @@ RODO/GDPR:
 
 == Changelog ==
 
+
+= 1.3.8 =
+* Wyczyszczenie tabeli reguł rabatowych zapisywało konfigurację „0% dla każdej
+  oferty" — z zielonym komunikatem o sukcesie. Rabaty znikały ze sklepu, a
+  udokumentowany powrót do reguł wbudowanych był tą drogą nieosiągalny. Pusta
+  tabela jest teraz odmawiana, a przywrócenie reguł wbudowanych mówi wprost, że
+  to przywrócenie, nie zapis.
+* Ekran reguł meldował sukces, nie sprawdzając, czy zapis doszedł do skutku.
+  `update_option()` zwraca fałsz również wtedy, gdy nowa wartość jest identyczna
+  z zapisaną — teraz rozróżniamy te dwa przypadki odczytem po zapisie.
+* Błąd w regułach wskazuje WIERSZ, którego dotyczy, a formularz jest po odmowie
+  odrysowywany z tego, co wpisał użytkownik. Do 1.3.7 wracał do stanu zapisanego
+  i praca przepadała.
+* Etykieta i numer wersji reguł odpowiadają temu, co faktycznie obowiązuje —
+  wbudowane czy własne.
+* Dział 10 nie przepuszcza już do zapisu danych, których baza nie obroni: pusty
+  numer oferty, brak wersji, niezgodność pozycji planu z pozycjami oferty,
+  `data_json`, którego nie da się zakodować. Brak zalogowanego użytkownika daje
+  NULL w `created_by`, a nie użytkownika o identyfikatorze zero.
+* Wartość pozycji w planie zapisu liczona jest z ceny jednostkowej i ilości —
+  do 1.3.7 brało się tam pole, które przy niektórych ścieżkach zostawało puste.
+* Dział 6 pilnuje obu składowych podstawy VAT: rabat spoza zakresu 0–100%,
+  stawka spoza 0–100% i pozycja przypisana do innego produktu niż ta w ofercie
+  są teraz błędem, a nie cichym przeliczeniem. Rozdział kwoty na pozycje
+  używa dzielenia całkowitego — bez ułamków groszy.
+* Snapshot cen mówi to, co jest w katalogu. Brak ustawienia „ceny zawierają
+  podatek" był traktowany jak „nie zawierają" — teraz to twarda odmowa, bo
+  zgadywanie tej jednej wartości przesuwa całą ofertę o stawkę VAT. Produkt
+  w promocji bez użytecznej ceny promocyjnej daje błąd wskazujący pozycję.
+* Zatwierdzenie oferty mówi, co się stało: zły status podaje status zastany,
+  zniknięcie wiersza w trakcie zapisu ma własny komunikat, a wpis w dzienniku
+  nie twierdzi już, że zdarzenie zostało wystawione, zanim to nastąpi.
 
 = 1.3.7 =
 * `Requires PHP` mowi teraz prawde: 8.1, nie 7.4. Dolaczony dompdf 3.1 wymaga

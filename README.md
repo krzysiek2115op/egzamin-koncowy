@@ -20,9 +20,9 @@ danych między formularzem, WooCommerce i pocztą.
 
 | # | Wtyczka | Wersja | Baza | Opis |
 |---|---------|--------|------|------|
-| 1 | `mp-lead-intake` | 1.3.7 | BD-3 | Przyjęcie i kwalifikacja lead-a z formularza |
-| 2 | `mp-offer-builder` | 1.3.7 | BD-2 | Kalkulacja cenowa, integracja WooCommerce, oferty PDF |
-| 3 | `mp-sales-workflow` | 1.3.7 | BD-1 | Statusy procesu, handlowiec, powiadomienia, follow-up, dashboard |
+| 1 | `mp-lead-intake` | 1.3.8 | BD-3 | Przyjęcie i kwalifikacja lead-a z formularza |
+| 2 | `mp-offer-builder` | 1.3.8 | BD-2 | Kalkulacja cenowa, integracja WooCommerce, oferty PDF |
+| 3 | `mp-sales-workflow` | 1.3.8 | BD-1 | Statusy procesu, handlowiec, powiadomienia, follow-up, dashboard |
 
 Kolejność instalacji ma znaczenie: **1, potem 2, potem 3**. Wtyczka 2 nasłuchuje
 zdarzenia z wtyczki 1, a wtyczka 3 — zdarzeń z obu poprzednich. Gotowe paczki
@@ -219,6 +219,48 @@ co dałoby się wziąć za prawdziwy adres.
 
 Raporty z kolejnych przebiegów leżą w `audyt/raport-*.txt` na gałęzi
 `audyt-projektu`, a szczegółowy opis narzędzia — w `audyt/README.md`.
+
+---
+
+## Wydanie 1.3.8 — audyt głęboki, czyli pary, które pytają model
+
+Wydanie 1.3.7 zamknęło to, co dało się znaleźć czytaniem zlecenia zdanie po
+zdaniu. Zostało pytanie, na które ta metoda nie odpowiada: **czy kod robi to, co
+sam o sobie mówi**. Odpowiadają na nie dwie pary audytu, których żaden wcześniejszy
+przebieg nie uruchomił — 1.25 (semantyka działów) i 1.26 (komunikaty dla
+człowieka). Są niedostępne na poziomie `pełny`, bo pytają model, a nie wzorzec;
+w zamian nie są powtarzalne: każdy przebieg próbkuje inny wycinek kodu. Stąd trzy
+przebiegi i suma, a nie jeden werdykt.
+
+Dwadzieścia ustaleń, po rozpisaniu na pliki **trzydzieści siedem napraw i jedno
+odrzucenie**. Wszystkie w jednym gatunku: kod, który **melduje coś innego, niż
+zrobił**.
+
+**Najgroźniejsze.** Wyczyszczenie tabeli reguł rabatowych zapisywało konfigurację
+„0% dla każdej oferty" — z zielonym komunikatem o sukcesie. Rabaty znikały ze
+sklepu, a udokumentowany powrót do reguł wbudowanych był tą drogą nieosiągalny.
+Obok tego bramka K5.2 wtyczki 3 sprawdzała zgodność przejścia ze zdarzeniem
+**jednostronnie**: gdy koperta nie przyznawała się do zmiany statusu, nie badał
+tego nikt — wywołujący dostawał „przyjęte", a status zostawał na miejscu.
+I trzecie: nierozstrzygnięta Biała lista uchodziła za sprawdzoną, bo warunek
+patrzył wyłącznie na `vat_valid`, a odczytany `company_status` nie był używany do
+niczego. Lead nigdy nie wracał do weryfikatora, a nieznany status firmy i tak
+wchodził do punktacji.
+
+**Jedno ustalenie okazało się fałszywe** i jest odnotowane jako odrzucone
+(wpis U-24 w rejestrze): „kontrola podstawy VAT tylko w gałęzi krajowej".
+Gałąź niekrajowa ma własną kontrolę, świadomie zawężoną do pozycji niepustych,
+z komentarzem tłumaczącym różnicę. Model zobaczył pierwszą i orzekł o całym pliku.
+Asercje zostały w repozytorium jako straż — dokumentują, dlaczego te dwie gałęzie
+mają wyglądać różnie.
+
+Metoda bez zmian: każda naprawa poprzedzona testem, który **padał** przed nią —
+udowodnionym uruchomieniem, nie deklaracją — i kontr-asercjami pilnującymi
+zachowania, którego ruszać nie wolno. Siatka regresyjna urosła z 66 do 71 plików.
+Jedna z napraw wywróciła rusztowanie testowe wtyczki 2: twarda odmowa przy braku
+ustawienia „ceny zawierają podatek" obnażyła, że atrapa WooCommerce tej funkcji
+w ogóle nie miała. Dołożyliśmy brakującą atrapę, zamiast cofać naprawę —
+rusztowanie ma modelować sklep, a nie ukrywać jego brak.
 
 ---
 

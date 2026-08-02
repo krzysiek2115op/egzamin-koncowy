@@ -3,8 +3,8 @@
 Plik zbiorczy wymagany przez Golden Rule #3. Opisuje testy **wykonane**, nie
 planowane, z podaniem środowiska i tego, co każdy z nich naprawdę sprawdza.
 
-**Data ostatniego pełnego przebiegu:** 2026-08-01 (wydanie 1.3.7)
-**Wersja wtyczki:** 1.3.7 · schemat bazy 0.4.0 (bez zmian od 1.3.4)
+**Data ostatniego pełnego przebiegu:** 2026-08-02 (wydanie 1.3.8)
+**Wersja wtyczki:** 1.3.8 · schemat bazy 0.4.0 (bez zmian od 1.3.4)
 
 Przebieg wykonany na **świeżo zainstalowanej** bazie — instalacja od zera
 w kolejności 1 → 2 → 3, potem cały zestaw. To istotne rozróżnienie: baza
@@ -197,6 +197,41 @@ Uczciwa granica zakresu:
   którego w tym środowisku nie ma.
 
 ---
+
+## Stan na wydanie 1.3.8 (02.08.2026)
+
+Pełna regresja: **71 / 71 PASS** (69 plików testowych przez `wp eval-file`
++ 2 harnessy na własnym shimie). Świeża instalacja **16 / 16 PASS**, scenariusze
+odbioru **102 / 102 PASS**, scenariusze bezpieczeństwa S1–S12 **99 / 99 PASS**.
+PHPCS wspólnym `.phpcs.xml.dist`: **kod wyjścia 0**. Surowe wyjście leży
+w [`raporty/PRZEBIEG-TESTOW.md`](../../raporty/PRZEBIEG-TESTOW.md).
+
+Przebieg wykonano na bazie postawionej od zera **i na świeżych kontach** —
+`test-swieza-instalacja.php` kasuje tabele, ale nie użytkowników, a konta
+pozostałe po wcześniejszych testach potrafią ukryć błąd pierwszego zgłoszenia
+(tak przez całą serię wydań ukrywało się U-18).
+
+Doszło pięć plików testowych, wszystkie z napraw po audycie głębokim; każdy
+**padał przed** naprawą, którą pilnuje:
+
+| Plik | Czego pilnuje |
+|------|---------------|
+| `mp-offer-builder/tests/naprawy/ekran-regul-rabatowych.php` | pusta tabela reguł nie może zapisać „0% dla każdej oferty"; komunikat odpowiada temu, co zaszło |
+| `mp-offer-builder/tests/naprawy/plan-zapisu-dzial-10.php` | plan zapisu nie przepuszcza danych, których baza nie obroni |
+| `mp-offer-builder/tests/naprawy/podstawa-vat-dwie-skladowe.php` | rabat i stawka w zakresie, pozycja zgodna z produktem oferty |
+| `mp-offer-builder/tests/naprawy/snapshot-cen-mowi-prawde.php` | brak ustawienia „ceny zawierają podatek" to odmowa, nie domysł |
+| `mp-offer-builder/tests/naprawy/zatwierdzenie-komunikaty.php` | komunikat zatwierdzenia podaje status zastany i nie wyprzedza faktów |
+
+Rozbudowano też `mp-sales-workflow/tests/naprawy/krytyk-skutkow.php` (sekcja F —
+dwustronna bramka K5.2) oraz `mp-lead-intake/tests/naprawy/alarm-mowi-prawde.php`
+(sekcje I/J/K — los alarmu, pochodzenie wyjątku, wyjątek bez komunikatu).
+
+**Jedna sekcja testowa opisuje ustalenie ODRZUCONE.** Sekcja B pliku
+`podstawa-vat-dwie-skladowe.php` przechodziła **przed** jakąkolwiek naprawą —
+audyt zgłosił brak kontroli podstawy w gałęzi niekrajowej, a kontrola tam jest,
+tylko świadomie zawężona do pozycji niepustych. Sekcja została jako straż, żeby
+następny przegląd nie „naprawił" tej różnicy przez nieuwagę. Powód odrzucenia
+zapisany w `audyt/rejestr/znane-bledy.json` (U-24).
 
 ## Stan na wydanie 1.3.7 (01.08.2026)
 

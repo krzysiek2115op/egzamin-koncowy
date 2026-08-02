@@ -4,7 +4,7 @@ Tags: sprzedaz, crm, workflow, follow-up
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.7
+Stable tag: 1.3.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -34,6 +34,16 @@ powiadomien do klientow.
 
 == Changelog ==
 
+
+= 1.3.8 =
+* BRAMKA K5.2 SPRAWDZAŁA ZGODNOŚĆ PRZEJŚCIA ZE ZDARZENIEM JEDNOSTRONNIE —
+  tylko wtedy, gdy koperta sama przyznawała, że zmienia status. Przypadku
+  odwrotnego nie badał nikt: gdy `changes_status` było fałszywe albo tablicy
+  `transition` w ogóle nie było, oczekiwane skutki były pustą listą, agent też
+  oddawał pustą i para kończyła się sukcesem — mimo że zdarzenie żądało zmiany
+  statusu. Wywołujący dostawał „przyjęte", a status zostawał na miejscu. Brak
+  zmiany jest teraz zgodny tylko wtedy, gdy zdarzenie statusu nie rusza albo
+  żądany status już obowiązuje.
 
 = 1.3.7 =
 * PIERWSZE ZGLOSZENIE PO INSTALACJI GINELO, GDY NIE BYLO JESZCZE HANDLOWCOW.

@@ -4,7 +4,7 @@ Tags: leads, formularz, b2b, nip, vat
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.3.7
+Stable tag: 1.3.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -17,6 +17,43 @@ zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej 
 
 == Changelog ==
 
+
+= 1.3.8 =
+* Nierozstrzygnięta Biała lista nie uchodzi już za sprawdzoną. Warunek statusu
+  patrzył wyłącznie na `vat_valid`, a odczytany `company_status` nie był używany
+  do niczego. Awaria HTTP, odpowiedź bez `subject` i błędne ciało dają `null` —
+  w trybie synchronicznym BEZ flagi `company_status_pending`, bo ta powstaje
+  tylko przy chybieniu cache'u w trybie asynchronicznym. Lead dostawał
+  „sprawdzone", nigdy nie wracał do weryfikatora, a nieznany status firmy i tak
+  wchodził do punktacji (+20). Firma spoza Polski to nadal NIE jest przypadek
+  nierozstrzygnięty — Biała lista jej nie obejmuje.
+* Przejęcie istniejącej strony dopasowywało po TEKŚCIE. Parametr `s` to
+  wyszukiwarka WordPressa: przeszukuje też tytuł i zajawkę, dzieli frazę na
+  słowa i dopasowuje częściowo. Strona ze skrótem w samym TYTULE gasiła
+  ostrzeżenie o braku formularza i wprowadzała do menu link do strony, na której
+  formularza nie ma. Rozstrzyga teraz `has_shortcode()` na treści — ta sama
+  funkcja, którą WordPress decyduje, czy skrót zostanie wykonany.
+* Odświeżanie statusu menu wykrywało awarię i milczało: widziało stronę w koszu
+  albo w szkicu i wychodziło przez `return`, zostawiając flagę z czasów, gdy
+  strona była opublikowana. Panel wyglądał na w pełni zdrowy. Teraz zapisuje
+  ślad i zeruje flagę, a na ścieżce zdrowej ten ślad kasuje.
+* Komunikat nie radzi już „aktywuj wtyczkę ponownie". Ponowna aktywacja wchodzi
+  w tę samą gałąź, nadpisuje ten sam ślad i kończy się bez zmiany.
+* Cache VIES trzymał samą wartość logiczną, więc odpowiedź z trafienia nie
+  miała `vat_name` — ten sam numer dawał dwa różne zestawy danych zależnie
+  wyłącznie od tego, czy transient akurat żyje. Odczyt obsługuje oba kształty,
+  bo wpisy sprzed aktualizacji dożywają jeszcze dobę.
+* Wyciszony alarm zostawia ślad. Wpis o awarii wyglądał identycznie jak ten,
+  przy którym alarm poszedł do administratora; `meta_json` niesie teraz los
+  alarmu (wysyłany/wyciszony) na obu ścieżkach — wyjątku i zatrzymania działu.
+* Wyjątek spoza znanego działu podaje plik i linię. Pochodzenie było liczone do
+  klucza ogranicznika, ale nie docierało ani do `meta_json`, ani do tekstu dla
+  człowieka: dwie różne awarie dawały maile o identycznym temacie, a stopka
+  obiecywała wyciszenie „z tego samego miejsca".
+* Wyjątek bez komunikatu nie urywa już opisu na dwukropku — w to miejsce idzie
+  klasa wyjątku, a mail nie ma pustej linii „Komunikat:".
+* Dokumentacja Działu 7 opisywała `crc32(NIP)` jako regułę „utrzymywaną w kodzie
+  agenta 7.2" — czyli dokładnie to, co usunęło wydanie 1.3.7.
 
 = 1.3.7 =
 * Handlowca wybiera wtyczka 3, ta o niego PYTA (filtr `mp_lead_assign_salesman`).

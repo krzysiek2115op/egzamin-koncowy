@@ -1,6 +1,6 @@
 # Zapis z przebiegu testów odbioru
 
-**Data przebiegu:** 1 sierpnia 2026 · **Wersja:** 1.3.7 · **Gałąź:** `main`
+**Data przebiegu:** 2 sierpnia 2026 · **Wersja:** 1.3.8 · **Gałąź:** `main`
 
 Kryteria odbioru mówią o dziesięciu scenariuszach. Repozytorium zawierało kod
 tych scenariuszy i nie zawierało **ani jednego zapisu z ich wykonania** (U-7):
@@ -10,7 +10,8 @@ surowym wyjściem narzędzi, nie streszczeniem — łącznie z ostrzeżeniami.
 Odtworzenie u siebie:
 
 ```
-tools/test-env/regresja.sh                 # cała regresja
+tools/test-env/wp.sh eval-file /scr/test-swieza-instalacja.php   # instalacja od zera
+tools/test-env/regresja.sh                                        # cała regresja
 tools/test-env/wp.sh eval-file wp-content/plugins/mp-sales-workflow/tests/koncowe/scenariusze-1-10.php
 ```
 
@@ -18,14 +19,51 @@ tools/test-env/wp.sh eval-file wp-content/plugins/mp-sales-workflow/tests/koncow
 roboczego gałęzi `main`, PHP 8.3. Ten sam zestaw plików testowych uruchamia CI
 przy każdym pushu — zadanie `integracja` w `.github/workflows/ci.yml`.
 
+Przebieg wykonano na bazie postawionej od zera **i na świeżych kontach**.
+To dwie różne rzeczy: `test-swieza-instalacja.php` kasuje tabele, ale nie
+użytkowników, a konta pozostałe po wcześniejszych testach przez całą serię
+wydań ukrywały błąd pierwszego zgłoszenia (U-18). Konta ról `mp_handlowiec`,
+`mp_manager_sprzedazy` i `mp_manager` są kasowane przed przebiegiem.
+
 ---
 
-## 1. Dziesięć scenariuszy odbioru
+## 1. Instalacja od zera (kolejność 1 → 2 → 3)
 
 ```
-[01-Aug-2026 19:59:05 UTC] [MP Sales Workflow] level=SECURITY code=MP3-E111 at=2026-08-01T19:59:05+00:00 type=task.due source=cron reason=sweep_outside_cron user_id=1134 ip_hash=db0f9b80a3fc6a3a18579fdfe68c724b2f448afe3eea94b2c0015e01c89549a2
-[01-Aug-2026 19:59:05 UTC] [MP Sales Workflow] level=SECURITY code=MP3-E111 at=2026-08-01T19:59:05+00:00 type=task.due source=cron reason=sweep_outside_cron user_id=1134 ip_hash=db0f9b80a3fc6a3a18579fdfe68c724b2f448afe3eea94b2c0015e01c89549a2
-[01-Aug-2026 19:59:05 UTC] [MP Sales Workflow] level=SECURITY code=MP3-E101 at=2026-08-01T19:59:05+00:00 reason=protected_meta user_id=1134 ip_hash=db0f9b80a3fc6a3a18579fdfe68c724b2f448afe3eea94b2c0015e01c89549a2
+=== CZYSZCZENIE: stan sprzed pierwszej instalacji ===
+  [PASS] stan czysty: zadna tabela wtyczek nie istnieje
+  [PASS] stan czysty: rola handlowca nie istnieje
+
+=== INSTALACJA: kolejnosc 1 -> 2 -> 3 ===
+  [PASS] P1: tabele BD-3 utworzone
+  [PASS] P1: rola handlowca zalozona
+  [PASS] P2: tabele BD-2 utworzone
+  [PASS] P2: wersja schematu zapisana
+  [PASS] P2: zasiane DWA szablony oferty (PL + EN) — bez nich nie powstanie zadna oferta
+  [PASS] P2: swiezy szablon PL ma numer oferty na dokumencie (kryt. 5.3)
+  [PASS] P3: tabele BD-1 utworzone
+  [PASS] P3: role zainstalowane
+  [PASS] P3: harmonogram zaplanowany
+  [PASS] P3: wiezy obce zalozone (InnoDB)
+
+=== PIERWSZY PRZEBIEG NA SWIEZEJ INSTALACJI ===
+  [PASS] P3: proces sprzedazowy powstal na swiezej instalacji
+  [PASS] P2: szkic oferty powstal na swiezej instalacji
+  [PASS] P2: prosba klienta przeszla z formularza (bez recznego kopiowania)
+  [PASS] P3: dziennik aktywnosci zapisany od pierwszego zdarzenia (kryt. 5.5)
+
+----- PASS: 16 / FAIL: 0 -----
+VERDICT_ALL_PASS
+```
+
+---
+
+## 2. Dziesięć scenariuszy odbioru
+
+```
+[02-Aug-2026 02:44:17 UTC] [MP Sales Workflow] level=SECURITY code=MP3-E111 at=2026-08-02T02:44:17+00:00 type=task.due source=cron reason=sweep_outside_cron user_id=1472 ip_hash=db0f9b80a3fc6a3a18579fdfe68c724b2f448afe3eea94b2c0015e01c89549a2
+[02-Aug-2026 02:44:17 UTC] [MP Sales Workflow] level=SECURITY code=MP3-E111 at=2026-08-02T02:44:17+00:00 type=task.due source=cron reason=sweep_outside_cron user_id=1472 ip_hash=db0f9b80a3fc6a3a18579fdfe68c724b2f448afe3eea94b2c0015e01c89549a2
+[02-Aug-2026 02:44:17 UTC] [MP Sales Workflow] level=SECURITY code=MP3-E101 at=2026-08-02T02:44:17+00:00 reason=protected_meta user_id=1478 ip_hash=db0f9b80a3fc6a3a18579fdfe68c724b2f448afe3eea94b2c0015e01c89549a2
 
 === S1/10 — instalacja i schemat na zywym WP ===
   [PASS] tabela wp_mp_sw_flow istnieje
@@ -156,7 +194,7 @@ STATUS: ALL_PASS
 
 ---
 
-## 2. Pełna regresja — wszystkie wersjonowane pliki testowe
+## 3. Pełna regresja — wszystkie wersjonowane pliki testowe
 
 ```
 === Harnessy (przenośne PHP, bez WordPressa) ===
@@ -192,14 +230,19 @@ STATUS: ALL_PASS
   [OK ] mp-offer-builder/tests/naprawy/audyt-gleboki.php
   [OK ] mp-offer-builder/tests/naprawy/cena-ujemna.php
   [OK ] mp-offer-builder/tests/naprawy/dokument-ktorego-nie-ma.php
+  [OK ] mp-offer-builder/tests/naprawy/ekran-regul-rabatowych.php
   [OK ] mp-offer-builder/tests/naprawy/finalizacja-pdf-a-zdarzenie.php
   [OK ] mp-offer-builder/tests/naprawy/kod-kraju-lista-iso.php
   [OK ] mp-offer-builder/tests/naprawy/komunikat-z-adresu.php
+  [OK ] mp-offer-builder/tests/naprawy/plan-zapisu-dzial-10.php
+  [OK ] mp-offer-builder/tests/naprawy/podstawa-vat-dwie-skladowe.php
   [OK ] mp-offer-builder/tests/naprawy/podstawa-vat.php
   [OK ] mp-offer-builder/tests/naprawy/produkty-jedna-partia.php
+  [OK ] mp-offer-builder/tests/naprawy/snapshot-cen-mowi-prawde.php
   [OK ] mp-offer-builder/tests/naprawy/status-przez-stala.php
   [OK ] mp-offer-builder/tests/naprawy/stawki-wielokrotne.php
   [OK ] mp-offer-builder/tests/naprawy/strefy-czasu.php
+  [OK ] mp-offer-builder/tests/naprawy/zatwierdzenie-komunikaty.php
   [OK ] mp-offer-builder/tests/naprawy/zatwierdzenie-mowi-prawde.php
   [OK ] mp-offer-builder/tests/naprawy/zero-zmienionych-wierszy.php
   [OK ] mp-sales-workflow/tests/koncowe/bramka-integracyjna-p1-p2-p3.php
@@ -230,5 +273,24 @@ STATUS: ALL_PASS
   [OK ] mp-sales-workflow/tests/security/scenariusze-s1-s12.php
 
 ====================================================
-PRZESZLO: 66   NIE PRZESZLO: 0   BEZ WERDYKTU: 0
+PRZESZLO: 71   NIE PRZESZLO: 0   BEZ WERDYKTU: 0
+```
+
+---
+
+## 4. PHPCS wspólnym `.phpcs.xml.dist`
+
+Uruchamiany **bez argumentu ścieżki** — zestaw reguł ma własną listę plików.
+Liczy się kod wyjścia, nie samo podsumowanie: PHPCS kończy się jedynką także
+przy samych ostrzeżeniach.
+
+```
+............................................................  60 / 159 (38%)
+............................................................ 120 / 159 (75%)
+.......................................                      159 / 159 (100%)
+
+
+Time: 23.12 secs; Memory: 40MB
+
+PHPCS_EXIT=0
 ```
