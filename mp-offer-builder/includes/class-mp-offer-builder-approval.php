@@ -67,6 +67,38 @@ class MP_Offer_Builder_Approval {
 	}
 
 	/**
+	 * Komunikat dla stanu, z którego nie da się zatwierdzić oferty.
+	 *
+	 * Wracał tu jeden tekst — „Oferta jest w stanie, z którego nie da się jej
+	 * zatwierdzić." — nienazywający ani stanu, ani czynności. To jedyny taki
+	 * komunikat w tym pliku: pozostałe zawsze podają następny krok („najpierw ją
+	 * dokończ i wygeneruj dokument", „spróbuj ponownie za chwilę, a jeśli problem
+	 * wraca, zgłoś to administratorowi"). Pracownik dostawał zdanie, po którym
+	 * nie wiadomo ani co jest, ani co robić — a wraca ono w DWÓCH różnych
+	 * sytuacjach: przy sprawdzeniu przed zapisem i po nieudanym UPDATE.
+	 *
+	 * Słownik dokumentu zna dwa stany: `draft` i `approved`. Cokolwiek innego
+	 * znaczy, że w kolumnie stoi wartość spoza słownika — i to jest dokładnie ta
+	 * informacja, z którą trzeba iść do administratora.
+	 *
+	 * @param string $status Status zapisany przy ofercie.
+	 * @return string
+	 */
+	protected static function wrong_status_message( $status ) {
+		$status = trim( (string) $status );
+
+		if ( '' === $status ) {
+			return __( 'Oferta nie ma zapisanego stanu, więc nie da się jej zatwierdzić — zgłoś to administratorowi, bo wiersz w bazie jest niekompletny.', 'mp-offer-builder' );
+		}
+
+		return sprintf(
+			/* translators: %s: status zapisany przy ofercie. */
+			__( 'Oferta jest w stanie „%s", z którego nie da się jej zatwierdzić — zatwierdzać można wyłącznie szkice. Stan spoza słownika dokumentu zgłoś administratorowi.', 'mp-offer-builder' ),
+			$status
+		);
+	}
+
+	/**
 	 * Zatwierdza ofertę i wystawia `mp_offer_approved` dokładnie raz.
 	 *
 	 * Warstwa DZIEDZINOWA — bez nonce'a i bez uprawnień roli (to sprawa granicy
@@ -108,7 +140,7 @@ class MP_Offer_Builder_Approval {
 		if ( MP_Offer_Builder_DB::STATUS_DRAFT !== (string) $offer['status'] ) {
 			return new WP_Error(
 				'wrong_status',
-				__( 'Oferta jest w stanie, z którego nie da się jej zatwierdzić.', 'mp-offer-builder' )
+				self::wrong_status_message( (string) $offer['status'] )
 			);
 		}
 
@@ -220,16 +252,23 @@ class MP_Offer_Builder_Approval {
 			$aktualna = MP_Offer_Builder_DB::get_offer( $offer_id );
 
 			if ( ! $aktualna ) {
+				/*
+				 * Tu NIE chodzi o uprawnienia. Dostęp do tej samej oferty został
+				 * potwierdzony kilkanaście linii wyżej, w tym samym wywołaniu —
+				 * komunikat „albo nie masz do niej dostępu" wysyłał więc pracownika
+				 * na poszukiwanie uprawnień, których mu nie brakuje. Wiersz zniknął
+				 * między odczytem a zapisem i to jest cała treść zdarzenia.
+				 */
 				return new WP_Error(
 					'offer_not_found',
-					__( 'Oferta nie istnieje albo nie masz do niej dostępu.', 'mp-offer-builder' )
+					__( 'Oferta zniknęła w trakcie zatwierdzania — zapis nie doszedł do skutku. Odśwież listę ofert; jeśli oferta wróci, spróbuj ponownie.', 'mp-offer-builder' )
 				);
 			}
 
 			if ( MP_Offer_Builder_DB::STATUS_APPROVED !== (string) $aktualna['status'] ) {
 				return new WP_Error(
 					'wrong_status',
-					__( 'Oferta jest w stanie, z którego nie da się jej zatwierdzić.', 'mp-offer-builder' )
+					self::wrong_status_message( (string) $aktualna['status'] )
 				);
 			}
 
@@ -256,7 +295,18 @@ class MP_Offer_Builder_Approval {
 		 * udanym zatwierdzeniu.
 		 */
 		$zapisana = MP_Offer_Builder_DB::get_offer( $offer_id );
-		$offer    = is_array( $zapisana ) ? $zapisana : $offer;
+
+		/*
+		 * Ponowny odczyt przyjmujemy tylko wtedy, gdy nadal spełnia to, co przed
+		 * zapisem sprawdziliśmy. Kontrola „numer nie jest pusty" wykonała się na
+		 * wierszu SPRZED UPDATE-a; między jednym a drugim mogła wejść korekta
+		 * z Działu 10 i zostawić numer pusty. Wpis do dziennika i zdarzenie
+		 * ruszały wtedy z pustym numerem oferty, choć warunek na to nie pozwalał —
+		 * tyle że sprawdzony był na innej wersji wiersza.
+		 */
+		if ( is_array( $zapisana ) && '' !== (string) $zapisana['offer_number'] ) {
+			$offer = $zapisana;
+		}
 
 		$lead_id = isset( $offer['lead_id'] ) ? (int) $offer['lead_id'] : 0;
 
@@ -270,7 +320,7 @@ class MP_Offer_Builder_Approval {
 				'action'      => 'offer_approved',
 				'description' => sprintf(
 					/* translators: 1: numer oferty, 2: identyfikator leada. */
-					__( 'Oferta %1$s zatwierdzona (lead_id=%2$d) — zdarzenie mp_offer_approved wystawione.', 'mp-offer-builder' ),
+					__( 'Oferta %1$s zatwierdzona (lead_id=%2$d) — zdarzenie mp_offer_approved zaraz zostanie wystawione.', 'mp-offer-builder' ),
 					(string) $offer['offer_number'],
 					$lead_id
 				),
