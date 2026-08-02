@@ -290,9 +290,9 @@ foreach ( MP_SW_D5_Machine::statusless_events() as $typ_bez ) {
 }
 
 // Powtorzone zatwierdzenie oferty: A5.1 oddaje `to = from` z `changes_status`
-// false. Zdarzenie prosi o `offer_sent`, a `transition.to` mowi `offer_sent` —
-// ale nawet gdyby mowilo co innego, brak zmiany statusu znaczy brak skutkow
-// i nie ma czego pilnowac.
+// false. Zdarzenie prosi o `offer_sent` i `transition.to` mowi `offer_sent` —
+// zadany status juz obowiazuje, wiec brak zmiany jest tu zgodny ze zdarzeniem.
+// Gdyby `transition.to` mowilo co innego, sekcja F zatrzymuje taka koperte.
 $ocena_powtorka = ks_ocena(
 	array(
 		'event'      => array( 'type' => MP_SW_Pipeline_Factory::EVENT_OFFER_APPROVED ),
@@ -432,6 +432,136 @@ ks_ok(
 ks_ok(
 	false !== strpos( $cialo, 'target_status' ),
 	'krytyk wyprowadza status docelowy z typu zdarzenia (target_status)'
+);
+
+$GLOBALS['mp_ks']['lines'][] = '';
+$GLOBALS['mp_ks']['lines'][] = '=== F. „przejscie nie zmienia statusu" tez musi sie zgadzac ze zdarzeniem ===';
+
+/*
+ * Sprawdzenie z sekcji A bylo JEDNOSTRONNE: pytalo o zgodnosc wylacznie wtedy,
+ * gdy koperta sama przyznawala, ze zmienia status. Przypadek odwrotny —
+ * `changes_status` ustawione na falsz albo tablicy `transition` w ogole nie ma —
+ * nie byl badany przez nikogo: `expected` stawalo sie wtedy pusta lista, agent
+ * 5.2 tez oddawal pusta liste i para konczyla sie sukcesem.
+ *
+ * Skutek jest gorszy niz sam brak sprawdzenia. Wywolujacy prosi o przejscie na
+ * „wygrany", dostaje odpowiedz „przyjete", a status zostaje tam, gdzie byl:
+ * Dzialy 6 i 7 nie maja czego zapisac, bo koperta twierdzi, ze nic sie nie
+ * zmienia. Cicha odmowa podana jako sukces.
+ */
+$ks_niby_bez_zmiany = array(
+	'event'      => array( 'type' => MP_SW_Pipeline_Factory::EVENT_STATUS_CHANGE ),
+	'to_status'  => MP_Sales_Workflow_DB::STATUS_WON,
+	'flow'       => array( 'row' => array( 'status' => MP_Sales_Workflow_DB::STATUS_NEGOTIATION ) ),
+	'transition' => array(
+		'from'            => MP_Sales_Workflow_DB::STATUS_NEGOTIATION,
+		'to'              => MP_Sales_Workflow_DB::STATUS_NEGOTIATION,
+		'allowed'         => true,
+		'changes_status'  => false,
+		'machine_version' => MP_SW_D5_Machine::MACHINE_VERSION,
+	),
+);
+
+$ocena_niby = ks_ocena( $ks_niby_bez_zmiany );
+
+ks_ok(
+	! $ocena_niby->is_ok(),
+	'F1: zdarzenie zada statusu „wygrany", a przejscie twierdzi, ze nic nie zmienia → odmowa',
+	'ocena=' . ( $ocena_niby->is_ok() ? 'PRZESZLO' : 'odmowa' )
+);
+ks_ok(
+	'transition_not_from_event' === $ocena_niby->get_code(),
+	'F2: to ten sam inwariant, wiec i ten sam kod',
+	'kod=' . $ocena_niby->get_code()
+);
+
+// Tablicy `transition` nie ma wcale — kontekst po podmianie albo blad w kodzie
+// Dzialu 5. Pusto znaczy „zadnego przejscia", a zdarzenie prosilo o przypisanie.
+$ocena_brak_tablicy = ks_ocena(
+	array(
+		'event'      => array( 'type' => MP_SW_Pipeline_Factory::EVENT_LEAD_CREATED ),
+		'assignment' => array( 'user_id' => 501 ),
+		'flow'       => array( 'row' => array( 'status' => MP_Sales_Workflow_DB::STATUS_NEW ) ),
+	)
+);
+
+ks_ok(
+	! $ocena_brak_tablicy->is_ok() && 'transition_not_from_event' === $ocena_brak_tablicy->get_code(),
+	'F3: brak tablicy przejscia przy zdarzeniu zmieniajacym status → odmowa',
+	'kod=' . $ocena_brak_tablicy->get_code()
+);
+
+/*
+ * KONTR-ASERCJE. Sa dwa powody, dla ktorych „brak zmiany statusu" jest zgodny
+ * ze zdarzeniem, i oba musza przechodzic dalej — inaczej naprawa zatrzymalaby
+ * normalny ruch we wtyczce.
+ */
+$ocena_powtorka_f = ks_ocena(
+	array(
+		'event'      => array( 'type' => MP_SW_Pipeline_Factory::EVENT_OFFER_APPROVED ),
+		'flow'       => array( 'row' => array( 'status' => MP_Sales_Workflow_DB::STATUS_OFFER_SENT ) ),
+		'transition' => array(
+			'from'            => MP_Sales_Workflow_DB::STATUS_OFFER_SENT,
+			'to'              => MP_Sales_Workflow_DB::STATUS_OFFER_SENT,
+			'allowed'         => true,
+			'changes_status'  => false,
+			'machine_version' => MP_SW_D5_Machine::MACHINE_VERSION,
+		),
+	)
+);
+
+ks_ok(
+	$ocena_powtorka_f->is_ok(),
+	'F4: KONTR-ASERCJA — zadany status JUZ obowiazuje (powtorka), wiec brak zmiany jest zgodny',
+	'kod=' . $ocena_powtorka_f->get_code()
+);
+
+foreach ( MP_SW_D5_Machine::statusless_events() as $ks_typ_bez ) {
+	$ocena_bez_f = ks_ocena(
+		array(
+			'event'      => array( 'type' => $ks_typ_bez ),
+			'flow'       => array( 'row' => array( 'status' => MP_Sales_Workflow_DB::STATUS_ASSIGNED ) ),
+			'transition' => array(
+				'from'            => MP_Sales_Workflow_DB::STATUS_ASSIGNED,
+				'to'              => MP_Sales_Workflow_DB::STATUS_ASSIGNED,
+				'allowed'         => true,
+				'changes_status'  => false,
+				'machine_version' => MP_SW_D5_Machine::MACHINE_VERSION,
+			),
+		)
+	);
+
+	ks_ok(
+		$ocena_bez_f->is_ok(),
+		'F5: KONTR-ASERCJA — zdarzenie, ktore statusu nie rusza, przechodzi: ' . $ks_typ_bez,
+		'kod=' . $ocena_bez_f->get_code()
+	);
+}
+
+/*
+ * Lead bez handlowca (1.3.7): `target_status()` oddaje „nowy", a proces jest
+ * „nowy", wiec przejscia nie ma i to jest PRAWIDLOWE. Ta kontr-asercja pilnuje,
+ * zeby naprawa nie odesłala do kosza pierwszego leada na swiezej instalacji.
+ */
+$ocena_bez_handlowca = ks_ocena(
+	array(
+		'event'      => array( 'type' => MP_SW_Pipeline_Factory::EVENT_LEAD_CREATED ),
+		'assignment' => array( 'user_id' => 0, 'unassigned' => true ),
+		'flow'       => array( 'row' => array( 'status' => MP_Sales_Workflow_DB::STATUS_NEW ) ),
+		'transition' => array(
+			'from'            => MP_Sales_Workflow_DB::STATUS_NEW,
+			'to'              => MP_Sales_Workflow_DB::STATUS_NEW,
+			'allowed'         => true,
+			'changes_status'  => false,
+			'machine_version' => MP_SW_D5_Machine::MACHINE_VERSION,
+		),
+	)
+);
+
+ks_ok(
+	$ocena_bez_handlowca->is_ok(),
+	'F6: KONTR-ASERCJA — lead bez handlowca zostaje „nowy" i przechodzi',
+	'kod=' . $ocena_bez_handlowca->get_code()
 );
 
 echo implode( "\n", $GLOBALS['mp_ks']['lines'] ) . "\n";

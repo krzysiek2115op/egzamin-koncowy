@@ -27,15 +27,75 @@ class MP_Pipeline_Logger {
 	 * szukał działu numer 0 w dokumentacji zamiast dowiedzieć się, że miejsce
 	 * awarii jest NIEUSTALONE.
 	 *
-	 * @param int $dept_num Numer działu (0 = nieustalony).
+	 * Gdy działu nie znamy, tożsamością miejsca jest pochodzenie wyjątku — plik
+	 * i linia. Kod liczył je od dawna (kubełek wyciszania, patrz log_exception),
+	 * ale człowiek ich nie widział: KAŻDA taka awaria przedstawiała się tak samo,
+	 * choć wyciszane były osobno. Dwa niezależne wyjątki dawały więc dwa maile
+	 * o identycznym temacie, z których drugi czytało się jak duplikat pierwszego
+	 * — tym bardziej że stopka obiecuje wyciszenie „z tego samego miejsca".
+	 *
+	 * Sama ścieżka NIE idzie do tekstu: nazwa pliku wystarczy, żeby wskazać
+	 * miejsce, a katalogi serwera nie są niczyją sprawą poza diagnostyką
+	 * (pełną ścieżkę zapisuje `meta_json`).
+	 *
+	 * @param int    $dept_num Numer działu (0 = nieustalony).
+	 * @param string $origin   Pochodzenie awarii („plik.php:123"); puste, gdy nieznane.
 	 * @return string
 	 */
-	protected function department_label( $dept_num ) {
+	protected function department_label( $dept_num, $origin = '' ) {
 		$dept_num = (int) $dept_num;
 
-		return $dept_num > 0
-			? sprintf( 'dziale %d', $dept_num )
-			: __( 'nieustalonym miejscu pipeline\'u', 'mp-lead-intake' );
+		if ( $dept_num > 0 ) {
+			return sprintf( 'dziale %d', $dept_num );
+		}
+
+		$origin = (string) $origin;
+
+		if ( '' === $origin ) {
+			return __( 'nieustalonym miejscu pipeline\'u', 'mp-lead-intake' );
+		}
+
+		return sprintf(
+			/* translators: %s: plik i linia, w których powstał wyjątek. */
+			__( 'nieustalonym miejscu pipeline\'u (%s)', 'mp-lead-intake' ),
+			$origin
+		);
+	}
+
+	/**
+	 * Los alarmu zapisany w tym samym wpisie, który ten alarm wywołał.
+	 *
+	 * Ogranicznik częstotliwości kończył metodę `return`-em bez żadnego zapisu,
+	 * więc wpis o awarii wyglądał DOKŁADNIE tak samo jak ten, przy którym alarm
+	 * faktycznie poszedł. Dziennik nie pozwalał odróżnić „alarm wysłany" od
+	 * „alarm pominięty" — czyli dokładnie tego, przed czym broni log_alert_failure().
+	 * Ostrzeżenie o wyciszeniu istniało wyłącznie w stopce maila, a więc w miejscu,
+	 * do którego pracownik przeglądający historię po incydencie nie ma dostępu.
+	 *
+	 * Stan czytamy PRZED zapisem wpisu i bez skutków ubocznych — `get_transient()`
+	 * niczego nie ustawia. Osobnego wiersza nie dokładamy: wpis o awarii i tak
+	 * powstaje przy każdym zdarzeniu, a przy zalewie błędów drugi wiersz na
+	 * zdarzenie podwoiłby dziennik dokładnie wtedy, gdy jest najdłuższy.
+	 *
+	 * @param string $throttle_key Klucz ogranicznika dla tego miejsca.
+	 * @return string „wyciszony" albo „wysylany".
+	 */
+	protected function alert_state( $throttle_key ) {
+		return get_transient( $throttle_key ) ? 'wyciszony' : 'wysylany';
+	}
+
+	/**
+	 * Klucz ogranicznika dla alarmu o zatrzymaniu działu.
+	 *
+	 * Jedno miejsce, bo liczą go dwie metody: `log_failure()` (żeby zapisać los
+	 * alarmu we wpisie) i `notify_admin()` (żeby ten alarm ograniczyć). Rozjazd
+	 * między nimi dawałby wpis mówiący co innego, niż zrobił kod.
+	 *
+	 * @param MP_Department $department Dział.
+	 * @return string
+	 */
+	protected function failure_throttle_key( MP_Department $department ) {
+		return 'mp_notify_' . $department->get_key();
 	}
 
 	/**
@@ -87,6 +147,7 @@ class MP_Pipeline_Logger {
 						'code'       => $result->get_code(),
 						'errors'     => $result->get_errors(),
 						'data'       => $result->get_data(),
+						'alarm'      => $this->alert_state( $this->failure_throttle_key( $department ) ),
 					)
 				),
 			)
@@ -112,12 +173,49 @@ class MP_Pipeline_Logger {
 
 		$table = MP_Lead_Intake_DB::activity_log_table();
 
+		$plik  = (string) $e->getFile();
+		$linia = (int) $e->getLine();
+
+		// Pochodzenie dla CZŁOWIEKA — sama nazwa pliku i linia, patrz department_label().
+		$origin = '' !== $plik ? basename( $plik ) . ':' . $linia : '';
+
+		/*
+		 * `throw new RuntimeException();` daje `getMessage() === ''` — zwyczajny
+		 * przypadek u subskrybenta spoza wtyczki, czyli dokładnie tam, gdzie ta
+		 * ścieżka jest po to, żeby zadziałać. Opis wpisu urywał się wtedy na
+		 * dwukropku („Nieoczekiwany wyjątek w dziale 3:"), a mail miał pustą linię
+		 * „Komunikat:". Jedyna rzecz, która cokolwiek mówiła — klasa wyjątku —
+		 * zostawała w `meta_json`, którego lista wpisów w panelu nie pokazuje.
+		 */
+		$komunikat = trim( (string) $e->getMessage() );
+
+		if ( '' === $komunikat ) {
+			$komunikat = sprintf(
+				/* translators: %s: klasa wyjątku, np. RuntimeException. */
+				__( 'wyjątek bez komunikatu (typ: %s)', 'mp-lead-intake' ),
+				get_class( $e )
+			);
+		}
+
+		/*
+		 * Dział 0 znaczy „miejsce NIEUSTALONE", a nie „miejsce numer zero". Wszystkie
+		 * takie wyjątki dzieliły więc jeden kubełek, czyli dokładnie ten sam błąd
+		 * w mniejszej skali: awaria w jednym nieznanym miejscu uciszała na kwadrans
+		 * awarię w innym, równie nieznanym. Gdy działu nie znamy, bierzemy za
+		 * tożsamość miejsca pochodzenie wyjątku — plik i linię, w których powstał.
+		 */
+		$miejsce = (int) $dept_num > 0
+			? (string) (int) $dept_num
+			: 'x' . substr( md5( $plik . ':' . $linia ), 0, 8 );
+
+		$throttle_key = 'mp_notify_exception_' . $miejsce;
+
 		$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$table,
 			array(
 				'lead_id'     => $context->get( 'lead_id' ),
 				'action'      => 'pipeline_exception',
-				'description' => sprintf( 'Nieoczekiwany wyjątek w %s: %s', $this->department_label( $dept_num ), $e->getMessage() ),
+				'description' => sprintf( 'Nieoczekiwany wyjątek w %s: %s', $this->department_label( $dept_num, $origin ), $komunikat ),
 				'user_id'     => get_current_user_id() ? get_current_user_id() : null,
 				'ip_address'  => isset( $_SERVER['REMOTE_ADDR'] ) ? MP_Lead_Intake_DB::anonymize_ip( sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) ) : null,
 				'meta_json'   => wp_json_encode(
@@ -125,7 +223,13 @@ class MP_Pipeline_Logger {
 						'request_id' => $context->get( 'request_id' ),
 						'department' => (int) $dept_num,
 						'exception'  => get_class( $e ),
-						'message'    => $e->getMessage(),
+						'message'    => $komunikat,
+						// Pełna ścieżka i linia: to material diagnostyczny, nie tekst
+						// dla czytelnika. Bez nich dziennik nie pozwalał odróżnić
+						// dwóch awarii z dwóch różnych miejsc.
+						'file'       => $plik,
+						'line'       => $linia,
+						'alarm'      => $this->alert_state( $throttle_key ),
 					)
 				),
 			)
@@ -147,18 +251,8 @@ class MP_Pipeline_Logger {
 		 * działu (`notify_admin()`) liczy się tak samo od zawsze.
 		 */
 
-		/*
-		 * Dział 0 znaczy „miejsce NIEUSTALONE", a nie „miejsce numer zero". Wszystkie
-		 * takie wyjątki dzieliły więc jeden kubełek, czyli dokładnie ten sam błąd
-		 * w mniejszej skali: awaria w jednym nieznanym miejscu uciszała na kwadrans
-		 * awarię w innym, równie nieznanym. Gdy działu nie znamy, bierzemy za
-		 * tożsamość miejsca pochodzenie wyjątku — plik i linię, w których powstał.
-		 */
-		$miejsce = (int) $dept_num > 0
-			? (string) (int) $dept_num
-			: 'x' . substr( md5( $e->getFile() . ':' . $e->getLine() ), 0, 8 );
-
-		$throttle_key = 'mp_notify_exception_' . $miejsce;
+		// Kubełek i jego klucz policzone wyżej — wpis w dzienniku musi mówić
+		// o TYM SAMYM ograniczniku, którego za chwilę użyjemy.
 		if ( get_transient( $throttle_key ) ) {
 			return;
 		}
@@ -179,11 +273,13 @@ class MP_Pipeline_Logger {
 			$this->log_alert_failure(
 				sprintf(
 					'Alarm o wyjątku w %s NIE został wysłany — w ustawieniach witryny nie ma adresu administratora (admin_email).',
-					$this->department_label( $dept_num )
+					$this->department_label( $dept_num, $origin )
 				),
 				array(
 					'alert'      => 'pipeline_exception',
 					'department' => (int) $dept_num,
+					'file'       => $plik,
+					'line'       => $linia,
 					'reason'     => 'brak_admin_email',
 				),
 				$context
@@ -194,12 +290,12 @@ class MP_Pipeline_Logger {
 
 		$sent = wp_mail(
 			$to,
-			sprintf( '[MP Lead Intake] Nieoczekiwany wyjątek w pipeline (%s)', $this->department_label( $dept_num ) ),
+			sprintf( '[MP Lead Intake] Nieoczekiwany wyjątek w pipeline (%s)', $this->department_label( $dept_num, $origin ) ),
 			sprintf(
 				"Pipeline przerwany wyjątkiem w %s.\nTyp: %s\nKomunikat: %s\n%s",
-				$this->department_label( $dept_num ),
+				$this->department_label( $dept_num, $origin ),
 				get_class( $e ),
-				$e->getMessage(),
+				$komunikat,
 				$this->alert_footer( $context )
 			)
 		);
@@ -208,12 +304,14 @@ class MP_Pipeline_Logger {
 			$this->log_alert_failure(
 				sprintf(
 					'Alarm o wyjątku w %s NIE został wysłany — %s',
-					$this->department_label( $dept_num ),
+					$this->department_label( $dept_num, $origin ),
 					$this->delivery_failure_note()
 				),
 				array(
 					'alert'      => 'pipeline_exception',
 					'department' => (int) $dept_num,
+					'file'       => $plik,
+					'line'       => $linia,
 				),
 				$context
 			);
@@ -318,7 +416,7 @@ class MP_Pipeline_Logger {
 	 * @return void
 	 */
 	protected function notify_admin( MP_Department $department, MP_Result $result, MP_Context $context ) {
-		$throttle_key = 'mp_notify_' . $department->get_key();
+		$throttle_key = $this->failure_throttle_key( $department );
 		if ( get_transient( $throttle_key ) ) {
 			return;
 		}

@@ -364,13 +364,31 @@ class MP_SW_D5_Critic_Effects extends MP_SW_Abstract_Critic {
 		$to_event = MP_SW_D5_Machine::target_status( $type, $context->all() );
 
 		/*
+		 * Sprawdzenie idzie w OBIE STRONY. Wcześniej pytaliśmy o zgodność wyłącznie
+		 * wtedy, gdy koperta sama przyznawała, że zmienia status — a przypadek
+		 * odwrotny (`changes_status` fałszywe albo tablicy `transition` nie ma
+		 * wcale) nie był badany przez nikogo: `$expected` stawało się pustą listą,
+		 * agent 5.2 też oddawał pustą listę i para kończyła się sukcesem, choć
+		 * zdarzenie żądało zmiany statusu. Wywołujący dostawał „przyjęte", a status
+		 * zostawał na miejscu, bo Działy 6 i 7 nie miały czego zapisać.
+		 *
+		 * Brak zmiany statusu jest zgodny ze zdarzeniem w dwóch przypadkach i tylko
+		 * w nich: zdarzenie statusu nie rusza (`task.due`, `dashboard.view` — wtedy
+		 * `$to_event` jest puste) albo żądany status JUŻ obowiązuje (powtórzone
+		 * zatwierdzenie oferty, lead bez handlowca zostający w „nowy").
+		 */
+		$zgodne_ze_zdarzeniem = empty( $transition['changes_status'] )
+			? ( '' === $to_event || $to_event === $to_agent )
+			: $to_event === $to_agent;
+
+		/*
 		 * Kod `transition_not_from_event` celowo NIE trafia do słownika
 		 * `MP_SW_Errors::map()` i celowo nie niesie `http_status`: taka koperta nie
 		 * powstaje z żadnego żądania użytkownika, tylko z błędu w kodzie albo
 		 * podmiany danych między działami. To inwariant wewnętrzny i ma wychodzić
 		 * jako MP3-E500, tak samo jak `multiple_writes`.
 		 */
-		if ( ! empty( $transition['changes_status'] ) && $to_event !== $to_agent ) {
+		if ( ! $zgodne_ze_zdarzeniem ) {
 			return MP_SW_Result::fail(
 				sprintf(
 					/* translators: 1: status żądany przez zdarzenie, 2: status z tablicy przejścia. */

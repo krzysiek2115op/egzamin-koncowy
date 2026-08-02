@@ -522,6 +522,260 @@ am_ok(
 
 am_reset();
 
+$GLOBALS['mp_am']['lines'][] = '';
+$GLOBALS['mp_am']['lines'][] = '=== I. pochodzenie wyjatku: kod je zna, wiec ma je pokazac ===';
+
+/*
+ * Kubelek wyciszania dla nieustalonego dzialu liczy sie z pliku i linii wyjatku
+ * (sekcja H). Ten sam fakt nie docieral jednak NIGDZIE dalej: ani do meta_json
+ * wpisu, ani do tekstu dla czlowieka. Administrator dostawal „Nieoczekiwany
+ * wyjatek w nieustalonym miejscu pipeline'u. Typ: TypeError. Komunikat:
+ * Unsupported operand types" — zdanie, ktore nie wskazuje zadnego miejsca,
+ * mimo ze funkcja obok wlasnie je wyliczyla.
+ */
+update_option( 'admin_email', 'admin@example.test' );
+$GLOBALS['mp_am_powodzi'] = true;
+am_reset();
+
+$am_i_max = (int) $wpdb->get_var( "SELECT COALESCE(MAX(id),0) FROM {$log_t}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+/**
+ * Ostatni wpis o wyjatku wraz z odkodowanym meta_json.
+ *
+ * @param int    $od_id  Identyfikator, od ktorego szukamy.
+ * @param string $action Rodzaj wpisu.
+ * @return array
+ */
+function am_wpis_wyjatku( $od_id, $action = 'pipeline_exception' ) {
+	global $wpdb;
+
+	$wiersz = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$wpdb->prepare(
+			'SELECT id, description, meta_json FROM ' . MP_Lead_Intake_DB::activity_log_table() . ' WHERE action = %s AND id > %d ORDER BY id DESC LIMIT 1', // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$action,
+			(int) $od_id
+		),
+		ARRAY_A
+	);
+
+	if ( ! is_array( $wiersz ) ) {
+		return array();
+	}
+
+	$wiersz['meta'] = (array) json_decode( (string) $wiersz['meta_json'], true );
+
+	return $wiersz;
+}
+
+$am_i_a      = new RuntimeException( 'awaria I-A' );
+$am_i_slad_a = basename( $am_i_a->getFile() ) . ':' . $am_i_a->getLine();
+
+$logger->log_exception( $am_i_a, am_kontekst(), 0 );
+
+$am_wpis_i = am_wpis_wyjatku( $am_i_max );
+$am_mail_i = end( $GLOBALS['mp_am_mail'] );
+
+am_ok(
+	isset( $am_wpis_i['meta']['file'] ) && $am_i_a->getFile() === (string) $am_wpis_i['meta']['file']
+		&& isset( $am_wpis_i['meta']['line'] ) && $am_i_a->getLine() === (int) $am_wpis_i['meta']['line'],
+	'I1: meta_json wpisu niesie plik i linie wyjatku',
+	'meta=' . ( isset( $am_wpis_i['meta_json'] ) ? $am_wpis_i['meta_json'] : 'brak wiersza' )
+);
+am_ok(
+	isset( $am_wpis_i['description'] ) && false !== strpos( (string) $am_wpis_i['description'], $am_i_slad_a ),
+	'I2: opis wpisu nazywa miejsce, ktorego uzywa ogranicznik',
+	'opis=' . ( isset( $am_wpis_i['description'] ) ? $am_wpis_i['description'] : 'brak wiersza' )
+);
+am_ok(
+	is_array( $am_mail_i ) && false !== strpos( (string) $am_mail_i['subject'], $am_i_slad_a ),
+	'I3: temat maila tez, bo po nim administrator rozpoznaje watek',
+	'temat=' . ( is_array( $am_mail_i ) ? $am_mail_i['subject'] : 'brak maila' )
+);
+
+/*
+ * Sedno ustalenia: DWIE rozne awarie poza znanym dzialem wygladaly dla odbiorcy
+ * jak jedna i ta sama. Temat i pierwsze zdanie tresci byly identyczne, a stopka
+ * mowila, ze powtorki z tego samego miejsca sa wyciszone — wiec drugi mail
+ * czytalo sie jako duplikat pierwszego i zamykalo watek. Druga awaria zostawala
+ * bez obslugi.
+ */
+$am_i_b      = new RuntimeException( 'awaria I-B' );
+$am_i_slad_b = basename( $am_i_b->getFile() ) . ':' . $am_i_b->getLine();
+
+$logger->log_exception( $am_i_b, am_kontekst(), 0 );
+
+$am_mail_i2 = end( $GLOBALS['mp_am_mail'] );
+
+am_ok(
+	$am_i_slad_a !== $am_i_slad_b,
+	'I4: (zalozenie testu) oba wyjatki powstaly w roznych liniach',
+	$am_i_slad_a . ' vs ' . $am_i_slad_b
+);
+am_ok(
+	is_array( $am_mail_i2 ) && is_array( $am_mail_i ) && $am_mail_i['subject'] !== $am_mail_i2['subject'],
+	'I5: dwie rozne awarie bez ustalonego dzialu maja ROZNE tematy',
+	'temat1=' . ( is_array( $am_mail_i ) ? $am_mail_i['subject'] : '?' ) . ' | temat2=' . ( is_array( $am_mail_i2 ) ? $am_mail_i2['subject'] : '?' )
+);
+
+/*
+ * KONTR-ASERCJA. Gdy dzial JEST ustalony, tozsamoscia miejsca jest jego numer —
+ * i tak ma zostac. Doklejanie tam pliku i linii zamienialoby czytelne „dziale 7"
+ * w szum, a przy okazji rozbijaloby jeden kubelek wyciszania na wiele.
+ */
+$am_i_c = new RuntimeException( 'awaria I-C' );
+
+$logger->log_exception( $am_i_c, am_kontekst(), 7 );
+
+$am_mail_i3 = end( $GLOBALS['mp_am_mail'] );
+$am_wpis_i3 = am_wpis_wyjatku( $am_i_max );
+
+am_ok(
+	is_array( $am_mail_i3 ) && false !== mb_stripos( (string) $am_mail_i3['subject'], 'dziale 7' )
+		&& false === strpos( (string) $am_mail_i3['subject'], basename( $am_i_c->getFile() ) ),
+	'I6: KONTR-ASERCJA — znany dzial nadal przedstawia sie numerem, bez pliku i linii',
+	'temat=' . ( is_array( $am_mail_i3 ) ? $am_mail_i3['subject'] : 'brak maila' )
+);
+am_ok(
+	isset( $am_wpis_i3['meta']['file'] ) && $am_i_c->getFile() === (string) $am_wpis_i3['meta']['file'],
+	'I7: ale w meta_json pochodzenie jest zawsze — to material diagnostyczny, nie tekst dla czytelnika',
+	'meta=' . ( isset( $am_wpis_i3['meta_json'] ) ? $am_wpis_i3['meta_json'] : 'brak wiersza' )
+);
+
+$GLOBALS['mp_am']['lines'][] = '';
+$GLOBALS['mp_am']['lines'][] = '=== J. wyciszony alarm musi zostawic slad ===';
+
+/*
+ * Ogranicznik konczyl metode `return`-em bez zadnego zapisu, wiec wpis o awarii
+ * wygladal DOKLADNIE tak samo jak ten, przy ktorym alarm faktycznie poszedl.
+ * Dziennik nie pozwalal odroznic „alarm wyslany" od „alarm pominiety" — czyli
+ * dokladnie tego, przed czym broni docblock log_alert_failure(). Ostrzezenie
+ * o wyciszeniu istnialo wylacznie w stopce maila, ktory trafial do skrzynki
+ * administratora; pracownik czytajacy historie po incydencie nie mial go skad
+ * wziac.
+ */
+am_reset();
+$am_j_max = (int) $wpdb->get_var( "SELECT COALESCE(MAX(id),0) FROM {$log_t}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+$am_j     = new RuntimeException( 'awaria J' );
+
+$logger->log_exception( $am_j, am_kontekst(), 0 );
+$am_wpis_j1 = am_wpis_wyjatku( $am_j_max );
+$am_mail_j1 = count( $GLOBALS['mp_am_mail'] );
+
+$logger->log_exception( $am_j, am_kontekst(), 0 );
+$am_wpis_j2 = am_wpis_wyjatku( (int) $am_wpis_j1['id'] );
+$am_mail_j2 = count( $GLOBALS['mp_am_mail'] );
+
+am_ok(
+	isset( $am_wpis_j1['meta']['alarm'] ) && 'wysylany' === (string) $am_wpis_j1['meta']['alarm'],
+	'J1: pierwszy wpis mowi, ze alarm poszedl w swiat',
+	'meta=' . ( isset( $am_wpis_j1['meta_json'] ) ? $am_wpis_j1['meta_json'] : 'brak wiersza' )
+);
+am_ok(
+	isset( $am_wpis_j2['meta']['alarm'] ) && 'wyciszony' === (string) $am_wpis_j2['meta']['alarm'],
+	'J2: drugi wpis mowi, ze alarmu NIE wyslano, bo ogranicznik',
+	'meta=' . ( isset( $am_wpis_j2['meta_json'] ) ? $am_wpis_j2['meta_json'] : 'brak wiersza' )
+);
+am_ok(
+	isset( $am_wpis_j1['id'], $am_wpis_j2['id'] ) && (int) $am_wpis_j1['id'] !== (int) $am_wpis_j2['id'],
+	'J3: (zalozenie testu) to dwa rozne wpisy, a nie dwa odczyty tego samego'
+);
+am_ok(
+	1 === $am_mail_j1 && 1 === $am_mail_j2,
+	'J4: KONTR-ASERCJA — ogranicznik dalej ogranicza: jedna wiadomosc, nie dwie',
+	'po pierwszym=' . $am_mail_j1 . ' po drugim=' . $am_mail_j2
+);
+
+/*
+ * Ta sama cisza byla na drugiej sciezce — przy zatrzymaniu dzialu. Wpis
+ * `pipeline_error` powstaje przed `notify_admin()`, wiec i on nie mowil nic
+ * o losie alarmu.
+ */
+$am_dzial  = MP_Department_11::build();
+$am_wynik  = MP_Result::fail( 'alarm-mowi-prawde', array(), 'test_code' );
+$am_j2_max = (int) $wpdb->get_var( "SELECT COALESCE(MAX(id),0) FROM {$log_t}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+delete_transient( 'mp_notify_' . $am_dzial->get_key() );
+
+$logger->log_failure( $am_dzial, $am_wynik, am_kontekst() );
+$am_wpis_j3 = am_wpis_wyjatku( $am_j2_max, 'pipeline_error' );
+
+$logger->log_failure( $am_dzial, $am_wynik, am_kontekst() );
+$am_wpis_j4 = am_wpis_wyjatku( (int) $am_wpis_j3['id'], 'pipeline_error' );
+
+am_ok(
+	isset( $am_wpis_j3['meta']['alarm'] ) && 'wysylany' === (string) $am_wpis_j3['meta']['alarm'],
+	'J5: zatrzymanie dzialu — pierwszy wpis mowi o wyslanym alarmie',
+	'meta=' . ( isset( $am_wpis_j3['meta_json'] ) ? $am_wpis_j3['meta_json'] : 'brak wiersza' )
+);
+am_ok(
+	isset( $am_wpis_j4['meta']['alarm'] ) && 'wyciszony' === (string) $am_wpis_j4['meta']['alarm'],
+	'J6: powtorka w oknie 15 minut zostawia slad wyciszenia',
+	'meta=' . ( isset( $am_wpis_j4['meta_json'] ) ? $am_wpis_j4['meta_json'] : 'brak wiersza' )
+);
+
+delete_transient( 'mp_notify_' . $am_dzial->get_key() );
+
+$GLOBALS['mp_am']['lines'][] = '';
+$GLOBALS['mp_am']['lines'][] = '=== K. wyjatek bez komunikatu nie moze urwac zdania ===';
+
+/*
+ * `throw new RuntimeException();` daje getMessage() === '' — przypadek zwyczajny
+ * u subskrybenta spoza wtyczki, ktory dokladnie po to jest w docblocku wymieniony.
+ * Opis wpisu konczyl sie wtedy dwukropkiem („Nieoczekiwany wyjatek w dziale 4:"),
+ * a mail mial pusta linie „Komunikat:". Klasa wyjatku — jedyna rzecz, ktora
+ * cokolwiek mowi — zostawala w meta_json, ktorego lista wpisow nie pokazuje.
+ */
+am_reset();
+$am_k_max = (int) $wpdb->get_var( "SELECT COALESCE(MAX(id),0) FROM {$log_t}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+$logger->log_exception( new RuntimeException( '' ), am_kontekst(), 4 );
+
+$am_wpis_k = am_wpis_wyjatku( $am_k_max );
+$am_mail_k = end( $GLOBALS['mp_am_mail'] );
+$am_opis_k = isset( $am_wpis_k['description'] ) ? (string) $am_wpis_k['description'] : '';
+
+am_ok(
+	'' !== $am_opis_k && ':' !== substr( rtrim( $am_opis_k ), -1 ),
+	'K1: opis wpisu nie urywa sie na dwukropku',
+	'opis=' . $am_opis_k
+);
+am_ok(
+	false !== mb_stripos( $am_opis_k, 'bez komunikatu' ) && false !== strpos( $am_opis_k, 'RuntimeException' ),
+	'K2: zamiast pustki jest to, co kod wie: brak tresci i klasa wyjatku',
+	'opis=' . $am_opis_k
+);
+am_ok(
+	is_array( $am_mail_k ) && false === strpos( (string) $am_mail_k['message'], "Komunikat: \n" )
+		&& false === strpos( (string) $am_mail_k['message'], "Komunikat:\n" ),
+	'K3: mail nie ma pustej linii „Komunikat:"',
+	'tresc=' . ( is_array( $am_mail_k ) ? $am_mail_k['message'] : 'brak maila' )
+);
+
+// KONTR-ASERCJA: prawdziwy komunikat ma isc slowo w slowo, bez doklejek.
+am_reset();
+$am_k2_max = (int) $wpdb->get_var( "SELECT COALESCE(MAX(id),0) FROM {$log_t}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+$logger->log_exception( new RuntimeException( 'Unsupported operand types' ), am_kontekst(), 5 );
+
+$am_wpis_k2 = am_wpis_wyjatku( $am_k2_max );
+$am_mail_k2 = end( $GLOBALS['mp_am_mail'] );
+
+am_ok(
+	isset( $am_wpis_k2['description'] ) && false !== strpos( (string) $am_wpis_k2['description'], 'Unsupported operand types' )
+		&& false === mb_stripos( (string) $am_wpis_k2['description'], 'bez komunikatu' ),
+	'K4: KONTR-ASERCJA — komunikat z trescia idzie bez zmian',
+	'opis=' . ( isset( $am_wpis_k2['description'] ) ? $am_wpis_k2['description'] : 'brak wiersza' )
+);
+am_ok(
+	is_array( $am_mail_k2 ) && false !== strpos( (string) $am_mail_k2['message'], 'Komunikat: Unsupported operand types' ),
+	'K5: KONTR-ASERCJA — i tak samo w mailu',
+	'tresc=' . ( is_array( $am_mail_k2 ) ? $am_mail_k2['message'] : 'brak maila' )
+);
+
+// Sprzatanie sekcji I-K: adres administratora, ograniczniki i wpisy testowe.
+update_option( 'admin_email', $stary_admin );
+$wpdb->query( $wpdb->prepare( "DELETE FROM {$log_t} WHERE id > %d AND action IN ('pipeline_exception','pipeline_error','admin_alert_failed')", $am_i_max ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+am_reset();
+
 echo implode( "\n", $GLOBALS['mp_am']['lines'] ) . "\n";
 echo sprintf( "\n----- PASS: %d / FAIL: %d -----\n", $GLOBALS['mp_am']['pass'], $GLOBALS['mp_am']['fail'] );
 echo ( 0 === $GLOBALS['mp_am']['fail'] ) ? "VERDICT_ALL_PASS\n" : "VERDICT_HAS_FAILURES\n";
