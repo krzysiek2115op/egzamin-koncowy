@@ -123,8 +123,21 @@ $GLOBALS['mp_bl_zapytan'] = 0;
 // Tryb synchroniczny: chcemy sprawdzic sam resolve_wl(), bez odkladania do tla.
 add_filter( 'mp_lead_intake_async_verification', '__return_false' );
 
-$nip  = '1234563218';
-$data = gmdate( 'Y-m-d' );
+$nip = '1234563218';
+
+/*
+ * Doba MUSI byc liczona tak samo jak w produkcie — polska, nie UTC.
+ *
+ * Do 1.3.8 stalo tu `gmdate( 'Y-m-d' )` i test przechodzil przez 22 godziny
+ * na dobe. Miedzy polnoca a 2:00 czasu polskiego (lato: UTC+2) data UTC to
+ * jeszcze POPRZEDNI dzien, wiec asercja czytala transient spod innego klucza
+ * niz ten, pod ktory produkt zapisal, i meldowala `cache=false`. Sonda mowila
+ * o wadzie produktu, ktorej nie ma: doba Bialej listy wynika z prawa, a nie
+ * ze strefy witryny — pilnuje tego `polish_date()` i osobny test
+ * `czas-nie-zalezy-od-witryny.php`. Ten sam plik ponizej (sekcja I) zabrania
+ * `gmdate( 'Y-m-d' )` w zrodle dzialu — i sam go uzywal.
+ */
+$data = MP_D3_Agent_Company_Status::polish_date();
 
 /**
  * Czysci cache Bialej listy dla NIP-u testowego.
@@ -132,7 +145,7 @@ $data = gmdate( 'Y-m-d' );
  * @return void
  */
 function bl_wyczysc() {
-	delete_transient( MP_D3_Agent_Company_Status::wl_cache_key( '1234563218', gmdate( 'Y-m-d' ) ) );
+	delete_transient( MP_D3_Agent_Company_Status::wl_cache_key( '1234563218', MP_D3_Agent_Company_Status::polish_date() ) );
 	delete_transient( MP_D3_Agent_Company_Status::wl_cache_key( '1234563218' ) );
 }
 
@@ -319,6 +332,39 @@ bl_ok(
 
 update_option( 'timezone_string', $strefa_przed );
 update_option( 'gmt_offset', $offset_przed );
+
+/* ==================================================================== J
+ *
+ * SONDA NIE WYMYSLA WLASNEJ „DZISIEJSZEJ DATY".
+ *
+ * Ten test padl raz jedyny — o 00:20 czasu polskiego — i wskazywal na wade
+ * produktu, ktorej nie ma. Asercje ponizej pilnuja, zeby nie dalo sie tego
+ * powtorzyc po cichu: klucz liczony przez test ma byc TYM SAMYM kluczem, po
+ * ktory siega produkt, a roznica miedzy doba polska a UTC ma byc udowodniona,
+ * a nie zalozona.
+ */
+
+bl_ok(
+	MP_D3_Agent_Company_Status::wl_cache_key( $nip ) === MP_D3_Agent_Company_Status::wl_cache_key( $nip, $data ),
+	'klucz testu jest tym samym kluczem, ktorego uzywa produkt',
+	'test=' . MP_D3_Agent_Company_Status::wl_cache_key( $nip, $data )
+		. ' produkt=' . MP_D3_Agent_Company_Status::wl_cache_key( $nip )
+);
+
+// 00:30 czasu polskiego 3 sierpnia = 22:30 UTC drugiego sierpnia.
+$noca = ( new DateTimeImmutable( '2026-08-03 00:30:00', new DateTimeZone( 'Europe/Warsaw' ) ) )->getTimestamp();
+
+bl_ok(
+	MP_D3_Agent_Company_Status::polish_date( $noca ) !== gmdate( 'Y-m-d', $noca ),
+	'w oknie 00:00-02:00 doba polska i UTC to ROZNE dni',
+	'polska=' . MP_D3_Agent_Company_Status::polish_date( $noca ) . ' utc=' . gmdate( 'Y-m-d', $noca )
+);
+
+bl_ok(
+	'2026-08-03' === MP_D3_Agent_Company_Status::polish_date( $noca ),
+	'produkt bierze dobe polska, nie UTC',
+	'polish_date=' . MP_D3_Agent_Company_Status::polish_date( $noca )
+);
 
 bl_wyczysc();
 remove_all_filters( 'pre_http_request' );
