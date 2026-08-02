@@ -205,7 +205,14 @@ class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 
 	/**
 	 * Proporcjonalny podział kwoty (grosze) — floor( amount * part / total ),
-	 * wyłącznie arytmetyką całkowitą (BCMath, fallback bez float na 64-bit).
+	 * wyłącznie arytmetyką całkowitą (BCMath, fallback przez `intdiv()`).
+	 *
+	 * Ścieżka zapasowa dzieliła zmiennoprzecinkowo — `(int) floor( ( $amount *
+	 * $part ) / $total )`. Docblock obiecywał arytmetykę całkowitą, a dostawało
+	 * się dzielenie float z utratą precyzji powyżej 2^53 groszy. `intdiv()` liczy
+	 * dokładnie i obcina tak samo jak `floor()` dla wartości nieujemnych, a takie
+	 * tu wchodzą: `$amount` to rabat ograniczony z obu stron (patrz `run()`),
+	 * a `$part`/`$total` to sumy pozycji.
 	 *
 	 * @param int $amount Kwota do rozdzielenia (grosze).
 	 * @param int $part   Udział tej części.
@@ -219,7 +226,7 @@ class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 		if ( function_exists( 'bcmul' ) && function_exists( 'bcdiv' ) ) {
 			return (int) bcdiv( bcmul( (string) $amount, (string) $part, 0 ), (string) $total, 0 );
 		}
-		return (int) floor( ( $amount * $part ) / $total );
+		return intdiv( (int) $amount * (int) $part, (int) $total );
 	}
 
 	/**
@@ -227,13 +234,41 @@ class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 	 * @return MP_OB_Result
 	 */
 	public function run( MP_OB_Context $context ) {
-		$net_grosze     = (int) $context->get( 'subtotal_grosze', 0 ) - (int) $context->get( 'discount_total', 0 );
+		/*
+		 * PODSTAWA MA DWIE SKŁADOWE, A PILNOWANA BYŁA JEDNA.
+		 *
+		 * `net_grosze` powstaje z `subtotal_grosze - discount_total`. Sprawdzane
+		 * było wyłącznie, czy suma pozycji równa się `subtotal_grosze` — rabat nie
+		 * miał żadnego ograniczenia ani z dołu, ani z góry. Rabat większy od sumy
+		 * daje UJEMNĄ podstawę VAT (i ujemny podatek, i ujemne brutto), a dział
+		 * kończył się statusem OK. Rabat ujemny to z kolei podwyżka podana jako
+		 * rabat. Ani jedno, ani drugie nie jest ofertą handlową.
+		 *
+		 * Rabat RÓWNY sumie jest dopuszczony świadomie: „zero do zapłaty" to
+		 * decyzja handlowa, a nie błąd arytmetyczny.
+		 */
+		$podstawa_pozycji = (int) $context->get( 'subtotal_grosze', 0 );
+		$rabat            = (int) $context->get( 'discount_total', 0 );
+
+		if ( $rabat < 0 || $rabat > $podstawa_pozycji ) {
+			return MP_OB_Result::fail(
+				'Rabat spoza zakresu podstawy — podatku nie liczy się od kwoty ujemnej ani rabatu ujemnego.',
+				array(
+					'subtotal_grosze' => $podstawa_pozycji,
+					'discount_total'  => $rabat,
+				),
+				'discount_out_of_range'
+			);
+		}
+
+		$net_grosze     = $podstawa_pozycji - $rabat;
 		$mechanism      = (string) $context->get( 'tax_mechanism', '' );
 		$line_tax_rates = array();
 
 		if ( 'domestic' === $mechanism ) {
 			$tax_rates = is_array( $context->get( 'tax_rates' ) ) ? $context->get( 'tax_rates' ) : array();
 			$products  = is_array( $context->get( 'products' ) ) ? $context->get( 'products' ) : array();
+			$items     = is_array( $context->get( 'items' ) ) ? $context->get( 'items' ) : array();
 			$lines     = is_array( $context->get( 'lines' ) ) ? $context->get( 'lines' ) : array();
 			$subtotal  = (int) $context->get( 'subtotal_grosze', 0 );
 			$discount  = (int) $context->get( 'discount_total', 0 );
@@ -258,6 +293,37 @@ class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 						'Pozycja bez odpowiednika w snapshocie produktów — nie zgadujemy jej klasy podatkowej.',
 						array( 'line_index' => $i ),
 						'line_without_product'
+					);
+				}
+
+				/*
+				 * ISTNIENIE KLUCZA TO NIE TOŻSAMOŚĆ PRODUKTU.
+				 *
+				 * Guard wyżej sprawdzał wyłącznie, czy pod tym indeksem cokolwiek
+				 * jest. Przesunięcie zbiorów względem siebie (inna kolejność, jedna
+				 * pozycja odsiana po drodze) dawało pozycji CUDZĄ klasę podatkową
+				 * i cudzą stawkę — bez błędu, bez śladu, z innym podatkiem na
+				 * dokumencie handlowym. Sprawdzenie po kluczu było wtedy spełnione
+				 * w każdym z tych przypadków.
+				 *
+				 * Porównujemy więc identyfikator ze snapshotu z identyfikatorem
+				 * pozycji. Snapshot bez `id` (starsze konteksty, testy jednostkowe
+				 * podające sam `tax_class`) zostaje przy sprawdzeniu po kluczu —
+				 * nie ma czego porównać, a wywracanie działu z tego powodu byłoby
+				 * zaostrzeniem, którego nikt nie zamawiał.
+				 */
+				$id_snapshotu = isset( $products[ $i ]['id'] ) ? (int) $products[ $i ]['id'] : 0;
+				$id_pozycji   = isset( $items[ $i ] ) ? (int) MP_OB_Products::lookup_id( (array) $items[ $i ] ) : 0;
+
+				if ( $id_snapshotu > 0 && $id_pozycji > 0 && $id_snapshotu !== $id_pozycji ) {
+					return MP_OB_Result::fail(
+						'Pozycja sparowana z innym produktem niż wskazany w zamówieniu — klasa podatkowa byłaby cudza.',
+						array(
+							'line_index'  => $i,
+							'item_id'     => $id_pozycji,
+							'snapshot_id' => $id_snapshotu,
+						),
+						'line_product_mismatch'
 					);
 				}
 
@@ -320,6 +386,26 @@ class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 				 */
 				if ( ! isset( $tax_rates[ $tc ]['rate'] ) || ! is_numeric( $tax_rates[ $tc ]['rate'] ) ) {
 					return MP_OB_Result::fail( 'Brak stawki VAT do naliczenia (mechanizm domestic).', array(), 'missing_tax_rate' );
+				}
+
+				/*
+				 * Liczba to jeszcze nie stawka. `is_numeric()` przepuszcza wartość
+				 * ujemną (podatek ujemny, czyli dopłata do klienta) i wartość podaną
+				 * w złej jednostce — ułamek 0,23 zamiast 23, albo 2300 z pomnożenia
+				 * przez sto po raz drugi. Każda z nich dawała cichy, błędny podatek
+				 * na dokumencie handlowym, bez śladu w dzienniku.
+				 */
+				$stawka = (float) $tax_rates[ $tc ]['rate'];
+
+				if ( $stawka < 0 || $stawka > 100 ) {
+					return MP_OB_Result::fail(
+						'Stawka VAT spoza zakresu 0–100% — to nie jest stawka, tylko liczba w złej jednostce.',
+						array(
+							'tax_class' => $tc,
+							'rate'      => $stawka,
+						),
+						'tax_rate_out_of_range'
+					);
 				}
 			}
 
