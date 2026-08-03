@@ -144,6 +144,14 @@ odnośniki prowadzące w pustkę:
   (`kk_tresc_z_adresami()`), a nie przy zasiewie — adres witryny w Playground
   zmienia się między sesjami, więc adres wpisany do bazy byłby prawdziwy raz.
 
+Trzecia rzecz wyszła dopiero wtedy, gdy test pojechał na **świeżym** WordPressie
+w CI: zasiew ustawiał ładne permalinki przez `update_option()`, co zapisuje opcję,
+ale zostawia obiekt przepisywania w stanie sprzed zmiany — do końca tego żądania
+WordPress dalej buduje adresy `?page_id=`. Na produkcyjnym demo nie było tego
+widać, bo zasiew i pierwsze wejście na stronę to dwa różne żądania; kod działał
+przez okoliczność, a nie przez to, co robi. Teraz idzie przez
+`WP_Rewrite::set_permalink_structure()`.
+
 Motyw miał też **dwie różne wersje we własnych plikach**: `style.css` deklarował
 1.0.0, a `KK_VERSION` w `functions.php` — 1.0.1. Obie mówią teraz 1.0.2.
 

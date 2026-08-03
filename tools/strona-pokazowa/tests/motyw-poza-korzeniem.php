@@ -42,14 +42,16 @@ $GLOBALS['mp_pk'] = array(
 );
 
 $GLOBALS['mp_pk_stan'] = array(
-	'home'    => get_option( 'home' ),
-	'siteurl' => get_option( 'siteurl' ),
-	'mods'    => get_theme_mod( 'nav_menu_locations', array() ),
-	'page'    => get_option( 'mp_lead_intake_page_id', false ),
-	'ok'      => get_option( 'mp_lead_intake_menu_ok', false ),
-	'reason'  => get_option( 'mp_lead_intake_menu_reason', false ),
-	'menu_id' => 0,
-	'strona'  => 0,
+	'home'      => get_option( 'home' ),
+	'siteurl'   => get_option( 'siteurl' ),
+	'mods'      => get_theme_mod( 'nav_menu_locations', array() ),
+	'page'      => get_option( 'mp_lead_intake_page_id', false ),
+	'ok'        => get_option( 'mp_lead_intake_menu_ok', false ),
+	'reason'    => get_option( 'mp_lead_intake_menu_reason', false ),
+	'permalink' => get_option( 'permalink_structure' ),
+	'na_froncie' => get_option( 'show_on_front' ),
+	'strona_gl' => get_option( 'page_on_front' ),
+	'strona'    => 0,
 );
 
 /**
@@ -92,13 +94,15 @@ function pk_koniec() {
 	update_option( 'siteurl', $stan['siteurl'] );
 	wp_cache_flush();
 
+	// Kasowanie wpisu zabiera ze soba pozycje menu, ktore na niego wskazuja
+	// (WordPress robi to na haku `deleted_post`).
 	if ( $stan['strona'] > 0 ) {
 		wp_delete_post( (int) $stan['strona'], true );
 	}
-	if ( $stan['menu_id'] > 0 ) {
-		wp_delete_nav_menu( (int) $stan['menu_id'] );
-	}
 	set_theme_mod( 'nav_menu_locations', $stan['mods'] );
+	update_option( 'permalink_structure', $stan['permalink'] );
+	update_option( 'show_on_front', $stan['na_froncie'] );
+	update_option( 'page_on_front', $stan['strona_gl'] );
 
 	$opcje = array(
 		'mp_lead_intake_page_id'     => 'page',
@@ -132,13 +136,19 @@ if ( ! function_exists( 'kk_menu_items' ) ) {
 
 /* ================================================ przygotowanie stanu jak w demo */
 
-$menu = wp_get_nav_menu_object( 'PK Menu główne' );
-$menu_id = $menu ? (int) $menu->term_id : (int) wp_create_nav_menu( 'PK Menu główne' );
-$GLOBALS['mp_pk_stan']['menu_id'] = $menu_id;
+/*
+ * Stan budujemy ZASIEWEM MOTYWU, a nie recznie. Sonda, ktora sama sobie ustawia
+ * tylko to, o czym pamietala, mierzy swoje wyobrazenie o witrynie: pierwsza wersja
+ * tego pliku zakladala LADNE permalinki, bo srodowisko autora je mialo. Swiezy
+ * WordPress ma zwykle `?page_id=`, sciezka adresu jest wtedy pusta i cala
+ * nawigacja po slugach nie ma z czego powstac — w CI pokazalo sie to jako cztery
+ * porazki nie w tym miejscu, w ktorym byla przyczyna. Ladne permalinki ustawia
+ * `kk_seed_content()` i to ona jest tu zrodlem prawdy o stanie demo.
+ */
+kk_seed_content();
 
-$lok           = (array) get_theme_mod( 'nav_menu_locations', array() );
-$lok['glowne'] = $menu_id;
-set_theme_mod( 'nav_menu_locations', $lok );
+$lok     = get_nav_menu_locations();
+$menu_id = isset( $lok['glowne'] ) ? (int) $lok['glowne'] : 0;
 
 delete_option( 'mp_lead_intake_page_id' );
 MP_Lead_Intake_Page::create();
@@ -150,6 +160,14 @@ $GLOBALS['mp_pk_stan']['strona'] = $strona;
 
 $GLOBALS['mp_pk']['lines'][] = '=== 0. warunki pomiaru ===';
 
+pk_ok(
+	'/%postname%/' === (string) get_option( 'permalink_structure' ),
+	'zasiew motywu ustawil ladne permalinki — bez nich nawigacja po slugach nie ma z czego powstac',
+	'struktura=' . var_export( get_option( 'permalink_structure' ), true )
+);
+
+pk_ok( $menu_id > 0, 'i przypisal menu do lokalizacji `glowne`', 'menu_id=' . $menu_id );
+
 pk_ok( $strona > 0, 'wtyczka 1 zalozyla podstrone formularza', 'id=' . $strona );
 
 pk_ok(
@@ -157,6 +175,16 @@ pk_ok(
 	'i dopisala ja do menu WordPressa — czyli nawigacje rysuje MOTYW, nie awaryjny regex',
 	'menu_ok=' . var_export( get_option( 'mp_lead_intake_menu_ok' ), true )
 );
+
+$w_menu = false;
+foreach ( (array) wp_get_nav_menu_items( $menu_id ) as $pozycja_menu ) {
+	if ( (int) $pozycja_menu->object_id === $strona ) {
+		$w_menu = true;
+		break;
+	}
+}
+
+pk_ok( $w_menu, 'a pozycja naprawde jest w tym menu, nie tylko w opcji `menu_ok`' );
 
 /* ============================================================ A. adres pozycji */
 
@@ -263,7 +291,7 @@ if ( function_exists( 'kk_tresc_z_adresami' ) ) {
  */
 $kontakt = get_page_by_path( 'kontakt' );
 
-if ( $kontakt instanceof WP_Post ) {
+if ( pk_ok( $kontakt instanceof WP_Post, 'zasiew motywu zalozyl strone Kontakt (jest na czym mierzyc)' ) ) {
 	$wyrenderowana = apply_filters( 'the_content', $kontakt->post_content );
 
 	pk_ok(

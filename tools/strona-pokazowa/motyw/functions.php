@@ -267,8 +267,21 @@ function kk_seed_content() {
 		set_theme_mod( 'nav_menu_locations', $lokalizacje );
 	}
 
-	// Ładne permalinki.
-	update_option( 'permalink_structure', '/%postname%/' );
+	/*
+	 * Ładne permalinki. `set_permalink_structure()`, a nie samo `update_option()`:
+	 * ta druga zapisuje opcję, ale zostawia obiekt przepisywania w stanie sprzed
+	 * zmiany, więc do końca TEGO żądania WordPress dalej buduje adresy `?page_id=`.
+	 * Bez znaczenia, dopóki zasiew i pierwsze wejście na stronę to dwa różne
+	 * żądania — ale wtedy kod działa przez okoliczność, a nie przez to, co robi.
+	 */
+	global $wp_rewrite;
+
+	if ( $wp_rewrite instanceof WP_Rewrite ) {
+		$wp_rewrite->set_permalink_structure( '/%postname%/' );
+	} else {
+		update_option( 'permalink_structure', '/%postname%/' );
+	}
+
 	if ( function_exists( 'flush_rewrite_rules' ) ) {
 		flush_rewrite_rules();
 	}
