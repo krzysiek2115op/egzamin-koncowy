@@ -151,6 +151,29 @@ class MP_OB_D2_Agent_Prices extends MP_OB_Abstract_Agent {
 			);
 		}
 
+		/*
+		 * `wc_prices_include_tax()` to KONIUNKCJA: `wc_tax_enabled() && opcja`.
+		 * Sklep z cennikiem brutto i WYLACZONYMI podatkami dostawal wiec falsz,
+		 * czyli odpowiedz „cennik jest netto" — i ceny brutto wchodzily do
+		 * snapshotu jako netto, a Dzial 6 doliczal do nich VAT drugi raz.
+		 *
+		 * Przeliczyc tego nie da sie nawet chcac: bez wlaczonych podatkow
+		 * WooCommerce nie ma stawek, wiec `wc_get_price_excluding_tax()` nie
+		 * ma czego zdjac. To ta sama decyzja co przy braku funkcji odczytu
+		 * kilkanascie linii wyzej: jednej wartosci nie wolno zgadywac, bo
+		 * przesuwa cala oferte o stawke VAT.
+		 */
+		$podatki_wlaczone = ! function_exists( 'wc_tax_enabled' ) || wc_tax_enabled();
+		$opcja_brutto     = 'yes' === get_option( 'woocommerce_prices_include_tax', 'no' );
+
+		if ( $opcja_brutto && ! $podatki_wlaczone ) {
+			return MP_OB_Result::fail(
+				'Sklep ma ceny wprowadzone z podatkiem, ale podatki są wyłączone — WooCommerce nie policzy z nich netto, a doliczenie VAT-u dałoby podatek naliczony dwa razy. Włącz podatki albo ustaw cennik jako netto.',
+				array(),
+				'tax_setting_ambiguous'
+			);
+		}
+
 		$ceny_z_podatkiem = wc_prices_include_tax();
 
 		if ( $ceny_z_podatkiem && ! function_exists( 'wc_get_price_excluding_tax' ) ) {
@@ -250,6 +273,29 @@ class MP_OB_D2_Agent_Prices extends MP_OB_Abstract_Agent {
 				$errors[] = array(
 					'field'   => (float) $regular < 0.0 ? "items.$i.regular_price" : "items.$i.price",
 					'message' => 'Cena pozycji jest ujemna — nie można zbudować oferty.',
+				);
+				continue;
+			}
+
+			/*
+			 * DRUGA POLOWA TEGO SAMEGO PRZYPADKU.
+			 *
+			 * Straznik wyzej (`$on_sale && ! $ma_cene`) lapie rozjazd meta
+			 * z PUSTYM `_price`. Rozjazd, w ktorym `_price` ma wartosc rowna
+			 * cenie regularnej albo wyzsza, przechodzil bez slowa — a to
+			 * dokladnie stan opisany w komentarzu tamtego straznika:
+			 * „sale_price rowne regular_price przy on_sale = true", czyli
+			 * dokument obiecujacy rabat rowny zeru (albo ujemny).
+			 *
+			 * Sprawdzamy na SUROWYCH cenach, przed konwersja na netto — po niej
+			 * obie wartosci przechodza przez te sama stawke, wiec relacja miedzy
+			 * nimi juz niczego nowego nie powie, a bledy zaokraglen moglyby
+			 * zrownac wartosci rozne w katalogu.
+			 */
+			if ( $on_sale && $ma_cene && (float) $active >= (float) $regular ) {
+				$errors[] = array(
+					'field'   => "items.$i.sale_price",
+					'message' => 'Produkt jest oznaczony jako promocyjny, ale jego cena aktywna nie jest niższa od regularnej — to nie jest cena promocyjna.',
 				);
 				continue;
 			}

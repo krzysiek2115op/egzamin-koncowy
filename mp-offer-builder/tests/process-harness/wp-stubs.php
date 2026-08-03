@@ -305,6 +305,20 @@ function wc_prices_include_tax() {
 	return ! empty( $GLOBALS['__mp_ob_wc_prices_include_tax'] );
 }
 
+/**
+ * Czy sklep w ogole liczy podatki.
+ *
+ * Rusztowanie ma MODELOWAC sklep, a nie ukrywac jego brak: prawdziwe
+ * `wc_prices_include_tax()` to koniunkcja `wc_tax_enabled() && opcja`, wiec bez
+ * tej funkcji nie da sie tu odtworzyc sklepu z cennikiem brutto i wylaczonymi
+ * podatkami. Domyslnie wlaczone — tak wyglada typowa instalacja.
+ *
+ * @return bool
+ */
+function wc_tax_enabled() {
+	return ! isset( $GLOBALS['__mp_ob_wc_tax_enabled'] ) || ! empty( $GLOBALS['__mp_ob_wc_tax_enabled'] );
+}
+
 function wc_get_product( $id ) {
 	if ( ! isset( $GLOBALS['__mp_ob_wc_products'][ $id ] ) ) {
 		return false;

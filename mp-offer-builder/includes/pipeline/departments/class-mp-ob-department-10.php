@@ -168,6 +168,7 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 		// uruchomieniem reszty pipeline'u, ale Dział 10 (jedyny dział z prawem zapisu)
 		// NIE POWINIEN ufać ślepo, że ta kontrola na pewno zaszła wcześniej — sprawdzamy
 		// własność jeszcze raz, tuż przed zapisem, niezależnym odczytem z Działu 2.
+
 		/*
 		 * Kontrola ma sens tylko wtedy, gdy sa OBIE strony: wlasciciel i ten,
 		 * kto probuje zapisac. Zero po ktorejkolwiek stronie to nie „ktos inny",
