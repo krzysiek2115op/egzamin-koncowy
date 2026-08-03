@@ -20,8 +20,8 @@ danych między formularzem, WooCommerce i pocztą.
 
 | # | Wtyczka | Wersja | Baza | Opis |
 |---|---------|--------|------|------|
-| 1 | `mp-lead-intake` | 1.3.8 | BD-3 | Przyjęcie i kwalifikacja lead-a z formularza |
-| 2 | `mp-offer-builder` | 1.3.8 | BD-2 | Kalkulacja cenowa, integracja WooCommerce, oferty PDF |
+| 1 | `mp-lead-intake` | 1.3.9 | BD-3 | Przyjęcie i kwalifikacja lead-a z formularza |
+| 2 | `mp-offer-builder` | 1.3.9 | BD-2 | Kalkulacja cenowa, integracja WooCommerce, oferty PDF |
 | 3 | `mp-sales-workflow` | 1.3.8 | BD-1 | Statusy procesu, handlowiec, powiadomienia, follow-up, dashboard |
 
 Kolejność instalacji ma znaczenie: **1, potem 2, potem 3**. Wtyczka 2 nasłuchuje
@@ -219,6 +219,47 @@ co dałoby się wziąć za prawdziwy adres.
 
 Raporty z kolejnych przebiegów leżą w `audyt/raport-*.txt` na gałęzi
 `audyt-projektu`, a szczegółowy opis narzędzia — w `audyt/README.md`.
+
+---
+
+## Wydanie 1.3.9 — druga połowa własnych napraw
+
+Audyt głęboki uruchomiony **po** wydaniu 1.3.8 — trzy przebiegi, bo pary modelowe
+nie są powtarzalne — dał w każdym z nich werdykt „GO WITH MINOR FIXES". Dziesięć
+ustaleń wypłynęło niezależnie w co najmniej dwóch przebiegach i to one były
+prawdziwym wynikiem. Siedem z tych dziesięciu miało wspólną cechę, którą trzeba
+powiedzieć wprost: **to były niedokończone połówki napraw z 1.3.8**.
+
+Normalizacja „brak właściciela = NULL" objęła nagłówek oferty i pominęła wiersz
+historii wersji. Strażnik „promocja bez ceny promocyjnej" łapał rozjazd danych
+z pustą ceną, a przepuszczał rozjazd z ceną równą regularnej — czyli dokładnie
+przypadek opisany w komentarzu przy nim samym. `intdiv()` trafiło do ścieżki
+głównej i ominęło zapasową. Wniosek na przyszłość jest prosty i niewygodny:
+naprawa domyka lukę tylko tam, gdzie się patrzyło, a pojęcie żyje zwykle
+w kilku miejscach naraz.
+
+**Dwie rzeczy warte zapamiętania poza samą listą.**
+
+Pierwsza: ustalenie zgłoszone w **dwóch przebiegach z trzech okazało się
+fałszywe**. „Nagłówek ustawia status na szkic bezwarunkowo, więc zapis cofnie
+zatwierdzoną ofertę" — nieprawda, bo kilkaset linii niżej stoi wartownik
+w zdaniu WHERE i zapis fizycznie nie trafi w wiersz o innym statusie. Obie próby
+czytały ten sam fragment, więc powtarzalność mówiła o zgodności próbek, a nie
+o prawdziwości. Drugie odrzucenie dotyczyło statusu podatkowego „tylko wysyłka",
+zwolnionego z VAT od wcześniejszej rundy. Oba są zapisane w rejestrze wraz
+z powodem, a ich asercje zostały w repozytorium jako straż.
+
+Druga: **regresja złapała porażkę, której nie było widać przez pół roku** —
+i to nie w produkcie, tylko w sondzie. Test Białej listy liczył „dzisiejszą datę"
+w UTC, a wtyczka liczy dobę tego rejestru po polsku, bo tak stanowi prawo.
+Przez dwadzieścia dwie godziny na dobę obie daty są identyczne. Przebieg wypadł
+o 00:20 — w jedynym oknie, w którym ten test potrafił paść. Groźniejszy jest
+wariant odwrotny: sonda licząca czas inaczej niż produkt równie dobrze może
+**przeoczyć** realną wadę przez pozostałe dwadzieścia dwie godziny.
+
+Wtyczka 3 nie dostała w tym wydaniu żadnej zmiany, więc **zostaje na 1.3.8**.
+Podbicie numeru przy identycznym kodzie byłoby tym samym błędem, który to
+wydanie zamyka: obietnicą, której kod nie dotrzymuje.
 
 ---
 

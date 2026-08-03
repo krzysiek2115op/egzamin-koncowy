@@ -291,6 +291,33 @@ PHPCS na plikach zmienionych w tej wersji: **0 błędów, 0 ostrzeżeń**.
 
 ---
 
+## Stan na wydanie 1.3.9 (03.08.2026)
+
+Pełna regresja: **75 / 75 PASS** (73 pliki testowe przez `wp eval-file`
++ 2 harnessy na własnym shimie). Świeża instalacja **16 / 16 PASS**, scenariusze
+odbioru **102 / 102 PASS**. PHPCS wspólnym `.phpcs.xml.dist`: **kod wyjścia 0**.
+Surowe wyjście leży w [`raporty/PRZEBIEG-TESTOW.md`](../../raporty/PRZEBIEG-TESTOW.md).
+
+Doszły cztery pliki testowe z rundy po audycie końcowym; każdy **padał przed**
+naprawą, którą pilnuje:
+
+| Plik | Czego pilnuje |
+|------|---------------|
+| `mp-offer-builder/tests/naprawy/wlasciciel-oferty-i-wersji.php` | „brak właściciela = NULL" w obu tabelach; kontrola własności wymaga obu stron |
+| `mp-offer-builder/tests/naprawy/promocja-i-podatek-sklepu.php` | promocja musi być niższa od ceny regularnej; cennik brutto przy wyłączonych podatkach to odmowa |
+| `mp-offer-builder/tests/naprawy/rozdzial-rabatu-i-tozsamosc.php` | kontrola tożsamości pozycji nie milczy; bezpiecznik zakresu przy rozdziale rabatu |
+| `mp-lead-intake/tests/naprawy/strona-awaria-nie-milczy.php` | awaria strony formularza gasi flagę menu i mówi, gdzie szukać |
+
+Rozbudowano też `mp-lead-intake/tests/naprawy/alarm-mowi-prawde.php` (sekcja L —
+los alarmu jako fakt, nie prognoza) oraz poprawiono
+`biala-lista-niepelna-odpowiedz.php`, który liczył dobę inaczej niż produkt.
+
+**Dwie sekcje testowe opisują ustalenia ODRZUCONE** i przechodziły przed
+jakąkolwiek naprawą: sekcja E pliku `wlasciciel-oferty-i-wersji.php` (wartownik
+statusu w zdaniu WHERE) oraz sekcja D pliku `rozdzial-rabatu-i-tozsamosc.php`
+(zwolnienie z VAT obejmuje też status „tylko wysyłka"). Powody odrzucenia
+zapisane w `audyt/rejestr/znane-bledy.json` (U-34, U-35).
+
 ## Stan na wydanie 1.3.8 (02.08.2026)
 
 Pełna regresja: **71 / 71 PASS** (69 plików testowych przez `wp eval-file`

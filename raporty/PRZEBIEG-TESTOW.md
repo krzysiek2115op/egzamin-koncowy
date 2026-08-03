@@ -1,6 +1,6 @@
 # Zapis z przebiegu testów odbioru
 
-**Data przebiegu:** 2 sierpnia 2026 · **Wersja:** 1.3.8 · **Gałąź:** `main`
+**Data przebiegu:** 3 sierpnia 2026 · **Wersja:** 1.3.9 · **Gałąź:** `main`
 
 Kryteria odbioru mówią o dziesięciu scenariuszach. Repozytorium zawierało kod
 tych scenariuszy i nie zawierało **ani jednego zapisu z ich wykonania** (U-7):
@@ -22,8 +22,13 @@ przy każdym pushu — zadanie `integracja` w `.github/workflows/ci.yml`.
 Przebieg wykonano na bazie postawionej od zera **i na świeżych kontach**.
 To dwie różne rzeczy: `test-swieza-instalacja.php` kasuje tabele, ale nie
 użytkowników, a konta pozostałe po wcześniejszych testach przez całą serię
-wydań ukrywały błąd pierwszego zgłoszenia (U-18). Konta ról `mp_handlowiec`,
-`mp_manager_sprzedazy` i `mp_manager` są kasowane przed przebiegiem.
+wydań ukrywały błąd pierwszego zgłoszenia (U-18).
+
+W tym przebiegu regresja **złapała porażkę** — pierwszą od wielu wydań — i to
+w sondzie, nie w produkcie: test Białej listy liczył „dzisiejszą datę" w UTC,
+podczas gdy wtyczka liczy dobę tego rejestru w strefie polskiej. Różnica jest
+widoczna wyłącznie między północą a drugą w nocy czasu polskiego. Szczegóły
+w rejestrze znanych błędów, wpis U-27.
 
 ---
 
@@ -61,9 +66,9 @@ VERDICT_ALL_PASS
 ## 2. Dziesięć scenariuszy odbioru
 
 ```
-[02-Aug-2026 02:44:17 UTC] [MP Sales Workflow] level=SECURITY code=MP3-E111 at=2026-08-02T02:44:17+00:00 type=task.due source=cron reason=sweep_outside_cron user_id=1472 ip_hash=db0f9b80a3fc6a3a18579fdfe68c724b2f448afe3eea94b2c0015e01c89549a2
-[02-Aug-2026 02:44:17 UTC] [MP Sales Workflow] level=SECURITY code=MP3-E111 at=2026-08-02T02:44:17+00:00 type=task.due source=cron reason=sweep_outside_cron user_id=1472 ip_hash=db0f9b80a3fc6a3a18579fdfe68c724b2f448afe3eea94b2c0015e01c89549a2
-[02-Aug-2026 02:44:17 UTC] [MP Sales Workflow] level=SECURITY code=MP3-E101 at=2026-08-02T02:44:17+00:00 reason=protected_meta user_id=1478 ip_hash=db0f9b80a3fc6a3a18579fdfe68c724b2f448afe3eea94b2c0015e01c89549a2
+[03-Aug-2026 12:40:46 UTC] [MP Sales Workflow] level=SECURITY code=MP3-E111 at=2026-08-03T12:40:46+00:00 type=task.due source=cron reason=sweep_outside_cron user_id=1668 ip_hash=db0f9b80a3fc6a3a18579fdfe68c724b2f448afe3eea94b2c0015e01c89549a2
+[03-Aug-2026 12:40:46 UTC] [MP Sales Workflow] level=SECURITY code=MP3-E111 at=2026-08-03T12:40:46+00:00 type=task.due source=cron reason=sweep_outside_cron user_id=1668 ip_hash=db0f9b80a3fc6a3a18579fdfe68c724b2f448afe3eea94b2c0015e01c89549a2
+[03-Aug-2026 12:40:46 UTC] [MP Sales Workflow] level=SECURITY code=MP3-E101 at=2026-08-03T12:40:46+00:00 reason=protected_meta user_id=1668 ip_hash=db0f9b80a3fc6a3a18579fdfe68c724b2f448afe3eea94b2c0015e01c89549a2
 
 === S1/10 — instalacja i schemat na zywym WP ===
   [PASS] tabela wp_mp_sw_flow istnieje
@@ -220,6 +225,7 @@ STATUS: ALL_PASS
   [OK ] mp-lead-intake/tests/naprawy/ostrzezenie-o-stronie.php
   [OK ] mp-lead-intake/tests/naprawy/role-wspoldzielone.php
   [OK ] mp-lead-intake/tests/naprawy/status-vat-nieznany.php
+  [OK ] mp-lead-intake/tests/naprawy/strona-awaria-nie-milczy.php
   [OK ] mp-lead-intake/tests/naprawy/vies-brak-pola-isvalid.php
   [OK ] mp-lead-intake/tests/naprawy/vies-nie-nadpisuje-potwierdzonego.php
   [OK ] mp-offer-builder/tests/koncowe/ceny-brutto-netto.php
@@ -238,10 +244,13 @@ STATUS: ALL_PASS
   [OK ] mp-offer-builder/tests/naprawy/podstawa-vat-dwie-skladowe.php
   [OK ] mp-offer-builder/tests/naprawy/podstawa-vat.php
   [OK ] mp-offer-builder/tests/naprawy/produkty-jedna-partia.php
+  [OK ] mp-offer-builder/tests/naprawy/promocja-i-podatek-sklepu.php
+  [OK ] mp-offer-builder/tests/naprawy/rozdzial-rabatu-i-tozsamosc.php
   [OK ] mp-offer-builder/tests/naprawy/snapshot-cen-mowi-prawde.php
   [OK ] mp-offer-builder/tests/naprawy/status-przez-stala.php
   [OK ] mp-offer-builder/tests/naprawy/stawki-wielokrotne.php
   [OK ] mp-offer-builder/tests/naprawy/strefy-czasu.php
+  [OK ] mp-offer-builder/tests/naprawy/wlasciciel-oferty-i-wersji.php
   [OK ] mp-offer-builder/tests/naprawy/zatwierdzenie-komunikaty.php
   [OK ] mp-offer-builder/tests/naprawy/zatwierdzenie-mowi-prawde.php
   [OK ] mp-offer-builder/tests/naprawy/zero-zmienionych-wierszy.php
@@ -273,7 +282,7 @@ STATUS: ALL_PASS
   [OK ] mp-sales-workflow/tests/security/scenariusze-s1-s12.php
 
 ====================================================
-PRZESZLO: 71   NIE PRZESZLO: 0   BEZ WERDYKTU: 0
+PRZESZLO: 75   NIE PRZESZLO: 0   BEZ WERDYKTU: 0
 ```
 
 ---
@@ -290,7 +299,7 @@ przy samych ostrzeżeniach.
 .......................................                      159 / 159 (100%)
 
 
-Time: 23.12 secs; Memory: 40MB
+Time: 23.07 secs; Memory: 38MB
 
 PHPCS_EXIT=0
 ```

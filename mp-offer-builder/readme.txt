@@ -4,7 +4,7 @@ Tags: oferty, pdf, woocommerce, cennik
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 8.1
-Stable tag: 1.3.8
+Stable tag: 1.3.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -60,6 +60,33 @@ RODO/GDPR:
 
 == Changelog ==
 
+
+= 1.3.9 =
+* Zasada „brak właściciela zapisujemy jako NULL", wprowadzona w 1.3.8, obejmowała
+  tylko nagłówek oferty. Wiersz historii wersji zapisywał identyfikator zero,
+  czyli drugą reprezentację tego samego pojęcia w drugiej tabeli.
+* Oferty utworzone przed 1.3.8 (z zerem w kolumnie właściciela) przestały być
+  edytowalne dla wszystkich poza administratorem — kontrola czytała zero jako
+  „właściciel o numerze zero", czyli kogoś innego. To były dokładnie te oferty,
+  które poprzednia poprawka miała odblokować.
+* Zapis bez zalogowanego użytkownika (cron, WP-CLI) nie mógł dokończyć żadnej
+  oferty mającej właściciela. Kontrola własności wymaga teraz obu stron: zero po
+  którejkolwiek znaczy brak podmiotu, a nie „ktoś inny". Obcy zalogowany
+  użytkownik dostaje odmowę jak dotąd.
+* Produkt oznaczony jako promocyjny, którego cena aktywna NIE jest niższa od
+  regularnej, jest teraz błędem pozycji. Poprzedni strażnik łapał wyłącznie cenę
+  pustą, więc dokument potrafił deklarować promocję i obiecywać rabat równy zeru.
+* Sklep z cenami wprowadzonymi z podatkiem, ale WYŁĄCZONYMI podatkami, kończy się
+  odmową zamiast domysłem. Funkcja WooCommerce zwraca w tym stanie fałsz, co
+  wtyczka czytała jako „cennik jest netto" — i doliczała VAT do cen, które już go
+  zawierały. Przeliczyć tego nie da się: bez włączonych podatków nie ma stawek.
+* Kontrola „pozycja sparowana z innym produktem" nie wyłącza się już po cichu,
+  gdy nie ma czym jej wykonać. Wcześniej brak listy pozycji w kontekście gasił ją
+  bez śladu, a rozjazd zbiorów dawał pozycji cudzą klasę podatkową.
+* Rozdział rabatu na klasy podatkowe ma bezpiecznik zakresu: kwoty, przy których
+  mnożenie wyszłoby poza zakres liczb całkowitych, kończą się odmową zamiast
+  błędem krytycznym. Bezpiecznik działa tak samo z rozszerzeniem BCMath i bez
+  niego — inaczej ta sama oferta zachowywałaby się różnie na różnych serwerach.
 
 = 1.3.8 =
 * Wyczyszczenie tabeli reguł rabatowych zapisywało konfigurację „0% dla każdej

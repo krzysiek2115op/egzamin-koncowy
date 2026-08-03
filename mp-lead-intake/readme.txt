@@ -4,7 +4,7 @@ Tags: leads, formularz, b2b, nip, vat
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.3.8
+Stable tag: 1.3.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -17,6 +17,25 @@ zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej 
 
 == Changelog ==
 
+
+= 1.3.9 =
+* Awaria strony z formularzem przestała być cicha. Gałęzie awaryjne zapisywały
+  powód, ale nie gasiły flagi, od której zależy ostrzeżenie w panelu — a flaga
+  nieustawiona domyślnie znaczy „wszystko w porządku". Panel wyglądał więc
+  zdrowo przy zapisanym powodzie awarii.
+* Komunikat odsyła tam, gdzie tę stronę naprawdę widać: strona w koszu kieruje
+  do Strony → Kosz, a nie do „Wszystkie strony", gdzie kosza nie ma.
+* Nieudane założenie strony podaje powód od WordPressa. Zapis był wywoływany bez
+  trybu zgłaszania błędów, więc przy porażce wracało zwykłe zero zamiast opisu —
+  i administrator dostawał „bez podania przyczyny" także wtedy, gdy przyczyna
+  była znana.
+* Komunikat o usuniętej stronie podaje krótki kod formularza wprost, zamiast
+  kazać go zgadywać.
+* Los alarmu w dzienniku to teraz FAKT, nie prognoza. Stan był odczytywany
+  przed wysyłką, więc wpis meldował „wysłany" także wtedy, gdy poczta zaraz
+  potem odmówiła. Po próbie dostarczenia wpis dostaje jedną z trzech wartości —
+  wysłany, wyciszony albo nieudany — i to w opisie wpisu, czyli w polu, które
+  listy pokazują, a nie tylko w metadanych.
 
 = 1.3.8 =
 * Nierozstrzygnięta Biała lista nie uchodzi już za sprawdzoną. Warunek statusu
