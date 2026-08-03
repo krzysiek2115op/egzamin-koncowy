@@ -247,7 +247,21 @@ $GLOBALS['mp_sa']['lines'][] = '=== E. KONTR-ASERCJE: stan zdrowy dalej jest zdr
 $zdrowa = sa_strona( 'publish' );
 update_option( MP_Lead_Intake_Page::OPTION_PAGE_ERROR, 'stary slad do skasowania' );
 
+/*
+ * Dokladanie do menu WYLACZONE na czas tej asercji — udokumentowanym filtrem,
+ * ktory `add_to_menus()` traktuje jako swiadoma decyzje, a nie porazke.
+ *
+ * Bez tego sonda mierzylaby KONFIGURACJE WITRYNY, a nie logike flagi:
+ * `add_to_menus()` oddaje falsz, gdy zaden motyw nie ma PRZYPISANEGO menu — czyli
+ * w kazdej swiezej instalacji. Na maszynie deweloperskiej (motyw demo z menu)
+ * asercja przechodzila, a w CI padala. Sprawdzamy tu jedno: czy stan zdrowy
+ * zapisuje WYNIK dokladania do menu, zamiast zostawiac flage z poprzedniego stanu.
+ */
+add_filter( 'mp_lead_intake_add_page_to_menu', '__return_false' );
+
 MP_Lead_Intake_Page::refresh_menu_status();
+
+remove_filter( 'mp_lead_intake_add_page_to_menu', '__return_false' );
 
 sa_ok(
 	false === get_option( MP_Lead_Intake_Page::OPTION_PAGE_ERROR, false ),
