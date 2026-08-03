@@ -115,10 +115,17 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 		 * dokończeniu draftu nie jako „nikt", tylko jako właściciel o numerze zero
 		 * — czyli KTOŚ INNY. Kontrola niżej odmawiała wtedy zapisu każdemu poza
 		 * administratorem i szkic stawał się nietykalny.
+		 *
+		 * Normalizacja musi obejmowac TAKZE wartosc ODCZYTANA z bazy. Wiersze
+		 * zapisane przed ta poprawka maja `created_by = 0`; czytane doslownie
+		 * znaczylyby „wlasciciel o numerze zero", czyli ktos inny niz kazdy
+		 * zalogowany handlowiec — i to wlasnie te oferty poprawka miala
+		 * odblokowac, a nie zamurowac na stale.
 		 */
+		$wlasciciel = null !== $existing_created_by ? (int) $existing_created_by : 0;
 		$biezacy    = (int) get_current_user_id();
-		$created_by = null !== $existing_created_by
-			? (int) $existing_created_by
+		$created_by = $wlasciciel > 0
+			? $wlasciciel
 			: ( $biezacy > 0 ? $biezacy : null );
 
 		// Blokada optymistyczna: token CELOWO NIEZALEŻNY od `version` (numeru
@@ -161,7 +168,23 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 		// uruchomieniem reszty pipeline'u, ale Dział 10 (jedyny dział z prawem zapisu)
 		// NIE POWINIEN ufać ślepo, że ta kontrola na pewno zaszła wcześniej — sprawdzamy
 		// własność jeszcze raz, tuż przed zapisem, niezależnym odczytem z Działu 2.
-		if ( null !== $existing_created_by && get_current_user_id() !== (int) $existing_created_by && ! current_user_can( 'manage_options' ) ) {
+		/*
+		 * Kontrola ma sens tylko wtedy, gdy sa OBIE strony: wlasciciel i ten,
+		 * kto probuje zapisac. Zero po ktorejkolwiek stronie to nie „ktos inny",
+		 * tylko BRAK PODMIOTU:
+		 *
+		 *   - `$wlasciciel === 0` — oferta niczyja (nowa albo sprzed normalizacji);
+		 *   - `$biezacy === 0`    — zapis bez zalogowanego uzytkownika, czyli cron
+		 *     albo WP-CLI. Ta sciezka nie ma sesji przegladarki, wiec nie ma tu
+		 *     czego bronic przed IDOR-em, a `current_user_can()` bez uzytkownika
+		 *     jest zawsze falszem — warunek odmawial wiec KAZDEJ ofercie
+		 *     z wlascicielem w trybie, ktory docblock wyzej opisuje jako
+		 *     obslugiwany.
+		 *
+		 * Obcy ZALOGOWANY uzytkownik dostaje odmowe jak dotad — to jest ten
+		 * przypadek, dla ktorego ta obrona w glab powstala.
+		 */
+		if ( $wlasciciel > 0 && $biezacy > 0 && $biezacy !== $wlasciciel && ! current_user_can( 'manage_options' ) ) {
 			return MP_OB_Result::fail( 'Brak uprawnień do zapisu wskazanej oferty.', array(), 'not_offer_owner' );
 		}
 
@@ -282,7 +305,11 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 			'version_number' => $version,
 			'data_json'      => $data_json,
 			'pdf_path'       => $pdf_path,
-			'created_by'     => get_current_user_id(),
+			// Ta sama wartosc co w naglowku — „brak wlasciciela" ma miec jedna
+			// reprezentacje takze w tabeli wersji. Surowe `get_current_user_id()`
+			// wkladalo tu 0 przy zapisie z crona, czyli druga reprezentacje tego
+			// samego pojecia, w drugiej tabeli. Kolumna jest DEFAULT NULL.
+			'created_by'     => $created_by,
 			'change_log'     => 'correction' === $mode ? 'Korekta oferty.' : 'Utworzenie oferty.',
 		);
 
