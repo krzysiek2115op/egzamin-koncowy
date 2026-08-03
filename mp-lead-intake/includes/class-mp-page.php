@@ -104,18 +104,47 @@ class MP_Lead_Intake_Page {
 		 * zrobił, co trzeba.
 		 */
 		if ( $wpis instanceof WP_Post ) {
+			/*
+			 * Sam ślad nie wystarczy — bez zgaszonej flagi nikt go nie zobaczy.
+			 *
+			 * `maybe_admin_notice()` wychodzi, gdy OPTION_MENU_OK ma wartość inną
+			 * niż '0', a opcja nieustawiona zwraca domyślne '1'. Bliźniacza
+			 * `refresh_menu_status()` w dokładnie tym samym stanie flagę zeruje;
+			 * ta gałąź zostawiała ją zapaloną, więc panel wyglądał na zdrowy przy
+			 * zapisanym powodzie awarii. Mechanizm wyciszenia opisuje komentarz
+			 * o dwie gałęzie niżej — jako powód poprzedniej naprawy.
+			 */
+			update_option( self::OPTION_MENU_OK, 0 );
+
+			/*
+			 * Kosz ma w panelu WŁASNY widok. „Strony → Wszystkie strony" nie
+			 * pokazuje wpisów w koszu, więc dla statusu `trash` była to rada
+			 * nie do wykonania — ta sama klasa błędu co usunięte wcześniej
+			 * „aktywuj wtyczkę ponownie".
+			 */
+			$gdzie = 'trash' === $wpis->post_status
+				? __( 'Strony → Kosz', 'mp-lead-intake' )
+				: __( 'Strony → Wszystkie strony', 'mp-lead-intake' );
+
 			update_option(
 				self::OPTION_PAGE_ERROR,
 				sprintf(
-					/* translators: %s: status wpisu WordPressa (np. trash, draft). */
-					__( 'Strona z formularzem istnieje, ale ma status „%s" zamiast „opublikowana" — klienci jej nie zobaczą. Przywróć ją do publikacji w Strony → Wszystkie strony.', 'mp-lead-intake' ),
-					$wpis->post_status
+					/* translators: 1: status wpisu WordPressa (np. trash, draft). 2: miejsce w panelu, np. „Strony → Kosz”. */
+					__( 'Strona z formularzem istnieje, ale ma status „%1$s" zamiast „opublikowana" — klienci jej nie zobaczą. Przywróć ją do publikacji w %2$s.', 'mp-lead-intake' ),
+					$wpis->post_status,
+					$gdzie
 				)
 			);
 
 			return;
 		}
 
+		/*
+		 * Drugi argument `$wp_error` = true, bo bez niego `wp_insert_post()`
+		 * oddaje przy porażce zwykłe 0 — gałąź `is_wp_error()` niżej była martwa,
+		 * a administrator dostawał „bez podania przyczyny" TAKŻE wtedy, gdy
+		 * WordPress przyczynę znał i podawał.
+		 */
 		$page_id = wp_insert_post(
 			array(
 				'post_title'   => self::TITLE,
@@ -123,7 +152,8 @@ class MP_Lead_Intake_Page {
 				'post_status'  => 'publish',
 				'post_type'    => 'page',
 				'post_content' => '[mp_lead_intake_form]',
-			)
+			),
+			true
 		);
 
 		if ( $page_id && ! is_wp_error( $page_id ) ) {
@@ -148,6 +178,8 @@ class MP_Lead_Intake_Page {
 		 * tego, kto zapis zablokował, i to jedyna wskazówka, jaką administrator
 		 * dostanie.
 		 */
+		update_option( self::OPTION_MENU_OK, 0 );
+
 		update_option(
 			self::OPTION_PAGE_ERROR,
 			is_wp_error( $page_id ) ? $page_id->get_error_message() : __( 'WordPress odrzucił zapis strony bez podania przyczyny.', 'mp-lead-intake' )
@@ -193,7 +225,9 @@ class MP_Lead_Intake_Page {
 						__( 'Strona z formularzem istnieje, ale ma status „%s" zamiast „opublikowana" — klienci jej nie zobaczą. Przywróć ją do publikacji.', 'mp-lead-intake' ),
 						(string) $wpis->post_status
 					)
-					: __( 'Strona z formularzem została usunięta. Opublikuj stronę z krótkim kodem formularza.', 'mp-lead-intake' )
+					// Krótki kod podany WPROST: administrator, który tej strony nie
+					// zakładał, nie ma skąd go znać, a bez niego rada jest pusta.
+					: __( 'Strona z formularzem została usunięta. Opublikuj nową stronę zawierającą krótki kod [mp_lead_intake_form].', 'mp-lead-intake' )
 			);
 
 			return;
