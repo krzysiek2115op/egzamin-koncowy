@@ -1318,6 +1318,32 @@
             "lekcja": "Komentarz przy wywolaniu opisuje przypadek, nie definicje. Ustalenie o predykacie wymaga otwarcia predykatu.",
             "test": "mp-offer-builder/tests/naprawy/rozdzial-rabatu-i-tozsamosc.php sekcja D (straz)",
             "para": "1.25 (przebieg 3) — odrzucone"
+        },
+        {
+            "id": "U-36",
+            "data": "2026-08-03",
+            "wtyczka": "strona-pokazowa",
+            "tytul": "Motyw demo zakladal, ze WordPress stoi w korzeniu domeny",
+            "klasa": "adresy-w-instalacji-podkatalogowej",
+            "plik": "tools/strona-pokazowa/motyw/functions.php:55",
+            "dowod": "Motyw bral z pozycji menu CALA sciezke URL jako slug, a potem doklejal ja z powrotem do home_url(). W korzeniu domeny obie operacje sie znosza; Playground serwuje witryne pod /scope:<id>/, wiec prefiks liczony byl dwa razy: /scope:0.77/scope:0.77/zapytanie-ofertowe/.",
+            "skutek": "Jedyna pozycja nawigacji pochodzaca z menu WordPressa — podstrona formularza wtyczki 1 — prowadzila w pustke. Pozostale sa w motywie na sztywno i dzialaly, wiec awaria wygladala na usterke tej podstrony. Zglosil ja uzytkownik, nie zadna brama. Tak samo 19 odnosnikow href=\"/…\" w tresci stron.",
+            "lekcja": "Wiodacy ukosnik znaczy korzen DOMENY, nie korzen WITRYNY. Srodowisko, w ktorym demo bylo sprawdzane (localhost w korzeniu), roznilo sie od tego, w ktorym jest ogladane — i roznica byla dokladnie ta jedna zmienna, ktorej test nie ustawial.",
+            "test": "tools/strona-pokazowa/tests/motyw-poza-korzeniem.php (21 asercji)",
+            "para": "zgloszenie uzytkownika"
+        },
+        {
+            "id": "U-37",
+            "data": "2026-08-03",
+            "wtyczka": "strona-pokazowa",
+            "tytul": "Zasiew demo zapisywal ladne permalinki, nie wlaczajac ich",
+            "klasa": "zapis-opcji-bez-odswiezenia-obiektu",
+            "plik": "tools/strona-pokazowa/motyw/functions.php:kk_seed_content()",
+            "dowod": "update_option('permalink_structure', …) zapisuje opcje, ale zostawia $wp_rewrite w stanie sprzed zmiany; do konca tego zadania get_permalink() oddaje ?page_id=. Widoczne dopiero na swiezym WordPressie w CI.",
+            "skutek": "Zaden na produkcyjnym demo — zasiew i pierwsze wejscie na strone to dwa rozne zadania. Kod dzialal przez okolicznosc, a nie przez to, co robi.",
+            "lekcja": "Zapis opcji to nie to samo co przelaczenie stanu. Gdy WordPress ma na dana rzecz obiekt (WP_Rewrite), zmiane robi sie jego API.",
+            "test": "tools/strona-pokazowa/tests/motyw-poza-korzeniem.php sekcja 0 (warunki pomiaru)",
+            "para": "CI na swiezej instalacji"
         }
     ]
 }
