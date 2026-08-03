@@ -6,6 +6,7 @@ obecny tylko wtedy, gdy w main lezy dokladnie ta sama zawartosc.
 import collections, hashlib, io, json, os, re, subprocess, sys, urllib.request, zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import repo_wydania
 import repo_wyjatki
 
 REPO = "/home/krzysiek/3 pluginy 3 bazy danych "
@@ -252,9 +253,28 @@ def najwyzsza_wersja():
 WERSJA = sys.argv[2] if len(sys.argv) > 2 else najwyzsza_wersja()
 print("  badana wersja: %s%s" % (WERSJA, "" if len(sys.argv) > 2 else " (najwyzszy tag wersyjny)"))
 
+def wersja_w_naglowku(ref, slug):
+    """Wersja zadeklarowana w pliku glownym wtyczki pod wskazanym refem."""
+    tresc = git("show", "%s:%s/%s.php" % (ref, slug, slug))
+    m = re.search(r"^ \* Version:\s+(\S+)", tresc, re.M)
+
+    return m.group(1) if m else None
+
+
 for slug in SLUGI:
     r = tagi_rel.get("%s/v%s" % (slug, WERSJA))
     if not r:
+        # Wtyczka bez zmian nie dostaje nowego numeru — patrz repo_wydania.
+        wlasna = wersja_w_naglowku("v" + WERSJA, slug)
+        ma_swoje = bool(tagi_rel.get("%s/v%s" % (slug, wlasna))) if wlasna else False
+
+        if repo_wydania.wolno_pominac_wydanie(WERSJA, wlasna, ma_swoje):
+            print("  %-20s bez wlasnego wydania w %s — zostaje na %s (wydanie tamtej wersji istnieje)"
+                  % (slug, WERSJA, wlasna))
+            ok.append("%s: brak zmian w %s, zostaje na %s — kod jest w opublikowanym wydaniu"
+                      % (slug, WERSJA, wlasna))
+            continue
+
         bledy.append("%s: brak release dla wersji %s" % (slug, WERSJA))
         print("  %-20s BRAK RELEASE dla %s" % (slug, WERSJA))
         continue
