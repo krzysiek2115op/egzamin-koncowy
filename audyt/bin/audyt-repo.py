@@ -8,6 +8,7 @@ import collections, hashlib, io, json, os, re, subprocess, sys, urllib.request, 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import repo_wydania
 import repo_wyjatki
+import repo_zalaczniki
 
 REPO = "/home/krzysiek/3 pluginy 3 bazy danych "
 SLUGI = ["mp-lead-intake", "mp-offer-builder", "mp-sales-workflow"]
@@ -282,8 +283,8 @@ for slug in SLUGI:
         continue
     nazwy = sorted(a["name"] for a in r["assets"])
     print("  %-20s zalaczniki: %s" % (slug, ", ".join(nazwy)))
-    if len(nazwy) != 2:
-        bledy.append("%s: oczekiwano 2 zalacznikow, jest %d" % (slug, len(nazwy)))
+    # Nie liczba zalacznikow, tylko ich nazwy — patrz repo_zalaczniki.
+    bledy.extend(repo_zalaczniki.ocen_zalaczniki(slug, WERSJA, nazwy))
 
 if WY and os.path.isdir(WY):
     for slug in SLUGI:
