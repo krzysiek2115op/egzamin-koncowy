@@ -315,6 +315,30 @@ class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 				$id_snapshotu = isset( $products[ $i ]['id'] ) ? (int) $products[ $i ]['id'] : 0;
 				$id_pozycji   = isset( $items[ $i ] ) ? (int) MP_OB_Products::lookup_id( (array) $items[ $i ] ) : 0;
 
+				/*
+				 * KONTROLA, KTORA NIE MOZE SIE WYKONAC, TO ODMOWA — NIE CISZA.
+				 *
+				 * Powyzsze zawezenie („snapshot bez `id` nie ma czego porownac")
+				 * dotyczy tylko strony SNAPSHOTU. Gdy snapshot `id` MA, a strona
+				 * pozycji go nie dostarcza — bo w kontekscie nie ma klucza `items`
+				 * albo `lookup_id()` nie rozpoznal ksztaltu pozycji — to nie jest
+				 * przypadek „nie ma czego porownac". To przypadek „mamy czym
+				 * porownac i nie potrafimy", a wtedy kontrola pilnujaca, zeby
+				 * pozycja nie dostala CUDZEJ klasy podatkowej, wylaczala sie bez
+				 * sladu. Cisza jest tu gorsza niz odmowa: rozjazd zbiorow konczy
+				 * sie innym podatkiem na dokumencie handlowym.
+				 */
+				if ( $id_snapshotu > 0 && $id_pozycji <= 0 ) {
+					return MP_OB_Result::fail(
+						'Nie da się potwierdzić, że pozycja dotyczy tego samego produktu co snapshot — kontrola tożsamości nie miała czego sprawdzić.',
+						array(
+							'line_index'  => $i,
+							'snapshot_id' => $id_snapshotu,
+						),
+						'line_identity_unverifiable'
+					);
+				}
+
 				if ( $id_snapshotu > 0 && $id_pozycji > 0 && $id_snapshotu !== $id_pozycji ) {
 					return MP_OB_Result::fail(
 						'Pozycja sparowana z innym produktem niż wskazany w zamówieniu — klasa podatkowa byłaby cudza.',
@@ -412,6 +436,38 @@ class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 			// Podział rabatu na klasy proporcjonalnie do ich wartości; resztę z
 			// zaokrągleń w dół dorzucamy do klasy o największej wartości, żeby suma
 			// rabatów klas == discount_total co do grosza (a więc suma netto == net_grosze).
+
+			/*
+			 * BEZPIECZNIK ZAKRESU, WSPOLNY DLA OBU SCIEZEK `prorate()`.
+			 *
+			 * Sciezka zapasowa (bez BCMath) liczy `amount * part` natywna
+			 * arytmetyka calkowita. Po przekroczeniu PHP_INT_MAX iloczyn staje
+			 * sie floatem, a `intdiv()` floata nie przyjmuje — wychodzi blad
+			 * krytyczny zamiast oferty.
+			 *
+			 * Kontrola stoi PRZED wyborem sciezki celowo, choc BCMath poradzilby
+			 * sobie z takim mnozeniem: inaczej ta sama oferta konczylaby sie
+			 * sukcesem na maszynie z BCMath, a bledem krytycznym na maszynie bez
+			 * niego. Wynik zalezny od zestawu rozszerzen PHP jest gorszy niz sama
+			 * wada, bo nie da sie go odtworzyc u siebie.
+			 *
+			 * Kwoty ofert nigdy tu nie dojda — to bezpiecznik, nie reguła
+			 * biznesowa. Dlatego pilnuje wylacznie MNOZENIA: te same kwoty bez
+			 * rabatu przechodza dalej.
+			 */
+			$najwieksza_klasa = empty( $class_subtotal ) ? 0 : max( $class_subtotal );
+
+			if ( $discount > 0 && $najwieksza_klasa > 0 && $discount > intdiv( PHP_INT_MAX, $najwieksza_klasa ) ) {
+				return MP_OB_Result::fail(
+					'Kwoty oferty przekraczają zakres, w którym rozdział rabatu na klasy podatkowe da się policzyć dokładnie.',
+					array(
+						'discount_grosze'  => $discount,
+						'max_class_grosze' => $najwieksza_klasa,
+					),
+					'prorate_out_of_range'
+				);
+			}
+
 			$class_discount = array();
 			$assigned       = 0;
 			$max_tc         = null;
