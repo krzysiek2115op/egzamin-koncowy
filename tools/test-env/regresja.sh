@@ -107,6 +107,48 @@ for p in mp-lead-intake mp-offer-builder mp-sales-workflow; do
 	done
 done
 
+# Strona pokazowa jest częścią dostawy — egzaminator ogląda WŁAŚNIE ją, a przez
+# trzy wydania nie sprawdzał jej żaden test. Motyw demo wymaga aktywacji, więc
+# ta sekcja idzie na końcu i przywraca poprzedni motyw.
+DEMO_KAT="$REPO/tools/strona-pokazowa/tests"
+if [ -n "${MP_DEMO_PATH:-}" ]; then
+	DEMO_PATH="${MP_DEMO_PATH}"
+elif [ -n "$WP_CMD" ]; then
+	DEMO_PATH="tools/strona-pokazowa/tests/"
+else
+	# Podman montuje `tools/strona-pokazowa` jako /demo (zob. wp.sh).
+	DEMO_PATH="/demo/tests/"
+fi
+
+wp_klient() {
+	if [ -n "$WP_CMD" ]; then
+		# shellcheck disable=SC2086
+		$WP_CMD "$@"
+	else
+		MP_TEST_ENV="$ENV_DIR" "$HERE/wp.sh" "$@"
+	fi
+}
+
+if [ -d "$DEMO_KAT" ]; then
+	echo
+	echo "=== Strona pokazowa (motyw demo, wp eval-file) ==="
+
+	MOTYW_BYL=$(wp_klient theme list --field=name --status=active 2>/dev/null | tr -d '\r' | head -1)
+	wp_klient theme activate kredyt-kompas >/dev/null 2>&1 || true
+
+	for t in "$DEMO_KAT"/*.php; do
+		[ -f "$t" ] || continue
+		REL=${t#"$REPO/"}
+		case "$REL" in *"$WZORZEC"*) ;; *) [ -n "$WZORZEC" ] && continue ;; esac
+		OUT=$(wp_klient eval-file "${DEMO_PATH}$(basename "$t")" 2>&1)
+		raport "$REL" "$OUT"
+	done
+
+	if [ -n "$MOTYW_BYL" ] && [ "$MOTYW_BYL" != "kredyt-kompas" ]; then
+		wp_klient theme activate "$MOTYW_BYL" >/dev/null 2>&1 || true
+	fi
+fi
+
 echo
 echo "===================================================="
 printf 'PRZESZLO: %d   NIE PRZESZLO: %d   BEZ WERDYKTU: %d\n' "$OK" "$ZLE" "$POMINIETE"

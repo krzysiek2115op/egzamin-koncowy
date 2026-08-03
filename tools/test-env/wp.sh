@@ -37,6 +37,10 @@ fi
 # Wszystkie trzy wtyczki musza byc w tym drzewie roboczym. Po scaleniu leza obok
 # siebie na `main`; na starych galeziach wtyczek — nie. Bez tej kontroli podman
 # zamontowalby puste katalogi i testy „przeszlyby" na nieistniejacym kodzie.
+#
+# Z tego samego powodu montujemy motyw strony pokazowej: do 1.3.9 leżał w środowisku
+# jako KOPIA, więc poprawka w drzewie roboczym była dla testów niewidzialna. Cały
+# katalog `tools/strona-pokazowa` idzie jako /demo — stamtąd biorą się testy demo.
 for _wt in mp-lead-intake mp-offer-builder mp-sales-workflow; do
 	if [ ! -d "$REPO/$_wt" ]; then
 		echo "BŁĄD: w $REPO nie ma katalogu $_wt." >&2
@@ -73,6 +77,8 @@ RC_FILE=$(mktemp)
 		-v "$REPO/mp-lead-intake:/var/www/html/wp-content/plugins/mp-lead-intake:Z" \
 		-v "$REPO/mp-offer-builder:/var/www/html/wp-content/plugins/mp-offer-builder:Z" \
 		-v "$REPO/mp-sales-workflow:/var/www/html/wp-content/plugins/mp-sales-workflow:Z" \
+		-v "$REPO/tools/strona-pokazowa/motyw:/var/www/html/wp-content/themes/kredyt-kompas:Z" \
+		-v "$REPO/tools/strona-pokazowa:/demo:Z" \
 		docker.io/library/wordpress:cli --allow-root --path=/var/www/html "$@" 2>&1
 	echo $? >"$RC_FILE"
 } | grep -v 'level=error msg="User-selected' || true

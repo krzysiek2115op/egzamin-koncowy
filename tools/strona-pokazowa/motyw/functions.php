@@ -9,7 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'KK_VERSION', '1.0.1' );
+define( 'KK_VERSION', '1.0.2' );
 
 /**
  * Nawigacja główna: slug => etykieta. Slug '' = strona główna.
@@ -68,7 +68,7 @@ function kk_menu_items_z_wordpressa() {
 	$wynik = array();
 
 	foreach ( $pozycje as $pozycja ) {
-		$slug = trim( (string) wp_parse_url( $pozycja->url, PHP_URL_PATH ), '/' );
+		$slug = kk_slug_z_adresu( $pozycja->url );
 
 		if ( '' === $slug ) {
 			continue;
@@ -79,6 +79,74 @@ function kk_menu_items_z_wordpressa() {
 
 	return $wynik;
 }
+
+/**
+ * Slug pozycji menu, czyli ścieżka liczona OD KORZENIA WITRYNY.
+ *
+ * Pozycja menu zna pełny adres, a motyw potrzebuje samego sluga — bo z niego
+ * `kk_url()` buduje adres z powrotem, a `kk_current_slug()` porównuje go
+ * z `post_name` bieżącej strony. Wcześniej za sluga robiła CAŁA ścieżka URL.
+ *
+ * W korzeniu domeny obie operacje się znoszą i wynik jest poprawny. Gdy jednak
+ * WordPress stoi w PODKATALOGU — a tak właśnie serwuje go WP Playground, pod
+ * prefiksem `/scope:<id>/` — prefiks instalacji zostaje policzony dwa razy:
+ * `/scope:0.77/scope:0.77/zapytanie-ofertowe/`. Pozostałe pozycje nawigacji są
+ * w motywie „na sztywno" i budują się z samego sluga, więc działały; nie działała
+ * dokładnie ta jedna, która przychodzi z menu WordPressa — podstrona formularza
+ * wtyczki 1. Awaria wyglądała więc na usterkę tej podstrony, a nie nawigacji.
+ *
+ * @param string $url Pełny adres pozycji menu.
+ * @return string Ścieżka względem witryny, bez ukośników brzegowych.
+ */
+function kk_slug_z_adresu( $url ) {
+	$sciezka = (string) wp_parse_url( (string) $url, PHP_URL_PATH );
+	$baza    = (string) wp_parse_url( home_url( '/' ), PHP_URL_PATH );
+
+	if ( '' !== $baza && '/' !== $baza && 0 === strpos( $sciezka, $baza ) ) {
+		$sciezka = substr( $sciezka, strlen( $baza ) );
+	}
+
+	return trim( $sciezka, '/' );
+}
+
+/**
+ * Przelicza odnośniki treści liczone od korzenia DOMENY na adresy witryny.
+ *
+ * Fragmenty w `parts/*.html` pochodzą ze statycznego oryginału stojącego
+ * w korzeniu domeny i mają 19 odnośników postaci `href="/kontakt/"`. Wiodący
+ * ukośnik znaczy „korzeń domeny", a nie „korzeń witryny" — w instalacji
+ * podkatalogowej (Playground: `/scope:<id>/`) każdy z nich wyprowadza POZA
+ * witrynę, na adres, pod którym nie ma WordPressa.
+ *
+ * Przeliczamy przy renderowaniu, a nie przy zasiewie, świadomie: adres witryny
+ * w Playground zmienia się między sesjami, więc adres wpisany do bazy przy
+ * zakładaniu stron byłby prawdziwy dokładnie raz. Wzorzec jest wąski (jeden
+ * atrybut, wiodący pojedynczy ukośnik), a przeliczenie idempotentne — wynik
+ * zaczyna się od schematu, więc drugi przebieg go już nie dotyka.
+ *
+ * @param string $html Treść strony.
+ * @return string Treść z adresami wskazującymi w obrębie witryny.
+ */
+function kk_tresc_z_adresami( $html ) {
+	if ( ! is_string( $html ) || '' === $html ) {
+		return $html;
+	}
+
+	$baza = home_url( '/' );
+
+	$wynik = preg_replace_callback(
+		'~(?<![\w-])(href|src|action)="/(?!/)([^"]*)"~i',
+		static function ( $m ) use ( $baza ) {
+			return $m[1] . '="' . esc_url( $baza . $m[2] ) . '"';
+		},
+		$html
+	);
+
+	// preg_replace_callback() zwraca null przy błędzie — wtedy lepsza treść
+	// z niedziałającymi odnośnikami niż pusta strona.
+	return null === $wynik ? $html : $wynik;
+}
+add_filter( 'the_content', 'kk_tresc_z_adresami' );
 
 /** Slug aktualnie wyświetlanej strony (pusty dla strony głównej). */
 function kk_current_slug() {

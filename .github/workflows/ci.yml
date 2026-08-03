@@ -118,6 +118,10 @@ jobs:
           for w in mp-lead-intake mp-offer-builder mp-sales-workflow; do
             ln -s "$PWD/$w" "wp/wp-content/plugins/$w"
           done
+          # Motyw strony pokazowej — z checkoutu, tak samo jak wtyczki. Bez niego
+          # test demo nie ma czego zmierzyc, a demo jest tym, co oglada egzaminator.
+          # Aktywuje go i przywraca poprzedni motyw sam `regresja.sh`.
+          ln -s "$PWD/tools/strona-pokazowa/motyw" "wp/wp-content/themes/kredyt-kompas"
           # Kolejnosc 1 → 2 → 3, ta sama co w bramce wydania. Role sa wspoldzielone
           # miedzy wtyczkami 1 i 3 (U-15), wiec kolejnosc aktywacji ma znaczenie
           # i wlasnie dlatego jest tu ustalona jawnie.

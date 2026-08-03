@@ -123,3 +123,32 @@ python3 -c "import shutil; shutil.make_archive('/tmp/kredyt-kompas','zip','motyw
 - **Jeden NIP zamiast dwóch.** Zasiew zapisywał firmę do BD-3 z numerem
   `5252248481`, a przy budowie oferty podawał `1234563218` — ta sama firma
   z dwoma numerami w jednym przebiegu, który ma pokazywać spójność danych.
+
+### Co w motywie poprawiono po 1.3.9 (motyw 1.0.2)
+
+**WordPress w Playground nie stoi w korzeniu domeny.** Playground serwuje witrynę
+pod prefiksem ścieżki `/scope:<id>/` — dla WordPressa to zwykła instalacja
+w podkatalogu. Motyw zakładał korzeń domeny w dwóch miejscach i oba dawały
+odnośniki prowadzące w pustkę:
+
+- **Pozycja menu od wtyczki 1.** Motyw brał z pozycji menu **całą** ścieżkę URL
+  jako „slug", a potem doklejał ją z powrotem do `home_url()`. W korzeniu domeny
+  obie operacje się znoszą; w podkatalogu prefiks instalacji liczony jest dwa razy
+  — `/scope:0.77/scope:0.77/zapytanie-ofertowe/`. Pozostałe pozycje nawigacji są
+  w motywie „na sztywno" i budują się z samego sluga, więc działały. Nie działała
+  dokładnie ta jedna, która przychodzi z menu WordPressa: **podstrona formularza**.
+  Awaria wyglądała więc na usterkę tej podstrony, a nie nawigacji.
+- **19 odnośników w treści stron.** Fragmenty w `parts/*.html` pochodzą ze
+  statycznego oryginału i mają postać `href="/kontakt/"`. Wiodący ukośnik znaczy
+  „korzeń domeny", a nie „korzeń witryny". Przeliczane są teraz przy renderowaniu
+  (`kk_tresc_z_adresami()`), a nie przy zasiewie — adres witryny w Playground
+  zmienia się między sesjami, więc adres wpisany do bazy byłby prawdziwy raz.
+
+Motyw miał też **dwie różne wersje we własnych plikach**: `style.css` deklarował
+1.0.0, a `KK_VERSION` w `functions.php` — 1.0.1. Obie mówią teraz 1.0.2.
+
+Regresja tego nie łapała, bo demo nie miało **żadnego** testu, a lokalny przebieg
+stawiał je zawsze w korzeniu (`localhost:8080`), gdzie ten błąd jest niewidoczny.
+Test [`tests/motyw-poza-korzeniem.php`](tests/motyw-poza-korzeniem.php) przestawia
+`home`/`siteurl` na podkatalog i sprawdza jedno i drugie; `regresja.sh` uruchamia
+go na końcu, aktywując motyw i przywracając poprzedni.
