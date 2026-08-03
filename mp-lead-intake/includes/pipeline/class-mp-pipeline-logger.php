@@ -85,6 +85,68 @@ class MP_Pipeline_Logger {
 	}
 
 	/**
+	 * Czytelna etykieta losu alarmu — do `description`, czyli do pola, które
+	 * lista wpisów w panelu naprawdę pokazuje.
+	 *
+	 * @param string $stan Los alarmu.
+	 * @return string
+	 */
+	protected function etykieta_alarmu( $stan ) {
+		switch ( $stan ) {
+			case 'wyslany':
+				return __( '[alarm: wysłany do administratora]', 'mp-lead-intake' );
+			case 'wyciszony':
+				return __( '[alarm: wyciszony — z tego samego miejsca poszedł już w ciągu ostatnich 15 minut]', 'mp-lead-intake' );
+			case 'nieudany':
+				return __( '[alarm: NIE dotarł do administratora]', 'mp-lead-intake' );
+		}
+
+		return __( '[alarm: los nieustalony]', 'mp-lead-intake' );
+	}
+
+	/**
+	 * Dopisuje do wpisu LOS ALARMU — już po próbie dostarczenia.
+	 *
+	 * Do 1.3.9 wpis niósł PROGNOZĘ: `alert_state()` czytało ogranicznik PRZED
+	 * wysyłką i zapisywało „wysylany" także wtedy, gdy poczta zaraz potem
+	 * odmówiła. Dziennik twierdził więc coś, czego kod jeszcze nie wiedział, a
+	 * cel zapisany w docblocku `alert_state()` — odróżnienie „alarm wysłany" od
+	 * „alarm pominięty" — był dla czytającego historię nieosiągalny w obie
+	 * strony: prognoza bywała nieprawdziwa, a samo `meta_json` i tak nie jest
+	 * pokazywane na liście.
+	 *
+	 * Dlatego los trafia TAKŻE do `description`. Nowego wiersza nie dokładamy —
+	 * ten sam powód co przy poprzedniej naprawie: przy zalewie błędów drugi
+	 * wiersz na zdarzenie podwoiłby dziennik dokładnie wtedy, gdy jest najdłuższy.
+	 *
+	 * @param int    $wpis_id Identyfikator wpisu w dzienniku.
+	 * @param string $opis    Opis zapisany przy wstawieniu.
+	 * @param array  $meta    Metadane zapisane przy wstawieniu.
+	 * @param string $stan    Los alarmu: wyslany / wyciszony / nieudany.
+	 * @return void
+	 */
+	protected function oznacz_los_alarmu( $wpis_id, $opis, array $meta, $stan ) {
+		global $wpdb;
+
+		$wpis_id = (int) $wpis_id;
+
+		if ( $wpis_id <= 0 ) {
+			return;
+		}
+
+		$meta['alarm'] = $stan;
+
+		$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			MP_Lead_Intake_DB::activity_log_table(),
+			array(
+				'description' => $opis . ' ' . $this->etykieta_alarmu( $stan ),
+				'meta_json'   => wp_json_encode( $meta ),
+			),
+			array( 'id' => $wpis_id )
+		);
+	}
+
+	/**
 	 * Klucz ogranicznika dla alarmu o zatrzymaniu działu.
 	 *
 	 * Jedno miejsce, bo liczą go dwie metody: `log_failure()` (żeby zapisać los
@@ -127,33 +189,37 @@ class MP_Pipeline_Logger {
 
 		$table = MP_Lead_Intake_DB::activity_log_table();
 
+		$opis = sprintf(
+			'Błąd w dziale %d (%s), kod: %s',
+			$department->get_number(),
+			$department->get_key(),
+			$result->get_code()
+		);
+
+		$meta = array(
+			'request_id' => $context->get( 'request_id' ),
+			'department' => $department->get_number(),
+			'code'       => $result->get_code(),
+			'errors'     => $result->get_errors(),
+			'data'       => $result->get_data(),
+			// Los alarmu jest jeszcze NIEZNANY — wpisujemy go dopiero po próbie
+			// dostarczenia. Wcześniej stała tu prognoza z `alert_state()`.
+			'alarm'      => 'nieustalony',
+		);
+
 		$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$table,
 			array(
 				'lead_id'     => $context->get( 'lead_id' ),
 				'action'      => 'pipeline_error',
-				'description' => sprintf(
-					'Błąd w dziale %d (%s), kod: %s',
-					$department->get_number(),
-					$department->get_key(),
-					$result->get_code()
-				),
+				'description' => $opis,
 				'user_id'     => get_current_user_id() ? get_current_user_id() : null,
 				'ip_address'  => isset( $_SERVER['REMOTE_ADDR'] ) ? MP_Lead_Intake_DB::anonymize_ip( sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) ) : null,
-				'meta_json'   => wp_json_encode(
-					array(
-						'request_id' => $context->get( 'request_id' ),
-						'department' => $department->get_number(),
-						'code'       => $result->get_code(),
-						'errors'     => $result->get_errors(),
-						'data'       => $result->get_data(),
-						'alarm'      => $this->alert_state( $this->failure_throttle_key( $department ) ),
-					)
-				),
+				'meta_json'   => wp_json_encode( $meta ),
 			)
 		);
 
-		$this->notify_admin( $department, $result, $context );
+		$this->notify_admin( $department, $result, $context, (int) $wpdb->insert_id, $opis, $meta );
 	}
 
 	/**
@@ -210,30 +276,35 @@ class MP_Pipeline_Logger {
 
 		$throttle_key = 'mp_notify_exception_' . $miejsce;
 
+		$opis = sprintf( 'Nieoczekiwany wyjątek w %s: %s', $this->department_label( $dept_num, $origin ), $komunikat );
+
+		$meta = array(
+			'request_id' => $context->get( 'request_id' ),
+			'department' => (int) $dept_num,
+			'exception'  => get_class( $e ),
+			'message'    => $komunikat,
+			// Pełna ścieżka i linia: to material diagnostyczny, nie tekst
+			// dla czytelnika. Bez nich dziennik nie pozwalał odróżnić
+			// dwóch awarii z dwóch różnych miejsc.
+			'file'       => $plik,
+			'line'       => $linia,
+			// Nieznany do czasu próby dostarczenia — patrz oznacz_los_alarmu().
+			'alarm'      => 'nieustalony',
+		);
+
 		$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$table,
 			array(
 				'lead_id'     => $context->get( 'lead_id' ),
 				'action'      => 'pipeline_exception',
-				'description' => sprintf( 'Nieoczekiwany wyjątek w %s: %s', $this->department_label( $dept_num, $origin ), $komunikat ),
+				'description' => $opis,
 				'user_id'     => get_current_user_id() ? get_current_user_id() : null,
 				'ip_address'  => isset( $_SERVER['REMOTE_ADDR'] ) ? MP_Lead_Intake_DB::anonymize_ip( sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) ) : null,
-				'meta_json'   => wp_json_encode(
-					array(
-						'request_id' => $context->get( 'request_id' ),
-						'department' => (int) $dept_num,
-						'exception'  => get_class( $e ),
-						'message'    => $komunikat,
-						// Pełna ścieżka i linia: to material diagnostyczny, nie tekst
-						// dla czytelnika. Bez nich dziennik nie pozwalał odróżnić
-						// dwóch awarii z dwóch różnych miejsc.
-						'file'       => $plik,
-						'line'       => $linia,
-						'alarm'      => $this->alert_state( $throttle_key ),
-					)
-				),
+				'meta_json'   => wp_json_encode( $meta ),
 			)
 		);
+
+		$wpis_id = (int) $wpdb->insert_id;
 
 		/*
 		 * Ogranicznik OSOBNY DLA KAŻDEGO DZIAŁU — bo dokładnie to obiecuje stopka
@@ -254,6 +325,8 @@ class MP_Pipeline_Logger {
 		// Kubełek i jego klucz policzone wyżej — wpis w dzienniku musi mówić
 		// o TYM SAMYM ograniczniku, którego za chwilę użyjemy.
 		if ( get_transient( $throttle_key ) ) {
+			$this->oznacz_los_alarmu( $wpis_id, $opis, $meta, 'wyciszony' );
+
 			return;
 		}
 		set_transient( $throttle_key, 1, 15 * MINUTE_IN_SECONDS );
@@ -284,6 +357,8 @@ class MP_Pipeline_Logger {
 				),
 				$context
 			);
+
+			$this->oznacz_los_alarmu( $wpis_id, $opis, $meta, 'nieudany' );
 
 			return;
 		}
@@ -316,6 +391,8 @@ class MP_Pipeline_Logger {
 				$context
 			);
 		}
+
+		$this->oznacz_los_alarmu( $wpis_id, $opis, $meta, $sent ? 'wyslany' : 'nieudany' );
 	}
 
 	/**
@@ -413,11 +490,16 @@ class MP_Pipeline_Logger {
 	 * @param MP_Department $department Dział.
 	 * @param MP_Result     $result     Wynik.
 	 * @param MP_Context    $context    Kontekst pipeline (identyfikatory do treści).
+	 * @param int           $wpis_id    Wpis w dzienniku, któremu dopiszemy los alarmu.
+	 * @param string        $opis       Opis zapisany przy wstawieniu tego wpisu.
+	 * @param array         $meta       Metadane zapisane przy wstawieniu tego wpisu.
 	 * @return void
 	 */
-	protected function notify_admin( MP_Department $department, MP_Result $result, MP_Context $context ) {
+	protected function notify_admin( MP_Department $department, MP_Result $result, MP_Context $context, $wpis_id = 0, $opis = '', array $meta = array() ) {
 		$throttle_key = $this->failure_throttle_key( $department );
 		if ( get_transient( $throttle_key ) ) {
+			$this->oznacz_los_alarmu( $wpis_id, $opis, $meta, 'wyciszony' );
+
 			return;
 		}
 		set_transient( $throttle_key, 1, 15 * MINUTE_IN_SECONDS );
@@ -441,6 +523,8 @@ class MP_Pipeline_Logger {
 				),
 				$context
 			);
+
+			$this->oznacz_los_alarmu( $wpis_id, $opis, $meta, 'nieudany' );
 
 			return;
 		}
@@ -486,5 +570,7 @@ class MP_Pipeline_Logger {
 				$context
 			);
 		}
+
+		$this->oznacz_los_alarmu( $wpis_id, $opis, $meta, $sent ? 'wyslany' : 'nieudany' );
 	}
 }

@@ -666,8 +666,8 @@ $am_wpis_j2 = am_wpis_wyjatku( (int) $am_wpis_j1['id'] );
 $am_mail_j2 = count( $GLOBALS['mp_am_mail'] );
 
 am_ok(
-	isset( $am_wpis_j1['meta']['alarm'] ) && 'wysylany' === (string) $am_wpis_j1['meta']['alarm'],
-	'J1: pierwszy wpis mowi, ze alarm poszedl w swiat',
+	isset( $am_wpis_j1['meta']['alarm'] ) && 'wyslany' === (string) $am_wpis_j1['meta']['alarm'],
+	'J1: pierwszy wpis mowi, ze alarm FAKTYCZNIE poszedl (nie prognoza)',
 	'meta=' . ( isset( $am_wpis_j1['meta_json'] ) ? $am_wpis_j1['meta_json'] : 'brak wiersza' )
 );
 am_ok(
@@ -702,8 +702,8 @@ $logger->log_failure( $am_dzial, $am_wynik, am_kontekst() );
 $am_wpis_j4 = am_wpis_wyjatku( (int) $am_wpis_j3['id'], 'pipeline_error' );
 
 am_ok(
-	isset( $am_wpis_j3['meta']['alarm'] ) && 'wysylany' === (string) $am_wpis_j3['meta']['alarm'],
-	'J5: zatrzymanie dzialu — pierwszy wpis mowi o wyslanym alarmie',
+	isset( $am_wpis_j3['meta']['alarm'] ) && 'wyslany' === (string) $am_wpis_j3['meta']['alarm'],
+	'J5: zatrzymanie dzialu — pierwszy wpis mowi o FAKTYCZNIE wyslanym alarmie',
 	'meta=' . ( isset( $am_wpis_j3['meta_json'] ) ? $am_wpis_j3['meta_json'] : 'brak wiersza' )
 );
 am_ok(
@@ -771,7 +771,48 @@ am_ok(
 	'tresc=' . ( is_array( $am_mail_k2 ) ? $am_mail_k2['message'] : 'brak maila' )
 );
 
-// Sprzatanie sekcji I-K: adres administratora, ograniczniki i wpisy testowe.
+/* ==================================================================== L
+ *
+ * LOS ALARMU TO FAKT, NIE PROGNOZA — I WIDAC GO NA LISCIE.
+ *
+ * Do 1.3.9 stan czytalo `alert_state()` PRZED wysylka, wiec wpis meldowal
+ * „wysylany" takze wtedy, gdy poczta zaraz potem odmowila. Cel zapisany
+ * w docblocku tamtej metody — odroznienie „alarm wyslany" od „alarm pominiety"
+ * — byl nieosiagalny w obie strony: prognoza bywala nieprawdziwa, a samo
+ * `meta_json` i tak nie jest pokazywane na liscie wpisow.
+ */
+
+$GLOBALS['mp_am']['lines'][] = '';
+$GLOBALS['mp_am']['lines'][] = '=== L. los alarmu: fakt zamiast prognozy, widoczny w opisie ===';
+
+am_reset();
+
+$am_przed_l = (int) $wpdb->get_var( "SELECT COALESCE(MAX(id),0) FROM {$log_t}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+add_filter( 'pre_wp_mail', '__return_false' );
+$logger->log_exception( new RuntimeException( 'Awaria L' ), am_kontekst(), 4 );
+remove_filter( 'pre_wp_mail', '__return_false' );
+
+$am_wpis_l1 = am_wpis_wyjatku( $am_przed_l );
+
+am_ok(
+	isset( $am_wpis_l1['meta']['alarm'] ) && 'nieudany' === (string) $am_wpis_l1['meta']['alarm'],
+	'L1: odmowa poczty daje „nieudany", a nie „wyslany"',
+	'alarm=' . var_export( isset( $am_wpis_l1['meta']['alarm'] ) ? $am_wpis_l1['meta']['alarm'] : 'BRAK', true )
+);
+
+am_ok(
+	isset( $am_wpis_l1['description'] ) && false !== mb_stripos( (string) $am_wpis_l1['description'], 'alarm:' ),
+	'L2: los alarmu jest w OPISIE — czyli w polu, ktore lista pokazuje',
+	'opis=' . ( isset( $am_wpis_l1['description'] ) ? (string) $am_wpis_l1['description'] : 'BRAK' )
+);
+
+am_ok(
+	isset( $am_wpis_l1['description'] ) && false !== mb_stripos( (string) $am_wpis_l1['description'], 'nie dotar' ),
+	'L3: i mowi wprost, ze alarm NIE dotarl do administratora'
+);
+
+// Sprzatanie sekcji I-L: adres administratora, ograniczniki i wpisy testowe.
 update_option( 'admin_email', $stary_admin );
 $wpdb->query( $wpdb->prepare( "DELETE FROM {$log_t} WHERE id > %d AND action IN ('pipeline_exception','pipeline_error','admin_alert_failed')", $am_i_max ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 am_reset();
