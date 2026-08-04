@@ -190,7 +190,7 @@
       "plik": "p1.xml",
       "dowod": "text_domain ustawiony na mp-sales-workflow w ruleset dla mp-lead-intake",
       "skutek": "Godzina szukania nieistniejacego problemu w poprawnym kodzie.",
-      "test": "",
+      "test": "tools/test-env/regresja.sh (PHPCS kod wyjscia 0) + .github/workflows",
       "para": "1.3",
       "lekcja": "Zanim zglosisz blad kodu, sprawdz, czy nie zglaszasz bledu WLASNEJ konfiguracji."
     },

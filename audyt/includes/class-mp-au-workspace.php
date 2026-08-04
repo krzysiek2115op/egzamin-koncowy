@@ -153,6 +153,28 @@ final class MP_AU_Workspace {
 	}
 
 	/**
+	 * Korzen drzewa, na ktorym pracuje ten przebieg.
+	 *
+	 * W trybie jednego refa katalogi wtyczek sa podkatalogami wspolnego
+	 * wystawienia, wiec ich rodzic jest korzeniem repozytorium. W trybie trzech
+	 * galezi kazda wtyczka ma osobne wystawienie i wspolnego korzenia nie ma —
+	 * zwracamy wtedy pusty lancuch, zeby wolajacy wiedzial, ze sciezki od
+	 * korzenia repo nie mozna rozwiazac, zamiast dostac katalog przypadkowej
+	 * wtyczki.
+	 *
+	 * @return string
+	 */
+	public function korzen(): string {
+		if ( null === $this->ref ) {
+			return '';
+		}
+
+		$pierwszy = reset( $this->sciezki );
+
+		return false === $pierwszy ? '' : dirname( (string) $pierwszy );
+	}
+
+	/**
 	 * @param string $branch Branch.
 	 * @return string
 	 */

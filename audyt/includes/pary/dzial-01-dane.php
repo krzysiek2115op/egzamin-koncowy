@@ -322,20 +322,74 @@ final class MP_AU_A115_Rejestr extends MP_AU_Agent {
 				'test_opisuje'  => false,
 			);
 
-			if ( '' !== $test && '' !== $katalog ) {
-				// Nazwa pliku testu bywa podana z dopiskiem („... (sekcja F)").
-				$czysta = trim( (string) preg_replace( '/\s*\(.*\)$/', '', $test ) );
-				$pelna  = $katalog . '/' . $czysta;
+			if ( '' !== $test ) {
+				/*
+				 * POLE „test" JEST ZDANIEM, NIE SCIEZKA.
+				 *
+				 * W rejestrze zapisuje sie tam takie rzeczy: „tests/naprawy/x.php",
+				 * „mp-offer-builder/tests/naprawy/y.php (sekcja F)", „a.php + b.php",
+				 * „a.php, sekcja L", „a.py + istnienie buduj-zipy.py". Kontrola
+				 * obcinala wylacznie nawias, wiec 41 wpisow ze 121 zglaszalo sie
+				 * jako „test nie istnieje" — czyli jako brak strazy tam, gdzie
+				 * straz stoi. Zarzut o falszywe poczucie pokrycia trafial w audyt,
+				 * nie w projekt.
+				 *
+				 * Zamiast zgadywac separatory, wyciagamy wszystkie zetony
+				 * wygladajace na sciezke pliku. Wystarczy, ze JEDEN sie rozwiaze.
+				 */
+				preg_match_all( '#[A-Za-z0-9_./-]+\.(?:php|py|sh)#', $test, $zetony );
+				$sciezki = array_values( array_unique( (array) ( $zetony[0] ?? array() ) ) );
 
-				if ( is_readable( $pelna ) ) {
+				/*
+				 * Wpisy o samym narzedziu audytujacym wskazuja testy lezace w JEGO
+				 * repozytorium, a ten przebieg oglada repozytorium produktu. Brak
+				 * pliku nie znaczy tu braku testu, tylko inny zakres — i tak trzeba
+				 * to opisac, zamiast liczyc jako ustalenie.
+				 */
+				$wlasne = array();
+
+				foreach ( $sciezki as $kandydat ) {
+					if ( 0 === strpos( $kandydat, 'audyt/' ) ) {
+						$wlasne[] = $kandydat;
+					}
+				}
+
+				if ( $sciezki && count( $wlasne ) === count( $sciezki ) ) {
 					$wpis['test_istnieje'] = true;
-					$tresc = $kontekst->workspace->tresc( $pelna, $kontekst );
+					$wpis['test_opisuje']  = true;
+					$wpis['poza_zakresem'] = true;
+				} else {
+					$korzen = $kontekst->workspace->korzen();
 
-					// Czy test WIE, czego pilnuje? Szukamy identyfikatora bledu
-					// albo slow kluczowych z jego opisu.
-					$wpis['test_opisuje'] = false !== strpos( $tresc, $wpis['id'] )
-						|| $this->opisuje( $tresc, (string) ( $blad['dowod'] ?? '' ) );
-					$wpis['rozmiar'] = strlen( $tresc );
+					foreach ( $sciezki as $czysta ) {
+						$kandydaci = array();
+
+						if ( '' !== $katalog ) {
+							$kandydaci[] = $katalog . '/' . $czysta;
+						}
+
+						if ( '' !== $korzen ) {
+							$kandydaci[] = $korzen . '/' . $czysta;
+						}
+
+						foreach ( $kandydaci as $kandydat ) {
+							if ( ! is_readable( $kandydat ) ) {
+								continue;
+							}
+
+							$wpis['test_istnieje'] = true;
+							$tresc = $kontekst->workspace->tresc( $kandydat, $kontekst );
+
+							// Czy test WIE, czego pilnuje? Szukamy identyfikatora bledu
+							// albo slow kluczowych z jego opisu.
+							if ( false !== strpos( $tresc, $wpis['id'] ) || $this->opisuje( $tresc, (string) ( $blad['dowod'] ?? '' ) ) ) {
+								$wpis['test_opisuje'] = true;
+							}
+
+							$wpis['rozmiar'] = strlen( $tresc );
+							break 2;
+						}
+					}
 				}
 			}
 
