@@ -75,12 +75,26 @@ class MP_Pipeline_Logger {
 	 */
 	protected function department_label( $dept_num, $origin = '' ) {
 		$dept_num = (int) $dept_num;
+		$origin   = (string) $origin;
 
 		if ( $dept_num > 0 ) {
+			/*
+			 * Pochodzenie (plik i linia) tu NIE JEST doklejane i nie jest to
+			 * przeoczenie — audyt zgłosił to jako brak, więc powód zostaje zapisany.
+			 *
+			 * Tożsamość miejsca musi mieć tę samą ziarnistość, co kubełek wyciszania.
+			 * `log_exception()` liczy klucz ogranicznika jako
+			 * `mp_notify_exception_<numer działu>`, gdy dział jest znany — czyli
+			 * JEDEN kubełek na dział. Gdyby opis rozróżniał w nim jeszcze plik
+			 * i linię, dwa różne wyjątki z działu 7 dostałyby dwie różne treści,
+			 * ale wyszedłby tylko pierwszy mail: czytelnik zobaczyłby opis
+			 * sugerujący osobne zdarzenia i osobne wyciszanie, którego nie ma.
+			 *
+			 * Gałąź poniżej dokleja pochodzenie właśnie dlatego, że tam kubełek
+			 * liczy się z pochodzenia — opis i wyciszanie zgadzają się w obie strony.
+			 */
 			return sprintf( 'dziale %d', $dept_num );
 		}
-
-		$origin = (string) $origin;
 
 		if ( '' === $origin ) {
 			return __( 'nieustalonym miejscu pipeline\'u', 'mp-lead-intake' );

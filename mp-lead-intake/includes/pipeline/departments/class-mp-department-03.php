@@ -193,8 +193,40 @@ class MP_D3_Agent_Vat extends MP_Abstract_Agent {
 			'vat_valid'   => (bool) ( $tablica ? ( $cached['valid'] ?? 0 ) : $cached ),
 			'vat_checked' => true,
 			'vat_source'  => 'cache',
-			'vat_name'    => $tablica && isset( $cached['name'] ) ? $cached['name'] : null,
+			'vat_name'    => self::nazwa_firmy( $tablica && isset( $cached['name'] ) ? $cached['name'] : null ),
 		);
+	}
+
+	/**
+	 * Nazwa firmy z rejestru — albo `null`, gdy rejestr jej nie ujawnił.
+	 *
+	 * VIES nie zawsze podaje nazwę: państwa członkowskie mają prawo jej nie
+	 * ujawniać i usługa oddaje wtedy w polu `name` łańcuch „---". Kod brał go
+	 * dosłownie i zapisywał jako nazwę firmy — do kontekstu i do pamięci
+	 * podręcznej na dobę. Docblock obok obiecuje wprost, że przy braku nazwy
+	 * zostaje `null`, czyli „nie wiemy", zamiast wartości zmyślonej; obietnica
+	 * była dotrzymywana dla pola NIEOBECNEGO, a łamana dla pola obecnego
+	 * i pustego w treści. To ta sama zasada, co przy werdykcie: „nie ustalono"
+	 * nie jest odpowiedzią, tylko jej brakiem.
+	 *
+	 * Zaślepką jest łańcuch złożony z samych myślników. Myślnik WEWNĄTRZ nazwy
+	 * („Nowak-Kowalski") jest treścią i zostaje.
+	 *
+	 * @param mixed $surowa Wartość pola `name` z odpowiedzi albo z cache.
+	 * @return string|null
+	 */
+	public static function nazwa_firmy( $surowa ) {
+		if ( ! is_string( $surowa ) ) {
+			return null;
+		}
+
+		$nazwa = trim( $surowa );
+
+		if ( '' === $nazwa || preg_match( '/\A-+\z/', $nazwa ) ) {
+			return null;
+		}
+
+		return $nazwa;
 	}
 
 	public function __construct() {
@@ -336,11 +368,16 @@ class MP_D3_Agent_Vat extends MP_Abstract_Agent {
 		 * na stary kształt (skalar), bo wpisy sprzed aktualizacji dożywają w bazie
 		 * jeszcze dobę.
 		 */
+		// Nazwa sprowadzona do postaci uzytecznej RAZ, przed obydwoma zapisami —
+		// inaczej zaslepka „---" siedzialaby w cache przez dobe i wracala z niego
+		// jako nazwa firmy przy kazdym kolejnym zgloszeniu tego numeru.
+		$nazwa = self::nazwa_firmy( isset( $body['name'] ) ? $body['name'] : null );
+
 		set_transient(
 			$cache_key,
 			array(
 				'valid' => $valid ? 1 : 0,
-				'name'  => isset( $body['name'] ) ? (string) $body['name'] : null,
+				'name'  => $nazwa,
 			),
 			DAY_IN_SECONDS
 		);
@@ -349,7 +386,7 @@ class MP_D3_Agent_Vat extends MP_Abstract_Agent {
 			'vat_valid'   => $valid,
 			'vat_checked' => true,
 			'vat_source'  => 'vies',
-			'vat_name'    => isset( $body['name'] ) ? $body['name'] : null,
+			'vat_name'    => $nazwa,
 		);
 	}
 

@@ -40,9 +40,6 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 
-	/** Jedyny dozwolony status z tego pipeline'u — plugin 3 włada dalszymi statusami (decyzja B). */
-	const ALLOWED_STATUSES = array( MP_Offer_Builder_DB::STATUS_DRAFT );
-
 	/** Limity długości pól tekstowych — lustro schematu w class-mp-offer-builder-db.php. */
 	const FIELD_LIMITS = array(
 		'offer_number'      => 30,
@@ -388,7 +385,9 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 		 * jednoelementową listą zawierającą DOKŁADNIE tę samą stałą, którą kilkanaście
 		 * linii wyżej przypisano literałem. Nie istniało wejście, dla którego warunek
 		 * mógłby się nie powieść: sprawdzenie wyglądało jak zabezpieczenie, a było
-		 * tautologią.
+		 * tautologią. Sama stała przetrwała usunięcie warunku i została bez ani
+		 * jednego użycia — czyli jako deklaracja reguły, której nikt nie egzekwuje.
+		 * Usunięta razem z nim; regułę niesie ten komentarz i test.
 		 *
 		 * Plan zawsze zapisuje szkic, bo Dział 1 wpuszcza do pipeline'u wyłącznie
 		 * ofertę w statusie `draft` (albo żadnej — wtedy INSERT). Prawdziwą bramką

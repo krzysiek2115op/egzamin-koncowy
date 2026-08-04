@@ -85,8 +85,12 @@ class MP_OB_D2_Agent_Products extends MP_OB_Abstract_Agent {
 				'id'          => $lookup_id,
 				'name'        => $product->get_name(),
 				'tax_class'   => $product->get_tax_class(),
-				// S3-02: status podatkowy produktu — produkt 'none' (zwolniony) NIE
-				// może dostać VAT wg klasy (Dział 6 traktuje 'none' jako 0%).
+				// S3-02: status podatkowy produktu. Ani 'none' (zwolniony), ani
+				// 'shipping' (opodatkowana jest wysyłka, nie towar) NIE może dostać
+				// VAT wg klasy — oba sprowadza do 0% MP_OB_Products::zwolniona_z_vat().
+				// Komentarz wymieniał wcześniej sam 'none', choć kod od początku
+				// obejmował oba: opis węższy niż reguła każe szukać błędu tam,
+				// gdzie go nie ma.
 				'tax_status'  => $product->get_tax_status(),
 				'purchasable' => $product->is_purchasable(),
 			);

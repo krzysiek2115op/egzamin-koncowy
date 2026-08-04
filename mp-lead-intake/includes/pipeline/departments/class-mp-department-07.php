@@ -46,12 +46,17 @@ class MP_D7_Agent_Dedup extends MP_Abstract_Agent {
 		}
 
 		$nip = (string) $context->get( 'nip', '' );
-		// Reużycie wyniku działu 1.1 (już pobrał aktywne leady po tym samym,
-		// znormalizowanym NIP) zamiast powtórnego zapytania do BD-3 — audyt
-		// architektury (S-2) wykazał, że dział 1 był pobierany, ale nigdzie
-		// dalej nieużywany. NIP w kontekście jest identyczny w obu miejscach
-		// (ta sama normalizacja preg_replace('/\D+/','',...) na tym samym
-		// wejściu, dział 1 działa PRZED normalizującym działem 2).
+		// Reużycie wyniku działu 1.1 zamiast powtórnego zapytania do BD-3 — audyt
+		// architektury (S-2) wykazał, że dział 1 był pobierany, ale nigdzie dalej
+		// nieużywany.
+		//
+		// Dział 1.1 pyta po PARZE (country, nip), czyli po pełnym kluczu unikalności
+		// z BD-3 — nie po samym numerze. Oba składniki normalizuje tak samo jak
+		// dział 2 (`MP_Vat_Number::country()` i `::normalize()`), choć działa przed
+		// nim. To istotne w obie strony: po samym numerze dedup byłby SUROWSZY niż
+		// baza (numery lokalne różnych krajów UE potrafią się cyfrowo pokrywać),
+		// a bez normalizacji — ślepy na własnego klienta zapisanego innym zapisem
+		// tego samego numeru.
 		$existing = (array) $context->get( 'leads', array() );
 		$dup      = ! empty( $existing );
 
