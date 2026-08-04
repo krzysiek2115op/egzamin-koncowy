@@ -1445,7 +1445,8 @@
       "plik": "mp-sales-workflow/includes/pipeline/departments/class-mp-sw-department-08.php, class-mp-sw-department-07.php",
       "dowod": "Dzial 8 składał wiersz procesu z `name` i `email`, ale bez `segment`, choć koperta zdarzenia go niesie i kolumna w bazie istnieje. Dzial 7 czytał segment wylacznie z wiersza, ktory w chwili pierwszego zdarzenia jeszcze nie istnial.",
       "skutek": "Powiadomienia i dobor handlowca dzialaly na pustym segmencie przy KAZDYM pierwszym zdarzeniu procesu. Naprawa jednej polowy (zapis) nie wystarczala: Dzial 7 biegnie PRZED Dzialem 8.",
-      "lekcja": "Gdy dana plynie przez dwa dzialy, naprawa musi objac oba konce — zapis i odczyt. Test ma sprawdzac PIERWSZE zdarzenie, bo to jedyny moment, w ktorym wiersza jeszcze nie ma."
+      "lekcja": "Gdy dana plynie przez dwa dzialy, naprawa musi objac oba konce — zapis i odczyt. Test ma sprawdzac PIERWSZE zdarzenie, bo to jedyny moment, w ktorym wiersza jeszcze nie ma.",
+      "test": "mp-sales-workflow/tests/naprawy/segment-dociera-do-procesu.php"
     },
     {
       "id": "U-46",
@@ -1456,7 +1457,8 @@
       "plik": "mp-lead-intake/includes/class-mp-page.php",
       "dowod": "`MP_Lead_Intake_Page::url()` oddawalo `get_permalink()` dla KAZDEGO wpisu, takze w koszu, w szkicu i prywatnego. Awaryjne dokladanie pozycji do nawigacji korzysta z tej metody.",
       "skutek": "Gosc widzial w menu odnosnik do strony, ktorej nie ma — czyli 404 na sciezce, ktora jest jedynym wejsciem do calego procesu.",
-      "lekcja": "Metoda oddajaca ADRES ma sprawdzac, czy cel jest publiczny. `get_post()` zwraca takze wpisy, ktorych gosc nie zobaczy."
+      "lekcja": "Metoda oddajaca ADRES ma sprawdzac, czy cel jest publiczny. `get_post()` zwraca takze wpisy, ktorych gosc nie zobaczy.",
+      "test": "mp-lead-intake/tests/naprawy/link-do-strony-ktorej-nie-ma.php"
     },
     {
       "id": "U-47",
@@ -1467,7 +1469,8 @@
       "plik": "mp-lead-intake/includes/pipeline/class-mp-pipeline-logger.php",
       "dowod": "`log_failure()` składało opis z numeru dzialu i MASZYNOWEGO kodu bledu. Komunikaty dla czlowieka z `get_errors()` szly wylacznie do `meta_json`, ktorego lista wpisow w panelu nie pokazuje — ten sam plik stwierdza to dwukrotnie.",
       "skutek": "Administrator ogladal dziennik pelen kodow, majac powod awarii zapisany obok, w kolumnie, ktorej nie widzi. Blizniacza metoda `log_exception()` te naprawe miala.",
-      "lekcja": "Trzeci przypadek tej samej pomylki w projekcie: naprawa jednej z dwoch blizniaczych sciezek. Szukajac takiego bledu, sprawdzaj rownolegle metody, nie tylko te zglaszana."
+      "lekcja": "Trzeci przypadek tej samej pomylki w projekcie: naprawa jednej z dwoch blizniaczych sciezek. Szukajac takiego bledu, sprawdzaj rownolegle metody, nie tylko te zglaszana.",
+      "test": "mp-lead-intake/tests/naprawy/dziennik-mowi-co-sie-stalo.php"
     },
     {
       "id": "U-48",
@@ -1478,7 +1481,8 @@
       "plik": "mp-lead-intake/includes/pipeline/departments/class-mp-department-03.php",
       "dowod": "Wczesniejsza wersja zapisywala do transienta SKALAR (1/0), gdzie 0 znaczylo takze 'nie dalo sie ustalic'. Odczyt po aktualizacji zamienial skalarne 0 na `vat_valid=false, vat_checked=true`, a Krytyk 3.2 robi STOP dokladnie na tym warunku.",
       "skutek": "Przez dobe po aktualizacji (zycie transienta) legalne zgloszenia byly odrzucane jako `vat_invalid` — czyli dokladnie ten skutek, przed ktorym bronila nowa straz przy zapisie.",
-      "lekcja": "Zmiana ksztaltu danych w cache to migracja. Wpis w starym ksztalcie ma NIE ROZSTRZYGAC, a nie byc tlumaczony na nowy — bo tlumaczenie zgaduje to, czego stary ksztalt nie zapisal."
+      "lekcja": "Zmiana ksztaltu danych w cache to migracja. Wpis w starym ksztalcie ma NIE ROZSTRZYGAC, a nie byc tlumaczony na nowy — bo tlumaczenie zgaduje to, czego stary ksztalt nie zapisal.",
+      "test": "mp-lead-intake/tests/naprawy/stary-cache-vies-nie-rozstrzyga.php"
     },
     {
       "id": "U-49",
@@ -1489,7 +1493,8 @@
       "plik": "mp-lead-intake/includes/pipeline/class-mp-pipeline-logger.php",
       "dowod": "`alert_state()` oddawalo lancuch 'wysylany'; `etykieta_alarmu()` rozpoznaje 'wyslany'. Galaz etykiety nie mogla wypasc nigdy. Od 1.3.9 metoda nie miala ani jednego wywolania.",
       "skutek": "Sam w sobie zaden — dopoki ktos nie uzylby jej w dobrej wierze i nie dostal cichego 'los nieustalony'. Refaktor, ktory osierocil metode, nie usunal jej.",
-      "lekcja": "Stan przekazywany luznym lancuchem znosi literowke po cichu; stala robi z niej blad PHP. Refaktor konczy sie dopiero po usunieciu tego, co przestal wolac."
+      "lekcja": "Stan przekazywany luznym lancuchem znosi literowke po cichu; stala robi z niej blad PHP. Refaktor konczy sie dopiero po usunieciu tego, co przestal wolac.",
+      "test": "mp-lead-intake/tests/naprawy/slownik-alarmu-i-krotki-kod.php"
     },
     {
       "id": "U-50",
@@ -1500,7 +1505,8 @@
       "plik": "mp-sales-workflow/includes/pipeline/departments/class-mp-sw-department-05.php, class-mp-sw-department-06.php",
       "dowod": "`gmdate( ..., strtotime( '<data GMT>' . ' +1 day' ) )` — `strtotime()` czyta lancuch bez oznaczenia strefy STREFA DOMYSLNA PHP, a wynik wraca przez `gmdate()`. Cron tej samej wtyczki doklejal ' UTC' od poczatku.",
       "skutek": "Na typowym WordPressie (ustawia UTC sam) wychodzilo dobrze — dlatego ustalenie jest drobne. Jedna wtyczka wolajaca `date_default_timezone_set()` przesuwa SLA calego procesu o przesuniecie strefy, a w dobie zmiany czasu o godzine wiecej.",
-      "lekcja": "Komentarz 'jedno zrodlo czasu w GMT' nie jest implementacja. Test ma liczyc to samo w kilku strefach, w tym niepelnogodzinnej, i przez dobe zmiany czasu."
+      "lekcja": "Komentarz 'jedno zrodlo czasu w GMT' nie jest implementacja. Test ma liczyc to samo w kilku strefach, w tym niepelnogodzinnej, i przez dobe zmiany czasu.",
+      "test": "mp-sales-workflow/tests/naprawy/czas-i-slownik-statusow.php"
     },
     {
       "id": "U-51",
@@ -1511,7 +1517,8 @@
       "plik": "mp-sales-workflow/includes/pipeline/departments/class-mp-sw-department-05.php",
       "dowod": "Agent 5.1 wklada do wyniku `known_status` (czy status docelowy istnieje w slowniku). Krytyk K5.1 tej wartosci nie czytal i kazda odmowe opisywal jako nielegalne PRZEJSCIE.",
       "skutek": "Literowka w nazwie statusu ('wygrny') dostawala komunikat kierujacy uwage na regule przejscia, podczas gdy naprawa jest w tresci zadania.",
-      "lekcja": "Pole w wyniku, ktorego nikt nie czyta, jest sygnalem: albo obliczenie jest zbedne, albo odbiorca zapomnial go uzyc. Warto sprawdzic, ktore z dwojga."
+      "lekcja": "Pole w wyniku, ktorego nikt nie czyta, jest sygnalem: albo obliczenie jest zbedne, albo odbiorca zapomnial go uzyc. Warto sprawdzic, ktore z dwojga.",
+      "test": "mp-sales-workflow/tests/naprawy/czas-i-slownik-statusow.php"
     },
     {
       "id": "U-52",
@@ -1522,7 +1529,8 @@
       "plik": "mp-offer-builder/includes/pipeline/departments/class-mp-ob-department-10.php",
       "dowod": "Warunek `! empty( $line_tax_rates ) && ! isset( ... )` wybaczal brak CALEJ mapy kazdemu mechanizmowi, choc komentarz obok wymienial dwa (reverse_charge, out_of_scope). Fallback siegal po `$context->get( 'tax_rate', 0 )`, czyli przy braku stawki po prostu po zero.",
       "skutek": "Oferta krajowa, ktora doszla do Dzialu 10 bez mapy, trafialaby na papier klienta z 0% VAT bez sladu w logach.",
-      "lekcja": "Fallback ma byc zawezony do warunku, ktory go uzasadnia — inaczej jest ogolna zgoda na brak danych. Kontr-asercja pilnujaca fallbacku musi uruchamiac TEN mechanizm, ktory deklaruje w komentarzu; ta uruchamiala krajowy i dlatego chronila blad."
+      "lekcja": "Fallback ma byc zawezony do warunku, ktory go uzasadnia — inaczej jest ogolna zgoda na brak danych. Kontr-asercja pilnujaca fallbacku musi uruchamiac TEN mechanizm, ktory deklaruje w komentarzu; ta uruchamiala krajowy i dlatego chronila blad.",
+      "test": "mp-offer-builder/tests/naprawy/stawka-vat-i-komunikat-dokumentu.php"
     },
     {
       "id": "U-53",
@@ -1533,7 +1541,8 @@
       "plik": "mp-offer-builder/includes/class-mp-offer-builder-approval.php",
       "dowod": "Bramka sprawdza `'' === numer || '' === plik`, a odmowe opisywala zdaniem 'Oferta nie ma jeszcze numeru I pliku PDF'.",
       "skutek": "Oferta z numerem, ale bez dokumentu, kierowala handlowca do numeracji zamiast do generowania PDF — najdrozsza czesc awarii to szukanie po zlej stronie.",
-      "lekcja": "Warunek z 'albo' potrzebuje tylu komunikatow, ile ma przypadkow. Tam gdzie po przekierowaniu zostaje sam kod bledu, zdanie ma mowic 'albo', a nie zgadywac."
+      "lekcja": "Warunek z 'albo' potrzebuje tylu komunikatow, ile ma przypadkow. Tam gdzie po przekierowaniu zostaje sam kod bledu, zdanie ma mowic 'albo', a nie zgadywac.",
+      "test": "mp-offer-builder/tests/naprawy/stawka-vat-i-komunikat-dokumentu.php"
     },
     {
       "id": "U-54",
@@ -1544,7 +1553,8 @@
       "plik": "mp-*/materialy-src/*.json, mp-lead-intake/materialy-src/ (nie istnial)",
       "dowod": "Stopki PDF mowily v1.1.0 / v1.2.1 / v1.2.3 (wtyczka 1), v1.0.3 (wtyczka 2), v1.0.0 (wtyczka 3) przy wtyczkach na 1.3.10. Wtyczka 1 nie miala W OGOLE katalogu `materialy-src` — dziewiec plikow PDF/.drawio lezalo w paczce jako artefakty, ktorych nie da sie odtworzyc.",
       "skutek": "Klient dostawal wydruk podpisany numerem sprzed czterech wydan, a przy wtyczce 1 nie bylo jak tego poprawic bez rysowania schematow od nowa.",
-      "lekcja": "Kazdy artefakt w dostawie ma miec zrodlo w repozytorium. Numer wersji w dokumencie nalezy CZYTAC z naglowka wtyczki przy budowaniu — wpisany z reki starzeje sie cicho, bo nic go nie sprawdza."
+      "lekcja": "Kazdy artefakt w dostawie ma miec zrodlo w repozytorium. Numer wersji w dokumencie nalezy CZYTAC z naglowka wtyczki przy budowaniu — wpisany z reki starzeje sie cicho, bo nic go nie sprawdza.",
+      "test": "tools/wydanie/tests/paczka-instalacyjna.py"
     },
     {
       "id": "U-55",
@@ -1555,7 +1565,21 @@
       "plik": "tools/strona-pokazowa/motyw/header.php, motyw/parts/kontakt.html",
       "dowod": "`<html lang=\"pl\">` i `<meta charset=\"UTF-8\">` wpisane wprost zamiast `language_attributes()` i `bloginfo( 'charset' )`. Trzy ikony spolecznosciowe opakowane w odnosniki do samego krzyzyka.",
       "skutek": "Instalacja postawiona po angielsku oglaszala czytnikom ekranu i wyszukiwarkom polski. Uzytkownik klawiatury dostawal trzy przystanki tabulatorem bez celu, a czytnik ekranu zapowiadal odnosniki prowadzace donikad.",
-      "lekcja": "Motyw pokazowy jest dla ogladajacego przykladem, jak sie pisze motyw — nawyk pokazany w demo zostanie skopiowany. Fikcyjna firma nie ma profili: lepiej ikona-dekoracja niz odnosnik, ktory klamie."
+      "lekcja": "Motyw pokazowy jest dla ogladajacego przykladem, jak sie pisze motyw — nawyk pokazany w demo zostanie skopiowany. Fikcyjna firma nie ma profili: lepiej ikona-dekoracja niz odnosnik, ktory klamie.",
+      "test": "tools/strona-pokazowa/tests/demo-nie-klamie-przegladarce.php"
+    },
+    {
+      "id": "U-56",
+      "data": "2026-08-05",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Zaslepka z myslnikow z VIES zapisywana jako nazwa firmy",
+      "klasa": "brak-danych-udajacy-dane",
+      "plik": "mp-lead-intake/includes/pipeline/departments/class-mp-department-03.php",
+      "dowod": "VIES nie zawsze ujawnia nazwe — panstwa czlonkowskie maja do tego prawo i usluga oddaje wtedy w polu `name` lancuch z samych myslnikow. Kod zapisywal go doslownie do kontekstu (`vat_name`) i do transienta na dobe.",
+      "skutek": "Docblock obok obiecuje wprost, ze przy braku nazwy zostaje `null`, czyli brak wiedzy zamiast wartosci zmyslonej. Obietnica byla dotrzymywana dla pola NIEOBECNEGO, a lamana dla obecnego i pustego w tresci.",
+      "lekcja": "Zaslepka rejestru to brak danych, nie dana. Sprowadzenie do postaci uzytecznej ma sie dziac RAZ, przed obydwoma zapisami — inaczej cache przechowuje smiec przez dobe.",
+      "test": "mp-lead-intake/tests/naprawy/nazwa-z-vies-i-miejsce-awarii.php",
+      "para": "1.25"
     }
   ]
 }
