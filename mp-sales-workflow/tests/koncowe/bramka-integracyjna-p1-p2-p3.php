@@ -4,6 +4,10 @@
  * F4 (lead_id w zdarzeniu oferty). Trzy wtyczki na jednej instalacji.
  */
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 global $wpdb;
 
 $GLOBALS['mp_oks']   = array();

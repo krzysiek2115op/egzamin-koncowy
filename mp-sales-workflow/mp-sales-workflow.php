@@ -10,6 +10,7 @@
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       mp-sales-workflow
+ * Domain Path:       /languages
  *
  * Copyright (C) 2026 krzysiek2115op
  *
@@ -68,6 +69,7 @@ require_once MP_SALES_WORKFLOW_DIR . 'includes/class-mp-sw-queue.php';
 require_once MP_SALES_WORKFLOW_DIR . 'includes/class-mp-sw-cron.php';
 require_once MP_SALES_WORKFLOW_DIR . 'includes/class-mp-sw-hooks.php';
 require_once MP_SALES_WORKFLOW_DIR . 'includes/admin/class-mp-sw-admin.php';
+require_once MP_SALES_WORKFLOW_DIR . 'includes/admin/class-mp-sw-user-profile.php';
 
 /*
  * Wyjątek od reguły „wszystko z `boot()`": obsługa podpisanego linku do oferty
@@ -114,6 +116,16 @@ function mp_sales_workflow_boot() {
 	 * MP_SW_Mailer::send().
 	 */
 	MP_SW_Privacy::register();
+
+	/*
+	 * Pola handlowca w profilu uzytkownika wpinamy BEZ warunku `is_admin()`.
+	 * Haki `show_user_profile`/`edit_user_profile` i tak odpalaja sie wylacznie
+	 * na ekranach profilu, wiec warunek niczego nie oszczedza — odbiera za to
+	 * mozliwosc sprawdzenia rejestracji spoza przegladarki (WP-CLI, regresja),
+	 * czyli tam, gdzie testujemy. Ekrany menu zostaja pod warunkiem, bo
+	 * `add_menu_page()` ma sens tylko w panelu.
+	 */
+	MP_SW_User_Profile::register();
 
 	if ( is_admin() ) {
 		MP_SW_Admin::register();

@@ -7,6 +7,10 @@
  *   - P3-B3  Odmowa zostawiala w kontekscie surowy `scope` z zadania
  */
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 global $wpdb;
 
 $GLOBALS['mp_oks']   = array();

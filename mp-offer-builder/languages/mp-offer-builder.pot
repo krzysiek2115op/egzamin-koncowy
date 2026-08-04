@@ -1,0 +1,500 @@
+# Copyright (C) 2026 krzysiek2115op
+# This file is distributed under the GPL-2.0-or-later.
+msgid ""
+msgstr ""
+"Project-Id-Version: MP Offer Builder 1.3.9\n"
+"Report-Msgid-Bugs-To: https://github.com/krzysiek2115op/egzamin-koncowy/issues\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-08-04T13:48:57+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: mp-offer-builder\n"
+
+#. Plugin Name of the plugin
+#: mp-offer-builder.php
+#: includes/admin/class-mp-offer-builder-admin.php:51
+msgid "MP Offer Builder"
+msgstr ""
+
+#. Plugin URI of the plugin
+#: mp-offer-builder.php
+msgid "https://github.com/krzysiek2115op/egzamin-koncowy"
+msgstr ""
+
+#. Description of the plugin
+#: mp-offer-builder.php
+msgid "Kalkulacja cenowa, integracja z WooCommerce, generowanie ofert PDF. Drugi element procesu formularz → oferta."
+msgstr ""
+
+#. Author of the plugin
+#: mp-offer-builder.php
+msgid "krzysiek2115op"
+msgstr ""
+
+#: includes/admin/class-mp-ob-settings.php:64
+#: includes/admin/class-mp-ob-settings.php:65
+#: includes/admin/class-mp-ob-settings.php:402
+msgid "Reguły rabatowe"
+msgstr ""
+
+#. translators: 1: numer wiersza tabeli, 2: nazwa wariantu cenowego.
+#: includes/admin/class-mp-ob-settings.php:171
+#, php-format
+msgid "Wiersz %1$d: nieznany wariant cenowy: %2$s."
+msgstr ""
+
+#. translators: %d: numer wiersza tabeli.
+#: includes/admin/class-mp-ob-settings.php:181
+#, php-format
+msgid "Wiersz %d: próg wolumenu musi być liczbą co najmniej 1 — próg zerowy pokrywa reguła domyślna."
+msgstr ""
+
+#. translators: %d: numer wiersza tabeli.
+#: includes/admin/class-mp-ob-settings.php:195
+#, php-format
+msgid "Wiersz %d: rabat musi mieścić się w przedziale od 0 do 99,99%%."
+msgstr ""
+
+#: includes/admin/class-mp-ob-settings.php:249
+#: includes/admin/class-mp-ob-settings.php:334
+msgid "Brak uprawnień do zmiany reguł rabatowych."
+msgstr ""
+
+#: includes/admin/class-mp-ob-settings.php:283
+msgid "Nie podano żadnej reguły. Żeby wrócić do reguł wbudowanych, użyj przycisku „Przywróć wbudowane\"; pusta tabela nie jest zapisywana jako „rabat 0% dla wszystkich\"."
+msgstr ""
+
+#: includes/admin/class-mp-ob-settings.php:318
+msgid "Nie udało się zapisać reguł — baza odrzuciła zmianę. Spróbuj ponownie, a jeśli problem wraca, zgłoś to administratorowi."
+msgstr ""
+
+#: includes/admin/class-mp-ob-settings.php:348
+msgid "Nic nie zostało zapisane — popraw wskazane wiersze i zapisz ponownie. Dotychczasowe reguły obowiązują bez zmian."
+msgstr ""
+
+#: includes/admin/class-mp-ob-settings.php:354
+msgid "Reguły rabatowe zapisane. Oferty wystawione wcześniej zachowują rabat policzony według poprzedniej wersji."
+msgstr ""
+
+#: includes/admin/class-mp-ob-settings.php:363
+msgid "Przywrócono reguły wbudowane. Ustawienia zostały skasowane, a rabaty liczy teraz słownik z wtyczki. Oferty wystawione wcześniej zachowują rabat policzony według poprzedniej wersji."
+msgstr ""
+
+#: includes/admin/class-mp-ob-settings.php:405
+msgid "Rabat dobierany jest po wariancie cenowym i progu wolumenu — wygrywa reguła o najwyższym progu, który zamówienie osiąga. Gdy żadna nie pasuje, obowiązuje 0%."
+msgstr ""
+
+#: includes/admin/class-mp-ob-settings.php:408
+msgid "Obowiązująca wersja słownika:"
+msgstr ""
+
+#: includes/admin/class-mp-ob-settings.php:412
+msgid "(z ustawień)"
+msgstr ""
+
+#: includes/admin/class-mp-ob-settings.php:413
+msgid "(wbudowana we wtyczkę)"
+msgstr ""
+
+#: includes/admin/class-mp-ob-settings.php:421
+#: includes/admin/class-mp-offer-builder-admin.php:385
+msgid "Wariant cenowy"
+msgstr ""
+
+#: includes/admin/class-mp-ob-settings.php:422
+msgid "Próg (szt.)"
+msgstr ""
+
+#: includes/admin/class-mp-ob-settings.php:423
+msgid "Rabat (%)"
+msgstr ""
+
+#: includes/admin/class-mp-ob-settings.php:430
+msgid "— (wiersz pusty)"
+msgstr ""
+
+#: includes/admin/class-mp-ob-settings.php:448
+msgid "Zapisz reguły"
+msgstr ""
+
+#: includes/admin/class-mp-ob-settings.php:450
+msgid "Przywróć wbudowane"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:50
+#: includes/admin/class-mp-offer-builder-admin.php:222
+msgid "Oferty"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:93
+msgid "Usuń"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:94
+#: includes/class-mp-offer-builder-ajax.php:247
+msgid "Nie udało się zbudować oferty. Sprawdź dane i spróbuj ponownie."
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:107
+#: includes/class-mp-offer-builder-download.php:51
+msgid "Nieprawidłowy token bezpieczeństwa."
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:110
+#: includes/admin/class-mp-offer-builder-admin.php:188
+#: includes/class-mp-offer-builder-approval.php:374
+msgid "Brak uprawnień."
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:223
+msgid "Nowa oferta"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:226
+msgid "Szukaj"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:248
+#: includes/class-mp-offer-builder-download.php:60
+msgid "Oferta nie istnieje."
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:251
+#: includes/class-mp-offer-builder-download.php:67
+msgid "Brak dostępu do tej oferty."
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:262
+msgid "Oferta jest już zatwierdzona i nie można jej edytować. Zmiany wprowadź, budując nową ofertę dla tego klienta."
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:293
+msgid "Budowa oferty"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:298
+#: includes/admin/class-mp-offer-builder-list-table.php:42
+msgid "Klient"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:301
+msgid "Nazwa firmy"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:311
+#: includes/class-mp-offer-builder-privacy.php:127
+msgid "E-mail"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:321
+#: includes/class-mp-offer-builder-privacy.php:131
+msgid "NIP"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:331
+msgid "Kraj (ISO 3166-1 alfa-2)"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:342
+msgid "VAT UE potwierdzony"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:346
+msgid "Klient z UE, którego numer VAT UE potwierdziłem jako ważny (np. w VIES). Zaznacz TYLKO w takim przypadku — włącza odwrotne obciążenie (0% VAT, art. 196 dyrektywy 2006/112/WE). Niezaznaczone = stawka krajowa."
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:365
+msgid "Czego szukał klient (z formularza)"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:369
+msgid "Produkty / zakres zainteresowania"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:375
+msgid "Przewidywany wolumen"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:382
+msgid "Wariant i język"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:388
+msgid "Standard"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:389
+msgid "Partner"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:394
+msgid "Język oferty"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:397
+msgid "Polski"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:404
+msgid "Pozycje oferty"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:408
+msgid "Produkt (wyszukaj)"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:409
+msgid "ID produktu"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:410
+msgid "ID wariantu (opcjonalnie)"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:411
+msgid "Ilość"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:419
+msgid "Dodaj pozycję"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-admin.php:423
+msgid "Zapisz i wygeneruj ofertę"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-list-table.php:41
+msgid "Numer"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-list-table.php:43
+#: includes/class-mp-offer-builder-privacy.php:139
+msgid "Status"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-list-table.php:44
+msgid "Brutto"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-list-table.php:45
+msgid "Wersja"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-list-table.php:46
+msgid "Zaktualizowano"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-list-table.php:47
+msgid "Akcje"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-list-table.php:100
+msgid "SZKIC"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-list-table.php:138
+msgid "Szkic"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-list-table.php:139
+msgid "Zatwierdzona"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-list-table.php:169
+msgid "Dokończ"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-list-table.php:169
+msgid "Edytuj"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-list-table.php:186
+msgid "Pobierz PDF"
+msgstr ""
+
+#: includes/admin/class-mp-offer-builder-list-table.php:193
+msgid "Zatwierdź"
+msgstr ""
+
+#: includes/class-mp-offer-builder-ajax.php:80
+msgid "Nieprawidłowy token bezpieczeństwa. Odśwież stronę i spróbuj ponownie."
+msgstr ""
+
+#: includes/class-mp-offer-builder-ajax.php:93
+msgid "Brak uprawnień do budowania ofert."
+msgstr ""
+
+#: includes/class-mp-offer-builder-ajax.php:104
+msgid "Zbyt wiele żądań. Odczekaj chwilę i spróbuj ponownie."
+msgstr ""
+
+#: includes/class-mp-offer-builder-ajax.php:119
+msgid "Żądanie jest zbyt duże."
+msgstr ""
+
+#: includes/class-mp-offer-builder-ajax.php:195
+msgid "Nie udało się zbudować oferty. Spróbuj ponownie."
+msgstr ""
+
+#: includes/class-mp-offer-builder-approval.php:91
+msgid "Oferta nie ma zapisanego stanu, więc nie da się jej zatwierdzić — zgłoś to administratorowi, bo wiersz w bazie jest niekompletny."
+msgstr ""
+
+#. translators: %s: status zapisany przy ofercie.
+#: includes/class-mp-offer-builder-approval.php:96
+#, php-format
+msgid "Oferta jest w stanie „%s\", z którego nie da się jej zatwierdzić — zatwierdzać można wyłącznie szkice. Stan spoza słownika dokumentu zgłoś administratorowi."
+msgstr ""
+
+#: includes/class-mp-offer-builder-approval.php:127
+#: includes/class-mp-offer-builder-approval.php:526
+msgid "Oferta nie istnieje albo nie masz do niej dostępu."
+msgstr ""
+
+#: includes/class-mp-offer-builder-approval.php:136
+#: includes/class-mp-offer-builder-approval.php:277
+msgid "Ta oferta była już zatwierdzona."
+msgstr ""
+
+#: includes/class-mp-offer-builder-approval.php:158
+msgid "Oferta nie ma jeszcze numeru i pliku PDF — najpierw ją dokończ i wygeneruj dokument."
+msgstr ""
+
+#: includes/class-mp-offer-builder-approval.php:176
+msgid "Plik PDF tej oferty nie istnieje — wygeneruj dokument ponownie przed zatwierdzeniem."
+msgstr ""
+
+#: includes/class-mp-offer-builder-approval.php:234
+msgid "Nie udało się zapisać zatwierdzenia — spróbuj ponownie za chwilę, a jeśli problem wraca, zgłoś to administratorowi."
+msgstr ""
+
+#: includes/class-mp-offer-builder-approval.php:264
+msgid "Oferta zniknęła w trakcie zatwierdzania — zapis nie doszedł do skutku. Odśwież listę ofert; jeśli oferta wróci, spróbuj ponownie."
+msgstr ""
+
+#. translators: 1: numer oferty, 2: identyfikator leada.
+#: includes/class-mp-offer-builder-approval.php:323
+#, php-format
+msgid "Oferta %1$s zatwierdzona (lead_id=%2$d) — zdarzenie mp_offer_approved zaraz zostanie wystawione."
+msgstr ""
+
+#. translators: %s: numer oferty.
+#: includes/class-mp-offer-builder-approval.php:466
+#, php-format
+msgid "Oferta %s"
+msgstr ""
+
+#: includes/class-mp-offer-builder-approval.php:469
+msgid "Oferta"
+msgstr ""
+
+#. translators: %s: „Oferta OF/2026/000123" albo samo „Oferta".
+#: includes/class-mp-offer-builder-approval.php:489
+#, php-format
+msgid "%s zatwierdzona. Moduł sprzedażowy przejmuje wysyłkę do klienta."
+msgstr ""
+
+#. translators: %s: „Oferta OF/2026/000123" albo samo „Oferta".
+#: includes/class-mp-offer-builder-approval.php:494
+#, php-format
+msgid "%s zatwierdzona, ale ŻADEN moduł nie nasłuchuje wysyłki — wyślij ją klientowi ręcznie albo włącz wtyczkę MP Sales Workflow."
+msgstr ""
+
+#. translators: %s: „Oferta OF/2026/000123" albo samo „Oferta".
+#: includes/class-mp-offer-builder-approval.php:502
+#, php-format
+msgid "%s była już zatwierdzona — nic się nie zmieniło."
+msgstr ""
+
+#. translators: %s: „Oferta OF/2026/000123" albo samo „Oferta".
+#: includes/class-mp-offer-builder-approval.php:512
+#, php-format
+msgid "%s: nie udało się zapisać zatwierdzenia — spróbuj ponownie za chwilę, a jeśli problem wraca, zgłoś to administratorowi."
+msgstr ""
+
+#. translators: %s: „Oferta OF/2026/000123" albo samo „Oferta".
+#: includes/class-mp-offer-builder-approval.php:520
+#, php-format
+msgid "%s nie ma jeszcze numeru i pliku PDF — najpierw ją dokończ i wygeneruj dokument."
+msgstr ""
+
+#. translators: %s: „Oferta OF/2026/000123" albo samo „Oferta".
+#: includes/class-mp-offer-builder-approval.php:531
+#, php-format
+msgid "%s jest w stanie, z którego nie da się jej zatwierdzić."
+msgstr ""
+
+#: includes/class-mp-offer-builder-download.php:55
+msgid "Brak uprawnień do pobierania ofert."
+msgstr ""
+
+#: includes/class-mp-offer-builder-download.php:72
+msgid "Plik PDF jeszcze nie istnieje."
+msgstr ""
+
+#: includes/class-mp-offer-builder-download.php:81
+msgid "Plik PDF poza dozwolonym katalogiem."
+msgstr ""
+
+#: includes/class-mp-offer-builder-privacy.php:54
+#: includes/class-mp-offer-builder-privacy.php:66
+msgid "MP Offer Builder — oferty"
+msgstr ""
+
+#: includes/class-mp-offer-builder-privacy.php:115
+msgid "Oferty (MP Offer Builder)"
+msgstr ""
+
+#: includes/class-mp-offer-builder-privacy.php:119
+msgid "Numer oferty"
+msgstr ""
+
+#: includes/class-mp-offer-builder-privacy.php:123
+msgid "Nazwa klienta"
+msgstr ""
+
+#: includes/class-mp-offer-builder-privacy.php:135
+msgid "Kraj"
+msgstr ""
+
+#: includes/class-mp-offer-builder-privacy.php:143
+msgid "Utworzono"
+msgstr ""
+
+#. translators: %d: liczba ofert
+#: includes/class-mp-offer-builder-privacy.php:270
+#, php-format
+msgid "Zanonimizowano dane osobowe w %d ofercie/ofertach MP Offer Builder (wiersze zachowane jako dokumenty handlowe)."
+msgstr ""
+
+#: includes/class-mp-offer-builder-privacy.php:291
+msgid "Wtyczka MP Offer Builder przechowuje dane kontaktowe klientów biznesowych (nazwa firmy, e-mail, NIP, kraj) oraz wygenerowane oferty PDF z indywidualnymi warunkami cenowymi. Dane są wykorzystywane wyłącznie do przygotowania i archiwizacji ofert handlowych. Oferty stanowią dokumenty o wartości dowodowej i nie są usuwane automatycznie; dane osobowe podmiotu danych mogą zostać wyeksportowane lub zanonimizowane na żądanie za pomocą narzędzi Narzędzia → Eksport/Usuń dane osobowe."
+msgstr ""
+
+#: includes/pipeline/class-mp-ob-pipeline-logger.php:37
+msgid "nieustalonym miejscu pipeline'u"
+msgstr ""
+
+#: includes/pipeline/class-mp-ob-pipeline-logger.php:52
+msgid "wp_mail() zgłosiło niepowodzenie; przyczyny kod nie zna — sprawdź konfigurację poczty, adres w ustawieniach witryny i wtyczki podpięte pod wysyłkę."
+msgstr ""
+
+#: mp-offer-builder.php:137
+msgid "Wykryto serwer nginx. Pliki .htaccess NIE chronią katalogu ofert PDF — dodaj do konfiguracji nginx blok blokujący bezpośredni dostęp:"
+msgstr ""
+
+#: mp-offer-builder.php:139
+msgid "Oferty pozostają chronione endpointem (nonce + uprawnienie + właściciel) oraz nieodgadywalną nazwą pliku, ale to ustawienie domyka obronę w głąb."
+msgstr ""
+
+#: mp-offer-builder.php:164
+msgid "MP Offer Builder: nie udało się utworzyć tabel bazy danych (BD-2). Sprawdź uprawnienia użytkownika bazy danych (CREATE TABLE) i spróbuj aktywować wtyczkę ponownie."
+msgstr ""
+
+#: mp-offer-builder.php:165
+msgid "Błąd aktywacji wtyczki MP Offer Builder"
+msgstr ""

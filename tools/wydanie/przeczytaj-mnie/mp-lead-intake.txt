@@ -1,0 +1,26 @@
+MP Lead Intake {WERSJA}
+====================
+
+Przyjecie i kwalifikacja leada z formularza
+
+W tej paczce:
+
+  mp-lead-intake.zip            <- TEN plik wgrywasz w panelu WordPressa
+                          (Wtyczki -> Dodaj nowa -> Wyslij wtyczke na serwer)
+  mp-lead-intake-materialy.zip  <- schematy, instrukcje instalacji, licencja
+
+Materialy nie sa czescia wtyczki i celowo NIE trafiaja na serwer: pliki
+w katalogu wtyczki sa dostepne publicznie pod adresem WWW, a dokumentacja
+wdrozeniowa nie powinna byc.
+
+Zawartosc paczki materialow:
+  instrukcja-instalacji-techniczna.pdf      dla administratora
+  instrukcja-instalacji-nietechniczna.pdf   dla osoby bez zaplecza technicznego
+  jak-dziala-plugin.pdf                           opis dzialania
+  schemat-bazy-danych.drawio / .pdf         struktura tabel
+  schemat-techniczny.drawio / .pdf          przeplyw danych
+  schemat-nietechniczny.drawio / .pdf       proces od strony biznesowej
+  LICENCJA.md, LICENSE                      GPL-2.0-or-later
+
+Wymagania: WordPress 6.0+, PHP 7.4+.
+Repozytorium: https://github.com/krzysiek2115op/egzamin-koncowy

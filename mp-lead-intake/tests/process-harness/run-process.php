@@ -1,4 +1,12 @@
 <?php
+// SR5-03: harness działa WYŁĄCZNIE z CLI (albo w WP z ABSPATH). Bezpośrednie
+// wywołanie przez web-serwer nie robi nic (info disclosure / obciążenie).
+// Bliźniaczy plik wtyczki 2 dostał ten strażnik przy SR5-03; ten — nie, mimo że
+// jest w paczce instalacyjnej i do działania NIE potrzebuje WordPressa, więc
+// wejście na jego adres po prostu go uruchamiało.
+if ( 'cli' !== PHP_SAPI && ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 /**
  * PĘTLA WHILE weryfikująca PROCES wtyczki MP Lead Intake w runtime.
  *

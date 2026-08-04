@@ -28,6 +28,19 @@ Kolejność instalacji ma znaczenie: **1, potem 2, potem 3**. Wtyczka 2 nasłuch
 zdarzenia z wtyczki 1, a wtyczka 3 — zdarzeń z obu poprzednich. Gotowe paczki
 do wgrania są w [Releases](https://github.com/krzysiek2115op/egzamin-koncowy/releases).
 
+### Wymagania
+
+| | |
+|---|---|
+| WordPress | 6.0 lub nowszy; testowane na 7.0 |
+| PHP | 7.4 dla wtyczek 1 i 3, **8.1 dla wtyczki 2** (dołączony dompdf nie działa niżej) |
+| WooCommerce | wymagany przez wtyczkę 2 (`Requires Plugins: woocommerce`) |
+| Stałe w `wp-config.php` | `MP_SW_LINK_KEY` — bez niej wtyczka 3 celowo wstrzymuje wysyłkę powiadomień; `MP_HASH_PEPPER` — pieprz do hashowania |
+
+Na serwerze z PHP starszym niż 8.1 WordPress **nie pozwoli aktywować wtyczki 2**.
+Wtyczki 1 i 3 zainstalują się normalnie, więc proces ruszy i zatrzyma się na
+kroku ofert — dlatego wymaganie 8.1 dotyczy w praktyce całej dostawy.
+
 ## Struktura repozytorium
 
 ```

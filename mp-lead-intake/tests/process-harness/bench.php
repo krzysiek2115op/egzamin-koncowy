@@ -1,4 +1,10 @@
 <?php
+// SR5-03: benchmark działa WYŁĄCZNIE z CLI (albo w WP z ABSPATH). Bezpośrednie
+// wywołanie przez web-serwer nie robi nic — plik nie potrzebuje WordPressa,
+// więc bez tego wykonywał się każdemu, kto trafił na jego adres.
+if ( 'cli' !== PHP_SAPI && ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 /**
  * Benchmark + edge-case debug dla pipeline MP Lead Intake (poza WP).
  * Mierzy: liczbę zapytań DB/request, pamięć (leak przy N przebiegach), czas,

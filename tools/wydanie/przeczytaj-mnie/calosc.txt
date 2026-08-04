@@ -1,0 +1,42 @@
+Egzamin koncowy — automatyzacja zapytan ofertowych, wydanie {WERSJA}
+=================================================================
+
+Trzy wtyczki WordPress i trzy bazy danych (zestawy tabel MySQL), ktore razem
+tworza proces: formularz -> kwalifikacja leada -> oferta PDF -> handlowiec.
+
+W tej paczce jest szesc plikow — dla kazdej wtyczki ZIP instalacyjny i ZIP
+z materialami:
+
+  mp-lead-intake.zip              1. Przyjecie i kwalifikacja leada
+  mp-lead-intake-materialy.zip
+
+  mp-offer-builder.zip            2. Kalkulacja cenowa, WooCommerce, oferty PDF
+  mp-offer-builder-materialy.zip
+
+  mp-sales-workflow.zip           3. Statusy procesu, handlowiec, follow-up
+  mp-sales-workflow-materialy.zip
+
+INSTALACJA
+
+Pliki `<nazwa>.zip` wgrywa sie w panelu WordPressa:
+Wtyczki -> Dodaj nowa -> Wyslij wtyczke na serwer.
+
+Kolejnosc ma znaczenie: 1, potem 2, potem 3. Wtyczka 2 nasluchuje zdarzenia
+z wtyczki 1, a wtyczka 3 — zdarzen z obu poprzednich. Instalacja w innej
+kolejnosci zadziala, ale pierwsze zgloszenia moga nie utworzyc szkicu oferty.
+
+Wtyczka 2 wymaga WooCommerce. Wtyczka 3 wymaga stalej MP_SW_LINK_KEY
+w wp-config.php — bez niej celowo wstrzymuje wysylke powiadomien do klientow.
+Szczegoly w instrukcji technicznej kazdej wtyczki.
+
+Pliki `<nazwa>-materialy.zip` zostaja u Ciebie. Sa w nich schematy baz danych
+i procesu (draw.io + PDF), dwie instrukcje instalacji — techniczna
+i nietechniczna — oraz opis dzialania. NIE wgrywaj ich na serwer: katalog
+wtyczki jest dostepny publicznie pod adresem WWW.
+
+Wymagania: WordPress 6.0+, PHP 7.4+ (wtyczki 1 i 3), PHP 8.1+ (wtyczka 2 —
+dolaczony dompdf nie dziala nizej), WooCommerce dla wtyczki 2.
+Licencja: GPL-2.0-or-later, pelny tekst w kazdej paczce materialow.
+
+Repozytorium i historia wydan:
+https://github.com/krzysiek2115op/egzamin-koncowy/releases

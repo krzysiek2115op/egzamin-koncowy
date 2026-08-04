@@ -2,7 +2,7 @@
 Contributors: krzysiek2115op
 Tags: leads, formularz, b2b, nip, vat
 Requires at least: 6.0
-Tested up to: 6.6
+Tested up to: 7.0
 Requires PHP: 7.4
 Stable tag: 1.3.9
 License: GPLv2 or later

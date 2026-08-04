@@ -369,3 +369,35 @@
     });
   });
 })();
+
+/* Mapa Google dopiero po kliknięciu.
+ *
+ * Osadzona ramka wysyła adres IP odwiedzającego do Google i pozwala tej firmie
+ * zapisać własne cookies — zanim ktokolwiek o cokolwiek zapyta. Polityka
+ * prywatności tej witryny deklaruje „wyłącznie niezbędne pliki cookies", więc
+ * ramka ładowana od razu czyniła tę deklarację nieprawdziwą na stronie, która
+ * ją głosi. Adres jest widoczny bez żadnego żądania na zewnątrz; mapa dogrywa
+ * się na życzenie. */
+(function () {
+  var pudelka = document.querySelectorAll('.map-consent');
+
+  Array.prototype.forEach.call(pudelka, function (pudelko) {
+    var przycisk = pudelko.querySelector('.map-consent-btn');
+    if (!przycisk) { return; }
+
+    przycisk.addEventListener('click', function () {
+      var ramka = document.createElement('iframe');
+      ramka.className = 'map-frame';
+      ramka.title = 'Mapa dojazdu — Kredyt Kompas, ul. Przykładowa 13/3, Warszawa';
+      ramka.loading = 'lazy';
+      ramka.referrerPolicy = 'no-referrer-when-downgrade';
+      ramka.style.height = '100%';
+      ramka.style.minHeight = '480px';
+      ramka.style.width = '100%';
+      ramka.style.border = '0';
+      ramka.src = pudelko.getAttribute('data-map-src');
+
+      pudelko.parentNode.replaceChild(ramka, pudelko);
+    });
+  });
+})();

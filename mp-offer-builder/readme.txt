@@ -2,7 +2,7 @@
 Contributors: krzysiek2115op
 Tags: oferty, pdf, woocommerce, cennik
 Requires at least: 6.0
-Tested up to: 6.8
+Tested up to: 7.0
 Requires PHP: 8.1
 Stable tag: 1.3.9
 License: GPLv2 or later

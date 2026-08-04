@@ -2,7 +2,7 @@
 Contributors: krzysiek2115op
 Tags: sprzedaz, crm, workflow, follow-up
 Requires at least: 6.0
-Tested up to: 6.8
+Tested up to: 7.0
 Requires PHP: 7.4
 Stable tag: 1.3.8
 License: GPLv2 or later

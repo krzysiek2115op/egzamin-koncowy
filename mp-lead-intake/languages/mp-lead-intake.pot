@@ -1,0 +1,324 @@
+# Copyright (C) 2026 krzysiek2115op
+# This file is distributed under the GPL-2.0-or-later.
+msgid ""
+msgstr ""
+"Project-Id-Version: MP Lead Intake 1.3.9\n"
+"Report-Msgid-Bugs-To: https://github.com/krzysiek2115op/egzamin-koncowy/issues\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-08-04T13:48:56+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: mp-lead-intake\n"
+
+#. Plugin Name of the plugin
+#: mp-lead-intake.php
+msgid "MP Lead Intake"
+msgstr ""
+
+#. Plugin URI of the plugin
+#: mp-lead-intake.php
+msgid "https://github.com/krzysiek2115op/egzamin-koncowy"
+msgstr ""
+
+#. Description of the plugin
+#: mp-lead-intake.php
+msgid "Przyjęcie i kwalifikacja lead-a z formularza ofertowego WordPress. Pierwszy element procesu formularz → oferta."
+msgstr ""
+
+#. Author of the plugin
+#: mp-lead-intake.php
+msgid "krzysiek2115op"
+msgstr ""
+
+#: includes/admin/class-mp-admin.php:61
+#: includes/admin/class-mp-admin.php:62
+#: includes/admin/class-mp-admin.php:163
+msgid "Leady"
+msgstr ""
+
+#: includes/admin/class-mp-admin.php:145
+msgid "Brak uprawnień do podglądu leadów."
+msgstr ""
+
+#. translators: %d: liczba leadów.
+#: includes/admin/class-mp-admin.php:168
+#, php-format
+msgid "Wszystkie leady: %d."
+msgid_plural "Wszystkie leady: %d."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %d: liczba leadów.
+#: includes/admin/class-mp-admin.php:170
+#, php-format
+msgid "Twoje leady: %d."
+msgid_plural "Twoje leady: %d."
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/admin/class-mp-admin.php:176
+msgid "Nie ma jeszcze żadnych zgłoszeń."
+msgstr ""
+
+#: includes/admin/class-mp-admin.php:181
+msgid "Firma"
+msgstr ""
+
+#: includes/admin/class-mp-admin.php:182
+#: includes/class-mp-form.php:120
+msgid "NIP"
+msgstr ""
+
+#: includes/admin/class-mp-admin.php:183
+msgid "Kontakt"
+msgstr ""
+
+#: includes/admin/class-mp-admin.php:184
+msgid "Rynek"
+msgstr ""
+
+#: includes/admin/class-mp-admin.php:185
+msgid "Segment"
+msgstr ""
+
+#: includes/admin/class-mp-admin.php:186
+msgid "Punktacja"
+msgstr ""
+
+#: includes/admin/class-mp-admin.php:187
+msgid "Status VAT"
+msgstr ""
+
+#: includes/admin/class-mp-admin.php:188
+msgid "Handlowiec"
+msgstr ""
+
+#: includes/admin/class-mp-admin.php:189
+msgid "Oferty"
+msgstr ""
+
+#: includes/admin/class-mp-admin.php:190
+msgid "Zgłoszono"
+msgstr ""
+
+#: includes/admin/class-mp-admin.php:228
+msgid "— nieprzypisany"
+msgstr ""
+
+#: includes/admin/class-mp-admin.php:272
+msgid "potwierdzony"
+msgstr ""
+
+#: includes/admin/class-mp-admin.php:273
+msgid "sprawdzony"
+msgstr ""
+
+#: includes/admin/class-mp-admin.php:274
+msgid "w trakcie sprawdzania"
+msgstr ""
+
+#: includes/admin/class-mp-admin.php:275
+msgid "nieustalony"
+msgstr ""
+
+#: includes/class-mp-ajax.php:56
+msgid "Ta firma jest już u nas zarejestrowana — nie zakładamy zgłoszenia drugi raz. Jeśli sprawa jest nowa, odpowiedz na naszą ostatnią wiadomość albo zadzwoń."
+msgstr ""
+
+#: includes/class-mp-ajax.php:59
+msgid "Podany NIP jest nieprawidłowy — sprawdź, czy nie brakuje cyfry."
+msgstr ""
+
+#: includes/class-mp-ajax.php:62
+msgid "Nie wszystkie wymagane pola zostały wypełnione."
+msgstr ""
+
+#: includes/class-mp-ajax.php:65
+msgid "Któreś z pól ma nieprawidłowy format — sprawdź adres e-mail i numer telefonu."
+msgstr ""
+
+#: includes/class-mp-ajax.php:68
+msgid "Bez zgody na przetwarzanie danych nie możemy przyjąć zgłoszenia."
+msgstr ""
+
+#: includes/class-mp-ajax.php:71
+msgid "Zgłoszenie jest zbyt duże."
+msgstr ""
+
+#: includes/class-mp-ajax.php:74
+msgid "Nieprawidłowy token bezpieczeństwa. Odśwież stronę i spróbuj ponownie."
+msgstr ""
+
+#: includes/class-mp-ajax.php:77
+msgid "Żądanie z niedozwolonego źródła."
+msgstr ""
+
+#: includes/class-mp-ajax.php:80
+msgid "Nie udało się przetworzyć zgłoszenia. Spróbuj ponownie za chwilę."
+msgstr ""
+
+#: includes/class-mp-ajax.php:83
+msgid "Nie udało się przetworzyć zgłoszenia. Sprawdź dane i spróbuj ponownie."
+msgstr ""
+
+#: includes/class-mp-ajax.php:211
+msgid "Dziękujemy! Zapytanie zostało zarejestrowane."
+msgstr ""
+
+#: includes/class-mp-form.php:111
+#: includes/class-mp-page.php:586
+msgid "Zapytanie ofertowe"
+msgstr ""
+
+#: includes/class-mp-form.php:112
+#: includes/class-mp-page.php:645
+msgid "Wypełnij formularz zapytania ofertowego, a nasz zespół skontaktuje się z Tobą z indywidualną ofertą."
+msgstr ""
+
+#: includes/class-mp-form.php:116
+msgid "Nazwa firmy"
+msgstr ""
+
+#: includes/class-mp-form.php:128
+msgid "Telefon"
+msgstr ""
+
+#: includes/class-mp-form.php:132
+msgid "Segment / branża"
+msgstr ""
+
+#: includes/class-mp-form.php:148
+msgid "Rynek (kraj klienta)"
+msgstr ""
+
+#: includes/class-mp-form.php:156
+msgid "Produkty / zakres zainteresowania"
+msgstr ""
+
+#: includes/class-mp-form.php:160
+msgid "Przewidywany wolumen"
+msgstr ""
+
+#: includes/class-mp-form.php:161
+msgid "np. 100 szt./mies."
+msgstr ""
+
+#: includes/class-mp-form.php:166
+msgid "Wyrażam zgodę na przetwarzanie danych (RODO)"
+msgstr ""
+
+#: includes/class-mp-form.php:170
+msgid "Zgoda marketingowa (opcjonalnie)"
+msgstr ""
+
+#: includes/class-mp-form.php:179
+msgid "Wyślij zapytanie"
+msgstr ""
+
+#: includes/class-mp-page.php:126
+msgid "Strony → Kosz"
+msgstr ""
+
+#: includes/class-mp-page.php:127
+msgid "Strony → Wszystkie strony"
+msgstr ""
+
+#. translators: 1: status wpisu WordPressa (np. trash, draft). 2: miejsce w panelu, np. „Strony → Kosz”.
+#: includes/class-mp-page.php:133
+#, php-format
+msgid "Strona z formularzem istnieje, ale ma status „%1$s\" zamiast „opublikowana\" — klienci jej nie zobaczą. Przywróć ją do publikacji w %2$s."
+msgstr ""
+
+#: includes/class-mp-page.php:185
+msgid "WordPress odrzucił zapis strony bez podania przyczyny."
+msgstr ""
+
+#. translators: %s: status wpisu WordPressa.
+#: includes/class-mp-page.php:225
+#, php-format
+msgid "Strona z formularzem istnieje, ale ma status „%s\" zamiast „opublikowana\" — klienci jej nie zobaczą. Przywróć ją do publikacji."
+msgstr ""
+
+#: includes/class-mp-page.php:230
+msgid "Strona z formularzem została usunięta. Opublikuj nową stronę zawierającą krótki kod [mp_lead_intake_form]."
+msgstr ""
+
+#: includes/class-mp-page.php:466
+msgid "Strona z formularzem zapytania ofertowego NIE POWSTAŁA podczas aktywacji, więc klienci nie mają gdzie go wypełnić. Wyłącz i włącz wtyczkę ponownie albo utwórz stronę ręcznie, wstawiając na niej krótki kod:"
+msgstr ""
+
+#: includes/class-mp-page.php:468
+msgid "Powód zgłoszony przez WordPress:"
+msgstr ""
+
+#: includes/class-mp-page.php:520
+msgid "Twój motyw ma lokalizacje menu, ale żadna nie ma PRZYPISANEGO menu — nie było więc gdzie wstawić linku. Przypisz menu w Wygląd → Menu, a link do formularza dołoży się sam przy następnej aktywacji. Możesz też dodać ręcznie link do:"
+msgstr ""
+
+#: includes/class-mp-page.php:524
+msgid "Menu motywu jest przypisane, ale WordPress nie zapisał w nim pozycji z linkiem do formularza (mogła to zablokować inna wtyczka albo uprawnienia). Dodaj ręcznie link do:"
+msgstr ""
+
+#: includes/class-mp-page.php:527
+msgid "Twój motyw nie rejestruje standardowego menu WordPressa — wtyczka spróbowała automatycznie dołożyć link do formularza w wykrytym menu strony (element <nav>). Sprawdź na stronie, czy się pojawił; jeśli nie, dodaj ręcznie link do:"
+msgstr ""
+
+#: includes/class-mp-privacy.php:69
+#: includes/class-mp-privacy.php:84
+#: includes/class-mp-privacy.php:222
+msgid "Zgłoszenia z formularza"
+msgstr ""
+
+#. translators: %d: liczba zgłoszeń.
+#: includes/class-mp-privacy.php:170
+#, php-format
+msgid "Zanonimizowano zgłoszenia: %d."
+msgstr ""
+
+#: includes/pipeline/class-mp-pipeline-logger.php:55
+msgid "nieustalonym miejscu pipeline'u"
+msgstr ""
+
+#. translators: %s: plik i linia, w których powstał wyjątek.
+#: includes/pipeline/class-mp-pipeline-logger.php:60
+#, php-format
+msgid "nieustalonym miejscu pipeline'u (%s)"
+msgstr ""
+
+#: includes/pipeline/class-mp-pipeline-logger.php:97
+msgid "[alarm: wysłany do administratora]"
+msgstr ""
+
+#: includes/pipeline/class-mp-pipeline-logger.php:99
+msgid "[alarm: wyciszony — z tego samego miejsca poszedł już w ciągu ostatnich 15 minut]"
+msgstr ""
+
+#: includes/pipeline/class-mp-pipeline-logger.php:101
+msgid "[alarm: NIE dotarł do administratora]"
+msgstr ""
+
+#: includes/pipeline/class-mp-pipeline-logger.php:104
+msgid "[alarm: los nieustalony]"
+msgstr ""
+
+#: includes/pipeline/class-mp-pipeline-logger.php:176
+msgid "wp_mail() zgłosiło niepowodzenie; przyczyny kod nie zna — sprawdź konfigurację poczty, adres w ustawieniach witryny i wtyczki podpięte pod wysyłkę."
+msgstr ""
+
+#. translators: %s: klasa wyjątku, np. RuntimeException.
+#: includes/pipeline/class-mp-pipeline-logger.php:261
+#, php-format
+msgid "wyjątek bez komunikatu (typ: %s)"
+msgstr ""
+
+#: mp-lead-intake.php:82
+msgid "MP Lead Intake: nie udało się utworzyć tabel bazy danych (BD-3). Sprawdź uprawnienia użytkownika bazy danych (CREATE TABLE) i spróbuj aktywować wtyczkę ponownie."
+msgstr ""
+
+#: mp-lead-intake.php:83
+msgid "Błąd aktywacji wtyczki MP Lead Intake"
+msgstr ""
