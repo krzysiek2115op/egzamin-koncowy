@@ -1,0 +1,7 @@
+PACZKA INSTALACYJNA SCHUDLA ZE 101 PLIKOW DO 54. Reszta to byly testy i dokumentacja wewnetrzna — w tym AUDYT.md i DEBUG-RAPORT.md — ladowane do `wp-content/plugins/`, czyli w miejsce, o ktorym PRZECZYTAJ-MNIE.txt sam pisze, ze jest dostepne publicznie. Dwa pliki PHP nie mialy przy tym zabezpieczenia przed bezposrednim wywolaniem i byly samodzielnymi harnessami dzialajacymi bez WordPressa: wejscie pod ich adres je uruchamialo. Zabezpieczenie dostaly (blizniaczy plik we wtyczce 2 mial je od SR5-03), ale strazniki `ABSPATH` chronia tylko PLIKI PHP — na `.md` nie robia nic, bo serwer ich nie uruchamia, tylko oddaje jako tekst. Sprawdzone zadaniem HTTP: `docs/SECURITY.md` odpowiadal 200 i 9966 bajtow typu `text/markdown`. Dlatego druga polowa naprawy jest w budowaniu paczki, nie w kodzie wtyczki.
+
+Dokumenty pisane DLA KLIENTA nie zginely razem z katalogiem: wzor polityki prywatnosci, SECURITY.md, security.txt i przyklady konfiguracji serwera przeniosly sie do paczki materialow. Tam sa do przeczytania, a nie do pobrania z cudzej przegladarki.
+
+SZABLON TLUMACZEN, KTOREGO NIE BYLO. Wtyczka wolala `load_plugin_textdomain( ..., '/languages' )`, a katalogu `languages/` nie miala wcale — tak jak nie miala pliku `.pot` ani naglowka `Domain Path`. 71 ciagow czekalo na tlumacza, ktory nie mial z czym usiasc. Braku nie bylo widac, bo zrodla sa po polsku i `__()` oddaje wtedy ciag wejsciowy.
+
+`Tested up to` mowilo 6.6, podczas gdy regresja chodzi na WordPressie 7.0.
