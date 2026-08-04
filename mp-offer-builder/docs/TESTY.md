@@ -291,6 +291,13 @@ PHPCS na plikach zmienionych w tej wersji: **0 błędów, 0 ostrzeżeń**.
 
 ---
 
+## Stan na wydanie 1.3.10 (04.08.2026)
+
+Regresja **79/79** na bazie od zera. Wtyczka dostała w tym wydaniu szablon
+tłumaczeń (`languages/mp-offer-builder.pot`, 110 ciągów) i nagłówek `Domain Path`;
+pilnuje tego `mp-sales-workflow/tests/koncowe/szablon-tlumaczen.php`, który
+sprawdza także, czy szablon jest z tej samej wersji co wtyczka.
+
 ## Stan na wydanie 1.3.9 (03.08.2026)
 
 Pełna regresja: **75 / 75 PASS** (73 pliki testowe przez `wp eval-file`

@@ -130,6 +130,25 @@ testów manualnych jako niezależnej warstwy weryfikacji, uzupełniającej audyt
 
 ---
 
+## Stan na wydanie 1.3.10 (04.08.2026)
+
+Regresja **79/79** na bazie od zera. Trzy nowe pliki testowe w tym wydaniu:
+
+- `mp-sales-workflow/tests/koncowe/paczka-bez-kodu-uruchamialnego.php` — żaden plik
+  PHP z paczki instalacyjnej nie wykonuje się po wejściu na jego adres
+  z przeglądarki. Przed naprawą: cztery pliki, w tym harness procesu tej wtyczki
+  i benchmark, oba działające **bez WordPressa**.
+- `mp-sales-workflow/tests/koncowe/szablon-tlumaczen.php` — każda wtyczka dostarcza
+  `languages/<slug>.pot`, deklaruje `Domain Path` i ma szablon z TEJ wersji.
+- `mp-sales-workflow/tests/naprawy/handlowiec-konfigurowalny-z-panelu.php` —
+  konfiguracja handlowca z panelu, bez konsoli.
+
+Pułapka wychwycona przy pisaniu pierwszego z nich: sonda czytała 2000 **bajtów**
+początku pliku, szukając strażnika. Polskie znaki w komentarzu zajmują po dwa
+bajty, więc okno kończyło się przed linią, której szukała — i zgłosiła jako
+bezbronny plik, który strażnika ma w linii 39. Mierzyła długość komentarza,
+nie obecność zabezpieczenia.
+
 ## Stan na wydanie 1.3.9 (03.08.2026)
 
 Pełna regresja: **75 / 75 PASS** (73 pliki testowe przez `wp eval-file`

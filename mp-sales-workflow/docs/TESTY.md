@@ -198,6 +198,18 @@ Uczciwa granica zakresu:
 
 ---
 
+## Stan na wydanie 1.3.10 (04.08.2026)
+
+Regresja **79/79** na bazie od zera. Najważniejsza pozycja:
+`tests/naprawy/handlowiec-konfigurowalny-z-panelu.php` (16 asercji, 5 kontr-asercji)
+— pola `mp_sw_country`, `mp_sw_langs`, `mp_sw_team` i `mp_sw_active` da się ustawić
+z ekranu profilu użytkownika. Do 1.3.9 dało się to zrobić **wyłącznie** przez
+`wp user meta update` albo wprost w bazie, więc system po instalacji przez panel
+przyjmował zgłoszenia i po cichu nie tworzył z nich procesów.
+
+Kontr-asercje pilnują tego, czego ekran robić NIE może: zapisu bez nonce, zapisu
+cudzego profilu przez konto bez uprawnień oraz przyjęcia kraju spoza ISO-2.
+
 ## Stan na wydanie 1.3.9 (03.08.2026)
 
 Pełna regresja: **75 / 75 PASS** (73 pliki testowe przez `wp eval-file`

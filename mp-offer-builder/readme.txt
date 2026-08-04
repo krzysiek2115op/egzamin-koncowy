@@ -4,7 +4,7 @@ Tags: oferty, pdf, woocommerce, cennik
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.3.9
+Stable tag: 1.3.10
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -60,6 +60,14 @@ RODO/GDPR:
 
 == Changelog ==
 
+
+= 1.3.10 =
+* Szablon tłumaczeń. Wtyczka wołała `load_plugin_textdomain()` ze wskazaniem na
+  katalog `languages`, którego nie dostarczała — nagłówka `Domain Path` też nie
+  deklarowała. 110 ciągów było „przygotowanych do tłumaczenia" w kodzie
+  i nie do przetłumaczenia w praktyce. Jest katalog, jest `.pot`, jest nagłówek.
+* `Tested up to` mówi 7.0 — tyle, ile wynosi WordPress, na którym chodzi
+  regresja.
 
 = 1.3.9 =
 * Zasada „brak właściciela zapisujemy jako NULL", wprowadzona w 1.3.8, obejmowała

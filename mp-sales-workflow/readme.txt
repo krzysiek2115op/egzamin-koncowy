@@ -4,7 +4,7 @@ Tags: sprzedaz, crm, workflow, follow-up
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.3.8
+Stable tag: 1.3.10
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -34,6 +34,23 @@ powiadomien do klientow.
 
 == Changelog ==
 
+
+= 1.3.10 =
+* Handlowca da się skonfigurować z panelu. Dział 4 dobiera właściciela procesu
+  po polach `mp_sw_country`, `mp_sw_langs` i `mp_sw_active`, a ustawić je dało
+  się wyłącznie przez WP-CLI albo bezpośrednio w bazie. Konto z samą rolą
+  „Handlowiec" nie jest kandydatem dla żadnego procesu, więc system po
+  instalacji przyjmował zgłoszenia i po cichu nie robił z nimi nic. Pola są
+  teraz na standardowym ekranie profilu użytkownika — z kontrolą uprawnień,
+  nonce i normalizacją kraju do ISO-2.
+* Szablon tłumaczeń. Wtyczka wołała `load_plugin_textdomain()` ze wskazaniem na
+  katalog `languages`, którego nie dostarczała — nagłówka `Domain Path` też nie
+  deklarowała. 186 ciągów było „przygotowanych do tłumaczenia" w kodzie i nie do
+  przetłumaczenia w praktyce.
+* Bramka integracyjna i scenariusze bezpieczeństwa nie wykonują się już po
+  wejściu na ich adres z przeglądarki.
+* `Tested up to` mówi 7.0 — tyle, ile wynosi WordPress, na którym chodzi
+  regresja.
 
 = 1.3.8 =
 * BRAMKA K5.2 SPRAWDZAŁA ZGODNOŚĆ PRZEJŚCIA ZE ZDARZENIEM JEDNOSTRONNIE —

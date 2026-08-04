@@ -1,6 +1,6 @@
 # Zapis z przebiegu testów odbioru
 
-**Data przebiegu:** 3 sierpnia 2026 · **Wersja:** 1.3.9 · **Gałąź:** `main`
+**Data przebiegu:** 4 sierpnia 2026 · **Wersja:** 1.3.10 · **Gałąź:** `main`
 
 Kryteria odbioru mówią o dziesięciu scenariuszach. Repozytorium zawierało kod
 tych scenariuszy i nie zawierało **ani jednego zapisu z ich wykonania** (U-7):
@@ -257,9 +257,11 @@ STATUS: ALL_PASS
   [OK ] mp-sales-workflow/tests/koncowe/bramka-integracyjna-p1-p2-p3.php
   [OK ] mp-sales-workflow/tests/koncowe/kompatybilnosc-3-wtyczek.php
   [OK ] mp-sales-workflow/tests/koncowe/link-do-oferty.php
+  [OK ] mp-sales-workflow/tests/koncowe/paczka-bez-kodu-uruchamialnego.php
   [OK ] mp-sales-workflow/tests/koncowe/powiadomienia-odbiorcy.php
   [OK ] mp-sales-workflow/tests/koncowe/rodo-anonimizacja.php
   [OK ] mp-sales-workflow/tests/koncowe/scenariusze-1-10.php
+  [OK ] mp-sales-workflow/tests/koncowe/szablon-tlumaczen.php
   [OK ] mp-sales-workflow/tests/naprawy/alarm-administratora.php
   [OK ] mp-sales-workflow/tests/naprawy/dokumentacja-jeden-plik.php
   [OK ] mp-sales-workflow/tests/naprawy/ekrany-i-konfiguracja.php
@@ -267,6 +269,7 @@ STATUS: ALL_PASS
   [OK ] mp-sales-workflow/tests/naprawy/grupa-a.php
   [OK ] mp-sales-workflow/tests/naprawy/grupa-b.php
   [OK ] mp-sales-workflow/tests/naprawy/handlowiec-jeden-wybor.php
+  [OK ] mp-sales-workflow/tests/naprawy/handlowiec-konfigurowalny-z-panelu.php
   [OK ] mp-sales-workflow/tests/naprawy/kody-odmowy.php
   [OK ] mp-sales-workflow/tests/naprawy/kolejka-klamra.php
   [OK ] mp-sales-workflow/tests/naprawy/komunikaty-dla-czlowieka.php
@@ -281,8 +284,12 @@ STATUS: ALL_PASS
   [OK ] mp-sales-workflow/tests/naprawy/znaczniki-szablonu.php
   [OK ] mp-sales-workflow/tests/security/scenariusze-s1-s12.php
 
+=== Strona pokazowa (motyw demo, wp eval-file) ===
+  [OK ] tools/strona-pokazowa/tests/demo-nie-lamie-wlasnej-polityki.php
+  [OK ] tools/strona-pokazowa/tests/motyw-poza-korzeniem.php
+
 ====================================================
-PRZESZLO: 75   NIE PRZESZLO: 0   BEZ WERDYKTU: 0
+PRZESZLO: 80   NIE PRZESZLO: 0   BEZ WERDYKTU: 0
 ```
 
 ---
@@ -294,12 +301,11 @@ Liczy się kod wyjścia, nie samo podsumowanie: PHPCS kończy się jedynką tak�
 przy samych ostrzeżeniach.
 
 ```
-............................................................  60 / 159 (38%)
-............................................................ 120 / 159 (75%)
-.......................................                      159 / 159 (100%)
+............................................................  60 / 160 (38%)
+............................................................ 120 / 160 (75%)
+........................................                     160 / 160 (100%)
 
 
-Time: 23.07 secs; Memory: 38MB
-
-PHPCS_EXIT=0
+Time: 23.54 secs; Memory: 38MB
+echo $?  # 0
 ```

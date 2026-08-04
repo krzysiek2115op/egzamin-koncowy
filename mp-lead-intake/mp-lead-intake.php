@@ -3,7 +3,7 @@
  * Plugin Name:       MP Lead Intake
  * Plugin URI:        https://github.com/krzysiek2115op/egzamin-koncowy
  * Description:       Przyjęcie i kwalifikacja lead-a z formularza ofertowego WordPress. Pierwszy element procesu formularz → oferta.
- * Version:           1.3.9
+ * Version:           1.3.10
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            krzysiek2115op
@@ -38,7 +38,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // --- Stałe wtyczki ---
-define( 'MP_LEAD_INTAKE_VERSION', '1.3.9' );
+define( 'MP_LEAD_INTAKE_VERSION', '1.3.10' );
 define( 'MP_LEAD_INTAKE_FILE', __FILE__ );
 define( 'MP_LEAD_INTAKE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MP_LEAD_INTAKE_URL', plugin_dir_url( __FILE__ ) );

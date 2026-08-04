@@ -282,6 +282,39 @@ hp_ok(
 	'lista jezykow zlozona ze smieci konczy sie pusta, a nie smieciem'
 );
 
+/*
+ * Handlowiec ma `edit_user` na WLASNYM profilu, ale pol `mp_*` pilnuje
+ * MP_SW_Meta_Guard i przepuszcza dopiero `promote_users`. Gdyby ekran pytal
+ * tylko o pierwsze uprawnienie, konto zobaczyloby pola wygladajace na
+ * edytowalne, zapis odrzucilby po cichu straznik, a formularz twierdzilby, ze
+ * zmiana weszla. To ta sama klasa bledu co „slad bez zgaszonej flagi".
+ */
+update_user_meta( $handlowiec, MP_SW_D2_Reader::META_COUNTRY, 'PL' );
+wp_set_current_user( $handlowiec );
+
+hp_ok(
+	! current_user_can( 'promote_users' ),
+	'warunek pomiaru: handlowiec nie ma uprawnienia `promote_users`'
+);
+
+hp_wyslij( array( MP_SW_D2_Reader::META_COUNTRY => 'DE' ) );
+MP_SW_User_Profile::save( $handlowiec );
+
+hp_ok(
+	'PL' === (string) get_user_meta( $handlowiec, MP_SW_D2_Reader::META_COUNTRY, true ),
+	'i nie przepisze pol nawet na WLASNYM profilu — tak jak stanowi straznik meta',
+	'jest: ' . var_export( get_user_meta( $handlowiec, MP_SW_D2_Reader::META_COUNTRY, true ), true )
+);
+
+ob_start();
+MP_SW_User_Profile::render( get_userdata( $handlowiec ) );
+$html_bez_uprawnien = (string) ob_get_clean();
+
+hp_ok(
+	false !== strpos( $html_bez_uprawnien, 'disabled' ),
+	'a ekran pokazuje mu te pola jako wylaczone, zamiast udawac, ze da sie je zmienic'
+);
+
 $_POST    = array();
 $_REQUEST = array();
 wp_set_current_user( $stary_uzytkownik );

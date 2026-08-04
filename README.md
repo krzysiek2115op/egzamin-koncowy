@@ -20,9 +20,9 @@ danych między formularzem, WooCommerce i pocztą.
 
 | # | Wtyczka | Wersja | Baza | Opis |
 |---|---------|--------|------|------|
-| 1 | `mp-lead-intake` | 1.3.9 | BD-3 | Przyjęcie i kwalifikacja lead-a z formularza |
-| 2 | `mp-offer-builder` | 1.3.9 | BD-2 | Kalkulacja cenowa, integracja WooCommerce, oferty PDF |
-| 3 | `mp-sales-workflow` | 1.3.8 | BD-1 | Statusy procesu, handlowiec, powiadomienia, follow-up, dashboard |
+| 1 | `mp-lead-intake` | 1.3.10 | BD-3 | Przyjęcie i kwalifikacja lead-a z formularza |
+| 2 | `mp-offer-builder` | 1.3.10 | BD-2 | Kalkulacja cenowa, integracja WooCommerce, oferty PDF |
+| 3 | `mp-sales-workflow` | 1.3.10 | BD-1 | Statusy procesu, handlowiec, powiadomienia, follow-up, dashboard |
 
 Kolejność instalacji ma znaczenie: **1, potem 2, potem 3**. Wtyczka 2 nasłuchuje
 zdarzenia z wtyczki 1, a wtyczka 3 — zdarzeń z obu poprzednich. Gotowe paczki
@@ -234,6 +234,58 @@ Raporty z kolejnych przebiegów leżą w `audyt/raport-*.txt` na gałęzi
 `audyt-projektu`, a szczegółowy opis narzędzia — w `audyt/README.md`.
 
 ---
+
+## Wydanie 1.3.10 — po ocenie zewnętrznej: konfiguracja, tłumaczenia, paczka
+
+Recenzent sprawdził **demo, repozytorium i paczkę ZIP** i naliczył sześć błędów
+w rozkładzie 1 duży / 1 średni / 3 małe / 1 w demo — bez listy. Rozkład sam
+w sobie był przesłanką: liczba dużych i średnich **nie spadła** względem
+poprzedniej oceny, mimo trzech wydań napraw. Skoro nie dodawaliśmy w tym czasie
+funkcjonalności, musiały to być te same błędy — rzeczy, których albo nigdy nie
+znaleźliśmy, albo znaleźliśmy i odrzuciliśmy. Najniższa ocena dotyczyła gotowości
+produkcyjnej i to tam siedział duży.
+
+**SYSTEMU NIE DAŁO SIĘ SKONFIGUROWAĆ Z PANELU, W KTÓRYM SIĘ GO INSTALUJE.**
+Dział 4 dobiera właściciela procesu po usermeta `mp_sw_country`, `mp_sw_langs`
+i `mp_sw_active`. Konto z samą rolą „Handlowiec", bez tych pól, nie jest
+kandydatem dla żadnego procesu — pipeline kończy się kodem `no_owner` i proces
+nie powstaje. Ustawić je dało się **wyłącznie** przez `wp user meta update` albo
+wprost w bazie. Klient, któremu `PRZECZYTAJ-MNIE.txt` każe wgrać wtyczki przez
+„Wtyczki → Dodaj nową", nie miał jak dokończyć konfiguracji tam, gdzie ją zaczął:
+system po instalacji przyjmował zgłoszenia i po cichu nie robił z nimi nic.
+Nazywaliśmy to „konfiguracją wdrożeniową" — z punktu widzenia kogoś, kto ma to
+uruchomić, była to konfiguracja bez interfejsu.
+
+**PACZKA WGRYWAŁA NA PRODUKCJĘ KOD URUCHAMIALNY.** Cztery pliki PHP nie miały
+zabezpieczenia przed bezpośrednim wywołaniem, w tym **dwa harnessy działające bez
+WordPressa** — wejście na ich adres po prostu je wykonywało. Bliźniaczy plik
+wtyczki 2 dostał tę ochronę przy SR5-03; wtyczka 1 nie. Kolejna połowa naprawy
+zrobiona tam, gdzie się patrzyło.
+
+**ZERO INFRASTRUKTURY TŁUMACZEŃ PRZY 367 CIĄGACH.** Wszystkie trzy wtyczki wołały
+`load_plugin_textdomain( …, '/languages' )`, a katalogu nie było w żadnej, pliku
+`.pot` nie było w żadnej i nagłówka `Domain Path` nie deklarowała żadna.
+WordPress szukał katalogu, którego nie dostarczono, a tłumacz nie miał z czym
+usiąść — mimo że kod był „przygotowany do tłumaczenia" w każdej linii.
+
+**TEKST DLA KLIENTA ŻYŁ W KATALOGU TYMCZASOWYM.** `PRZECZYTAJ-MNIE.txt` — pierwsza
+strona, którą widzi klient po rozpakowaniu — nie istniał w repozytorium wcale:
+przepisywany był z paczki poprzedniego wydania przez skrypt w `/tmp`. Nie dało się
+go zrecenzować w commicie ani odtworzyć po restarcie maszyny. Źródła leżą teraz
+w `tools/wydanie/przeczytaj-mnie/`, a skrypt pakujący w `tools/wydanie/` —
+sprawdzone: odtwarza opublikowane paczki 1.3.9 co do znaku.
+
+**DEMO ŁAMAŁO WŁASNĄ POLITYKĘ PRYWATNOŚCI.** Strona „Kontakt" osadzała ramkę
+Google Maps przy każdym wejściu, a polityka prywatności deklarowała „wyłącznie
+niezbędne pliki cookies" — zdanie nieprawdziwe na stronie, która je głosi.
+W produkcie, którego osią sprzedażową jest RODO. Mapa wczytuje się teraz dopiero
+po kliknięciu i wskazuje adres, który strona podaje, zamiast ogólnego „Warszawa
+Centrum"; polityka wymienia Google Fonts, Unsplash i Mapy Google.
+
+Do tego `Tested up to` mówiło 6.6 (wtyczka 1) i 6.8 (wtyczki 2 i 3), podczas gdy
+regresja chodzi na WordPressie **7.0**.
+
+Przebieg: regresja **79/79** (trzy nowe pliki testowe), PHPCS kod wyjścia 0.
 
 ## Wydanie 1.3.9 — druga połowa własnych napraw
 

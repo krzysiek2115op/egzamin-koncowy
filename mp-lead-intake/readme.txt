@@ -4,7 +4,7 @@ Tags: leads, formularz, b2b, nip, vat
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.3.9
+Stable tag: 1.3.10
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -17,6 +17,18 @@ zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej 
 
 == Changelog ==
 
+
+= 1.3.10 =
+* Szablon tłumaczeń. Wtyczka wołała `load_plugin_textdomain()` ze wskazaniem na
+  katalog `languages`, którego nie dostarczała — nagłówka `Domain Path` też nie
+  deklarowała. 71 ciągów było „przygotowanych do tłumaczenia" w kodzie i nie do
+  przetłumaczenia w praktyce. Jest katalog, jest `.pot`, jest nagłówek.
+* Harness procesu i benchmark nie wykonują się już po wejściu na ich adres
+  z przeglądarki. Oba działają bez WordPressa, więc do tej pory serwer po prostu
+  je uruchamiał każdemu, kto trafił na adres. Bliźniaczy plik wtyczki 2 miał tę
+  ochronę od SR5-03; ten jej nie dostał.
+* `Tested up to` mówi 7.0 — tyle, ile wynosi WordPress, na którym chodzi
+  regresja. Wcześniej deklarowane 6.6 było o dwa wydania główne w tyle.
 
 = 1.3.9 =
 * Awaria strony z formularzem przestała być cicha. Gałęzie awaryjne zapisywały
