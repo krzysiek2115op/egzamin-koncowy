@@ -278,15 +278,40 @@ class MP_SW_D5_Critic_Legality extends MP_SW_Abstract_Critic {
 			$from = isset( $transition['from'] ) ? $transition['from'] : '?';
 			$to   = isset( $transition['to'] ) ? $transition['to'] : '?';
 
-			// Stan zostaje bez zmian — odmowa jest jedyną reakcją, żadnego
-			// „przybliżonego" przejścia do najbliższego dozwolonego statusu.
-			return MP_SW_Result::fail(
-				sprintf(
+			/*
+			 * DWA RÓŻNE BŁĘDY, DWA RÓŻNE ZDANIA.
+			 *
+			 * Agent 5.1 liczy `known_status` — czy status docelowy w ogóle
+			 * istnieje w słowniku — a krytyk tej wartości nie czytał i każdą
+			 * odmowę opisywał jako nielegalne PRZEJŚCIE. Literówka w nazwie
+			 * statusu („wygrny" zamiast „wygrany") dostawała więc komunikat
+			 * kierujący uwagę na regułę przejścia, podczas gdy naprawa jest
+			 * gdzie indziej: w treści żądania. Rozróżnienie było policzone
+			 * i wyrzucane.
+			 *
+			 * Kod odmowy zostaje jeden (`illegal_transition`) — wywołujący
+			 * i tak ma zareagować tak samo, a zmiana kodu byłaby zmianą
+			 * kontraktu tam, gdzie zepsuta jest wyłącznie treść komunikatu.
+			 */
+			$nieznany = array_key_exists( 'known_status', $transition ) && ! $transition['known_status'];
+
+			$komunikat = $nieznany
+				? sprintf(
+					/* translators: %s: status docelowy z żądania. */
+					__( 'Status „%s" nie istnieje w słowniku statusów — stan bez zmian.', 'mp-sales-workflow' ),
+					$to
+				)
+				: sprintf(
 					/* translators: 1: status źródłowy, 2: status docelowy. */
 					__( 'Przejście %1$s → %2$s spoza słownika — stan bez zmian.', 'mp-sales-workflow' ),
 					$from,
 					$to
-				),
+				);
+
+			// Stan zostaje bez zmian — odmowa jest jedyną reakcją, żadnego
+			// „przybliżonego" przejścia do najbliższego dozwolonego statusu.
+			return MP_SW_Result::fail(
+				$komunikat,
 				array(
 					'errors'      => array( 'transition' ),
 					'from'        => $from,
@@ -320,9 +345,21 @@ class MP_SW_D5_Agent_Effects extends MP_SW_Abstract_Agent {
 		$sla_due_at = '';
 
 		if ( in_array( MP_SW_D5_Machine::EFFECT_SET_SLA, $effects, true ) ) {
-			// Jedno źródło czasu w GMT — mieszanie stref dawało w poprzednich
-			// wtyczkach realne rozjazdy terminów.
-			$sla_due_at = gmdate( 'Y-m-d H:i:s', strtotime( current_time( 'mysql', true ) . ' +1 day' ) );
+			/*
+			 * Jedno źródło czasu w GMT — mieszanie stref dawało w poprzednich
+			 * wtyczkach realne rozjazdy terminów.
+			 *
+			 * Strefa dopisana WPROST, bo `current_time( 'mysql', true )` oddaje
+			 * GMT bez oznaczenia strefy, a `strtotime()` czyta taki łańcuch
+			 * strefą domyślną PHP. Sam `gmdate()` tego nie ratuje: zamienia
+			 * z powrotem na GMT moment, który został policzony gdzie indziej.
+			 * Bez ' UTC' termin SLA przesuwał się o przesunięcie strefy, a przy
+			 * zmianie czasu na letni — o dodatkową godzinę. WordPress ustawia
+			 * UTC sam, więc na typowym serwerze wychodziło dobrze; jedna wtyczka
+			 * wołająca `date_default_timezone_set()` wystarczy, żeby przestało.
+			 * Harmonogram (`class-mp-sw-cron.php`) liczył to tak od początku.
+			 */
+			$sla_due_at = gmdate( 'Y-m-d H:i:s', strtotime( current_time( 'mysql', true ) . ' UTC +1 day' ) );
 		}
 
 		return MP_SW_Result::ok(

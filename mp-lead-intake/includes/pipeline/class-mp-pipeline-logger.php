@@ -18,6 +18,37 @@ if ( ! defined( 'ABSPATH' ) ) {
 class MP_Pipeline_Logger {
 
 	/**
+	 * Alarm naprawdę wyszedł do administratora.
+	 *
+	 * Trzy stany są STAŁYMI, a nie łańcuchami wpisywanymi w każdym wywołaniu.
+	 * Powód jest z historii tego pliku: `alert_state()` oddawało „wysylany",
+	 * a `etykieta_alarmu()` rozpoznaje „wyslany”. Gałąź etykiety nie mogła więc
+	 * wypaść nigdy, a wpis dostawał ciche „los nieustalony" — literówka nie
+	 * miała jak się ujawnić. Literówka w nazwie stałej jest błędem PHP i wychodzi
+	 * przy pierwszym uruchomieniu.
+	 */
+	const ALARM_WYSLANY = 'wyslany';
+
+	/** Alarm pominięty, bo z tego samego miejsca poszedł już przed chwilą. */
+	const ALARM_WYCISZONY = 'wyciszony';
+
+	/** Próba wysyłki była, ale poczta odmówiła. */
+	const ALARM_NIEUDANY = 'nieudany';
+
+	/**
+	 * Słownik losów alarmu — jedno źródło dla etykiet, wpisów i testów.
+	 *
+	 * @return string[]
+	 */
+	public static function stany_alarmu() {
+		return array(
+			self::ALARM_WYSLANY,
+			self::ALARM_WYCISZONY,
+			self::ALARM_NIEUDANY,
+		);
+	}
+
+	/**
 	 * Nazwa miejsca awarii dla CZŁOWIEKA.
 	 *
 	 * Docblock mówił „0 = nieznany", ale ta sama wartość szła wprost do `%d`
@@ -62,8 +93,8 @@ class MP_Pipeline_Logger {
 		);
 	}
 
-	/**
-	 * Los alarmu zapisany w tym samym wpisie, który ten alarm wywołał.
+	/*
+	 * LOS ALARMU MA BYĆ W TYM SAMYM WPISIE, KTÓRY TEN ALARM WYWOŁAŁ.
 	 *
 	 * Ogranicznik częstotliwości kończył metodę `return`-em bez żadnego zapisu,
 	 * więc wpis o awarii wyglądał DOKŁADNIE tak samo jak ten, przy którym alarm
@@ -72,32 +103,28 @@ class MP_Pipeline_Logger {
 	 * Ostrzeżenie o wyciszeniu istniało wyłącznie w stopce maila, a więc w miejscu,
 	 * do którego pracownik przeglądający historię po incydencie nie ma dostępu.
 	 *
-	 * Stan czytamy PRZED zapisem wpisu i bez skutków ubocznych — `get_transient()`
-	 * niczego nie ustawia. Osobnego wiersza nie dokładamy: wpis o awarii i tak
-	 * powstaje przy każdym zdarzeniu, a przy zalewie błędów drugi wiersz na
-	 * zdarzenie podwoiłby dziennik dokładnie wtedy, gdy jest najdłuższy.
-	 *
-	 * @param string $throttle_key Klucz ogranicznika dla tego miejsca.
-	 * @return string „wyciszony" albo „wysylany".
+	 * Odpowiedzią na to jest `oznacz_los_alarmu()` niżej. Stała tu wcześniej
+	 * metoda `alert_state()`, która PROGNOZOWAŁA los z ogranicznika przed wysyłką;
+	 * od 1.3.9 los zapisujemy po próbie dostarczenia, więc prognoza nie miała już
+	 * czego opisywać. Została bez ani jednego wywołania i z własnym słownictwem
+	 * („wysylany" wobec „wyslany" w etykietach), którego reszta pliku nie
+	 * rozumiała — martwy kod czekający, aż ktoś użyje go w dobrej wierze. Usunięta.
 	 */
-	protected function alert_state( $throttle_key ) {
-		return get_transient( $throttle_key ) ? 'wyciszony' : 'wysylany';
-	}
 
 	/**
 	 * Czytelna etykieta losu alarmu — do `description`, czyli do pola, które
 	 * lista wpisów w panelu naprawdę pokazuje.
 	 *
-	 * @param string $stan Los alarmu.
+	 * @param string $stan Los alarmu (jedna ze stałych ALARM_*).
 	 * @return string
 	 */
 	protected function etykieta_alarmu( $stan ) {
 		switch ( $stan ) {
-			case 'wyslany':
+			case self::ALARM_WYSLANY:
 				return __( '[alarm: wysłany do administratora]', 'mp-lead-intake' );
-			case 'wyciszony':
+			case self::ALARM_WYCISZONY:
 				return __( '[alarm: wyciszony — z tego samego miejsca poszedł już w ciągu ostatnich 15 minut]', 'mp-lead-intake' );
-			case 'nieudany':
+			case self::ALARM_NIEUDANY:
 				return __( '[alarm: NIE dotarł do administratora]', 'mp-lead-intake' );
 		}
 
@@ -122,7 +149,7 @@ class MP_Pipeline_Logger {
 	 * @param int    $wpis_id Identyfikator wpisu w dzienniku.
 	 * @param string $opis    Opis zapisany przy wstawieniu.
 	 * @param array  $meta    Metadane zapisane przy wstawieniu.
-	 * @param string $stan    Los alarmu: wyslany / wyciszony / nieudany.
+	 * @param string $stan    Los alarmu — jedna ze stałych ALARM_* (patrz stany_alarmu()).
 	 * @return void
 	 */
 	protected function oznacz_los_alarmu( $wpis_id, $opis, array $meta, $stan ) {
@@ -354,7 +381,7 @@ class MP_Pipeline_Logger {
 		// Kubełek i jego klucz policzone wyżej — wpis w dzienniku musi mówić
 		// o TYM SAMYM ograniczniku, którego za chwilę użyjemy.
 		if ( get_transient( $throttle_key ) ) {
-			$this->oznacz_los_alarmu( $wpis_id, $opis, $meta, 'wyciszony' );
+			$this->oznacz_los_alarmu( $wpis_id, $opis, $meta, self::ALARM_WYCISZONY );
 
 			return;
 		}
@@ -387,7 +414,7 @@ class MP_Pipeline_Logger {
 				$context
 			);
 
-			$this->oznacz_los_alarmu( $wpis_id, $opis, $meta, 'nieudany' );
+			$this->oznacz_los_alarmu( $wpis_id, $opis, $meta, self::ALARM_NIEUDANY );
 
 			return;
 		}
@@ -421,7 +448,7 @@ class MP_Pipeline_Logger {
 			);
 		}
 
-		$this->oznacz_los_alarmu( $wpis_id, $opis, $meta, $sent ? 'wyslany' : 'nieudany' );
+		$this->oznacz_los_alarmu( $wpis_id, $opis, $meta, $sent ? self::ALARM_WYSLANY : self::ALARM_NIEUDANY );
 	}
 
 	/**
@@ -527,7 +554,7 @@ class MP_Pipeline_Logger {
 	protected function notify_admin( MP_Department $department, MP_Result $result, MP_Context $context, $wpis_id = 0, $opis = '', array $meta = array() ) {
 		$throttle_key = $this->failure_throttle_key( $department );
 		if ( get_transient( $throttle_key ) ) {
-			$this->oznacz_los_alarmu( $wpis_id, $opis, $meta, 'wyciszony' );
+			$this->oznacz_los_alarmu( $wpis_id, $opis, $meta, self::ALARM_WYCISZONY );
 
 			return;
 		}
@@ -553,7 +580,7 @@ class MP_Pipeline_Logger {
 				$context
 			);
 
-			$this->oznacz_los_alarmu( $wpis_id, $opis, $meta, 'nieudany' );
+			$this->oznacz_los_alarmu( $wpis_id, $opis, $meta, self::ALARM_NIEUDANY );
 
 			return;
 		}
@@ -600,6 +627,6 @@ class MP_Pipeline_Logger {
 			);
 		}
 
-		$this->oznacz_los_alarmu( $wpis_id, $opis, $meta, $sent ? 'wyslany' : 'nieudany' );
+		$this->oznacz_los_alarmu( $wpis_id, $opis, $meta, $sent ? self::ALARM_WYSLANY : self::ALARM_NIEUDANY );
 	}
 }

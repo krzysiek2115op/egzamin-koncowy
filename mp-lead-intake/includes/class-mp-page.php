@@ -151,7 +151,11 @@ class MP_Lead_Intake_Page {
 				'post_name'    => 'zapytanie-ofertowe',
 				'post_status'  => 'publish',
 				'post_type'    => 'page',
-				'post_content' => '[mp_lead_intake_form]',
+				// Krótki kod ZE STAŁEJ, nie z ręki: zmiana nazwy w
+				// MP_Lead_Intake_Form rozjeżdżała treść zakładanej strony
+				// z tym, co wtyczka faktycznie rejestruje, a przy okazji
+				// z wyszukiwaniem w adopt_existing_page() niżej.
+				'post_content' => '[' . MP_Lead_Intake_Form::SHORTCODE . ']',
 			),
 			true
 		);
@@ -227,7 +231,13 @@ class MP_Lead_Intake_Page {
 					)
 					// Krótki kod podany WPROST: administrator, który tej strony nie
 					// zakładał, nie ma skąd go znać, a bez niego rada jest pusta.
-					: __( 'Strona z formularzem została usunięta. Opublikuj nową stronę zawierającą krótki kod [mp_lead_intake_form].', 'mp-lead-intake' )
+					// Wstawiany ze stałej — inaczej rada mówiłaby o krótkim kodzie,
+					// którego wtyczka po zmianie nazwy już nie rejestruje.
+					: sprintf(
+						/* translators: %s: krótki kod formularza wraz z nawiasami. */
+						__( 'Strona z formularzem została usunięta. Opublikuj nową stronę zawierającą krótki kod %s.', 'mp-lead-intake' ),
+						'[' . MP_Lead_Intake_Form::SHORTCODE . ']'
+					)
 			);
 
 			return;

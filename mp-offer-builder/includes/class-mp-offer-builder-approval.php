@@ -152,11 +152,29 @@ class MP_Offer_Builder_Approval {
 		 * po tamtej stronie kończy się to odmową MP3-E190, czyli błędem zgłoszonym
 		 * o jeden moduł za późno.
 		 */
-		if ( '' === (string) $offer['offer_number'] || '' === (string) $offer['pdf_path'] ) {
-			return new WP_Error(
-				'no_document',
-				__( 'Oferta nie ma jeszcze numeru i pliku PDF — najpierw ją dokończ i wygeneruj dokument.', 'mp-offer-builder' )
-			);
+		$brak_numeru = '' === (string) $offer['offer_number'];
+		$brak_pliku  = '' === (string) $offer['pdf_path'];
+
+		if ( $brak_numeru || $brak_pliku ) {
+			/*
+			 * WARUNEK MÓWI „ALBO", WIĘC KOMUNIKAT TEŻ MUSI.
+			 *
+			 * Jedno zdanie „nie ma numeru i pliku PDF" szło do wszystkich trzech
+			 * przypadków. Przy ofercie, która numer MA, było po prostu nieprawdziwe:
+			 * handlowiec czytał o brakującej numeracji i szukał usterki tam, gdzie
+			 * jej nie było, zamiast wygenerować dokument. Komunikat, który zmyśla
+			 * połowę powodu, kosztuje dokładnie tyle, ile trwa szukanie po złej
+			 * stronie — a to najdroższa część każdej awarii.
+			 */
+			if ( $brak_numeru && $brak_pliku ) {
+				$powod = __( 'Oferta nie ma jeszcze numeru ani pliku PDF — najpierw ją dokończ i wygeneruj dokument.', 'mp-offer-builder' );
+			} elseif ( $brak_numeru ) {
+				$powod = __( 'Oferta nie ma jeszcze numeru — najpierw ją dokończ, żeby dostała numer.', 'mp-offer-builder' );
+			} else {
+				$powod = __( 'Oferta nie ma jeszcze pliku PDF — wygeneruj dokument przed zatwierdzeniem.', 'mp-offer-builder' );
+			}
+
+			return new WP_Error( 'no_document', $powod );
 		}
 
 		/*
@@ -513,11 +531,14 @@ class MP_Offer_Builder_Approval {
 					$label
 				),
 			),
+			// Po przekierowaniu zostaje sam kod, więc tutaj — inaczej niż w approve() —
+			// nie wiemy, której połowy dokumentu brakuje. Zdanie ma to powiedzieć
+			// wprost („albo"), zamiast zgadywać za administratora.
 			'no_document'      => array(
 				'error',
 				sprintf(
 					/* translators: %s: „Oferta OF/2026/000123" albo samo „Oferta". */
-					__( '%s nie ma jeszcze numeru i pliku PDF — najpierw ją dokończ i wygeneruj dokument.', 'mp-offer-builder' ),
+					__( '%s nie ma jeszcze kompletnego dokumentu — brakuje numeru albo pliku PDF. Dokończ ją i wygeneruj dokument.', 'mp-offer-builder' ),
 					$label
 				),
 			),

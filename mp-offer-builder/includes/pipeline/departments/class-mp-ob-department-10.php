@@ -225,8 +225,26 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 		// Stawka VAT per pozycja z Działu 6 (wg klasy podatkowej pozycji). Fallback do
 		// jednej stawki oferty tylko gdy brak mapy (np. reverse_charge/out_of_scope=0.00).
 		$line_tax_rates = is_array( $context->get( 'line_tax_rates' ) ) ? $context->get( 'line_tax_rates' ) : array();
-		$item_rows      = array();
-		$item_errors    = array();
+
+		/*
+		 * KTÓRY BRAK MAPY WOLNO WYBACZYĆ.
+		 *
+		 * Fallback opisany wyżej dotyczy dwóch mechanizmów, w których zero
+		 * wynika z prawa (Dział 6: odwrotne obciążenie i sprzedaż poza zakresem
+		 * dyrektywy). Warunek niżej mechanizmu jednak nie sprawdzał, więc każda
+		 * pusta mapa — także ta z Działu 6, który odmówił, albo z kontekstu
+		 * złożonego nie do końca — kończyła się `$context->get( 'tax_rate', 0 )`.
+		 * Przy braku stawki zbiorczej to po prostu ZERO: polska oferta szłaby na
+		 * papier klienta z 0% VAT, a jedynym śladem byłby jego brak.
+		 *
+		 * Nazwy mechanizmów wprost, tak samo jak w Dziale 6 i 7 — słownika stałych
+		 * ta wtyczka dla nich nie ma, a wymyślanie go tutaj rozjechałoby trzy
+		 * miejsca zamiast związać.
+		 */
+		$mechanizm    = (string) $context->get( 'tax_mechanism', '' );
+		$zero_z_prawa = in_array( $mechanizm, array( 'reverse_charge', 'out_of_scope' ), true );
+		$item_rows    = array();
+		$item_errors  = array();
 
 		foreach ( $items as $i => $item ) {
 			/*
@@ -244,14 +262,16 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 			}
 
 			/*
-			 * Brak CAŁEJ mapy stawek to dokumentowany fallback (reverse_charge,
-			 * out_of_scope — jedna stawka 0.00 na ofertę). Mapa, która istnieje, ale
+			 * Brak CAŁEJ mapy stawek to dokumentowany fallback — ale wyłącznie przy
+			 * mechanizmie, w którym zero bierze się z prawa. Mapa, która istnieje, ale
 			 * nie ma tej pozycji, to co innego: dziura w danych, nie tryb pracy.
 			 */
-			if ( ! empty( $line_tax_rates ) && ! isset( $line_tax_rates[ $i ] ) ) {
+			if ( ! isset( $line_tax_rates[ $i ] ) && ( ! empty( $line_tax_rates ) || ! $zero_z_prawa ) ) {
 				$item_errors[] = array(
 					'field'   => "items.$i",
-					'message' => 'Pozycja bez stawki VAT, mimo że mapa stawek istnieje.',
+					'message' => empty( $line_tax_rates )
+						? 'Brak mapy stawek VAT przy sprzedaży opodatkowanej — stawka pozycji nie może pochodzić z domyślnego zera.'
+						: 'Pozycja bez stawki VAT, mimo że mapa stawek istnieje.',
 				);
 				continue;
 			}

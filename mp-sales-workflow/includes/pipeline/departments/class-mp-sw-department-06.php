@@ -84,12 +84,18 @@ class MP_SW_D6_Scheduler {
 	/**
 	 * Termin zadania liczony od jednego źródła czasu w GMT.
 	 *
+	 * Strefa dopisana WPROST: `$from` przychodzi w GMT, ale bez oznaczenia
+	 * strefy, a `strtotime()` czyta taki łańcuch strefą domyślną PHP. Wynik
+	 * wracał przez `gmdate()`, więc termin przesuwał się o przesunięcie strefy —
+	 * a w dobie zmiany czasu na letni (23 godziny lokalnie) o godzinę więcej.
+	 * Ta sama poprawka co przy SLA w Dziale 5 i ta sama zasada, co w cronie.
+	 *
 	 * @param int    $days Przesunięcie w dniach.
 	 * @param string $from Punkt odniesienia (datetime GMT).
 	 * @return string
 	 */
 	public static function due_at( $days, $from ) {
-		return gmdate( 'Y-m-d H:i:s', strtotime( $from . ' +' . (int) $days . ' days' ) );
+		return gmdate( 'Y-m-d H:i:s', strtotime( $from . ' UTC +' . (int) $days . ' days' ) );
 	}
 
 	/**
@@ -277,7 +283,11 @@ class MP_SW_D6_Critic_Guard extends MP_SW_Abstract_Critic {
 				);
 			}
 
-			if ( strtotime( (string) $task['due_at'] ) <= strtotime( (string) $followup['planned_at'] ) ) {
+			// Obie daty w GMT i obie czytane jako GMT — patrz due_at(). Wspólna
+			// strefa domyślna dawałaby ten sam porządek przez większość roku, ale
+			// nie w dobie zmiany czasu, gdy jedna z nich wypada po drugiej stronie
+			// przeskoku zegara.
+			if ( strtotime( (string) $task['due_at'] . ' UTC' ) <= strtotime( (string) $followup['planned_at'] . ' UTC' ) ) {
 				// Termin w przeszłości oznacza zadanie, które wypada natychmiast —
 				// czyli follow-up wysłany w tej samej chwili co oferta.
 				return MP_SW_Result::fail(

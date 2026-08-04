@@ -302,13 +302,40 @@ pz_ok(
 	'pola=' . pz_pola( $pz_luka )
 );
 
-// KONTR-ASERCJA: brak MAPY stawek to nadal legalny fallback (reverse_charge).
-$pz_bez_mapy = pz_plan( pz_kontekst( array( 'line_tax_rates' => array(), 'tax_rate' => 0.0 ) ) );
+/*
+ * KONTR-ASERCJA: brak MAPY stawek to nadal legalny fallback — ale wyłącznie przy
+ * mechanizmie, w którym zero bierze się z prawa.
+ *
+ * Ta asercja mówiła „(reverse_charge)" w komentarzu, a uruchamiała kontekst
+ * krajowy — i przechodziła, bo Dział 10 mechanizmu nie sprawdzał. Reguła była
+ * zapisana szerzej, niż brzmiała jej własna intencja: pilnowała, żeby oferta
+ * krajowa bez mapy stawek dostała ciche 0% VAT. Zawężona do tego, co komentarz
+ * zawsze deklarował (patrz stawka-vat-i-komunikat-dokumentu.php).
+ */
+$pz_bez_mapy = pz_plan(
+	pz_kontekst(
+		array(
+			'line_tax_rates' => array(),
+			'tax_mechanism'  => 'reverse_charge',
+			'tax_rate'       => 0.0,
+			'vat_grosze'     => 0,
+			'gross_grosze'   => 30000,
+		)
+	)
+);
 
 pz_ok(
 	$pz_bez_mapy->is_ok(),
-	'D3: KONTR-ASERCJA — brak calej mapy stawek to dokumentowany fallback, nie blad',
+	'D3: KONTR-ASERCJA — brak calej mapy stawek przy odwrotnym obciazeniu to fallback, nie blad',
 	'kod=' . $pz_bez_mapy->get_code() . ' pola=' . pz_pola( $pz_bez_mapy )
+);
+
+$pz_krajowa_bez_mapy = pz_plan( pz_kontekst( array( 'line_tax_rates' => array(), 'tax_rate' => 0.0 ) ) );
+
+pz_ok(
+	! $pz_krajowa_bez_mapy->is_ok(),
+	'D4: ta sama pustka przy sprzedazy krajowej jest juz bledem',
+	'kod=' . $pz_krajowa_bez_mapy->get_code() . ' pola=' . pz_pola( $pz_krajowa_bez_mapy )
 );
 
 $GLOBALS['mp_pz']['lines'][] = '';
