@@ -10,26 +10,43 @@ gałęzi `audyt-projektu`, założonej od `main`.
 
 ```sh
 # szybko, przed commitem — same reguły, ~1 s
-php audyt/bin/audyt.php --repo=/sciezka/do/repo --glebokosc=szybki
+php audyt/bin/audyt.php --repo=/sciezka/do/repo --ref=refs/heads/main --glebokosc=szybki
 
 # domyślnie — z narzędziami zewnętrznymi, ~90 s
-php audyt/bin/audyt.php --repo=/sciezka/do/repo
+php audyt/bin/audyt.php --repo=/sciezka/do/repo --ref=refs/heads/main
 
 # komplet przed wydaniem — z oceną modelu, dziesiątki minut
-php audyt/bin/audyt.php --repo=/sciezka/do/repo --glebokosc=gleboki
+php audyt/bin/audyt.php --repo=/sciezka/do/repo --ref=refs/heads/main --glebokosc=gleboki
 ```
 
 Dodatkowe przełączniki:
 
 | Przełącznik | Znaczenie |
 |---|---|
+| `--ref=<ref>` | audytuj JEDEN wskazany ref (np. `refs/heads/main`) zamiast trzech gałęzi wtyczek |
 | `--bez-modelu` | wyłącza pary modelowe (zgłoszą NIEOCENIONE, nie PASS) |
 | `--limit-modelu=N` | górna liczba pytań do modelu na parę (domyślnie 40) |
 | `MP_AU_PHPCS=/sciezka` | wskazuje binarkę PHPCS dla pary 1.3 |
 
-Narzędzie samo wystawia `git worktree` trzech gałęzi i audytuje ich **aktualne
-czubki** — czyli to, co jest w repozytorium, a nie to, co akurat leży na dysku.
-Po przebiegu sprząta po sobie.
+### `--ref` nie jest ozdobą
+
+Bez tego przełącznika narzędzie wystawia `git worktree` **trzech gałęzi wtyczek**
+i audytuje ich czubki. Taki był stan projektu, gdy narzędzie powstawało: każda
+wtyczka miała własną gałąź. Po scaleniu wszystkiego do `main` te gałęzie stoją
+w miejscu — a audyt bez `--ref` nadal je czyta i wypisuje uspokajający raport
+o kodzie sprzed scalenia. Nic o tym nie ostrzega, bo z punktu widzenia narzędzia
+wszystko przebiegło poprawnie.
+
+Dlatego **od scalenia do `main` każde uruchomienie ma podawać `--ref`**.
+Pierwsza linia wypisywana przez narzędzie mówi, co naprawdę audytuje:
+
+```
+zrodlo kodu:  refs/heads/main (jeden ref)     <- dobrze
+zrodlo kodu:  trzy galezie wtyczek            <- czytasz historię, nie kod
+```
+
+Narzędzie audytuje **aktualne czubki** wskazanego źródła — czyli to, co jest
+w repozytorium, a nie to, co akurat leży na dysku. Po przebiegu sprząta po sobie.
 
 Kod wyjścia: `1`, gdy są ustalenia krytyczne (do użycia w CI), `0` w przeciwnym razie.
 
