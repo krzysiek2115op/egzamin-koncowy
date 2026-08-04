@@ -1344,6 +1344,97 @@
             "lekcja": "Zapis opcji to nie to samo co przelaczenie stanu. Gdy WordPress ma na dana rzecz obiekt (WP_Rewrite), zmiane robi sie jego API.",
             "test": "tools/strona-pokazowa/tests/motyw-poza-korzeniem.php sekcja 0 (warunki pomiaru)",
             "para": "CI na swiezej instalacji"
+        },
+        {
+            "id": "U-38",
+            "data": "2026-08-04",
+            "wtyczka": "mp-sales-workflow",
+            "tytul": "Systemu nie dalo sie skonfigurowac z panelu, w ktorym sie go instaluje",
+            "klasa": "konfiguracja-bez-interfejsu",
+            "plik": "mp-sales-workflow/includes/pipeline/departments/class-mp-sw-department-04.php (odbiorca) + brak ekranu",
+            "dowod": "Dzial 4 dobiera wlasciciela po usermeta mp_sw_country/mp_sw_langs/mp_sw_active. Zadne z tych pol nie mialo interfejsu — instrukcja techniczna podawala 'wp user meta update', zasiew demo wolal update_user_meta() z PHP.",
+            "skutek": "Konto z sama rola Handlowiec nie bylo kandydatem dla ZADNEGO procesu: pipeline konczyl sie no_owner, proces nie powstawal, zgloszenie lezalo. Klient, ktoremu PRZECZYTAJ-MNIE.txt kaze instalowac przez panel, nie mial jak dokonczyc konfiguracji tam, gdzie ja zaczal.",
+            "lekcja": "Jesli produkt instaluje sie w panelu, to konfiguruje sie go w panelu. 'Konfiguracja wdrozeniowa' przez wiersz polecen jest konfiguracja bez interfejsu, a nie decyzja projektowa.",
+            "test": "mp-sales-workflow/tests/naprawy/handlowiec-konfigurowalny-z-panelu.php (19 asercji)",
+            "para": "ocena zewnetrzna 01.08.2026 — kategoria 'duzy'"
+        },
+        {
+            "id": "U-39",
+            "data": "2026-08-04",
+            "wtyczka": "wszystkie trzy",
+            "tytul": "Zero infrastruktury tlumaczen przy 367 tlumaczonych ciagach",
+            "klasa": "obietnica-bez-pokrycia",
+            "plik": "mp-*/mp-*.php: load_plugin_textdomain( ..., '/languages' )",
+            "dowod": "Wszystkie trzy wtyczki ladowaly domene z katalogu /languages. Katalogu nie bylo w zadnej, pliku .pot w zadnej, naglowka Domain Path w zadnej. Ciagow: 71 + 110 + 186.",
+            "skutek": "Tlumacz nie mial z czym usiasc; WordPress szukal katalogu, ktorego nie dostarczono. Braku nie bylo widac, bo zrodla sa po polsku i __() oddaje wtedy ciag wejsciowy — widac go dopiero na witrynie w innym jezyku, czyli u klienta.",
+            "lekcja": "Wywolanie funkcji i18n jest deklaracja, nie implementacja. Testem na 'czy wtyczka jest tlumaczalna' jest istnienie szablonu, nie obecnosc __() w kodzie.",
+            "test": "mp-sales-workflow/tests/koncowe/szablon-tlumaczen.php (28 asercji, wszystkie trzy wtyczki)",
+            "para": "ocena zewnetrzna 01.08.2026 — kategoria 'sredni'"
+        },
+        {
+            "id": "U-40",
+            "data": "2026-08-04",
+            "wtyczka": "mp-lead-intake",
+            "tytul": "Paczka wgrywala na produkcje kod uruchamialny bez straznika",
+            "klasa": "brak-straznika-dostepu",
+            "plik": "mp-lead-intake/tests/process-harness/run-process.php, bench.php i 2 inne",
+            "dowod": "Cztery pliki PHP z paczki nie mialy zabezpieczenia przed bezposrednim wywolaniem; dwa z nich to samodzielne harnessy dzialajace BEZ WordPressa, wiec wejscie pod ich adres je uruchamialo. Blizniaczy plik we wtyczce 2 mial ochrone od SR5-03 — wtyczka 1 nie.",
+            "skutek": "Wykonanie kodu deweloperskiego z zewnatrz na witrynie klienta.",
+            "lekcja": "Naprawa zastosowana w jednej wtyczce nie jest naprawa w trzech. Wzorzec SR5-03 powinien byl objac blizniaki od razu.",
+            "test": "mp-sales-workflow/tests/koncowe/paczka-bez-kodu-uruchamialnego.php (5 asercji, skan calego drzewa)",
+            "para": "ocena zewnetrzna 01.08.2026 — kategoria 'maly'"
+        },
+        {
+            "id": "U-41",
+            "data": "2026-08-04",
+            "wtyczka": "narzedzia wydania",
+            "tytul": "Budowanie paczek ignorowalo .distignore, ktory wtyczka deklarowala od poczatku",
+            "klasa": "deklaracja-bez-egzekwowania",
+            "plik": "tools/wydanie/buduj-zipy.py + mp-offer-builder/.distignore",
+            "dowod": "ZIP wtyczki 1 mial 101 plikow, z czego 47 deweloperskich (27 testow, 20 docs, w tym AUDYT.md i DEBUG-RAPORT.md). mp-offer-builder/.distignore wymienial tests/, docs/, blueprint/, materialy-src/, *.md i composer.* — nikt go nie czytal, bo paczki skladalismy recznie zamiast 'wp dist-archive'. Strazniki ABSPATH z U-40 chronia tylko PLIKI PHP: zadanie HTTP na docs/SECURITY.md odpowiadalo 200 i 9966 B typu text/markdown.",
+            "skutek": "Dokumentacja wewnetrzna produktu — z raportem audytu i opisem zabezpieczen — do pobrania z serwera klienta pod przewidywalnym adresem. Ta sama paczka ostrzegala w PRZECZYTAJ-MNIE.txt, ze katalog wtyczki jest publiczny.",
+            "lekcja": "Regula zapisana w repozytorium, ktorej nic nie egzekwuje, jest komentarzem. Budowanie czyta teraz deklaracje wtyczki, a jej brak przerywa prace — milczenie nie moze znaczyc 'wyslij wszystko'.",
+            "test": "tools/wydanie/tests/paczka-instalacyjna.py (23 asercje, w tym 4 kontr-asercje na wyciecie za duzo)",
+            "para": "ocena zewnetrzna 01.08.2026 — kategoria 'maly'"
+        },
+        {
+            "id": "U-42",
+            "data": "2026-08-04",
+            "wtyczka": "narzedzia wydania",
+            "tytul": "Teksty i skrypty wydania zyly w katalogu tymczasowym",
+            "klasa": "dostawa-poza-repozytorium",
+            "plik": "tools/wydanie/ (przed naprawa: /tmp)",
+            "dowod": "PRZECZYTAJ-MNIE.txt — pierwsza strona, ktora widzi klient — byl przepisywany z paczki poprzedniego wydania skryptem w /tmp. Tak samo skrypt publikujacy wydania i odswiezanie assetow demo. /tmp jest tu w tmpfs.",
+            "skutek": "Nie do zrecenzowania w commicie, nie do poprawienia bez archeologii w archiwach, nie do odtworzenia po restarcie maszyny. Assety demo dwa razy zostaly nieodswiezone, bo pamietal o nich tylko czlowiek.",
+            "lekcja": "Wszystko, co widzi klient, i wszystko, co produkuje dostawe, jest czescia dostawy. Jesli krok wydania da sie zapomniec, to znaczy, ze nie ma go w repozytorium.",
+            "test": "tools/wydanie/tests/paczka-instalacyjna.py + istnienie buduj-zipy.py, publikuj.py, demo-assety.py w drzewie",
+            "para": "ocena zewnetrzna 01.08.2026 — kategoria 'maly'"
+        },
+        {
+            "id": "U-43",
+            "data": "2026-08-04",
+            "wtyczka": "wszystkie trzy",
+            "tytul": "Deklarowana zgodnosc rozjezdzala sie z testowana, a wymagan srodowiska nie bylo w README",
+            "klasa": "dokumentacja-kontra-rzeczywistosc",
+            "plik": "mp-*/readme.txt (Tested up to), README.md",
+            "dowod": "Tested up to: 6.6 we wtyczce 1 i 6.8 w pozostalych, przy regresji chodzacej na WordPressie 7.0. README.md nie mial sekcji wymagan, a wtyczka 2 wymaga PHP 8.1 wobec 7.4 w pozostalych.",
+            "skutek": "Na serwerze z PHP 8.0 klient zainstalowalby wtyczki 1 i 3, a 2 by odmowila — proces bez srodkowego kroku, czyli bez ofert, i bez zadnej informacji, dlaczego.",
+            "lekcja": "Rozne deklaracje zgodnosci w jednej dostawie to zawsze blad co najmniej jednej z nich. Najwyzsze wymaganie w komplecie jest wymaganiem kompletu.",
+            "test": "mp-sales-workflow/tests/koncowe/szablon-tlumaczen.php + tabela wymagan w README.md",
+            "para": "ocena zewnetrzna 01.08.2026 — kategoria 'maly'"
+        },
+        {
+            "id": "U-44",
+            "data": "2026-08-04",
+            "wtyczka": "strona-pokazowa",
+            "tytul": "Demo lamalo polityke prywatnosci, ktora samo glosilo",
+            "klasa": "produkt-przeczy-wlasnej-obietnicy",
+            "plik": "tools/strona-pokazowa/motyw/parts/kontakt.html, parts/polityka-prywatnosci.html",
+            "dowod": "Strona Kontakt osadzala ramke Google Maps przy kazdym wejsciu, a polityka prywatnosci deklarowala 'wylacznie niezbedne pliki cookies'. Google Fonts i zdjecia z Unsplash tez wychodzily na zewnatrz i tez nie byly wymienione. Mapa wskazywala 'Warszawa Centrum' zamiast adresu ze stopki.",
+            "skutek": "Zdanie nieprawdziwe na stronie, ktora je glosi — w produkcie, ktorego osia sprzedazowa jest RODO (zgody, anonimizacja, wzor polityki prywatnosci w materialach).",
+            "lekcja": "Demo jest czescia produktu i podlega tym samym regulom, ktore produkt sprzedaje. Mierzyc trzeba PLIKI ZRODLOWE MOTYWU, a nie tresc w bazie: zasiew pomija strony, ktore juz istnieja.",
+            "test": "tools/strona-pokazowa/tests/demo-nie-lamie-wlasnej-polityki.php (11 asercji)",
+            "para": "ocena zewnetrzna 01.08.2026 — kategoria 'demo'"
         }
     ]
 }
