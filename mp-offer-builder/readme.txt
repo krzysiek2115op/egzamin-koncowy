@@ -4,7 +4,7 @@ Tags: oferty, pdf, woocommerce, cennik
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.3.10
+Stable tag: 1.3.11
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -60,6 +60,19 @@ RODO/GDPR:
 
 == Changelog ==
 
+= 1.3.11 =
+* Koniec z możliwością cichego 0% VAT. Dział zapisujący ofertę wybaczał brak
+  całej mapy stawek podatkowych każdemu mechanizmowi, choć uzasadnienie
+  dotyczyło wyłącznie odwrotnego obciążenia i sprzedaży poza zakresem
+  dyrektywy. Oferta krajowa bez mapy trafiłaby na dokument klienta ze stawką
+  zero i bez żadnego śladu. Pusta mapa przechodzi tylko tam, gdzie zero wynika
+  z prawa; przy sprzedaży opodatkowanej to błąd pozycji.
+* Odmowa zatwierdzenia mówi, czego naprawdę brakuje. Bramka sprawdza „numer
+  ALBO plik PDF", a komunikat twierdził „nie ma numeru I pliku" — oferta
+  z nadanym numerem kierowała handlowca do numeracji zamiast do generowania
+  dokumentu. Trzy przypadki mają teraz trzy zdania.
+* Stopki materiałów dla klienta biorą numer wersji z nagłówka wtyczki. Mówiły
+  „v1.0.3" przy wtyczce na 1.3.10, bo numer był wpisany w źródłach z ręki.
 
 = 1.3.10 =
 * Paczka instalacyjna slucha wreszcie pliku .distignore. Zmiana zapowiadana

@@ -130,6 +130,38 @@ testów manualnych jako niezależnej warstwy weryfikacji, uzupełniającej audyt
 
 ---
 
+## Stan na wydanie 1.3.11 (04.08.2026)
+
+Regresja **89/89** na bazie od zera, PHPCS kod wyjścia **0**. Cztery nowe pliki
+testowe, każdy napisany PRZED naprawą i uruchomiony, żeby zobaczyć, jak pada:
+
+- `mp-sales-workflow/tests/naprawy/segment-dociera-do-procesu.php` (11 asercji) —
+  segment ze zgłoszenia trafia do wiersza procesu i na ekran, także przy
+  **pierwszym** zdarzeniu, gdy wiersza jeszcze nie ma.
+- `mp-lead-intake/tests/naprawy/link-do-strony-ktorej-nie-ma.php` (10) — adres
+  strony z formularzem nie powstaje dla wpisu w koszu, w szkicu ani prywatnego.
+- `mp-lead-intake/tests/naprawy/dziennik-mowi-co-sie-stalo.php` (10) — opis wpisu
+  o zatrzymaniu niesie powód słowami, nie sam kod maszynowy.
+- `mp-lead-intake/tests/naprawy/stary-cache-vies-nie-rozstrzyga.php` (6) — wpis
+  w cache sprzed aktualizacji nie udaje rozstrzygniętego werdyktu.
+
+Do tego trzy pliki z rundy drobnych ustaleń:
+`mp-sales-workflow/tests/naprawy/czas-i-slownik-statusow.php` (19),
+`mp-lead-intake/tests/naprawy/slownik-alarmu-i-krotki-kod.php` (18),
+`mp-offer-builder/tests/naprawy/stawka-vat-i-komunikat-dokumentu.php` (16)
+oraz test motywu demo `tools/strona-pokazowa/tests/demo-nie-klamie-przegladarce.php` (12).
+
+### Reguła, która chroniła błąd
+
+Kontr-asercja D3 w `mp-offer-builder/tests/naprawy/plan-zapisu-dzial-10.php`
+deklarowała w komentarzu odwrotne obciążenie, a uruchamiała kontekst **krajowy**.
+Przechodziła — bo kod nie sprawdzał mechanizmu. Pilnowała więc dokładnie tego
+cichego 0% VAT, przed którym miała bronić. Zawężona do przypadku, który zawsze
+deklarowała, plus nowa asercja D4 na przypadek krajowy.
+
+Metoda z poprzednich rund bez zmian: **kod zły → naprawa; reguła zła → zawężenie
+reguły i test na to zawężenie.**
+
 ## Stan na wydanie 1.3.10 (04.08.2026)
 
 Regresja **79/79** na bazie od zera. Trzy nowe pliki testowe w tym wydaniu:

@@ -20,9 +20,9 @@ danych między formularzem, WooCommerce i pocztą.
 
 | # | Wtyczka | Wersja | Baza | Opis |
 |---|---------|--------|------|------|
-| 1 | `mp-lead-intake` | 1.3.10 | BD-3 | Przyjęcie i kwalifikacja lead-a z formularza |
-| 2 | `mp-offer-builder` | 1.3.10 | BD-2 | Kalkulacja cenowa, integracja WooCommerce, oferty PDF |
-| 3 | `mp-sales-workflow` | 1.3.10 | BD-1 | Statusy procesu, handlowiec, powiadomienia, follow-up, dashboard |
+| 1 | `mp-lead-intake` | 1.3.11 | BD-3 | Przyjęcie i kwalifikacja lead-a z formularza |
+| 2 | `mp-offer-builder` | 1.3.11 | BD-2 | Kalkulacja cenowa, integracja WooCommerce, oferty PDF |
+| 3 | `mp-sales-workflow` | 1.3.11 | BD-1 | Statusy procesu, handlowiec, powiadomienia, follow-up, dashboard |
 
 Kolejność instalacji ma znaczenie: **1, potem 2, potem 3**. Wtyczka 2 nasłuchuje
 zdarzenia z wtyczki 1, a wtyczka 3 — zdarzeń z obu poprzednich. Gotowe paczki
@@ -232,6 +232,47 @@ co dałoby się wziąć za prawdziwy adres.
 
 Raporty z kolejnych przebiegów leżą w `audyt/raport-*.txt` na gałęzi
 `audyt-projektu`, a szczegółowy opis narzędzia — w `audyt/README.md`.
+
+---
+
+## Wydanie 1.3.11 — pełna weryfikacja przed oceną: jedenaście ustaleń
+
+Runda uruchomiona z założeniem, że **błędy nadal są**, i z pytaniem, którego
+dotąd nie zadawaliśmy wprost: gdzie nasze narzędzia *z definicji* nie patrzą.
+Odpowiedź okazała się powtarzalna — poza zasięgiem audytu kodu leżą artefakty
+(treść PDF, treść maila, wiersz w bazie), materiały dla klienta i demo jako
+strona. Trzy z jedenastu ustaleń pochodzą właśnie stamtąd.
+
+**Cztery poważne — psuły zachowanie produktu u klienta:**
+
+| Ustalenie | Skutek |
+|---|---|
+| `segment` gubiony między działem zapisu a działem odczytu | dobór handlowca i treść powiadomień na pustym segmencie przy każdym nowym procesie |
+| adres strony z formularzem zwracany także dla wpisu w koszu | gość widział w menu wejście do procesu i trafiał na 404 |
+| opis w dzienniku niósł sam kod maszynowy | powód awarii zapisany w kolumnie, której panel nie pokazuje |
+| stary kształt cache VIES tłumaczony na twardy werdykt | dobę po aktualizacji legalne zgłoszenia odrzucane jako `vat_invalid` |
+
+**Sześć drobnych z audytu głębokiego:** martwa metoda z niezgodnym słownictwem
+alarmu, czas SLA liczony strefą domyślną PHP zamiast GMT, fallback stawki VAT
+szerszy niż jego uzasadnienie, komunikat mówiący „i" przy warunku „albo", dane
+policzone przez agenta i nieczytane przez krytyka, krótki kod wpisany z ręki
+mimo istniejącej stałej.
+
+**Jedno z oglądania dostawy:** materiały dla klienta miały w stopkach numery
+sprzed czterech wydań, a wtyczka 1 nie miała **żadnych źródeł** tych materiałów —
+dziewięć plików PDF i draw.io, których nie dało się odtworzyć ani poprawić.
+Katalog `materialy-src/` odtworzony, numer wersji czytany z nagłówka wtyczki
+przy budowaniu.
+
+Dwie obserwacje warte zapamiętania. Pierwsza: naprawa `segment` wymagała **dwóch**
+zmian — dział zapisujący i dział czytający — a dział czytający biegnie *przed*
+zapisującym, więc naprawa samego zapisu nic by nie dała. Druga: kontr-asercja
+pilnująca fallbacku VAT deklarowała w komentarzu odwrotne obciążenie, a
+uruchamiała kontekst krajowy — czyli test **chronił** błąd, którego miała
+pilnować.
+
+Każda naprawa poprzedzona testem udowodnionym uruchomieniem: 65 nowych asercji
+w czterech plikach. Regresja **89/89**, PHPCS **0**.
 
 ---
 

@@ -4,7 +4,7 @@ Tags: leads, formularz, b2b, nip, vat
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.3.10
+Stable tag: 1.3.11
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -17,6 +17,30 @@ zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej 
 
 == Changelog ==
 
+= 1.3.11 =
+* Menu przestało prowadzić do strony, której nie ma. Metoda oddająca adres
+  strony z formularzem zwracała odnośnik także dla wpisu w koszu, w szkicu
+  i prywatnego — a korzysta z niej awaryjne dokładanie pozycji do nawigacji.
+  Gość widział w menu wejście do całego procesu i trafiał na 404.
+* Dziennik mówi, CO się stało. Wpis o zatrzymaniu pipeline'u niósł numer
+  działu i maszynowy kod błędu, a komunikat dla człowieka szedł do kolumny,
+  której lista wpisów w panelu nie pokazuje. Powód awarii był zapisany obok,
+  poza zasięgiem wzroku administratora.
+* Zgłoszenia przestały być odrzucane przez cache sprzed aktualizacji. Starszy
+  format wpisu w pamięci podręcznej VIES nie odróżniał „numer nieważny" od
+  „nie dało się ustalić"; po aktualizacji odczyt tłumaczył go na twardy
+  werdykt „nieważny" i przez dobę zatrzymywał legalne zgłoszenia. Wpis
+  w starym kształcie nie rozstrzyga — pytamy rejestr jeszcze raz.
+* Krótki kod formularza pochodzi ze stałej także tam, gdzie był wpisany z ręki:
+  w treści zakładanej strony i w radzie dla administratora, któremu strona
+  zniknęła.
+* Usunięta martwa metoda przewidująca los alarmu — miała własne słownictwo,
+  niezgodne z resztą pliku, więc jej etykieta nie mogła wypaść nigdy. Trzy
+  stany alarmu mają teraz stałe i jeden słownik.
+* Materiały dla klienta wróciły do repozytorium jako źródła. Dziewięć plików
+  PDF i draw.io leżało w paczce bez możliwości odtworzenia — stąd stopka
+  mówiąca „v1.2.3" przy wtyczce na 1.3.10. Numer wersji jest teraz czytany
+  z nagłówka wtyczki przy budowaniu.
 
 = 1.3.10 =
 * Paczka instalacyjna schudla ze 101 plikow do 54 — testy i dokumentacja wewnetrzna (w tym AUDYT.md i DEBUG-RAPORT.md) nie jada juz do publicznie dostepnego katalogu wtyczek. Dokumenty dla klienta przeszly do paczki materialow.

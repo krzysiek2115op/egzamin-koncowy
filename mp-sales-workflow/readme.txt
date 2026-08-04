@@ -4,7 +4,7 @@ Tags: sprzedaz, crm, workflow, follow-up
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.3.10
+Stable tag: 1.3.11
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -34,6 +34,22 @@ powiadomien do klientow.
 
 == Changelog ==
 
+= 1.3.11 =
+* Segment klienta dociera wreszcie do procesu. Wtyczka 1 przekazuje go razem
+  ze zgłoszeniem, kolumna w bazie istniała, ale zapis jej nie wypełniał,
+  a ekran procesu czytał ją z wiersza, którego przy pierwszym zdarzeniu
+  jeszcze nie ma. Dobór handlowca i treść powiadomień pracowały na pustym
+  segmencie za każdym razem, gdy proces powstawał.
+* Termin SLA i termin zadania nie zależą już od tego, jaką strefę czasową
+  ustawił ktoś inny. Obliczenia czytały datę GMT bez oznaczenia strefy, więc
+  interpretowała ją strefa domyślna PHP — a w dobie zmiany czasu na letni
+  różnica rosła o dodatkową godzinę. Harmonogram tej samej wtyczki liczył to
+  poprawnie od początku; teraz wszystkie trzy miejsca mówią jednym głosem.
+* Odmowa zmiany statusu rozróżnia dwa różne błędy. Literówka w nazwie statusu
+  dostawała komunikat o nielegalnym przejściu, choć problem był w treści
+  żądania, a nie w regule. Kod odmowy bez zmian.
+* Stopki materiałów dla klienta biorą numer wersji z nagłówka wtyczki. Mówiły
+  „v1.0.0" przy wtyczce na 1.3.10.
 
 = 1.3.10 =
 * Paczka instalacyjna schudla ze 117 plikow do 52 — testy i dokumentacja wewnetrzna nie jada juz do publicznie dostepnego katalogu wtyczek. Instrukcja wdrozenia przeszla do paczki materialow.

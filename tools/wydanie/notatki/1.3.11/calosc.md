@@ -1,0 +1,29 @@
+Runda uruchomiona z zalozeniem, ze bledy NADAL sa, i z pytaniem, ktorego dotad nie zadawalismy wprost: gdzie nasze narzedzia z definicji nie patrza. Regresja sprawdza wylacznie nasze dawne pomylki, bramka audytu porownuje kod z rejestrem tych pomylek — zadne nie pyta „czy zrobilismy to, co zamowiono" i zadne nie oglada ARTEFAKTU: tresci PDF, tresci maila, wiersza w bazie, materialow dla klienta, demo jako strony. Trzy z jedenastu ustalen przyszly wlasnie stamtad.
+
+Jedenascie napraw, kazda poprzedzona testem uruchomionym po to, zeby zobaczyc, jak pada.
+
+SEGMENT KLIENTA NIE DOCIERAL DO PROCESU SPRZEDAZY. Wtyczka 1 przekazuje segment razem ze zgloszeniem, kolumna w bazie istniala od poczatku, ale dzial zapisujacy jej nie wypelnial. Naprawa samego zapisu nic by nie dala: dzial, ktory segment WYSWIETLA, biegnie PRZED dzialem, ktory go zapisuje — przy pierwszym zdarzeniu procesu czytal wiec wiersz, ktorego jeszcze nie ma. Dobor handlowca i tresc powiadomien pracowaly na pustym segmencie za kazdym razem, gdy proces powstawal. Naprawa objela oba konce.
+
+MENU PROWADZILO DO STRONY, KTOREJ NIE MA. Metoda oddajaca adres strony z formularzem zwracala odnosnik dla KAZDEGO wpisu — takze w koszu, w szkicu i prywatnego. Korzysta z niej awaryjne dokladanie pozycji do nawigacji, wiec gosc widzial w menu wejscie do calego procesu i trafial na 404. Wtyczka wykrywala przy tym, ze strona zniknela, i zapisywala to w panelu; brakowalo jednego sprawdzenia w miejscu, ktore adres buduje.
+
+DZIENNIK NIE MOWIL, CO SIE STALO. Wpis o zatrzymaniu pipeline'u skladal opis z numeru dzialu i MASZYNOWEGO kodu bledu. Komunikaty dla czlowieka szly do kolumny `meta_json`, o ktorej ten sam plik dwukrotnie stwierdza, ze lista wpisow w panelu jej nie pokazuje. Administrator ogladal dziennik pelen kodow, majac powod awarii zapisany obok, poza zasiegiem wzroku. Blizniacza metoda dla wyjatkow te naprawe miala — trzeci raz w tym projekcie naprawilismy jedna z dwoch rownoleglych sciezek.
+
+CACHE SPRZED AKTUALIZACJI ODRZUCAL LEGALNE ZGLOSZENIA. Starsza wersja zapisywala do pamieci podrecznej VIES skalar 1/0, przy czym zero szlo tam takze dla „nie dalo sie ustalic". Odczyt po aktualizacji tlumaczyl to na twardy werdykt „numer niewazny", a krytyk robi na nim STOP. Przez dobe po wgraniu nowej wersji (tyle zyje wpis) legalne zgloszenia byly odrzucane — czyli dokladnie ten skutek, przed ktorym bronila nowa straz przy ZAPISIE. Zmiana ksztaltu danych w cache to migracja: wpis w starym ksztalcie nie rozstrzyga, pytamy rejestr jeszcze raz.
+
+CICHE 0% VAT NA DOKUMENCIE KLIENTA. Dzial zapisujacy oferte wybaczal brak calej mapy stawek podatkowych KAZDEMU mechanizmowi, choc komentarz obok wymienial dwa, w ktorych zero wynika z prawa. Oferta krajowa, ktora doszlaby do tego dzialu bez mapy, dostalaby stawke z domyslnego zera i trafila na papier klienta jako 0% VAT bez zadnego sladu. Pusta mapa przechodzi teraz tylko przy odwrotnym obciazeniu i sprzedazy poza zakresem dyrektywy.
+
+Kontr-asercja, ktora tego pilnowala, deklarowala w komentarzu odwrotne obciazenie, a URUCHAMIALA kontekst krajowy. Przechodzila, bo kod mechanizmu nie sprawdzal. Test chronil wiec dokladnie ten blad, przed ktorym mial bronic.
+
+CZAS LICZONY STREFA, KTOREJ NIKT NIE WYBIERAL. Termin SLA i termin zadania powstawaly z daty GMT czytanej bez oznaczenia strefy, wiec interpretowala ja strefa domyslna PHP. WordPress ustawia UTC sam i dlatego na typowym serwerze wychodzilo dobrze — ale harmonogram TEJ SAMEJ wtyczki doklejal ' UTC' od poczatku, czyli jedna wtyczka miala dwie odpowiedzi na to samo pytanie. Jedna wtyczka wolajaca `date_default_timezone_set()` przesuwa SLA calego procesu, a w dobie zmiany czasu na letni o godzine wiecej.
+
+KOMUNIKAT MOWIACY „I" PRZY WARUNKU „ALBO". Bramka zatwierdzenia sprawdza „brak numeru ALBO brak pliku PDF", a odmowe opisywala zdaniem „Oferta nie ma jeszcze numeru I pliku PDF". Oferta z nadanym numerem kierowala handlowca do numeracji zamiast do generowania dokumentu — a najdrozsza czesc kazdej awarii to szukanie po zlej stronie.
+
+DANE POLICZONE I WYRZUCONE. Agent maszyny statusow liczy, czy status docelowy w ogole istnieje w slowniku, i wklada te informacje do wyniku. Krytyk jej nie czytal: literowka w nazwie statusu dostawala komunikat o nielegalnym PRZEJSCIU, choc naprawa jest w tresci zadania. Dwa rozne bledy dostaly dwa rozne zdania; kod odmowy bez zmian.
+
+MARTWA METODA Z WLASNYM SLOWNICTWEM. Metoda przewidujaca los alarmu oddawala lancuch „wysylany", a etykiety rozpoznaja „wyslany". Galaz etykiety nie mogla wypasc nigdy — i nie wypadala, bo od wydania 1.3.9 metody nikt juz nie wolal. Refaktor osierocil ja i zostawil: martwy kod czekajacy, az ktos uzyje go w dobrej wierze. Usunieta, a trzy stany alarmu dostaly stale zamiast luznych lancuchow.
+
+MATERIALY DLA KLIENTA Z NUMEREM SPRZED CZTERECH WYDAN. Stopki mowily v1.1.0, v1.2.1, v1.2.3, v1.0.3 i v1.0.0 przy wtyczkach na 1.3.10, bo numer byl wpisany w zrodlach z reki. Gorzej: wtyczka 1 nie miala W OGOLE zrodel swoich materialow — dziewiec plikow PDF i draw.io lezalo w paczce jako artefakty, ktorych nie da sie odtworzyc ani poprawic. Katalog zrodel odtworzony w calosci (trzy generatory schematow, trzy dokumenty, skrypt budujacy), a numer wersji jest teraz CZYTANY z naglowka wtyczki przy budowaniu — wpisany z reki starzeje sie po cichu, bo nic go nie sprawdza.
+
+MOTYW POKAZOWY UCZYL ZLEGO NAWYKU. `<html lang="pl">` i `<meta charset="UTF-8">` wpisane wprost zamiast standardowych funkcji WordPressa: instalacja postawiona po angielsku oglaszala czytnikom ekranu i wyszukiwarkom polski. Trzy ikony spolecznosciowe byly odnosnikami prowadzacymi do samego krzyzyka — uzytkownik klawiatury dostawal trzy przystanki bez celu. Firma z pokazu jest fikcyjna i profili nie ma, wiec zostaly same ikony, oznaczone jako dekoracja.
+
+Regresja: 89 plikow testowych, wszystkie PASS, zero bez werdyktu. PHPCS: 160 plikow, kod wyjscia 0.

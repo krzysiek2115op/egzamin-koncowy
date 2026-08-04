@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: MP Sales Workflow 1.3.10\n"
-"Report-Msgid-Bugs-To: https://github.com/krzysiek2115op/egzamin-koncowy/issues\n"
+"Project-Id-Version: MP Sales Workflow 1.3.11\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/mp-sales-workflow\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-04T14:06:24+00:00\n"
+"POT-Creation-Date: 2026-08-04T21:38:29+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: mp-sales-workflow\n"
@@ -208,47 +208,51 @@ msgstr ""
 msgid "przegrany"
 msgstr ""
 
-#: includes/admin/class-mp-sw-user-profile.php:67
+#: includes/admin/class-mp-sw-user-profile.php:76
 msgid "Obsługa sprzedaży (MP Sales Workflow)"
 msgstr ""
 
-#: includes/admin/class-mp-sw-user-profile.php:69
+#: includes/admin/class-mp-sw-user-profile.php:78
 msgid "Te pola decydują, czy konto może zostać właścicielem procesu sprzedażowego. Bez kraju i języka konto nie jest kandydatem dla żadnego zgłoszenia — sama rola nie wystarczy."
 msgstr ""
 
-#: includes/admin/class-mp-sw-user-profile.php:74
-msgid "Obsługiwany kraj"
-msgstr ""
-
-#: includes/admin/class-mp-sw-user-profile.php:78
-msgid "Kod ISO-3166-1 alfa-2, na przykład PL albo DE."
-msgstr ""
-
-#: includes/admin/class-mp-sw-user-profile.php:82
-msgid "Obsługiwane języki"
+#: includes/admin/class-mp-sw-user-profile.php:81
+msgid "Tylko do odczytu — zmiana tych pól wymaga uprawnienia „promote_users\" (administrator)."
 msgstr ""
 
 #: includes/admin/class-mp-sw-user-profile.php:86
-msgid "Kody dwuliterowe po przecinku, na przykład: pl,en"
+msgid "Obsługiwany kraj"
 msgstr ""
 
 #: includes/admin/class-mp-sw-user-profile.php:90
-msgid "Zespół"
+msgid "Kod ISO-3166-1 alfa-2, na przykład PL albo DE."
 msgstr ""
 
 #: includes/admin/class-mp-sw-user-profile.php:94
-msgid "Używany przez zakres widoczności „zespół\" w rolach."
+msgid "Obsługiwane języki"
 msgstr ""
 
 #: includes/admin/class-mp-sw-user-profile.php:98
-msgid "Przyjmuje nowe procesy"
+msgid "Kody dwuliterowe po przecinku, na przykład: pl,en"
 msgstr ""
 
 #: includes/admin/class-mp-sw-user-profile.php:102
+msgid "Zespół"
+msgstr ""
+
+#: includes/admin/class-mp-sw-user-profile.php:106
+msgid "Używany przez zakres widoczności „zespół\" w rolach."
+msgstr ""
+
+#: includes/admin/class-mp-sw-user-profile.php:110
+msgid "Przyjmuje nowe procesy"
+msgstr ""
+
+#: includes/admin/class-mp-sw-user-profile.php:114
 msgid "Tak — konto może dostawać nowe zgłoszenia"
 msgstr ""
 
-#: includes/admin/class-mp-sw-user-profile.php:104
+#: includes/admin/class-mp-sw-user-profile.php:116
 msgid "Odznaczenie zostawia bieżące procesy, ale wyłącza konto z przydziału nowych."
 msgstr ""
 
@@ -585,89 +589,95 @@ msgstr ""
 msgid "Zmiana statusu bez statusu docelowego."
 msgstr ""
 
+#. translators: %s: status docelowy z żądania.
+#: includes/pipeline/departments/class-mp-sw-department-05.php:301
+#, php-format
+msgid "Status „%s\" nie istnieje w słowniku statusów — stan bez zmian."
+msgstr ""
+
 #. translators: 1: status źródłowy, 2: status docelowy.
-#: includes/pipeline/departments/class-mp-sw-department-05.php:286
+#: includes/pipeline/departments/class-mp-sw-department-05.php:306
 #, php-format
 msgid "Przejście %1$s → %2$s spoza słownika — stan bez zmian."
 msgstr ""
 
 #. translators: 1: status żądany przez zdarzenie, 2: status z tablicy przejścia.
-#: includes/pipeline/departments/class-mp-sw-department-05.php:395
+#: includes/pipeline/departments/class-mp-sw-department-05.php:432
 #, php-format
 msgid "Przejście prowadzi gdzie indziej niż żądanie zdarzenia — zdarzenie: %1$s, przejście: %2$s."
 msgstr ""
 
 #. translators: 1: skutki nadmiarowe, 2: skutki brakujące.
-#: includes/pipeline/departments/class-mp-sw-department-05.php:421
+#: includes/pipeline/departments/class-mp-sw-department-05.php:458
 #, php-format
 msgid "Skutki niezgodne z regułą przejścia — nadmiarowe: %1$s, brakujące: %2$s"
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-05.php:432
+#: includes/pipeline/departments/class-mp-sw-department-05.php:469
 msgid "Skutek set_sla bez wyliczonego terminu."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-05.php:479
+#: includes/pipeline/departments/class-mp-sw-department-05.php:516
 msgid "Przejście nierozstrzygnięte przez maszynę statusów."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-05.php:489
+#: includes/pipeline/departments/class-mp-sw-department-05.php:526
 msgid "Decyzja bez wersji słownika przejść."
 msgstr ""
 
 #. translators: %s: typ zadania.
-#: includes/pipeline/departments/class-mp-sw-department-06.php:260
+#: includes/pipeline/departments/class-mp-sw-department-06.php:266
 #, php-format
 msgid "Zadanie %s zaplanowane bez wartownika statusu."
 msgstr ""
 
 #. translators: %s: wartownik spoza słownika.
-#: includes/pipeline/departments/class-mp-sw-department-06.php:272
+#: includes/pipeline/departments/class-mp-sw-department-06.php:278
 #, php-format
 msgid "Wartownik %s spoza słownika statusów."
 msgstr ""
 
 #. translators: 1: typ zadania, 2: wyliczony termin.
-#: includes/pipeline/departments/class-mp-sw-department-06.php:286
+#: includes/pipeline/departments/class-mp-sw-department-06.php:296
 #, php-format
 msgid "Zadanie %1$s ma termin nie w przyszłości (%2$s)."
 msgstr ""
 
 #. translators: 1: wartownik zadania, 2: bieżący status procesu.
-#: includes/pipeline/departments/class-mp-sw-department-06.php:307
+#: includes/pipeline/departments/class-mp-sw-department-06.php:317
 #, php-format
 msgid "Zadanie przepuszczone mimo zmiany statusu (wartownik %1$s, stan %2$s)."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-06.php:320
+#: includes/pipeline/departments/class-mp-sw-department-06.php:330
 msgid "Zadanie pominięte bez podanego powodu."
 msgstr ""
 
 #. translators: %s: typ zadania.
-#: includes/pipeline/departments/class-mp-sw-department-06.php:438
+#: includes/pipeline/departments/class-mp-sw-department-06.php:448
 #, php-format
 msgid "Drugie otwarte zadanie typu %s dla tego samego procesu."
 msgstr ""
 
 #. translators: %s: typ zadania.
-#: includes/pipeline/departments/class-mp-sw-department-06.php:453
+#: includes/pipeline/departments/class-mp-sw-department-06.php:463
 #, php-format
 msgid "Zadanie %s bez znacznika zdarzenia."
 msgstr ""
 
 #. translators: %d: identyfikator zadania.
-#: includes/pipeline/departments/class-mp-sw-department-06.php:477
+#: includes/pipeline/departments/class-mp-sw-department-06.php:487
 #, php-format
 msgid "Zadanie %d naraz wykonane i anulowane."
 msgstr ""
 
 #. translators: 1: liczba zadań, 2: liczba zadań z wartownikiem.
-#: includes/pipeline/departments/class-mp-sw-department-06.php:539
+#: includes/pipeline/departments/class-mp-sw-department-06.php:549
 #, php-format
 msgid "Zadania bez wartownika statusu: zaplanowano %1$d, z wartownikiem %2$d."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-06.php:552
+#: includes/pipeline/departments/class-mp-sw-department-06.php:562
 msgid "Dział 6 zapisał do bazy przed transakcją."
 msgstr ""
 
@@ -690,174 +700,174 @@ msgid "Szablon %s bez wersji — wysyłka byłaby nieodtwarzalna."
 msgstr ""
 
 #. translators: 1: klucz szablonu, 2: lista znaczników.
-#: includes/pipeline/departments/class-mp-sw-department-07.php:757
+#: includes/pipeline/departments/class-mp-sw-department-07.php:772
 #, php-format
 msgid "Szablon %1$s ma nierozwiązane znaczniki: %2$s"
 msgstr ""
 
 #. translators: %s: klucz szablonu.
-#: includes/pipeline/departments/class-mp-sw-department-07.php:777
+#: includes/pipeline/departments/class-mp-sw-department-07.php:792
 #, php-format
 msgid "Powiadomienie %s odrzucone: próba wstrzyknięcia nagłówka."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-07.php:803
+#: includes/pipeline/departments/class-mp-sw-department-07.php:818
 msgid "Powiadomienie do klienta bez adresu dokumentu — sprawdź MP_SW_LINK_KEY."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-07.php:804
+#: includes/pipeline/departments/class-mp-sw-department-07.php:819
 msgid "Oferta nie ma jeszcze gotowego dokumentu — nie ma czego wysłać klientowi."
 msgstr ""
 
 #. translators: 1: klucz szablonu, 2: adres odbiorcy.
-#: includes/pipeline/departments/class-mp-sw-department-07.php:825
+#: includes/pipeline/departments/class-mp-sw-department-07.php:840
 #, php-format
 msgid "Powiadomienie %1$s bez poprawnego adresu odbiorcy (%2$s)."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-07.php:836
+#: includes/pipeline/departments/class-mp-sw-department-07.php:851
 msgid "Powiadomienie z plikiem w załączniku — dokument ma iść adresem."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-07.php:850
+#: includes/pipeline/departments/class-mp-sw-department-07.php:865
 msgid "Wiadomość z ofertą nie ma numeru oferty — nie wysyłamy dokumentu bez identyfikacji."
 msgstr ""
 
 #. translators: %s: klucz szablonu.
-#: includes/pipeline/departments/class-mp-sw-department-07.php:860
+#: includes/pipeline/departments/class-mp-sw-department-07.php:875
 #, php-format
 msgid "Powiadomienie %s bez wersji szablonu."
 msgstr ""
 
 #. translators: %d: liczba prób wysyłki.
-#: includes/pipeline/departments/class-mp-sw-department-07.php:946
+#: includes/pipeline/departments/class-mp-sw-department-07.php:961
 #, php-format
 msgid "Wysyłka w żądaniu — przechwycono wywołań wp_mail(): %d."
 msgstr ""
 
 #. translators: %s: stan wiersza kolejki.
-#: includes/pipeline/departments/class-mp-sw-department-07.php:959
+#: includes/pipeline/departments/class-mp-sw-department-07.php:974
 #, php-format
 msgid "Wiersz kolejki w stanie %s zamiast queued."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-07.php:969
+#: includes/pipeline/departments/class-mp-sw-department-07.php:984
 msgid "Wiersz kolejki ze śladem wysyłki przed zapisem."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-07.php:1029
+#: includes/pipeline/departments/class-mp-sw-department-07.php:1044
 msgid "Powiadomienie wysłane w żądaniu — łamie zasadę 1 AJAX."
 msgstr ""
 
 #. translators: 1: liczba powiadomień, 2: liczba kompletnych.
-#: includes/pipeline/departments/class-mp-sw-department-07.php:1039
+#: includes/pipeline/departments/class-mp-sw-department-07.php:1054
 #, php-format
 msgid "Powiadomienia niekompletne: %1$d, z kompletem szablon+język+zmienne: %2$d."
 msgstr ""
 
 #. translators: 1: liczba powiadomień, 2: liczba wierszy kolejki.
-#: includes/pipeline/departments/class-mp-sw-department-07.php:1054
+#: includes/pipeline/departments/class-mp-sw-department-07.php:1069
 #, php-format
 msgid "Powiadomień %1$d, wierszy kolejki %2$d."
 msgstr ""
 
 #. translators: %s: status spoza słownika.
-#: includes/pipeline/departments/class-mp-sw-department-08.php:408
+#: includes/pipeline/departments/class-mp-sw-department-08.php:427
 #, php-format
 msgid "Status %s spoza słownika BD-1."
 msgstr ""
 
 #. translators: %s: wartość terminu.
-#: includes/pipeline/departments/class-mp-sw-department-08.php:425
+#: includes/pipeline/departments/class-mp-sw-department-08.php:444
 #, php-format
 msgid "Termin zadania nie jest datą MySQL: %s"
 msgstr ""
 
 #. translators: %s: lista kolumn przekraczających limit.
-#: includes/pipeline/departments/class-mp-sw-department-08.php:444
+#: includes/pipeline/departments/class-mp-sw-department-08.php:463
 #, php-format
 msgid "Wartości dłuższe niż pozwala schemat: %s"
 msgstr ""
 
 #. translators: 1: kolumna, 2: wartość.
-#: includes/pipeline/departments/class-mp-sw-department-08.php:457
+#: includes/pipeline/departments/class-mp-sw-department-08.php:476
 #, php-format
 msgid "Kolumna %1$s nie jest datą MySQL: %2$s"
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-08.php:469
+#: includes/pipeline/departments/class-mp-sw-department-08.php:488
 msgid "Zapis bez identyfikatora zdarzenia — idempotencja nie miałaby na czym stanąć."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-08.php:483
+#: includes/pipeline/departments/class-mp-sw-department-08.php:502
 msgid "Operacja na zadaniu bez danych do dziennika."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-08.php:581
+#: includes/pipeline/departments/class-mp-sw-department-08.php:600
 msgid "Proces zmieniony przez inne żądanie — powtórz od odczytu."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-08.php:659
+#: includes/pipeline/departments/class-mp-sw-department-08.php:678
 msgid "Zdarzenie o tym identyfikatorze zostało już obsłużone."
 msgstr ""
 
 #. translators: 1: operacja, 2: komunikat bazy.
-#: includes/pipeline/departments/class-mp-sw-department-08.php:689
+#: includes/pipeline/departments/class-mp-sw-department-08.php:708
 #, php-format
 msgid "Zapis nie powiódł się (%1$s): %2$s"
 msgstr ""
 
 #. translators: %d: liczba transakcji zapisu.
-#: includes/pipeline/departments/class-mp-sw-department-08.php:720
+#: includes/pipeline/departments/class-mp-sw-department-08.php:739
 #, php-format
 msgid "Zapisów w żądaniu: %d — dopuszczalny jest dokładnie jeden."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-08.php:730
+#: includes/pipeline/departments/class-mp-sw-department-08.php:749
 msgid "Zapis bez identyfikatora procesu — zadania i powiadomienia wisiałyby w próżni."
 msgstr ""
 
 #. translators: 1: rodzaj operacji, 2: liczba z planu, 3: liczba zapisana.
-#: includes/pipeline/departments/class-mp-sw-department-08.php:747
+#: includes/pipeline/departments/class-mp-sw-department-08.php:766
 #, php-format
 msgid "Wykonanie rozjechało się z planem (%1$s: plan %2$d, zapis %3$d)."
 msgstr ""
 
 #. translators: %s: komunikat bazy.
-#: includes/pipeline/departments/class-mp-sw-department-08.php:910
+#: includes/pipeline/departments/class-mp-sw-department-08.php:929
 #, php-format
 msgid "Nie udało się zapisać dziennika: %s"
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-08.php:948
+#: includes/pipeline/departments/class-mp-sw-department-08.php:967
 msgid "Część wpisów dziennika nie została zapisana."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-08.php:967
+#: includes/pipeline/departments/class-mp-sw-department-08.php:986
 msgid "Zmiana statusu bez wpisu w dzienniku."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-08.php:977
+#: includes/pipeline/departments/class-mp-sw-department-08.php:996
 msgid "Wpis o zmianie statusu bez wartości przed i po."
 msgstr ""
 
 #. translators: 1: liczba powiadomień, 2: liczba wpisów dziennika.
-#: includes/pipeline/departments/class-mp-sw-department-08.php:997
+#: includes/pipeline/departments/class-mp-sw-department-08.php:1016
 #, php-format
 msgid "Powiadomień %1$d, wpisów w dzienniku %2$d — historia wysyłek byłaby niepełna."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-08.php:1057
+#: includes/pipeline/departments/class-mp-sw-department-08.php:1076
 msgid "Zapis niedomknięty — brak procesu albo więcej niż jedna transakcja."
 msgstr ""
 
 #. translators: 1: liczba wierszy zaplanowanych, 2: liczba zapisanych.
-#: includes/pipeline/departments/class-mp-sw-department-08.php:1072
+#: includes/pipeline/departments/class-mp-sw-department-08.php:1091
 #, php-format
 msgid "Rekord częściowy: zaplanowano %1$d wierszy, zapisano %2$d."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-08.php:1085
+#: includes/pipeline/departments/class-mp-sw-department-08.php:1104
 msgid "Powiadomienia w kolejce bez śladu w dzienniku."
 msgstr ""
 
