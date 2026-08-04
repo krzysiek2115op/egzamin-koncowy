@@ -694,6 +694,31 @@ class MP_Lead_Intake_Page {
 	 */
 	public static function url() {
 		$page_id = (int) get_option( self::OPTION );
-		return $page_id ? (string) get_permalink( $page_id ) : '';
+
+		if ( $page_id < 1 ) {
+			return '';
+		}
+
+		/*
+		 * Adres strony NIEPUBLICZNEJ to brak adresu.
+		 *
+		 * `get_permalink()` oddaje adres dla KAŻDEGO statusu — szkic i kosz też
+		 * go mają. Zapasowe wstrzykiwanie linku do `<nav>` uruchamia się na flagę
+		 * `OPTION_MENU_OK = 0`, a tę ustawia także gałąź „strony nie ma albo nie
+		 * jest opublikowana". Bez tego sprawdzenia menu witryny pokazywało więc
+		 * odwiedzającym odnośnik do strony, po którym dostawali 404 — dokładnie
+		 * w chwili, gdy panel mówił administratorowi coś przeciwnego
+		 * („przywróć stronę do publikacji").
+		 *
+		 * Oba miejsca czytające tę metodę traktują pusty ciąg jako „nie ma czego
+		 * pokazać" i same z siebie wtedy milkną.
+		 */
+		$wpis = get_post( $page_id );
+
+		if ( ! $wpis instanceof WP_Post || 'publish' !== $wpis->post_status ) {
+			return '';
+		}
+
+		return (string) get_permalink( $page_id );
 	}
 }

@@ -196,6 +196,35 @@ class MP_Pipeline_Logger {
 			$result->get_code()
 		);
 
+		/*
+		 * POWÓD SŁOWAMI, nie tylko kod.
+		 *
+		 * Do 1.3.10 opis kończył się na numerze działu i kodzie maszynowym,
+		 * a czytelne komunikaty z `get_errors()` szły wyłącznie do `meta_json` —
+		 * czyli do kolumny, o której ten sam plik dwa razy pisze, że nie jest
+		 * pokazywana na liście wpisów w panelu. Administrator oglądał dziennik
+		 * pełen kodów, mając powód zapisany obok, w miejscu niewidocznym.
+		 *
+		 * Bliźniacza `log_exception()` niżej robi to od dawna („Nieoczekiwany
+		 * wyjątek w %s: %s"). Ścieżka kontrolowanego STOP-u została wtedy
+		 * pominięta.
+		 */
+		$powody = array_filter(
+			array_map(
+				static function ( $b ) {
+					return trim( (string) $b );
+				},
+				(array) $result->get_errors()
+			),
+			static function ( $b ) {
+				return '' !== $b;
+			}
+		);
+
+		if ( $powody ) {
+			$opis .= ' — ' . implode( '; ', $powody );
+		}
+
 		$meta = array(
 			'request_id' => $context->get( 'request_id' ),
 			'department' => $department->get_number(),

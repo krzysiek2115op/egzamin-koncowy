@@ -564,10 +564,25 @@ class MP_SW_D7_Agent_Content extends MP_SW_Abstract_Agent {
 				);
 			$days = isset( $offsets[ $recipient['task_type'] ] ) ? (int) $offsets[ $recipient['task_type'] ] : 0;
 
+			/*
+			 * Segment ma mieć ŹRÓDŁO ZAPASOWE, tak jak nazwa klienta i kraj obok.
+			 *
+			 * Przy pierwszym zdarzeniu Dział 7 renderuje powiadomienie ZANIM
+			 * Dział 8 zapisze wiersz procesu — czytanie wyłącznie z `$row` dawało
+			 * więc pusty ciąg dokładnie w wiadomości „Przypisano Ci nowy proces",
+			 * czyli w tej jedynej, którą handlowiec dostaje na starcie sprawy.
+			 * Snapshot leada ma tu komplet danych, bo Dział 2 czyta segment
+			 * z tabeli leadów razem z krajem i adresem.
+			 */
+			$lead_row     = isset( $snapshot['lead'] ) ? (array) $snapshot['lead'] : array();
+			$segment_lead = ! empty( $lead_row['segment'] )
+				? (string) $lead_row['segment']
+				: ( isset( $envelope['segment'] ) ? (string) $envelope['segment'] : '' );
+
 			$vars = array(
 				'client_name'   => self::pick( $row, 'client_name', isset( $envelope['name'] ) ? $envelope['name'] : '' ),
 				'country'       => self::pick( $row, 'country', (string) $context->get( 'country', '' ) ),
-				'segment'       => self::pick( $row, 'segment', '' ),
+				'segment'       => self::pick( $row, 'segment', $segment_lead ),
 				'offer_number'  => $offer_number,
 				'sla_due_at'    => (string) $context->get( 'sla_due_at', isset( $row['sla_due_at'] ) ? $row['sla_due_at'] : '' ),
 				'status_from'   => isset( $transition['from'] ) ? (string) $transition['from'] : '',

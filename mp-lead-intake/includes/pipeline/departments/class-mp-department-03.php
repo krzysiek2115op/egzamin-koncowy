@@ -153,12 +153,35 @@ class MP_D3_Agent_Nip extends MP_Abstract_Agent {
 class MP_D3_Agent_Vat extends MP_Abstract_Agent {
 
 	/**
+	 * Czy wpis z cache w ogóle ROZSTRZYGA o ważności numeru.
+	 *
+	 * Wersja sprzed 1.3.10 zapisywała do transienta skalar `1`/`0`, przy czym
+	 * zero szło tam nie tylko dla numeru naprawdę nieważnego, ale i dla
+	 * odpowiedzi HTTP 200 bez pola `isValid` — czyli dla „nie dało się ustalić".
+	 * Ścieżka HTTP dostała na to strażnika `is_bool( $body['isValid'] )`,
+	 * a odczyt cache nie: skalarne zero wracało jako `vat_valid = false` z
+	 * `vat_checked = true`, a Krytyk 3.2 robi STOP dokładnie na tym warunku.
+	 * Przez dobę po aktualizacji (tyle żyją transienty) legalne zgłoszenia były
+	 * odrzucane jako `vat_invalid`.
+	 *
+	 * Wpis w starym kształcie traktujemy więc jak brak wpisu — pipeline pyta
+	 * VIES jeszcze raz i zapisuje wynik już w nowym kształcie.
+	 *
+	 * @param mixed $cached Zawartość transienta.
+	 * @return bool
+	 */
+	private static function cache_rozstrzyga( $cached ) {
+		return is_array( $cached ) && array_key_exists( 'valid', $cached );
+	}
+
+	/**
 	 * Odpowiedź zbudowana z wpisu w cache VIES.
 	 *
-	 * Przyjmuje oba kształty: nowy (tablica z wynikiem i nazwą) oraz stary
-	 * (sam `1`/`0`), bo wpisy sprzed aktualizacji dożywają w bazie jeszcze dobę.
-	 * Stary kształt nie niesie nazwy i nie ma skąd jej wziąć — wtedy `vat_name`
-	 * zostaje `null`, czyli „nie wiemy", zamiast wartości zmyślonej.
+	 * Woła się ją wyłącznie dla wpisów, które przeszły `cache_rozstrzyga()`,
+	 * czyli dla nowego kształtu (tablica z wynikiem i ewentualną nazwą). Obsługa
+	 * starego skalara zostaje tu jako zabezpieczenie na wypadek wywołania z
+	 * innego miejsca; nazwy firmy taki wpis nie niesie i nie ma skąd jej wziąć,
+	 * więc `vat_name` zostaje `null` — „nie wiemy", zamiast wartości zmyślonej.
 	 *
 	 * @param mixed $cached Wpis z transienta.
 	 * @return array
@@ -224,7 +247,7 @@ class MP_D3_Agent_Vat extends MP_Abstract_Agent {
 
 		$cache_key = self::vies_cache_key( $country, $nip );
 		$cached    = get_transient( $cache_key );
-		if ( false !== $cached ) {
+		if ( false !== $cached && self::cache_rozstrzyga( $cached ) ) {
 			return self::z_cache_vies( $cached );
 		}
 
@@ -351,7 +374,7 @@ class MP_D3_Agent_Vat extends MP_Abstract_Agent {
 		// a cache-miss ODKŁADAMY do weryfikatora w tle (vat_pending).
 		if ( self::async_enabled() ) {
 			$cached = get_transient( self::vies_cache_key( $country, $nip ) );
-			if ( false !== $cached ) {
+			if ( false !== $cached && self::cache_rozstrzyga( $cached ) ) {
 				return MP_Result::ok( self::z_cache_vies( $cached ) );
 			}
 			return MP_Result::ok(

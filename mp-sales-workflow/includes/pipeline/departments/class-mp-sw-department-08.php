@@ -167,8 +167,9 @@ class MP_SW_D8_Agent_Plan extends MP_SW_Abstract_Agent {
 		$lead_row = isset( $snapshot['lead'] ) ? (array) $snapshot['lead'] : array();
 		$envelope = (array) $context->get( 'client', array() );
 		$client   = array(
-			'name'  => ! empty( $lead_row['name'] ) ? (string) $lead_row['name'] : ( isset( $envelope['name'] ) ? (string) $envelope['name'] : '' ),
-			'email' => ! empty( $lead_row['email'] ) ? (string) $lead_row['email'] : ( isset( $envelope['email'] ) ? (string) $envelope['email'] : '' ),
+			'name'    => ! empty( $lead_row['name'] ) ? (string) $lead_row['name'] : ( isset( $envelope['name'] ) ? (string) $envelope['name'] : '' ),
+			'email'   => ! empty( $lead_row['email'] ) ? (string) $lead_row['email'] : ( isset( $envelope['email'] ) ? (string) $envelope['email'] : '' ),
+			'segment' => ! empty( $lead_row['segment'] ) ? (string) $lead_row['segment'] : ( isset( $envelope['segment'] ) ? (string) $envelope['segment'] : '' ),
 		);
 
 		$entity   = isset( $event['entity'] ) ? (array) $event['entity'] : array();
@@ -262,6 +263,24 @@ class MP_SW_D8_Agent_Plan extends MP_SW_Abstract_Agent {
 
 		if ( '' === (string) self::pick( $row, 'client_email' ) && ! empty( $client['email'] ) ) {
 			$data['client_email'] = (string) $client['email'];
+		}
+
+		/*
+		 * Segment tą samą drogą i pod tym samym warunkiem co nazwa i adres.
+		 *
+		 * Do 1.3.10 tej linii nie było: kolumna `segment` istniała w schemacie,
+		 * Dział 2 czytał ją z tabeli leadów razem z krajem, mapa długości wyżej
+		 * przewidywała dla niej 64 znaki, a Dział 7 wstawiał ją do szablonu
+		 * powiadomienia — tylko nikt jej nigdy nie zapisał. Handlowiec dostawał
+		 * maila z wierszem „Segment: " i niczym po dwukropku, przy KAŻDYM procesie.
+		 *
+		 * Krytyk 7.2 tego nie łapie, bo szuka znaczników NIEPODMIENIONYCH, a ten
+		 * był podmieniony — na pusty ciąg. Ta sama pułapka co przy `offer_number`
+		 * opisana w komentarzu wyżej; tamta naprawa objęła numer oferty i nie
+		 * objęła pola obok.
+		 */
+		if ( '' === (string) self::pick( $row, 'segment' ) && ! empty( $client['segment'] ) ) {
+			$data['segment'] = (string) $client['segment'];
 		}
 
 		$plan['flow']['data'] = $data;
