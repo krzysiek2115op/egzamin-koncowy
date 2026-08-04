@@ -1,7 +1,7 @@
 {
   "title": "MP Offer Builder — instrukcja instalacji",
   "subtitle": "Dla osób nietechnicznych. Jak wgrać i włączyć wtyczkę krok po kroku, bez wiedzy programistycznej.",
-  "footer": "MP Offer Builder v1.0.3 · instrukcja instalacji (nietechniczna)",
+  "footer": "MP Offer Builder v{wersja} · instrukcja instalacji (nietechniczna)",
   "accent": "2563eb",
   "blocks": [
     {"t":"h1","text":"Co to jest i co będzie potrzebne"},

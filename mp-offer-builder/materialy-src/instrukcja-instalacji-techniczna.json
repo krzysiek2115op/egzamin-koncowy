@@ -1,7 +1,7 @@
 {
   "title": "MP Offer Builder — instrukcja instalacji (techniczna)",
   "subtitle": "Wymagania, wdrożenie, konfiguracja WooCommerce, uprawnienia, aktualizacje i deinstalacja.",
-  "footer": "MP Offer Builder v1.0.3 · instrukcja instalacji (techniczna)",
+  "footer": "MP Offer Builder v{wersja} · instrukcja instalacji (techniczna)",
   "accent": "0e7490",
   "blocks": [
     {"t":"h1","text":"Wymagania"},

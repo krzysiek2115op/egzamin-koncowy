@@ -1,7 +1,7 @@
 {
   "title": "MP Offer Builder — jak działa wtyczka",
   "subtitle": "Przewodnik po działaniu: część biznesowa (o co chodzi i co daje) oraz część techniczna (jak to działa w środku).",
-  "footer": "MP Offer Builder v1.0.3 · jak działa wtyczka",
+  "footer": "MP Offer Builder v{wersja} · jak działa wtyczka",
   "accent": "2563eb",
   "blocks": [
     {"t":"h1","text":"CZĘŚĆ 1 — dla każdego: o co chodzi"},

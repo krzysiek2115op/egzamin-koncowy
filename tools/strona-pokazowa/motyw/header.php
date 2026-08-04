@@ -6,9 +6,20 @@ defined( 'ABSPATH' ) || exit; // Szablon ladowany przez WordPressa, nie wywolywa
 
 $kk_slug = kk_current_slug();
 ?><!DOCTYPE html>
-<html lang="pl">
+<?php
+/*
+ * Język i kodowanie ZE WORDPRESSA, nie z klawiatury.
+ *
+ * `lang="pl"` i `charset="UTF-8"` były wpisane wprost, więc instalacja
+ * postawiona po angielsku ogłaszała czytnikom ekranu i wyszukiwarkom polski.
+ * `language_attributes()` i `bloginfo( 'charset' )` to standardowy sposób
+ * WordPressa; motyw demonstracyjny ma pokazywać, jak się to robi, a nie jak
+ * się tego obchodzi.
+ */
+?>
+<html <?php language_attributes(); ?>>
 <head>
-<meta charset="UTF-8">
+<meta charset="<?php bloginfo( 'charset' ); ?>">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

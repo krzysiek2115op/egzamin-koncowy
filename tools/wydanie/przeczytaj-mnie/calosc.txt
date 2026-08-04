@@ -31,8 +31,10 @@ Szczegoly w instrukcji technicznej kazdej wtyczki.
 
 Pliki `<nazwa>-materialy.zip` zostaja u Ciebie. Sa w nich schematy baz danych
 i procesu (draw.io + PDF), dwie instrukcje instalacji — techniczna
-i nietechniczna — oraz opis dzialania. NIE wgrywaj ich na serwer: katalog
-wtyczki jest dostepny publicznie pod adresem WWW.
+i nietechniczna — opis dzialania oraz katalog `dokumentacja/` z checklista
+wdrozenia, wzorem polityki prywatnosci i zaleceniami bezpieczenstwa.
+NIE wgrywaj ich na serwer: katalog wtyczki jest dostepny publicznie pod
+adresem WWW.
 
 Wymagania: WordPress 6.0+, PHP 7.4+ (wtyczki 1 i 3), PHP 8.1+ (wtyczka 2 —
 dolaczony dompdf nie dziala nizej), WooCommerce dla wtyczki 2.

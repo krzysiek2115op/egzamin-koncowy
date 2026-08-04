@@ -22,6 +22,13 @@ Zawartosc paczki materialow:
   schemat-nietechniczny.drawio / .pdf       proces od strony biznesowej
   LICENCJA.md, LICENSE                      GPL-2.0-or-later
 
+  dokumentacja/                             dokumenty wdrozeniowe (tekst):
+    WDROZENIE.md                            checklista wdrozenia na produkcje
+    POLITYKA-PRYWATNOSCI-WZOR.md            wzor do wklejenia na strone
+    SECURITY.md, security.txt               jak zglaszac podatnosci
+    robots.txt.example                      przykladowe wykluczenia dla robotow
+    security-headers.conf.example           naglowki bezpieczenstwa dla serwera
+
 Wymagania: WordPress 6.0+, PHP 8.1+ (dolaczony dompdf nie dziala nizej),
 WooCommerce.
 Repozytorium: https://github.com/krzysiek2115op/egzamin-koncowy

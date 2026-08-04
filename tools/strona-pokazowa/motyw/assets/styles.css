@@ -409,11 +409,14 @@ ul.checks li svg{flex:none;margin-top:3px;color:var(--emerald-600)}
 .cinfo .ci a:hover{color:var(--emerald-600)}
 .map-frame{border:0;width:100%;height:300px;border-radius:var(--radius);box-shadow:var(--shadow-card);filter:saturate(.85)}
 .socials{display:flex;gap:12px}
-.cinfo .socials a{
+/* Ikony sa DEKORACJA, nie odnosnikami — firma z pokazu nie ma profili, a odnosnik
+   prowadzacy do samego krzyzyka klamie i uzytkownikowi, i czytnikowi ekranu.
+   Stad selektor na .social-ikona zamiast na `a` i brak stanu :hover, ktory
+   obiecywalby klikalnosc. */
+.cinfo .socials .social-ikona{
   width:44px;height:44px;border-radius:12px;display:grid;place-items:center;
-  background:var(--emerald-glow);color:var(--emerald-600);transition:background .25s,color .25s,transform .25s;
+  background:var(--emerald-glow);color:var(--emerald-600);
 }
-.cinfo .socials a:hover{background:var(--emerald-500);color:#fff;transform:translateY(-3px)}
 
 /* contact form section (always last) */
 .form-section{background:linear-gradient(180deg,var(--navy-800),var(--navy-900));position:relative;overflow:hidden}

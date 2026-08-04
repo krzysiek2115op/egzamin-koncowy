@@ -1,7 +1,7 @@
 {
   "title": "MP Sales Workflow — instrukcja instalacji (techniczna)",
   "subtitle": "Wymagania, stałe w wp-config.php, poczta, cron, role i profile handlowców, deinstalacja. Dla administratora serwera lub osoby wdrażającej.",
-  "footer": "MP Sales Workflow v1.0.0 · instrukcja instalacji (techniczna) · schemat bazy 0.4.0",
+  "footer": "MP Sales Workflow v{wersja} · instrukcja instalacji (techniczna) · schemat bazy 0.4.0",
   "accent": "7c3aed",
   "blocks": [
     {

@@ -1,7 +1,7 @@
 {
   "title": "MP Sales Workflow — instrukcja instalacji",
   "subtitle": "Dla osób nietechnicznych. Jak wgrać i włączyć wtyczkę krok po kroku, bez wiedzy programistycznej.",
-  "footer": "MP Sales Workflow v1.0.0 · instrukcja instalacji (nietechniczna)",
+  "footer": "MP Sales Workflow v{wersja} · instrukcja instalacji (nietechniczna)",
   "accent": "2563eb",
   "blocks": [
     {"t":"h1","text":"Co to jest i co będzie potrzebne"},

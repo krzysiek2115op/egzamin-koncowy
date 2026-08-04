@@ -19,10 +19,30 @@ function hex(h) {
 const INK = hex('1f2a44');
 const MUT = hex('5b6b86');
 
+// Wersja wtyczki czytana Z NAGŁÓWKA jej pliku głównego, nie wpisywana w JSON.
+// Stopki materiałów mówiły „v1.0.3" i „v1.2.3", gdy wtyczki miały od dawna
+// 1.3.x: numer wpisany z ręki starzeje się przy każdym wydaniu, a jedynym
+// czytelnikiem tej pomyłki jest klient trzymający w ręku wydruk.
+function wersjaWtyczki() {
+  const katalog = require('path').resolve(__dirname, '..');
+  for (const plik of fs.readdirSync(katalog)) {
+    if (!plik.endsWith('.php')) continue;
+    const naglowek = fs.readFileSync(require('path').join(katalog, plik), 'utf8').slice(0, 4096);
+    const m = naglowek.match(/^\s*\*\s*Version:\s*(\S+)/m);
+    if (m) return m[1];
+  }
+  throw new Error('Nie znalazlem naglowka Version: w pliku glownym wtyczki (' + katalog + ')');
+}
+
 async function main() {
   const spec = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
   const out = process.argv[3];
   const accent = hex(spec.accent || '2563eb');
+  const wersja = wersjaWtyczki();
+
+  for (const pole of ['title', 'subtitle', 'footer']) {
+    if (typeof spec[pole] === 'string') spec[pole] = spec[pole].split('{wersja}').join(wersja);
+  }
 
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);

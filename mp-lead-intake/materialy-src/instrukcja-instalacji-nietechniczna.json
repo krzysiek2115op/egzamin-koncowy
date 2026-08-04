@@ -1,0 +1,37 @@
+{
+  "title": "MP Lead Intake — instrukcja instalacji",
+  "subtitle": "Dla osób nietechnicznych. Jak wgrać i włączyć wtyczkę krok po kroku, bez wiedzy programistycznej.",
+  "footer": "MP Lead Intake v{wersja} · instrukcja instalacji (nietechniczna)",
+  "accent": "2563eb",
+  "blocks": [
+    {"t":"h1","text":"Co to jest i co będzie potrzebne"},
+    {"t":"p","text":"MP Lead Intake to wtyczka do WordPressa, która stawia na Twojej stronie formularz zapytania ofertowego dla firm. Zapytanie od klienta jest sprawdzane (kompletność danych, poprawność NIP-u, ważność VAT UE), zapisywane razem ze zgodami i przekazywane dalej — do wtyczki, która przygotowuje ofertę."},
+    {"t":"p","text":"Potrzebujesz dwóch rzeczy: (1) dostępu do panelu administracyjnego WordPressa (adres zwykle kończy się na /wp-admin), (2) pliku wtyczki mp-lead-intake.zip."},
+    {"t":"note","title":"Trzy wtyczki, jedna droga","text":"MP Lead Intake to pierwszy z trzech elementów procesu: przyjmuje zapytanie. Drugi (MP Offer Builder) robi z niego ofertę PDF, trzeci (MP Sales Workflow) prowadzi ją przez proces sprzedaży. Wtyczkę 1 można włączyć samą — zapytania będą zbierane i widoczne w panelu. Pozostałe dwie dokładają kolejne etapy.","bg":"eef4ff","bc":"2563eb"},
+
+    {"t":"h1","text":"Instalacja krok po kroku"},
+    {"t":"num","n":1,"text":"Zaloguj się do panelu WordPressa (Twój-adres/wp-admin) na konto administratora."},
+    {"t":"num","n":2,"text":"W menu po lewej stronie kliknij „Wtyczki”, a następnie u góry przycisk „Dodaj nową wtyczkę”."},
+    {"t":"num","n":3,"text":"Kliknij „Wyślij wtyczkę na serwer” (u góry strony)."},
+    {"t":"num","n":4,"text":"Kliknij „Wybierz plik”, wskaż plik mp-lead-intake.zip z dysku i kliknij „Zainstaluj teraz”."},
+    {"t":"num","n":5,"text":"Poczekaj chwilę, aż pojawi się komunikat o powodzeniu, a potem kliknij „Włącz wtyczkę”."},
+    {"t":"p","text":"Gotowe. Przy włączaniu wtyczka sama zakłada stronę „Zapytanie ofertowe” z formularzem i — jeśli motyw ma przypisane menu — dokłada do niego odnośnik. W menu po lewej pojawi się pozycja „MP Lead Intake” z listą zapytań."},
+    {"t":"note","title":"Jeśli odnośnik nie pojawił się w menu","text":"To nie jest awaria wtyczki: niektóre motywy nie mają przypisanego żadnego menu, więc nie ma gdzie dołożyć pozycji. Wtyczka powie o tym wprost na swoim ekranie w panelu. Stronę „Zapytanie ofertowe” zawsze można dodać do menu ręcznie: Wygląd → Menu → Strony → zaznacz „Zapytanie ofertowe” → Dodaj do menu.","bg":"fef3c7","bc":"f59e0b"},
+
+    {"t":"h1","text":"Jak sprawdzić, że działa"},
+    {"t":"bullet","text":"W menu po lewej widać pozycję „MP Lead Intake”, a po wejściu — listę zapytań (na początku pustą)."},
+    {"t":"bullet","text":"Na stronie widocznej dla gości istnieje strona „Zapytanie ofertowe” z formularzem: nazwa firmy, NIP, e-mail, telefon, produkty, zgody."},
+    {"t":"bullet","text":"Po wysłaniu testowego zapytania na liście w panelu pojawia się nowy wiersz, a formularz pokazuje potwierdzenie."},
+    {"t":"bullet","text":"Wysłanie tego samego zapytania drugi raz NIE tworzy drugiego wiersza — wtyczka rozpoznaje tę samą firmę po numerze NIP."},
+
+    {"t":"h1","text":"Najczęstsze pytania"},
+    {"t":"h2","text":"Nie widzę pozycji „MP Lead Intake” w menu"},
+    {"t":"p","text":"Upewnij się, że wtyczka jest włączona (Wtyczki → lista → „MP Lead Intake” powinno być aktywne). Listę zapytań widzi administrator oraz osoby z rolą handlowca — jeśli ktoś jej nie widzi, poproś administratora o nadanie uprawnienia."},
+    {"t":"h2","text":"Formularz mówi, że NIP jest nieprawidłowy, a jest dobry"},
+    {"t":"p","text":"Wtyczka sprawdza NIP dwa razy: najpierw rachunkowo (suma kontrolna), potem w rejestrach — VIES dla numerów VAT UE i Białej liście podatników. Jeśli rejestr jest chwilowo niedostępny, wtyczka o tym mówi i nie odrzuca zapytania po cichu. Gdy komunikat się powtarza, przekaż go osobie technicznej wraz z numerem, którego dotyczy."},
+    {"t":"h2","text":"Gdzie są zgody klienta?"},
+    {"t":"p","text":"Przy każdym zapytaniu zapisujemy osobno zgodę marketingową i zgodę RODO — każdą z datą i z numerem wersji treści, na którą klient się zgodził. Widać je na ekranie szczegółów zapytania. Dzięki wersji wiadomo, jaka dokładnie treść obowiązywała w chwili zgody."},
+    {"t":"h2","text":"Czy mogę odinstalować wtyczkę?"},
+    {"t":"p","text":"Tak. Wyłączenie i usunięcie odbywa się tak samo jak przy każdej innej wtyczce (Wtyczki → Wyłącz → Usuń). Usunięcie kasuje dane wtyczki wraz z zapytaniami — jeśli chcesz je zachować, najpierw wyeksportuj je albo poproś o kopię bazy osobę techniczną."}
+  ]
+}

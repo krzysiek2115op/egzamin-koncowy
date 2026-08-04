@@ -133,7 +133,7 @@ tables.forEach((t) => { svg += svgTable(t); });
 // legenda
 const ly = PH - 26;
 svg += `<text x="40" y="${ly}" font-size="10.5" fill="#64748b">Legenda:</text>`;
-const leg = [['PK', 'klucz główny'], ['UQ', 'unikalny'], ['UQ*', 'unikalny łącznie (offer_number+version)'], ['K', 'indeks / kolumna wiążąca'], ['●', 'dodane w audycie v1.0.3']];
+const leg = [['PK', 'klucz główny'], ['UQ', 'unikalny'], ['UQ*', 'unikalny łącznie (offer_number+version)'], ['K', 'indeks / kolumna wiążąca'], ['●', 'kolumna dodana w wydaniu 1.0.3']];
 let lx = 100;
 leg.forEach(([k, d]) => { svg += `<text x="${lx}" y="${ly}" font-size="10" fill="#1f2a44" font-weight="bold">${k}</text><text x="${lx + (k === '●' ? 14 : k.length * 7 + 6)}" y="${ly}" font-size="10" fill="#475569">${esc(d)}</text>`; lx += 44 + k.length * 7 + d.length * 5.5; });
 svg += `</svg>`;

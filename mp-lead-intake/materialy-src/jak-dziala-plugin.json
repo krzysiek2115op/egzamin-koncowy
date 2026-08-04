@@ -1,0 +1,49 @@
+{
+  "title": "MP Lead Intake — jak działa wtyczka",
+  "subtitle": "Co się dzieje z zapytaniem od chwili, gdy klient kliknie „Wyślij”, do chwili, gdy trafia do wyceny.",
+  "footer": "MP Lead Intake v{wersja} · jak działa wtyczka",
+  "accent": "2563eb",
+  "blocks": [
+    {"t":"h1","text":"Po co ta wtyczka istnieje"},
+    {"t":"p","text":"Zapytanie ofertowe od firmy to nie jest zwykła wiadomość z formularza kontaktowego. Zanim ktokolwiek zacznie liczyć ofertę, trzeba wiedzieć: czy dane są kompletne, czy firma istnieje i ma ważny numer VAT, na jakim rynku działa, czy to nowy klient czy powracający, i na co dokładnie się zgodziła. MP Lead Intake robi to wszystko w jednym przebiegu i dopiero potem przekazuje zapytanie dalej."},
+    {"t":"p","text":"Zasada, na której to stoi, jest prosta: zapytanie albo przechodzi w całości, albo nie przechodzi wcale i klient dostaje zrozumiały komunikat. Nie ma zapisów połowicznych i nie ma cichych porażek."},
+
+    {"t":"h1","text":"Droga zapytania — jedenaście działów"},
+    {"t":"p","text":"Formularz wysyła całe zgłoszenie jednym żądaniem. Dalej przechodzi ono przez jedenaście działów; każdy odpowiada za jedną rzecz i każdy ma za sobą kontrolę jakości — agent wykonuje pracę, krytyk ją sprawdza, bramka decyduje, czy wolno iść dalej."},
+    {"t":"h2","text":"1–2. Dane wejściowe i walidacja"},
+    {"t":"p","text":"Pipeline pobiera z bazy wszystko, czego będzie potrzebował, jednym zapytaniem, a potem sprawdza samo zgłoszenie: czy są wszystkie wymagane pola, czy adres e-mail wygląda jak adres, czy telefon i NIP mają właściwy format."},
+    {"t":"h2","text":"3. NIP i VAT"},
+    {"t":"p","text":"Najpierw rachunek: NIP ma sumę kontrolną, więc literówkę widać bez wychodzenia na zewnątrz. Potem rejestry — VIES dla numerów VAT UE i Biała lista podatników KAS dla numerów krajowych. Ważne rozróżnienie: „rejestr powiedział, że numer jest nieważny” to co innego niż „rejestr nie odpowiedział”. Drugi przypadek nie odrzuca zapytania; wraca do niego zadanie okresowe."},
+    {"t":"h2","text":"4. Kraj i segment"},
+    {"t":"p","text":"Kraj sprowadzany do kodu ISO 3166-1, do tego segment i kategoria klienta. Te trzy rzeczy idą dalej z zapytaniem — to na ich podstawie kolejne wtyczki wybierają handlowca, stawkę VAT i szablon oferty."},
+    {"t":"h2","text":"5. Zabezpieczenie formularza"},
+    {"t":"p","text":"Trzy warstwy naraz: token jednorazowy (chroni przed wysłaniem formularza z cudzej strony), pułapka na roboty i ogranicznik liczby zgłoszeń z jednego adresu. Żadna z nich nie wymaga od klienta przepisywania zniekształconych liter."},
+    {"t":"h2","text":"6. Zgody"},
+    {"t":"p","text":"Zgoda marketingowa i zgoda RODO zapisywane osobno — każda z datą i z WERSJĄ treści, którą klient widział. Wersja jest tu istotna: bez niej po zmianie regulaminu nie da się już powiedzieć, na co dokładnie ktoś się zgodził."},
+    {"t":"h2","text":"7. Utworzenie zapytania"},
+    {"t":"p","text":"Tu powstaje wiersz w bazie — i to jest punkt bez odwrotu, dlatego dzieje się dopiero po wszystkich kontrolach. Wtyczka sprawdza, czy ta firma już czegoś nie pytała (para kraj + NIP jest unikalna w bazie), liczy punktację zapytania i przypisuje handlowca."},
+    {"t":"h2","text":"8–9. Historia i telemetria"},
+    {"t":"p","text":"Każda operacja zostawia wpis w historii aktywności: co, kiedy, przez kogo i z jakim skutkiem. Do tego znacznik czasu rozpoczęcia obsługi — od niego liczy się czas reakcji."},
+    {"t":"h2","text":"10–11. Odpowiedź i przekazanie dalej"},
+    {"t":"p","text":"Klient dostaje potwierdzenie, a pipeline zamyka się i wystawia zdarzenie mp_lead_created. Na to zdarzenie czeka MP Offer Builder, który zakłada szkic oferty. Kolejność jest celowa: zdarzenie idzie DOPIERO wtedy, gdy zapytanie jest już bezpiecznie zapisane."},
+
+    {"t":"pagebreak"},
+    {"t":"h1","text":"Co jest zapisywane"},
+    {"t":"p","text":"Baza wtyczki (BD-3) to trzy tabele. wp_mp_leads trzyma samo zapytanie: dane firmy, kwalifikację, statusy weryfikacji VAT i komplet zgód. wp_mp_offers to rejestr ofert wystawionych do zapytania — z twardym kluczem obcym, który nie pozwoli skasować zapytania mającego ofertę. wp_mp_activity_log to historia: audyt tego, co się działo."},
+    {"t":"note","title":"Dane osobowe","text":"Adres IP zgłaszającego jest zapisywany po to, żeby dało się rozpoznać nadużycie, i kasowany po okresie retencji przez zadanie okresowe. Wzór polityki prywatności obejmujący dane zbierane przez wtyczkę jest w katalogu dokumentacji, w pliku POLITYKA-PRYWATNOSCI-WZOR.md.","bg":"eef4ff","bc":"2563eb"},
+
+    {"t":"h1","text":"Kto co widzi"},
+    {"t":"bullet","text":"Gość na stronie — tylko formularz i potwierdzenie wysłania. Nie widzi żadnych cudzych danych."},
+    {"t":"bullet","text":"Handlowiec (rola mp_handlowiec) — podgląd zapytań."},
+    {"t":"bullet","text":"Manager sprzedaży (rola mp_manager_sprzedazy) — podgląd, zarządzanie i przypisywanie zapytań handlowcom."},
+    {"t":"bullet","text":"Administrator — wszystko powyższe plus ustawienia wtyczki i pełna historia aktywności."},
+
+    {"t":"h1","text":"Co się dzieje, gdy coś pójdzie nie tak"},
+    {"t":"p","text":"Zatrzymanie pipeline'u zostawia trzy ślady jednocześnie: klient dostaje komunikat po ludzku, historia aktywności dostaje wpis z powodem zapisanym słowami (nie samym kodem), a administrator — wiadomość e-mail. Alarmy są ograniczane: powtarzająca się awaria z tego samego miejsca nie wyśle wiadomości częściej niż raz na kwadrans, a informacja o wyciszeniu trafia do historii, żeby po incydencie dało się odtworzyć, co naprawdę poszło."},
+    {"t":"p","text":"Jeśli nie udało się wysłać nawet samego alarmu, historia mówi to wprost — brak wiadomości w skrzynce nie oznacza, że nic się nie działo."},
+
+    {"t":"h1","text":"Miejsce w całym procesie"},
+    {"t":"p","text":"MP Lead Intake to pierwszy z trzech elementów. Przyjmuje i kwalifikuje zapytanie, po czym oddaje je MP Offer Builder — ten dobiera produkty, liczy ceny i VAT, generuje ofertę PDF. Gotowa oferta trafia do MP Sales Workflow, który prowadzi ją przez proces sprzedaży: statusy, przypomnienia, terminy, raporty."},
+    {"t":"p","text":"Wtyczki są od siebie odseparowane: każda ma własną bazę i rozmawiają wyłącznie przez zdarzenia WordPressa. Dzięki temu awaria jednej nie psuje danych pozostałych, a każdą można wdrożyć osobno."}
+  ]
+}
