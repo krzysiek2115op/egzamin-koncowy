@@ -588,6 +588,19 @@ $r_i5 = MP_SW_Events::from_hook(
 	array( 'entity' => array( 'lead_id' => $lead_i5 ), 'actor' => array( 'user_id' => 0 ), 'event_id' => MP_SW_Events::derive_event_id( 'lead.created', array( $lead_i5 ) ) )
 );
 
+/*
+ * ZERO MA ZNACZYC „NIE WYSLANO", A NIE „NIC SIE NIE WYDARZYLO".
+ *
+ * Kontrola pozytywna wyzej dowodzi, ze licznik reaguje. To za malo: gdyby samo
+ * `from_hook()` wywrocilo sie po drodze, licznik zostalby na zerze i asercja
+ * ponizej przeszlaby, meldujac sukces o przebiegu, ktorego nie bylo. Dokladnie
+ * ten ksztalt dal w tym projekcie falszywy PASS (TEST-F1), wiec przebieg
+ * musi sie tu przedstawic, zanim zapytamy go o wysylki.
+ */
+chk(
+	is_array( $r_i5 ) && isset( $r_i5['result'] ),
+	'I-5 (zalozenie) przebieg dla zadania w ogole sie odbyl'
+);
 chk( 0 === MP_SW_D7_Notifier::mail_attempts(), 'I-5 zero wysylek w zadaniu' );
 
 // I-6: sekrety ze stalych.

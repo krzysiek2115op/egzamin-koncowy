@@ -41,6 +41,23 @@ Na serwerze z PHP starszym niż 8.1 WordPress **nie pozwoli aktywować wtyczki 2
 Wtyczki 1 i 3 zainstalują się normalnie, więc proces ruszy i zatrzyma się na
 kroku ofert — dlatego wymaganie 8.1 dotyczy w praktyce całej dostawy.
 
+### Styki między wtyczkami
+
+Wtyczki nie znają swoich klas ani tabel — rozmawiają wyłącznie zdarzeniami
+WordPressa. Cztery haki wyznaczają całą drogę zapytania:
+
+```
+formularz → [1] → mp_lead_created  → [2] szkic oferty
+                  mp_lead_verified → [2] poprawka statusu VAT w szkicu
+            [2] → mp_offer_created  → [3] proces sprzedaży
+            [2] → mp_offer_approved → [3] wysyłka do klienta + follow-upy
+```
+
+Komplet haków każdej wtyczki — razem z filtrami i punktami rozszerzeń dla
+integratora — opisuje `mp-*/docs/HAKI.md`. Zmiana nazwy albo argumentów
+któregokolwiek z czterech powyższych łamie zgodność i wymaga wpisu
+w changelogu **wszystkich** stron, których dotyczy.
+
 ## Struktura repozytorium
 
 ```
