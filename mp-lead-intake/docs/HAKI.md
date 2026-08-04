@@ -10,6 +10,16 @@ Przy okazji wyszło, że jedno z tych dwóch zgłoszeń było fałszywe: `mp_lea
 ma odbiorcę, tylko w **innej wtyczce**, a kontrola szukała `add_action` wyłącznie
 w drzewie tej samej. Sprawdzone wprost — `MP_Offer_Builder_Lead_Listener::register()`.
 
+## Czego wtyczka słucha (wejście z wtyczki 3)
+
+| Hak | Skąd | Co robi |
+|---|---|---|
+| `mp_sw_flow_updated` | wtyczka 3, Dział 9 | synchronizuje przypisanie handlowca zapisane w BD-3 z tym, co ustalił proces sprzedaży |
+
+Nasłuch jest osłonięty: żaden wyjątek stąd nie wychodzi do wtyczki 3, bo
+WordPress nie izoluje subskrybentów i awaria po naszej stronie zatrzymałaby
+tamten pipeline.
+
 ## Zdarzenia (`do_action`)
 
 | Hak | Argumenty | Kiedy | Odbiorca |

@@ -12,7 +12,18 @@ znaczy albo świadomy punkt rozszerzeń, albo odbiorcę zgubionego przy refaktor
 | `mp_lead_created` | wtyczka 1 | zakłada proces sprzedaży dla nowego zgłoszenia |
 | `mp_offer_approved` | wtyczka 2 | przesuwa proces do „oferta wysłana" i planuje follow-upy |
 
-## Zdarzenia (`do_action`) — wszystkie są punktami rozszerzeń
+## Zdarzenie z odbiorcą
+
+| Hak | Argumenty | Kiedy | Odbiorca |
+|---|---|---|---|
+| `mp_sw_flow_updated` | `$payload` | Dział 9, PO `COMMIT` — dokładnie raz na zdarzenie | **Wtyczka 1** — `MP_Lead_Intake_Salesman_Sync` synchronizuje przypisanie handlowca |
+
+To zdarzenie idzie przez emiter (`MP_SW_D9_Emitter::emit()`), który woła
+`do_action( $hook, ... )` z nazwą podaną **zmienną**. Kontrola statyczna nie ma
+jak tego rozstrzygnąć i zgłasza je jako nasłuch bez emisji — stąd ten wiersz
+w dokumencie. Emisja jest w `class-mp-sw-department-09.php:82`.
+
+## Zdarzenia (`do_action`) — punkty rozszerzeń bez odbiorcy
 
 | Hak | Argumenty | Kiedy |
 |---|---|---|
@@ -20,6 +31,7 @@ znaczy albo świadomy punkt rozszerzeń, albo odbiorcę zgubionego przy refaktor
 | `mp_sw_notification_failed` | `$id`, `$error` | poczta odmówiła; wiersz zostaje w kolejce z powodem |
 | `mp_sw_queue_halted` | `$count` | bezpiecznik zatrzymał kolejkę po serii nieudanych wysyłek |
 | `mp_sw_flow_anonymized` | `$lead_id`, `$flow_id` | proces zanonimizowany na żądanie RODO |
+| `mp_sw_log_entry` | `$entry` | wpis dziennika technicznego, już po odfiltrowaniu białej listy pól — miejsce na przekierowanie logów do systemu zewnętrznego |
 
 Żadne z nich nie ma odbiorcy wewnątrz projektu i tak ma zostać. Wtyczka reaguje
 na te sytuacje sama — w bazie i w dzienniku — a hak istnieje po to, żeby wpiąć
