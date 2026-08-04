@@ -31,14 +31,77 @@ final class MP_AU_A16_Kontrakty_Hakow extends MP_AU_Agent {
 		$nasluchy  = array();
 		$callbacki = array();
 		$cronowe   = array();
+		$dynamiczne = array();
 
 		foreach ( $kontekst->workspace->branche() as $branch ) {
 			foreach ( $kontekst->workspace->pliki_php( $branch, true ) as $plik ) {
 				$tresc = MP_AU_Pomoc::kod( $kontekst->workspace->tresc( $plik, $kontekst ) );
 				$wzgl  = $kontekst->workspace->wzgledna( $plik );
 
+				/*
+				 * NAZWA HAKA BYWA STALA, NIE LANCUCHEM.
+				 *
+				 * Wzorce nizej wymagaly literalu w pierwszym argumencie, wiec
+				 * `add_action( self::HOOK, ... )` byl dla tej pary NIEWIDZIALNY.
+				 * Skutek byl gorszy niz przeoczenie: zdarzenie z prawdziwym
+				 * odbiorca po drugiej stronie zglaszalo sie jako sierota, a raport
+				 * kazal szukac bledu tam, gdzie wszystko dziala. Tak wypadl
+				 * `mp_lead_verified` (wystawia wtyczka 1, slucha wtyczka 2 przez
+				 * `self::HOOK_VERIFIED`) i tak samo wypadlyby `mp_offer_created`
+				 * oraz `mp_offer_approved`.
+				 *
+				 * Rozwiazanie ma zasieg PLIKU, bo tylko w nim `self::` znaczy coś
+				 * jednoznacznego. Ta sama nazwa stalej w dwoch klasach nie miesza
+				 * sie wiec ze soba.
+				 */
+				$stale = array();
+				if ( preg_match_all( '/const\s+([A-Z][A-Z0-9_]*)\s*=\s*[\'"](mp_[a-z0-9_]+)[\'"]\s*;/', $tresc, $ts, PREG_SET_ORDER ) ) {
+					foreach ( $ts as $trafienie_stalej ) {
+						$stale[ $trafienie_stalej[1] ] = $trafienie_stalej[2];
+					}
+				}
+
+				// Emisje przez stala: do_action( self::HOOK, ... ).
+				if ( $stale && preg_match_all( '/do_action\s*\(\s*self::([A-Z][A-Z0-9_]*)([^;]{0,1500}?)\)\s*;/s', $tresc, $ts, PREG_SET_ORDER ) ) {
+					foreach ( $ts as $trafienie_stalej ) {
+						if ( ! isset( $stale[ $trafienie_stalej[1] ] ) ) {
+							continue;
+						}
+
+						$ogon_stalej = trim( $trafienie_stalej[2] );
+
+						$emisje[ $stale[ $trafienie_stalej[1] ] ][] = array(
+							'branch'    => $branch,
+							'plik'      => $wzgl,
+							'linia'     => MP_AU_Pomoc::linia( $tresc, $trafienie_stalej[0] ),
+							'argumenty' => '' === $ogon_stalej ? 0 : substr_count( $ogon_stalej, ',' ),
+						);
+					}
+				}
+
+				// Nasluchy przez stala: add_action( self::HOOK, ... ).
+				if ( $stale && preg_match_all( '/add_action\s*\(\s*self::([A-Z][A-Z0-9_]*)\s*,(.{0,200}?)\)\s*;/s', $tresc, $ts, PREG_SET_ORDER ) ) {
+					foreach ( $ts as $trafienie_stalej ) {
+						if ( ! isset( $stale[ $trafienie_stalej[1] ] ) ) {
+							continue;
+						}
+
+						$ogon_stalej   = $trafienie_stalej[2];
+						$czesci_stalej = array_map( 'trim', explode( ',', preg_replace( '/array\s*\([^)]*\)/', 'CALLABLE', $ogon_stalej ) ?? $ogon_stalej ) );
+
+						$nasluchy[ $stale[ $trafienie_stalej[1] ] ][] = array(
+							'branch'    => $branch,
+							'plik'      => $wzgl,
+							'linia'     => MP_AU_Pomoc::linia( $tresc, $trafienie_stalej[0] ),
+							'przyjmuje' => isset( $czesci_stalej[2] ) && is_numeric( $czesci_stalej[2] ) ? (int) $czesci_stalej[2] : 1,
+							'callback'  => MP_AU_Pomoc::skrot( $czesci_stalej[0], 80 ),
+							'metoda'    => preg_match( '/[\'"]([a-z_][a-z0-9_]*)[\'"]\s*$/i', $ogon_stalej, $m ) ? $m[1] : '',
+						);
+					}
+				}
+
 				// Emisje: do_action( 'nazwa', arg, arg ).
-				if ( preg_match_all( '/do_action\s*\(\s*[\'"](mp_[a-z0-9_]+)[\'"]([^;]{0,300}?)\)\s*;/s', $tresc, $t, PREG_SET_ORDER ) ) {
+				if ( preg_match_all( '/do_action\s*\(\s*[\'"](mp_[a-z0-9_]+)[\'"]([^;]{0,1500}?)\)\s*;/s', $tresc, $t, PREG_SET_ORDER ) ) {
 					foreach ( $t as $trafienie ) {
 						$ogon = trim( $trafienie[2] );
 
@@ -68,12 +131,40 @@ final class MP_AU_A16_Kontrakty_Hakow extends MP_AU_Agent {
 					}
 				}
 
+				/*
+				 * Emisje przez ZMIENNA — `do_action( $hak, ... )`.
+				 *
+				 * Statycznie nie da sie powiedziec, jaki hak tu leci: nazwa
+				 * przychodzi argumentem (u nas robi tak emiter Dzialu 9 wtyczki 3).
+				 * Nie udajemy wiec, ze wiemy — zapisujemy sam FAKT, ze takie
+				 * miejsca istnieja, i dokladamy go do ustalen o nasluchu bez
+				 * emisji. Czytelnik dostaje wtedy trop, a nie zarzut.
+				 */
+				if ( preg_match_all( '/do_action\s*\(\s*\$[a-z_][a-z0-9_]*/i', $tresc, $ts, PREG_SET_ORDER ) ) {
+					foreach ( $ts as $trafienie_dyn ) {
+						$dynamiczne[] = $wzgl . ':' . MP_AU_Pomoc::linia( $tresc, $trafienie_dyn[0] );
+					}
+				}
+
 				// Haki crona: WordPress odpala je z harmonogramu, nie przez
 				// do_action w kodzie. Brak emisji NIE jest tu bledem — to byl
 				// falszywy alarm pierwszego przebiegu tej pary.
 				if ( preg_match_all( '/wp_(?:schedule_event|schedule_single_event|next_scheduled|clear_scheduled_hook|unschedule_hook)\s*\([^;]{0,200}?[\'"]([a-z0-9_]+)[\'"]/i', $tresc, $t, PREG_SET_ORDER ) ) {
 					foreach ( $t as $trafienie ) {
 						$cronowe[ $trafienie[1] ] = true;
+					}
+				}
+
+				// Ta sama slepota co przy add_action/do_action: nazwa haka podana
+				// stala byla dla wzorca wyzej niewidzialna, wiec zadanie planowane
+				// przez `wp_schedule_event( ..., self::HOOK_SWEEP )` zglaszalo sie
+				// jako nasluch bez emisji — czyli jako martwa integracja, choc
+				// odpala je harmonogram WordPressa.
+				if ( $stale && preg_match_all( '/wp_(?:schedule_event|schedule_single_event|next_scheduled|clear_scheduled_hook|unschedule_hook)\s*\([^;]{0,200}?self::([A-Z][A-Z0-9_]*)/', $tresc, $ts, PREG_SET_ORDER ) ) {
+					foreach ( $ts as $trafienie_stalej ) {
+						if ( isset( $stale[ $trafienie_stalej[1] ] ) ) {
+							$cronowe[ $stale[ $trafienie_stalej[1] ] ] = true;
+						}
 					}
 				}
 
@@ -104,10 +195,11 @@ final class MP_AU_A16_Kontrakty_Hakow extends MP_AU_Agent {
 
 		return MP_AU_Wynik::ok(
 			array(
-				'emisje'    => $emisje,
-				'nasluchy'  => $nasluchy,
-				'callbacki' => $callbacki,
-				'cronowe'   => $cronowe,
+				'emisje'     => $emisje,
+				'nasluchy'   => $nasluchy,
+				'callbacki'  => $callbacki,
+				'cronowe'    => $cronowe,
+				'dynamiczne' => $dynamiczne,
 			)
 		);
 	}
@@ -131,6 +223,18 @@ final class MP_AU_K16_Kontrakty_Hakow extends MP_AU_Krytyk {
 
 		$cronowe = (array) ( $od_agenta->dane['cronowe'] ?? array() );
 
+		/*
+		 * Miejsca, w ktorych nazwa haka przychodzi zmienna. Nie zmieniaja werdyktu,
+		 * ale zmieniaja to, co czytelnik ma z nim zrobic: nasluch bez widocznej
+		 * emisji moze byc martwa integracja ALBO emisja przez taki wlasnie emiter.
+		 * Bez tej informacji raport kaze szukac bledu, ktorego moze nie byc.
+		 */
+		$dynamiczne = (array) ( $od_agenta->dane['dynamiczne'] ?? array() );
+		$trop_dyn   = $dynamiczne
+			? ' W projekcie sa emisje przez zmienna (' . count( $dynamiczne ) . ', np. ' . $dynamiczne[0]
+				. ') — ta kontrola nie widzi ich celu, wiec sprawdz je, zanim uznasz integracje za martwa.'
+			: '';
+
 		foreach ( $nasluchy as $hak => $lista ) {
 			if ( ! isset( $emisje[ $hak ] ) && ! isset( $cronowe[ $hak ] ) ) {
 				$przyklad = $lista[0];
@@ -144,7 +248,7 @@ final class MP_AU_K16_Kontrakty_Hakow extends MP_AU_Krytyk {
 						'linia'      => (int) $przyklad['linia'],
 						'dowod'      => 'add_action w ' . $przyklad['branch'] . ', zero do_action w calym projekcie',
 						'scenariusz' => 'Ta czesc integracji nie wykona sie NIGDY. Nic o tym nie poinformuje: '
-							. 'brak zdarzenia wyglada identycznie jak brak danych do przetworzenia.',
+							. 'brak zdarzenia wyglada identycznie jak brak danych do przetworzenia.' . $trop_dyn,
 						'naprawa'    => 'Sprawdzic nazwe zdarzenia po obu stronach (literowka) albo dopiac emisje.',
 					)
 				);
