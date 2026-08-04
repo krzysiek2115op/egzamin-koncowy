@@ -181,6 +181,18 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 		 *
 		 * Obcy ZALOGOWANY uzytkownik dostaje odmowe jak dotad — to jest ten
 		 * przypadek, dla ktorego ta obrona w glab powstala.
+		 *
+		 * Audyt zaproponowal, zeby zamiast `$biezacy > 0` pytac o TRYB uruchomienia
+		 * (`wp_doing_cron()`, `WP_CLI`) — bo brak zalogowanego uzytkownika zdarza sie
+		 * takze przy zwyklym zadaniu HTTP od goscia. Sprawdzone i ODRZUCONE:
+		 * pod WP-CLI stala `WP_CLI` jest zdefiniowana ZAWSZE, takze wtedy, gdy
+		 * przebieg ma ustawionego uzytkownika przez `wp_set_current_user()`.
+		 * Warunek na tryb wylaczalby wiec obrone rowniez dla OBCEGO ZALOGOWANEGO
+		 * uzytkownika — czyli dokladnie w przypadku, dla ktorego powstala.
+		 * Zlapal to test `wlasciciel-oferty-i-wersji.php`.
+		 *
+		 * Pytanie „czy jest podmiot" (`$biezacy > 0`) jest wlasciwe: gdy podmiotu
+		 * nie ma, nie ma czego porownywac, a `current_user_can()` i tak zwroci falsz.
 		 */
 		if ( $wlasciciel > 0 && $biezacy > 0 && $biezacy !== $wlasciciel && ! current_user_can( 'manage_options' ) ) {
 			return MP_OB_Result::fail( 'Brak uprawnień do zapisu wskazanej oferty.', array(), 'not_offer_owner' );
@@ -402,6 +414,38 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 
 		if ( $errors ) {
 			return MP_OB_Result::fail( 'Plan zapisu niezgodny z ograniczeniami schematu (DDL).', array( 'errors' => $errors ), 'ddl_violation' );
+		}
+
+		/*
+		 * KWOTY NAGŁÓWKA MUSZĄ BYĆ POLICZONE, A NIE DOMYŚLNE.
+		 *
+		 * Trzy kwoty i numer oferty szły do nagłówka przez `$context->get( ..., 0 )`
+		 * i `get( ..., '' )` — z cichą wartością domyślną. Ten sam agent kilkadziesiąt
+		 * linii niżej ODMAWIA zapisu pozycji bez wyliczenia z Działu 4, i słusznie:
+		 * wiersz z ceną zero to nie jest „brak danych", tylko nieprawdziwa cena.
+		 * Dla nagłówka reguła była odwrotna — niekompletny kontekst kończył się
+		 * zapisem oferty o wartości zero zamiast błędem, a dokument dla klienta
+		 * i suma w bazie mówiły wtedy zgodnie: zero złotych.
+		 *
+		 * `null` znaczy „klucza w ogóle nie ma", czyli dział liczący się nie wykonał.
+		 * Zera nie odrzucamy — oferta na zero groszy jest możliwa (rabat 100%,
+		 * pozycja gratisowa) i ma prawo się zapisać.
+		 */
+		foreach ( array( 'net_grosze', 'vat_grosze', 'gross_grosze' ) as $wymagana ) {
+			if ( null === $context->get( $wymagana ) ) {
+				return MP_OB_Result::fail(
+					'Brak wyliczenia z Działu 6 — nie zapisujemy oferty z kwotą domyślną zamiast policzonej.',
+					array(
+						'errors' => array(
+							array(
+								'field'   => $wymagana,
+								'message' => 'Kwota nagłówka nieobliczona (klucz nieobecny w kontekście).',
+							),
+						),
+					),
+					'missing_totals'
+				);
+			}
 		}
 
 		return MP_OB_Result::ok(

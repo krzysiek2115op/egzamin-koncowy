@@ -62,6 +62,50 @@ class MP_Lead_Intake_Page {
 	const DESCRIPTION = 'Wypełnij formularz zapytania ofertowego, a nasz zespół skontaktuje się z Tobą z indywidualną ofertą.';
 
 	/**
+	 * Co powiedzieć administratorowi o stanie strony z formularzem.
+	 *
+	 * JEDNO ŹRÓDŁO dla `create()` i `refresh_menu_status()`. Wcześniej każda
+	 * z nich miała własną wersję zdania i różniły się one w rzeczy najważniejszej:
+	 * `create()` wskazywała MIEJSCE W PANELU (dla kosza „Strony → Kosz", bo
+	 * „Wszystkie strony" wpisów w koszu nie pokazuje), a `refresh_menu_status()`
+	 * kończyła na „Przywróć ją do publikacji". Ta druga wykonuje się przy każdym
+	 * wejściu do panelu, więc po chwili NADPISYWAŁA komunikat pełniejszy tym
+	 * uboższym — naprawa z poprzedniego wydania żyła do pierwszego odświeżenia
+	 * strony.
+	 *
+	 * @param WP_Post|null $wpis Wpis strony albo null, gdy strony już nie ma.
+	 * @return string
+	 */
+	private static function komunikat_o_stanie( $wpis ) {
+		if ( ! $wpis instanceof WP_Post ) {
+			// Krótki kod podany WPROST: administrator, który tej strony nie
+			// zakładał, nie ma skąd go znać, a bez niego rada jest pusta.
+			// Wstawiany ze stałej — inaczej rada mówiłaby o krótkim kodzie,
+			// którego wtyczka po zmianie nazwy już nie rejestruje.
+			return sprintf(
+				/* translators: %s: krótki kod formularza wraz z nawiasami. */
+				__( 'Strona z formularzem została usunięta. Opublikuj nową stronę zawierającą krótki kod %s.', 'mp-lead-intake' ),
+				'[' . MP_Lead_Intake_Form::SHORTCODE . ']'
+			);
+		}
+
+		// Kosz ma w panelu WŁASNY widok. „Strony → Wszystkie strony" wpisów
+		// w koszu nie pokazuje, więc dla statusu `trash` byłaby to rada nie do
+		// wykonania — ta sama klasa błędu co usunięte wcześniej „aktywuj wtyczkę
+		// ponownie".
+		$gdzie = 'trash' === $wpis->post_status
+			? __( 'Strony → Kosz', 'mp-lead-intake' )
+			: __( 'Strony → Wszystkie strony', 'mp-lead-intake' );
+
+		return sprintf(
+			/* translators: 1: status wpisu WordPressa (np. trash, draft). 2: miejsce w panelu, np. „Strony → Kosz”. */
+			__( 'Strona z formularzem istnieje, ale ma status „%1$s" zamiast „opublikowana" — klienci jej nie zobaczą. Przywróć ją do publikacji w %2$s.', 'mp-lead-intake' ),
+			$wpis->post_status,
+			$gdzie
+		);
+	}
+
+	/**
 	 * Tworzy pod-stronę, jeśli jeszcze nie istnieje (idempotentnie).
 	 *
 	 * @return void
@@ -116,25 +160,7 @@ class MP_Lead_Intake_Page {
 			 */
 			update_option( self::OPTION_MENU_OK, 0 );
 
-			/*
-			 * Kosz ma w panelu WŁASNY widok. „Strony → Wszystkie strony" nie
-			 * pokazuje wpisów w koszu, więc dla statusu `trash` była to rada
-			 * nie do wykonania — ta sama klasa błędu co usunięte wcześniej
-			 * „aktywuj wtyczkę ponownie".
-			 */
-			$gdzie = 'trash' === $wpis->post_status
-				? __( 'Strony → Kosz', 'mp-lead-intake' )
-				: __( 'Strony → Wszystkie strony', 'mp-lead-intake' );
-
-			update_option(
-				self::OPTION_PAGE_ERROR,
-				sprintf(
-					/* translators: 1: status wpisu WordPressa (np. trash, draft). 2: miejsce w panelu, np. „Strony → Kosz”. */
-					__( 'Strona z formularzem istnieje, ale ma status „%1$s" zamiast „opublikowana" — klienci jej nie zobaczą. Przywróć ją do publikacji w %2$s.', 'mp-lead-intake' ),
-					$wpis->post_status,
-					$gdzie
-				)
-			);
+			update_option( self::OPTION_PAGE_ERROR, self::komunikat_o_stanie( $wpis ) );
 
 			return;
 		}
@@ -221,24 +247,7 @@ class MP_Lead_Intake_Page {
 		 */
 		if ( ! $wpis instanceof WP_Post || 'publish' !== $wpis->post_status ) {
 			update_option( self::OPTION_MENU_OK, 0 );
-			update_option(
-				self::OPTION_PAGE_ERROR,
-				$wpis instanceof WP_Post
-					? sprintf(
-						/* translators: %s: status wpisu WordPressa. */
-						__( 'Strona z formularzem istnieje, ale ma status „%s" zamiast „opublikowana" — klienci jej nie zobaczą. Przywróć ją do publikacji.', 'mp-lead-intake' ),
-						(string) $wpis->post_status
-					)
-					// Krótki kod podany WPROST: administrator, który tej strony nie
-					// zakładał, nie ma skąd go znać, a bez niego rada jest pusta.
-					// Wstawiany ze stałej — inaczej rada mówiłaby o krótkim kodzie,
-					// którego wtyczka po zmianie nazwy już nie rejestruje.
-					: sprintf(
-						/* translators: %s: krótki kod formularza wraz z nawiasami. */
-						__( 'Strona z formularzem została usunięta. Opublikuj nową stronę zawierającą krótki kod %s.', 'mp-lead-intake' ),
-						'[' . MP_Lead_Intake_Form::SHORTCODE . ']'
-					)
-			);
+			update_option( self::OPTION_PAGE_ERROR, self::komunikat_o_stanie( $wpis instanceof WP_Post ? $wpis : null ) );
 
 			return;
 		}
