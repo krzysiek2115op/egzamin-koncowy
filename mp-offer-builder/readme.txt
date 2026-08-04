@@ -62,6 +62,12 @@ RODO/GDPR:
 
 
 = 1.3.10 =
+* Paczka instalacyjna slucha wreszcie pliku .distignore. Zmiana zapowiadana
+  w changelogu wczesniejszego wydania jako „wykluczajacy pliki dev z paczki"
+  nie dzialala nigdy: plik istnial, ale budowanie paczek go nie czytalo,
+  bo skladalismy je recznie zamiast `wp dist-archive`. 74 pliki deweloperskie
+  jechaly wiec na serwer klienta mimo pisemnego zakazu lezacego obok nich.
+  Generowanie PDF sprawdzone na odchudzonej paczce.
 * Szablon tłumaczeń. Wtyczka wołała `load_plugin_textdomain()` ze wskazaniem na
   katalog `languages`, którego nie dostarczała — nagłówka `Domain Path` też nie
   deklarowała. 110 ciągów było „przygotowanych do tłumaczenia" w kodzie

@@ -36,6 +36,7 @@ powiadomien do klientow.
 
 
 = 1.3.10 =
+* Paczka instalacyjna schudla ze 117 plikow do 52 — testy i dokumentacja wewnetrzna nie jada juz do publicznie dostepnego katalogu wtyczek. Instrukcja wdrozenia przeszla do paczki materialow.
 * Handlowca da się skonfigurować z panelu. Dział 4 dobiera właściciela procesu
   po polach `mp_sw_country`, `mp_sw_langs` i `mp_sw_active`, a ustawić je dało
   się wyłącznie przez WP-CLI albo bezpośrednio w bazie. Konto z samą rolą

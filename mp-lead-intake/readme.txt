@@ -19,6 +19,7 @@ zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej 
 
 
 = 1.3.10 =
+* Paczka instalacyjna schudla ze 101 plikow do 54 — testy i dokumentacja wewnetrzna (w tym AUDYT.md i DEBUG-RAPORT.md) nie jada juz do publicznie dostepnego katalogu wtyczek. Dokumenty dla klienta przeszly do paczki materialow.
 * Szablon tłumaczeń. Wtyczka wołała `load_plugin_textdomain()` ze wskazaniem na
   katalog `languages`, którego nie dostarczała — nagłówka `Domain Path` też nie
   deklarowała. 71 ciągów było „przygotowanych do tłumaczenia" w kodzie i nie do

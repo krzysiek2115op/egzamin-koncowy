@@ -262,6 +262,24 @@ WordPressa** — wejście na ich adres po prostu je wykonywało. Bliźniaczy pli
 wtyczki 2 dostał tę ochronę przy SR5-03; wtyczka 1 nie. Kolejna połowa naprawy
 zrobiona tam, gdzie się patrzyło.
 
+**A STRAŻNIKI OKAZAŁY SIĘ POŁOWĄ ODPOWIEDZI.** `ABSPATH` chroni **pliki PHP** —
+serwer ich nie uruchamia i oddaje pustkę. Na `.md` nie robi nic, bo markdown nie
+jest wykonywany, tylko serwowany jako tekst. Sprawdzone żądaniem HTTP:
+`wp-content/plugins/mp-lead-intake/docs/SECURITY.md` odpowiadał **200 i 9966 B
+typu `text/markdown`**. Paczka wtyczki 1 miała 101 plików, z czego **47
+deweloperskich** — testy, `AUDYT.md`, `DEBUG-RAPORT.md`, dokumentacja wszystkich
+działów — wszystkie w katalogu, o którym `PRZECZYTAJ-MNIE.txt` sam pisze, że jest
+publiczny. Najgorsze, że projekt to wiedział: `mp-offer-builder/.distignore`
+wymieniał te katalogi od początku, tylko nikt tego pliku nie czytał, bo paczki
+składaliśmy ręcznie zamiast `wp dist-archive`. **Reguła zapisana w repozytorium,
+której nic nie egzekwuje, jest komentarzem.** Budowanie słucha teraz deklaracji
+wtyczki, a jej brak przerywa pracę — milczenie nie może znaczyć „wyślij
+wszystko". Paczki: 101 → 54, 758 → 684, 117 → 52 pliki. Dokumenty pisane **dla
+klienta** (wzór polityki prywatności, `SECURITY.md`, `security.txt`, przykłady
+konfiguracji serwera, instrukcja wdrożenia) nie zginęły — przeszły do paczki
+materiałów. Wycięcie sprawdzone tam, gdzie boli: generowaniem PDF-a z odchudzonej
+paczki wtyczki 2.
+
 **ZERO INFRASTRUKTURY TŁUMACZEŃ PRZY 367 CIĄGACH.** Wszystkie trzy wtyczki wołały
 `load_plugin_textdomain( …, '/languages' )`, a katalogu nie było w żadnej, pliku
 `.pot` nie było w żadnej i nagłówka `Domain Path` nie deklarowała żadna.
