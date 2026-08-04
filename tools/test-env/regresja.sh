@@ -88,6 +88,16 @@ for h in mp-lead-intake/tests/process-harness/run-process.php \
 done
 
 echo
+echo "=== Narzędzia wydania (Python, bez WordPressa) ==="
+for t in "$REPO"/tools/wydanie/tests/*.py; do
+	[ -f "$t" ] || continue
+	REL=${t#"$REPO/"}
+	case "$REL" in *"$WZORZEC"*) ;; *) [ -n "$WZORZEC" ] && continue ;; esac
+	OUT=$(python3 "$t" 2>&1)
+	raport "$REL" "$OUT"
+done
+
+echo
 echo "=== Pliki testowe (WordPress + trzy wtyczki, wp eval-file) ==="
 for p in mp-lead-intake mp-offer-builder mp-sales-workflow; do
 	for t in "$REPO/$p"/tests/*/*.php; do

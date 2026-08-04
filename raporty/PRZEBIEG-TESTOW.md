@@ -206,6 +206,9 @@ STATUS: ALL_PASS
   [OK ] mp-lead-intake/tests/process-harness/run-process.php
   [OK ] mp-offer-builder/tests/process-harness/run-process.php
 
+=== Narzędzia wydania (Python, bez WordPressa) ===
+  [OK ] tools/wydanie/tests/paczka-instalacyjna.py
+
 === Pliki testowe (WordPress + trzy wtyczki, wp eval-file) ===
   [OK ] mp-lead-intake/tests/koncowe/granica-transakcji-i-role.php
   [OK ] mp-lead-intake/tests/koncowe/relacja-lead-oferta.php
@@ -289,7 +292,7 @@ STATUS: ALL_PASS
   [OK ] tools/strona-pokazowa/tests/motyw-poza-korzeniem.php
 
 ====================================================
-PRZESZLO: 80   NIE PRZESZLO: 0   BEZ WERDYKTU: 0
+PRZESZLO: 81   NIE PRZESZLO: 0   BEZ WERDYKTU: 0
 ```
 
 ---
