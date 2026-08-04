@@ -1,0 +1,12 @@
+tests/
+tests/*
+docs/
+blueprint/
+materialy-src/
+*.md
+composer.json
+composer.lock
+phpcs.xml*
+.phpcs.xml*
+.distignore
+.gitattributes
