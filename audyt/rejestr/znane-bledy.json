@@ -1931,6 +1931,32 @@
       "lekcja": "Kasowanie jest bezpieczne, bo powrot do publikacji dokłada pozycje z powrotem (`refresh_menu_status()` i `create()`). Naprawa z 1.3.11 dotyczyla METODY oddajacej adres; ta dotyczy pozycji, ktora juz w menu stoi — dwie polowy tego samego problemu.",
       "test": "mp-lead-intake/tests/naprawy/link-do-strony-ktorej-nie-ma.php, sekcja E",
       "para": "1.26"
+    },
+    {
+      "id": "U-80",
+      "data": "2026-08-05",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Adres sciety DO ZERA dostawal komunikat techniczny zamiast zdania dla czlowieka",
+      "klasa": "najgorszy-przypadek-najgorszy-komunikat",
+      "plik": "mp-lead-intake/includes/pipeline/departments/class-mp-department-02.php",
+      "dowod": "Gdy `sanitize_email()` scina adres do pustej wartosci (adres zlozony z samych znakow spoza jej zbioru — zmierzone: `żółć@firma.pl` -> ``), potok zatrzymuje sie na krytyku K2.2 z komunikatem „Puste pole po normalizacji: email\". Zdanie napisane WLASNIE dla tego przypadku stoi dwa agenty dalej (2.3) i nigdy do klienta nie dociera.",
+      "skutek": "Najgorszy wariant — adres calkowicie nie do zapisania — dostawal najgorszy komunikat. To skutek naprawy U-70 z tej samej serii: zdanie powstalo, ale w miejscu, ktorego ta sciezka nie osiaga.",
+      "lekcja": "Rozroznienie „bylo puste od poczatku\" od „zostalo sciete do pustego\" bierzemy z flagi `email_zmieniony`, ktora agent 2.2 i tak liczy. Komunikat z JEDNEJ stalej `MSG_EMAIL_NIEOBSLUGIWANY`, zeby dwa miejsca nie mogly sie rozjechac.",
+      "test": "mp-lead-intake/tests/naprawy/dane-klienta-nie-sa-podmieniane.php, sekcja E",
+      "para": "1.25"
+    },
+    {
+      "id": "U-81",
+      "data": "2026-08-05",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Bramka statusu i komunikat czytaly te sama kolumne inaczej",
+      "klasa": "dwie-odpowiedzi-na-jedno-pytanie",
+      "plik": "mp-offer-builder/includes/class-mp-offer-builder-approval.php",
+      "dowod": "Bramka w `approve()` porownywala SUROWA wartosc kolumny, a `wrong_status_message()` przycina ja przez `trim()`.",
+      "skutek": "Dla wartosci z bialymi znakami — „approved \" po imporcie albo migracji — oferta byla odrzucana jako stan spoza slownika, a czlowiek dostawal zdanie twierdzace, ze oferta JUZ jest zatwierdzona. Dwie odpowiedzi na to samo pytanie w jednym przebiegu.",
+      "lekcja": "Normalizacja RAZ, przed bramka; obie sciezki (bramka i po nieudanym UPDATE) czytaja ta sama wartosc. Ustalenie przyszlo z audytu na kodzie dopisanym w poprzedniej rundzie.",
+      "test": "mp-offer-builder/tests/naprawy/komunikat-stanu-oferty.php, sekcja C",
+      "para": "1.26"
     }
   ]
 }
