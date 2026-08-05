@@ -180,6 +180,7 @@ class MP_D2_Agent_Validate_Formats extends MP_Abstract_Agent {
 			 * wysłanie oferty do kogoś innego. Komunikat celowo NIE pokazuje
 			 * wersji po przepisaniu — klient wziąłby ją za swój adres.
 			 */
+
 			/*
 			 * Komunikat nie wylicza znaków, bo lista jest dłuższa niż „polskie
 			 * litery i spacje" — pierwsza wersja wymieniała tylko te dwa

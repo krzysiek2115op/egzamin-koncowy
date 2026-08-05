@@ -4,7 +4,7 @@ Tags: oferty, pdf, woocommerce, cennik
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.3.11
+Stable tag: 1.3.12
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -59,6 +59,15 @@ RODO/GDPR:
 * Sugerowana treść polityki prywatności jest dodawana w Ustawienia → Prywatność.
 
 == Changelog ==
+
+= 1.3.12 =
+* Wydanie porządkowe. Wtyczka nie dostała żadnej zmiany w działaniu — poprawione
+  zostały wyłącznie dwa uchybienia stylu kodu (WordPress Coding Standards), które
+  weszły przy naprawach z 1.3.11 i zostały wtedy przeoczone: brak pustej linii
+  przed blokiem komentarza i tablica z kluczami zapisana w jednej linii.
+* Numer wersji rośnie mimo braku zmian w działaniu, bo pliki wysyłane klientowi
+  różnią się od tych z 1.3.11. Dwa różne zestawy plików pod jednym numerem to
+  gorszy problem niż wydanie z drobnym zakresem.
 
 = 1.3.11 =
 * Koniec z możliwością cichego 0% VAT. Dział zapisujący ofertę wybaczał brak

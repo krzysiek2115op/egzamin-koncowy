@@ -56,12 +56,25 @@ def zip_motywu():
     return buf.getvalue(), len(pary)
 
 
-def zebierz(wersja, katalog):
-    """Assety demo: trzy ZIP-y wtyczek z paczek wydania + motyw."""
+def zebierz(wersja, katalog, swoje):
+    """Assety demo: trzy ZIP-y wtyczek z paczek wydania + motyw.
+
+    Demo pokazuje zawsze wszystkie trzy wtyczki, ale wydanie niekoniecznie
+    wszystkie rusza — wtyczka bez zmian nie dostaje numeru ani wlasnej paczki
+    (regula z 1.3.9). Jej ZIP jest wtedy w paczce calosci, ktora tez powstaje
+    z tagu, wiec obietnica „demo uruchamia bajty, ktore dostaje klient" zostaje
+    prawdziwa: to dokladnie ten plik, ktory klient rozpakuje.
+
+    :param str        wersja:  numer wydania.
+    :param str        katalog: katalog z paczkami z `buduj-zipy.py`.
+    :param tuple|list swoje:   wtyczki z wlasna paczka.
+    """
     assety = {}
+    calosc = os.path.join(katalog, 'egzamin-koncowy-%s.zip' % wersja)
 
     for p in WTYCZKI:
-        sciezka = os.path.join(katalog, '%s-%s.zip' % (p, wersja))
+        sciezka = os.path.join(katalog, '%s-%s.zip' % (p, wersja)) if p in swoje else calosc
+
         if not os.path.exists(sciezka):
             sys.exit('brak paczki %s — najpierw buduj-zipy.py' % sciezka)
 
@@ -82,7 +95,9 @@ def main():
     ap.add_argument('--sucho', action='store_true')
     args = ap.parse_args()
 
-    assety = zebierz(args.wersja, args.katalog)
+    swoje = publikuj.wydania.wlasne_wydanie(
+        args.wersja, publikuj.wydania.tagi_lokalne(REPO_KAT))
+    assety = zebierz(args.wersja, args.katalog, swoje)
 
     if args.sucho:
         for n, d in sorted(assety.items()):

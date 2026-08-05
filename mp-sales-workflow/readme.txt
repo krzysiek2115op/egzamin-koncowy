@@ -4,7 +4,7 @@ Tags: sprzedaz, crm, workflow, follow-up
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.3.11
+Stable tag: 1.3.12
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,6 +33,15 @@ rekordow SPF/DKIM/DMARC oraz blokady katalogu z ofertami PDF. Pelna checklista:
 powiadomien do klientow.
 
 == Changelog ==
+
+= 1.3.12 =
+* Wydanie porządkowe. Wtyczka nie dostała żadnej zmiany w działaniu — poprawione
+  zostało wyłącznie jedno uchybienie stylu kodu (WordPress Coding Standards), które
+  weszło przy naprawie słownika przejść w 1.3.11 i zostało wtedy przeoczone: brak
+  pustej linii przed blokiem komentarza.
+* Numer wersji rośnie mimo braku zmian w działaniu, bo pliki wysyłane klientowi
+  różnią się od tych z 1.3.11. Dwa różne zestawy plików pod jednym numerem to
+  gorszy problem niż wydanie z drobnym zakresem.
 
 = 1.3.11 =
 * Segment klienta dociera wreszcie do procesu. Wtyczka 1 przekazuje go razem

@@ -26,7 +26,11 @@ import zipfile
 KAT = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(KAT))
 TEKSTY = os.path.join(KAT, 'przeczytaj-mnie')
-WTYCZKI = ('mp-lead-intake', 'mp-offer-builder', 'mp-sales-workflow')
+sys.path.insert(0, KAT)
+
+import wydania  # noqa: E402  (import po ustawieniu sciezki)
+
+WTYCZKI = wydania.WTYCZKI
 
 # Stempel czasu w ZIP-ie jest staly, zeby ta sama zawartosc dawala ten sam plik.
 STEMPEL = (2026, 1, 1, 0, 0, 0)
@@ -196,13 +200,11 @@ def wlasne_wydanie(wersja):
     """Wtyczki, ktore maja wlasny tag dla TEJ wersji.
 
     Wtyczka bez zmian nie dostaje nowego numeru (regula z 1.3.9), wiec jej ZIP
-    wchodzi tylko do paczki calosci i budowany jest z tagu projektowego.
+    wchodzi tylko do paczki calosci i budowany jest z tagu projektowego. Sama
+    regula mieszka w `wydania.py` — czytaja ja tez `publikuj.py` i `demo-assety.py`,
+    ktore do 1.3.11 mialy wlasne, sztywne listy trzech wtyczek.
     """
-    tagi = subprocess.run(['git', '-C', REPO, 'tag'],
-                          check=True, stdout=subprocess.PIPE).stdout.decode()
-    dostepne = set(tagi.split())
-
-    return tuple(p for p in WTYCZKI if '%s/v%s' % (p, wersja) in dostepne)
+    return wydania.wlasne_wydanie(wersja, wydania.tagi_lokalne(REPO))
 
 
 def main():

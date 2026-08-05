@@ -273,6 +273,7 @@ class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 		 * Rabat RÓWNY sumie jest dopuszczony świadomie: „zero do zapłaty" to
 		 * decyzja handlowa, a nie błąd arytmetyczny.
 		 */
+
 		/*
 		 * BRAK PODSTAWY TO NIE JEST PODSTAWA ZERO.
 		 *
@@ -290,7 +291,14 @@ class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 		if ( null === $context->get( 'subtotal_grosze' ) ) {
 			return MP_OB_Result::fail(
 				'Brak podstawy do naliczenia — Dział 4 nie przekazał sumy pozycji, a zero z braku danych to nie jest zero z wyliczenia.',
-				array( 'errors' => array( array( 'field' => 'subtotal_grosze', 'message' => 'Klucz nieobecny w kontekście.' ) ) ),
+				array(
+					'errors' => array(
+						array(
+							'field'   => 'subtotal_grosze',
+							'message' => 'Klucz nieobecny w kontekście.',
+						),
+					),
+				),
 				'missing_subtotal'
 			);
 		}

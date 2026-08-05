@@ -102,6 +102,7 @@ class MP_Offer_Builder_Approval {
 		 * polecenie zgłoszenia administratorowi sytuacji, która nie jest awarią,
 		 * a prawdziwa informacja — „ktoś Cię ubiegł" — do niego nie docierała.
 		 */
+
 		/*
 		 * STAN `draft` W TYM MIEJSCU TO NIE ZLY STAN — TO NIEUDANY ZAPIS.
 		 *

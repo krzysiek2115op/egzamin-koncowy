@@ -23,6 +23,14 @@ wp-config.php
 /build/
 *.cache
 
+# Bajtkod Pythona. Dwa pliki `.pyc` weszly do repozytorium przy okazji commita
+# c794037 — `demo-assety.py` importuje `publikuj.py`, a test importuje
+# `buduj-zipy.py`, wiec interpreter zostawil obok skompilowane kopie. Nikt ich
+# nie czyta, ale wersjonowany bajtkod starzeje sie po cichu i przy odpowiednim
+# ukladzie sciezek potrafi przeslonic zrodlo, ktorego juz nie ma.
+__pycache__/
+*.pyc
+
 # --- Paczka klienta: wersjonujemy WYŁĄCZNIE materiały (schematy + instrukcje).
 #     Kod wtyczki bywał tam duplikowany lokalnie na potrzeby ZIP-a do wysyłki —
 #     po scaleniu gałęzi każda wtyczka ma własny podkatalog, więc reguły są

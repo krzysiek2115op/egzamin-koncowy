@@ -3,7 +3,7 @@
  * Plugin Name:       MP Sales Workflow
  * Plugin URI:        https://github.com/krzysiek2115op/egzamin-koncowy
  * Description:       Przypisanie handlowca, statusy procesu, powiadomienia e-mail, zadania follow-up, dashboard i dziennik aktywności. Trzeci element procesu formularz → oferta.
- * Version:           1.3.11
+ * Version:           1.3.12
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            krzysiek2115op
@@ -38,7 +38,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // --- Stałe wtyczki ---
-define( 'MP_SALES_WORKFLOW_VERSION', '1.3.11' );
+define( 'MP_SALES_WORKFLOW_VERSION', '1.3.12' );
 define( 'MP_SALES_WORKFLOW_FILE', __FILE__ );
 define( 'MP_SALES_WORKFLOW_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MP_SALES_WORKFLOW_URL', plugin_dir_url( __FILE__ ) );

@@ -4,7 +4,7 @@ Tags: leads, formularz, b2b, nip, vat
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.3.11
+Stable tag: 1.3.12
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,25 @@ Pierwsza z trzech wtyczek procesu "formularz → oferta". Odpowiada za odbiór
 zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej bazy.
 
 == Changelog ==
+
+= 1.3.12 =
+* "NIP jest wymagany" nie pada już dla pola, które zostało wypełnione. Sprawdzenie
+  oglądało numer po kanonizacji, a ta dla Polski zostawia same cyfry — wpis w rodzaju
+  "---" albo "brak" znikał do pustego łańcucha. Nadawca widział swój wpis w formularzu
+  i obok zdanie twierdzące, że go nie ma. Teraz dostaje prośbę o przepisanie numeru
+  z dokumentu firmy, a komunikat o braku zostaje dla pól faktycznie pustych.
+* Kontrola zgłoszenia przestała opisywać przeliczenie, którego nie było. Pole,
+  którego nikt nie wypełnił, dostawało powód "puste pole po normalizacji" — czyli
+  informację o operacji, która nie miała na czym się wykonać. Od braku pola jest
+  osobny powód, od pola skróconego do pustego — inny.
+* Komunikat po nieudanym założeniu strony z formularzem kończy się instrukcją.
+  Podawał przyczynę i milkł, choć bliźniaczy komunikat obok zawsze mówi, jak
+  wstawić formularz krótkim kodem. Administrator dostawał diagnozę bez wyjścia.
+
+* Poprawione dwa uchybienia stylu kodu (WordPress Coding Standards), które weszły
+  przy naprawach z 1.3.11 i zostały wtedy przeoczone — wydanie 1.3.11 zameldowało
+  „PHPCS: kod wyjścia 0", choć kod wyjścia wynosił 2. Same błędy są stylistyczne
+  i nie zmieniają działania.
 
 = 1.3.11 =
 * Menu przestało prowadzić do strony, której nie ma. Metoda oddająca adres

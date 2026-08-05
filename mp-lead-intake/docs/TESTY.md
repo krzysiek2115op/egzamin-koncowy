@@ -130,9 +130,44 @@ testów manualnych jako niezależnej warstwy weryfikacji, uzupełniającej audyt
 
 ---
 
+## Stan na wydanie 1.3.12 (05.08.2026)
+
+Regresja **98/98** na bazie od zera, PHPCS kod wyjścia **0** — tym razem zmierzony
+po ostatniej zmianie, a nie zapamiętany (patrz niżej).
+
+Wydanie niesie trzy naprawy komunikatów z dziewiątej rundy bramki, opisane
+w `readme.txt` wtyczki 1, oraz jeden test narzędzia:
+
+- `tools/wydanie/tests/wydanie-jednej-wtyczki.py` (18 asercji) — wydanie,
+  w którym zmieniła się **jedna** wtyczka, przechodzi całą drogę: plan wydań
+  pomija wtyczki bez własnego tagu, a demo bierze ich ZIP-y z paczki całości.
+  Bez sieci i bez gita; tagi podane jako zbiór, paczki zbudowane w katalogu
+  tymczasowym.
+
+Reguła „wtyczka bez zmian nie dostaje nowego numeru" powstała w 1.3.9 i przez
+trzy wydania **nie została użyta ani razu** — każde ruszało wszystkie trzy
+wtyczki. Skrypt budujący paczki regułę miał, skrypt publikujący i skrypt demo
+nadal chodziły po sztywnej liście czterech wydań. Zatrzymałyby się dopiero
+**po** wypchnięciu tagów, w połowie publikacji. Reguła, której nigdy nie użyto,
+jest nieprzetestowana niezależnie od tego, ile miejsc ją deklaruje.
+
+### Sprostowanie do 1.3.11
+
+Zdanie „PHPCS kod wyjścia 0" przy wydaniu 1.3.11 **było nieprawdziwe**. PHPCS na
+tagu `v1.3.11` kończy się kodem **2**: cztery razy
+`Squiz.Commenting.BlockComment.NoEmptyLineBefore` i raz
+`WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound`, wszystkie
+w kodzie napisanym w rundach napraw tego samego dnia. Błędy są stylistyczne —
+kod działa — ale sam raport nie był. Sprawdzenie kosztowało jedno polecenie
+i nikt go nie uruchomił po ostatniej zmianie. Naprawione w 1.3.12; w rejestrze
+jako `NARZ-F9`.
+
+---
+
 ## Stan na wydanie 1.3.11 (04.08.2026)
 
-Regresja **97/97** na bazie od zera, PHPCS kod wyjścia **0**. Wydanie powstawało
+Regresja **97/97** na bazie od zera. Zdanie o PHPCS w pierwotnej wersji tego
+akapitu (kod wyjścia 0) było nieprawdziwe — patrz sprostowanie wyżej. Wydanie powstawało
 w kilku rundach; niżej wszystkie pliki testowe, jakie w nich przybyły — każdy
 napisany PRZED naprawą i uruchomiony, żeby zobaczyć, jak pada.
 

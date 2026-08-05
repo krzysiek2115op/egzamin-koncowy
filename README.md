@@ -20,9 +20,9 @@ danych między formularzem, WooCommerce i pocztą.
 
 | # | Wtyczka | Wersja | Baza | Opis |
 |---|---------|--------|------|------|
-| 1 | `mp-lead-intake` | 1.3.11 | BD-3 | Przyjęcie i kwalifikacja lead-a z formularza |
-| 2 | `mp-offer-builder` | 1.3.11 | BD-2 | Kalkulacja cenowa, integracja WooCommerce, oferty PDF |
-| 3 | `mp-sales-workflow` | 1.3.11 | BD-1 | Statusy procesu, handlowiec, powiadomienia, follow-up, dashboard |
+| 1 | `mp-lead-intake` | 1.3.12 | BD-3 | Przyjęcie i kwalifikacja lead-a z formularza |
+| 2 | `mp-offer-builder` | 1.3.12 | BD-2 | Kalkulacja cenowa, integracja WooCommerce, oferty PDF |
+| 3 | `mp-sales-workflow` | 1.3.12 | BD-1 | Statusy procesu, handlowiec, powiadomienia, follow-up, dashboard |
 
 Kolejność instalacji ma znaczenie: **1, potem 2, potem 3**. Wtyczka 2 nasłuchuje
 zdarzenia z wtyczki 1, a wtyczka 3 — zdarzeń z obu poprzednich. Gotowe paczki
@@ -249,6 +249,49 @@ co dałoby się wziąć za prawdziwy adres.
 
 Raporty z kolejnych przebiegów leżą w `audyt/raport-*.txt` na gałęzi
 `audyt-projektu`, a szczegółowy opis narzędzia — w `audyt/README.md`.
+
+---
+
+## Wydanie 1.3.12 — trzy komunikaty, jedno sprostowanie i luka w narzędziu wydania
+
+Bramka audytu, która miała potwierdzić gotowość 1.3.11, ruszyła **po** zbudowaniu
+paczek — i znalazła trzy usterki w kodzie napisanym tego samego dnia. Wszystkie
+tej samej rodziny: **komunikat opisuje operację, która nie zaszła.** Żadna nie
+dotyka pieniędzy ani danych; dotykają tego, co czyta człowiek, gdy coś poszło nie tak.
+
+- **„NIP jest wymagany" dla pola, które klient wypełnił.** Kanonizacja dla Polski
+  zostawia same cyfry, więc wpis `---` albo `brak` znikał do pustego łańcucha,
+  nieodróżnialny od pola nietkniętego. Rozróżnienie bierzemy z wartości surowej.
+- **Krytyk opisywał przeliczenie, którego nie było.** `normalize_failed` padało
+  dla pól nigdy niewypełnionych. Od braku pola jest `required_missing`.
+- **Komunikat o nieudanym założeniu strony milkł w połowie** — podawał przyczynę
+  bez instrukcji, choć bliźniaczy komunikat obok zawsze ją podaje.
+
+Czwarte ustalenie wyszło z samego wydawania. Reguła *„wtyczka bez zmian nie
+dostaje nowego numeru"* powstała w 1.3.9, ale przez trzy wydania nie została użyta
+ani razu — każde ruszało wszystkie trzy wtyczki. Skrypt budujący paczki regułę
+miał; [publikuj.py](tools/wydanie/publikuj.py) i [demo-assety.py](tools/wydanie/demo-assety.py)
+nadal chodziły po sztywnej liście czterech wydań. Pierwsze wydanie **jednej**
+wtyczki zatrzymałoby się na „brak paczki `mp-offer-builder-1.3.12.zip`" — dopiero
+po wypchnięciu tagów, czyli w połowie publikacji. Reguła mieszka teraz
+w [wydania.py](tools/wydanie/wydania.py), a osobny test przechodzi całą tę drogę
+bez sieci i bez gita.
+
+Piąte — i najbardziej niewygodne. Wydanie 1.3.11 zameldowało **„PHPCS: kod
+wyjścia 0"**, a PHPCS na tagu `v1.3.11` kończy się kodem **2**: pięć błędów stylu
+we wszystkich trzech wtyczkach, wszystkie w kodzie napisanym w rundach napraw tego
+samego dnia. Kod działa — to uchybienia stylistyczne — ale zdanie w raporcie
+było nieprawdziwe, a jego sprawdzenie kosztowało jedno polecenie, którego nikt nie
+uruchomił po ostatniej zmianie. Poprawione tutaj; w rejestrze jako `NARZ-F9`.
+
+Właśnie dlatego **wszystkie trzy wtyczki idą na 1.3.12**, choć wtyczki 2 i 3 nie
+dostały żadnej zmiany w działaniu: ich pliki wysyłane klientowi różnią się od tych
+z 1.3.11. Dwa różne zestawy plików pod jednym numerem wersji to gorszy problem niż
+wydanie o drobnym zakresie. Reguła „wtyczka bez zmian nie dostaje numeru" mówi
+o **braku zmiany**, a nie o braku zmiany istotnej.
+
+Ubocznym skutkiem jest to, że nowa ścieżka w narzędziu wydania — ta z pominiętą
+wtyczką — **nie jest w tym wydaniu wykonywana**. Sprawdza ją wyłącznie jej test.
 
 ---
 

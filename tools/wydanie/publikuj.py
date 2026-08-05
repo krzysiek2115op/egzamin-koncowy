@@ -25,16 +25,43 @@ import urllib.request
 
 KAT = os.path.dirname(os.path.abspath(__file__))
 REPO_KAT = os.path.dirname(os.path.dirname(KAT))
+sys.path.insert(0, KAT)
+
+import wydania  # noqa: E402  (import po ustawieniu sciezki)
+
 REPO = 'krzysiek2115op/egzamin-koncowy'
 API = 'https://api.github.com'
 
 # (plik notatki, tag, tytul, nazwa paczki) — %s to numer wersji.
-WYDANIA = (
-    ('calosc', 'v%s', 'Egzamin koncowy %s — caly projekt', 'egzamin-koncowy-%s.zip'),
-    ('mp-lead-intake', 'mp-lead-intake/v%s', 'MP Lead Intake %s', 'mp-lead-intake-%s.zip'),
-    ('mp-offer-builder', 'mp-offer-builder/v%s', 'MP Offer Builder %s', 'mp-offer-builder-%s.zip'),
-    ('mp-sales-workflow', 'mp-sales-workflow/v%s', 'MP Sales Workflow %s', 'mp-sales-workflow-%s.zip'),
-)
+CALOSC = ('calosc', 'v%s', 'Egzamin koncowy %s — caly projekt', 'egzamin-koncowy-%s.zip')
+
+TYTULY = {
+    'mp-lead-intake': 'MP Lead Intake',
+    'mp-offer-builder': 'MP Offer Builder',
+    'mp-sales-workflow': 'MP Sales Workflow',
+}
+
+
+def plan_wydan(wersja, swoje):
+    """Co publikujemy: zawsze calosc, plus wtyczki z wlasnym tagiem.
+
+    Sztywna lista czterech wydan zakladala, ze kazda wersja rusza wszystkie trzy
+    wtyczki. Wtyczka bez zmian nie dostaje numeru (regula z 1.3.9), wiec nie ma
+    ani tagu, ani paczki — i publikacja stanelaby w polowie, z tagiem projektu
+    juz na GitHubie. Kod wtyczki pominietej jedzie w paczce calosci.
+
+    :param str        wersja: numer wydania.
+    :param tuple|list swoje:  wtyczki z wlasnym wydaniem (`wydania.wlasne_wydanie`).
+    :return list: krotki (nazwa notatki, tag, tytul, nazwa paczki) — juz z wersja.
+    """
+    plan = [(CALOSC[0], CALOSC[1] % wersja, CALOSC[2] % wersja, CALOSC[3] % wersja)]
+
+    for p in wydania.WTYCZKI:
+        if p in swoje:
+            plan.append((p, '%s/v%s' % (p, wersja),
+                         '%s %s' % (TYTULY[p], wersja), '%s-%s.zip' % (p, wersja)))
+
+    return plan
 
 WSTEP = (
     'KOMPLET TRZECH WTYCZEK: https://github.com/%s/releases/tag/v%%s\n'
@@ -173,9 +200,15 @@ def main():
     global TOKEN
     TOKEN = 'x' if args.sucho else token()
 
-    for nazwa, tag, tytul, paczka in WYDANIA:
-        opublikuj(nazwa, tag % args.wersja, tytul % args.wersja,
-                  paczka % args.wersja, args.wersja, args.katalog, args.sucho)
+    swoje = wydania.wlasne_wydanie(args.wersja, wydania.tagi_lokalne(REPO_KAT))
+    pominiete = wydania.bez_wlasnego(args.wersja, wydania.tagi_lokalne(REPO_KAT))
+
+    for p in pominiete:
+        print('%-34s bez zmian w %s — kod jedzie w paczce calosci'
+              % (p, args.wersja))
+
+    for nazwa, tag, tytul, paczka in plan_wydan(args.wersja, swoje):
+        opublikuj(nazwa, tag, tytul, paczka, args.wersja, args.katalog, args.sucho)
 
 
 if __name__ == '__main__':

@@ -59,6 +59,7 @@ class MP_SW_D5_Machine {
 	 */
 	public static function transitions() {
 		return array(
+
 			/*
 			 * `new -> lost` MUSI BYC. Kazdy inny status nieterminalny ma wyjscie
 			 * do „przegrany", a `new` go nie mial — mimo ze `target_status()`
