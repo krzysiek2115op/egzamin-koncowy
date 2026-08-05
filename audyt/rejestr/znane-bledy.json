@@ -1996,7 +1996,7 @@
       "lekcja": "Rozroznienie bierzemy z wartosci SUROWEJ (`nip_surowy`), jedynej, ktora pamieta, co czlowiek wpisal. Same biale znaki to nadal PUSTE pole — kontr-asercja to utrwala, bo pierwsza wersja testu wrzucila je omylkowo do listy wpisow bez cyfr.",
       "test": "mp-lead-intake/tests/naprawy/dane-klienta-nie-sa-podmieniane.php, sekcja F",
       "para": "1.25",
-      "uwaga": "NAPRAWIONE PO WYDANIU 1.3.11 — jest w main, nie ma w opublikowanych paczkach 1.3.11."
+      "uwaga": "Naprawione po wydaniu 1.3.11 (nie ma tego w paczkach 1.3.11); opublikowane w 1.3.12."
     },
     {
       "id": "U-85",
@@ -2010,7 +2010,7 @@
       "lekcja": "Kontr-asercja z rundy 7 utrwalila przy okazji stary kod. Poprawiona: pilnuje ROZROZNIENIA dwoch sytuacji („puste od poczatku\" kontra „sciete do pustego\"), a nie konkretnej nazwy — plus asercja, ze oba kody sa ROZNE.",
       "test": "mp-lead-intake/tests/naprawy/dane-klienta-nie-sa-podmieniane.php, sekcja E",
       "para": "1.25",
-      "uwaga": "NAPRAWIONE PO WYDANIU 1.3.11 — jest w main, nie ma w opublikowanych paczkach 1.3.11."
+      "uwaga": "Naprawione po wydaniu 1.3.11 (nie ma tego w paczkach 1.3.11); opublikowane w 1.3.12."
     },
     {
       "id": "U-86",
@@ -2024,7 +2024,49 @@
       "lekcja": "Krotki kod ze stalej, nie z reki: rada ma dotyczyc kodu, ktory wtyczka naprawde rejestruje.",
       "test": "mp-lead-intake/tests/naprawy/dane-klienta-nie-sa-podmieniane.php, sekcja C",
       "para": "1.26",
-      "uwaga": "NAPRAWIONE PO WYDANIU 1.3.11 — jest w main, nie ma w opublikowanych paczkach 1.3.11."
+      "uwaga": "Naprawione po wydaniu 1.3.11 (nie ma tego w paczkach 1.3.11); opublikowane w 1.3.12."
+    },
+    {
+      "id": "NARZ-F8",
+      "data": "2026-08-05",
+      "wtyczka": "(narzedzia wydania)",
+      "tytul": "Skrypt publikujacy i skrypt demo zakladaly, ze kazde wydanie rusza wszystkie trzy wtyczki",
+      "klasa": "regula-w-jednym-miejscu-z-trzech",
+      "plik": "tools/wydanie/publikuj.py, tools/wydanie/demo-assety.py",
+      "dowod": "Regula „wtyczka bez zmian nie dostaje nowego numeru” powstala w 1.3.9 i zyla w `buduj-zipy.py` oraz w bramce `audyt/bin/repo_wydania.py`. `publikuj.py` chodzil po sztywnej krotce `WYDANIA` z czterema pozycjami, a `demo-assety.zebierz()` po sztywnej liscie trzech paczek wtyczek.",
+      "skutek": "Pierwsze wydanie JEDNEJ wtyczki (1.3.12) zatrzymaloby sie na „brak paczki mp-offer-builder-1.3.12.zip” — dopiero PO zbudowaniu paczek i PO wypchnieciu tagow, czyli w polowie publikacji, z tagiem v1.3.12 na GitHubie i bez ani jednego wydania.",
+      "lekcja": "Regula uzywana przez trzy skrypty ma miec jedno zrodlo. Regula, ktora przez trzy wydania nie zostala ANI RAZU uzyta, jest nieprzetestowana niezaleznie od tego, ile miejsc ja deklaruje.",
+      "test": "tools/wydanie/tests/wydanie-jednej-wtyczki.py",
+      "para": "1.15",
+      "uwaga": "Naprawione w 1.3.12: regula w `tools/wydanie/wydania.py`, czytaja ja wszystkie trzy skrypty."
+    },
+    {
+      "id": "NARZ-F9",
+      "data": "2026-08-05",
+      "wtyczka": "(caly projekt)",
+      "tytul": "„PHPCS: kod wyjscia 0” zameldowane przy wydaniu, ktore mialo piec bledow PHPCS",
+      "klasa": "raport-niezgodny-z-pomiarem",
+      "plik": "mp-lead-intake/includes/pipeline/departments/class-mp-department-02.php, mp-offer-builder/includes/pipeline/departments/class-mp-ob-department-06.php, mp-offer-builder/includes/class-mp-offer-builder-approval.php, mp-sales-workflow/includes/pipeline/departments/class-mp-sw-department-05.php",
+      "dowod": "PHPCS na tagu v1.3.11 konczy sie kodem 2: cztery razy `Squiz.Commenting.BlockComment.NoEmptyLineBefore` (blok komentarza zaraz po `*/` albo po `array(`) i raz `WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound`. Wszystkie piec powstalo w rundach napraw tego samego dnia.",
+      "skutek": "Notatki wydania 1.3.11 i raport dla klienta obiecuja „PHPCS: kod wyjscia 0”. Obietnica byla falszywa, a jej sprawdzenie kosztowalo jedno polecenie. Sam kod dziala — to bledy stylu — ale zaufanie do zdania „regresja zielona, PHPCS 0” opiera sie na tym, ze nikt go nie pisze z pamieci.",
+      "lekcja": "Liczba w raporcie pochodzi z URUCHOMIENIA zrobionego PO ostatniej zmianie, a nie z ostatniego uruchomienia, ktore pamietam. Kolejnosc jest odwrotna niz nawyk: najpierw pomiar, potem zdanie o pomiarze.",
+      "test": "tools/test-env/regresja.sh + PHPCS bez argumentu sciezki (bramka wydania)",
+      "para": "1.24",
+      "uwaga": "Naprawione w 1.3.12; bledy stylu doplynely do klienta w paczkach 1.3.11."
+    },
+    {
+      "id": "NARZ-F10",
+      "data": "2026-08-05",
+      "wtyczka": "(narzedzia wydania)",
+      "tytul": "Bajtkod Pythona wersjonowany w repozytorium",
+      "klasa": "artefakt-w-zrodlach",
+      "plik": "tools/wydanie/__pycache__/",
+      "dowod": "Dwa pliki `.pyc` (CPython 3.14) weszly do repozytorium przy commicie c794037 — `demo-assety.py` importuje `publikuj.py`, a test importuje `buduj-zipy.py`, wiec interpreter zostawil obok skompilowane kopie. `.gitignore` nie mial ani `__pycache__/`, ani `*.pyc`.",
+      "skutek": "Skompilowana kopia zrodla starzeje sie po cichu i przy odpowiednim ukladzie sciezek potrafi przeslonic zrodlo, ktorego juz nie ma. Poza tym kazda zmiana w skrypcie brudzila diff plikiem binarnym.",
+      "lekcja": "Katalog narzedzi tez jest dostawa — .gitignore ma znac jezyki, w ktorych sa pisane narzedzia, a nie tylko ten, w ktorym jest produkt.",
+      "test": "",
+      "para": "1.15",
+      "uwaga": "Naprawione w 1.3.12: pliki usuniete ze sledzenia, wzorce dopisane do .gitignore. Brak testu — bramka repo nie oglada .gitignore."
     }
   ]
 }
