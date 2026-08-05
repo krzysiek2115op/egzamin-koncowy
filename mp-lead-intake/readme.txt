@@ -56,6 +56,17 @@ zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej 
   bez tej strony.
 * Wpis w pamięci podręcznej VIES bez rozstrzygnięcia nie udaje werdyktu
   „numer nieważny". Odczyt pytał o obecność pola, a nie o jego treść.
+* Adres e-mail z polskimi znakami albo ze spacją nie jest już po cichu
+  przepisywany. WordPress wycina z takiego adresu znaki, których nie obsługuje,
+  i oddaje adres **inny, ale poprawny** — a walidacja sprawdzała już tę wersję.
+  Zgłoszenie kończyło się sukcesem, oferta szła na skrzynkę, której klient nigdy
+  nie podał, i nikt tego nie widział. Teraz formularz prosi o poprawienie adresu.
+* Pola „Segment / branża" i „Przewidywany wolumen" przechodzą normalizację jak
+  reszta pól. Wcześniej miały tylko limit długości, więc znaczniki HTML i złamania
+  linii szły do bazy, a stamtąd do oferty i do PDF-a.
+* Ślad po nieudanym utworzeniu strony nigdy nie jest pusty. Wtyczka blokująca
+  zapis bez podania treści błędu zostawiała ślad nieodróżnialny od powodzenia —
+  strony nie było, a panel milczał.
 * Dziennik: opis miejsca awarii jest tłumaczony we wszystkich przypadkach (jedna
   gałąź wychodziła po polsku niezależnie od języka witryny), czas wyciszenia
   alarmu bierze się ze stałej zamiast z tekstu, a nieudany zapis losu alarmu

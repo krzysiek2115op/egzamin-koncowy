@@ -67,15 +67,47 @@ class MP_D2_Agent_Normalize extends MP_Abstract_Agent {
 	 * @return MP_Result
 	 */
 	public function run( MP_Context $context ) {
+		$email_surowy = trim( (string) $context->get( 'email', '' ) );
+		$email_czysty = sanitize_email( $email_surowy );
+
 		return MP_Result::ok(
 			array(
-				'company_name' => sanitize_text_field( (string) $context->get( 'company_name', '' ) ),
-				'email'        => sanitize_email( (string) $context->get( 'email', '' ) ),
+				'company_name'    => sanitize_text_field( (string) $context->get( 'company_name', '' ) ),
+				'email'           => $email_czysty,
+
+				/*
+				 * ŚLAD PO TYM, ŻE ADRES ZOSTAŁ PRZEPISANY.
+				 *
+				 * `sanitize_email()` nie czyści adresu — ono go ZMIENIA, wycinając
+				 * znaki spoza swojego węższego zbioru, i oddaje wynik, który
+				 * `is_email()` przyjmuje bez zastrzeżeń. Zmierzone:
+				 * `zażółć@firma.pl` → `za@firma.pl`, `Jan Kowalski@x.pl` →
+				 * `JanKowalski@x.pl`. Agent 2.3 sprawdzał wartość JUŻ przepisaną,
+				 * więc zgłoszenie kończyło się sukcesem, a w bazie lądował adres,
+				 * którego klient nigdy nie podał. Oferta z wtyczki 2 szła wtedy
+				 * na cudzą albo nieistniejącą skrzynkę i nikt tego nie widział.
+				 *
+				 * Flagi nie da się zastąpić porównaniem w 2.3: tam jest już tylko
+				 * wartość po normalizacji. Stąd ślad przekazany dalej w kopercie.
+				 */
+				'email_zmieniony' => ( '' !== $email_surowy && $email_surowy !== $email_czysty ),
+
 				// Kanonizacja zależy od kraju: w Polsce giną wszystkie znaki poza cyframi,
 				// poza nią litery bywają częścią numeru — patrz MP_Vat_Number::normalize().
-				'nip'          => MP_Vat_Number::normalize( $context->get( 'nip', '' ), $context->get( 'country', '' ) ),
-				'phone'        => sanitize_text_field( (string) $context->get( 'phone', '' ) ),
-				'normalized'   => true,
+				'nip'             => MP_Vat_Number::normalize( $context->get( 'nip', '' ), $context->get( 'country', '' ) ),
+				'phone'           => sanitize_text_field( (string) $context->get( 'phone', '' ) ),
+
+				/*
+				 * Pola opisowe też przechodzą normalizację. Miały wyłącznie limit
+				 * długości, więc do BD-3 szła wartość SUROWA — ze znacznikami HTML,
+				 * złamaniami linii i ewentualnym niepoprawnym UTF-8 — mimo że opis
+				 * tego działu deklaruje „normalizację danych oficjalnymi funkcjami
+				 * WordPressa". Ta sama wartość idzie potem do oferty i do PDF-a
+				 * we wtyczce 2, gdzie znacznik przestaje być tekstem.
+				 */
+				'segment'         => sanitize_text_field( (string) $context->get( 'segment', '' ) ),
+				'est_volume'      => sanitize_text_field( (string) $context->get( 'est_volume', '' ) ),
+				'normalized'      => true,
 			)
 		);
 	}
@@ -113,6 +145,22 @@ class MP_D2_Agent_Validate_Formats extends MP_Abstract_Agent {
 			$errors['email'] = 'Niepoprawny adres e-mail';
 		} elseif ( self::str_len( $email ) > 190 ) {
 			$errors['email'] = 'Adres e-mail jest za długi (maks. 190 znaków)';
+		} elseif ( $context->get( 'email_zmieniony', false ) ) {
+			/*
+			 * ADRES PRZEPISANY TO NIE JEST ADRES KLIENTA.
+			 *
+			 * Ten agent widzi już tylko wartość po normalizacji, więc sam z siebie
+			 * nie ma jak zauważyć, że `sanitize_email()` wyciął z niej znaki —
+			 * a wynik takiego wycięcia przechodzi `is_email()` bez zastrzeżeń
+			 * (`zażółć@firma.pl` → `za@firma.pl`). Dlatego agent 2.2 zostawia ślad,
+			 * a odmowa zapada tutaj, razem z resztą kontroli formatu.
+			 *
+			 * Odmowa, a nie ciche przyjęcie: adresu, którego nie umiemy zapisać,
+			 * i tak nie obsłużymy, a zapisanie wersji przepisanej znaczyłoby
+			 * wysłanie oferty do kogoś innego. Komunikat celowo NIE pokazuje
+			 * wersji po przepisaniu — klient wziąłby ją za swój adres.
+			 */
+			$errors['email'] = 'Adres e-mail zawiera znaki, których nie obsługujemy — sprawdź go i wpisz bez polskich liter oraz spacji';
 		}
 
 		// NIP jest wymagany. Po normalizacji (2.2) puste pole oznacza wejście bez

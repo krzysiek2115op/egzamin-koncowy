@@ -62,6 +62,46 @@ class MP_Lead_Intake_Page {
 	const DESCRIPTION = 'Wypełnij formularz zapytania ofertowego, a nasz zespół skontaktuje się z Tobą z indywidualną ofertą.';
 
 	/**
+	 * Powód nieudanego zapisu strony — NIGDY pusty.
+	 *
+	 * `OPTION_PAGE_ERROR` z pustą wartością znaczy w tej klasie „strona jest"
+	 * (patrz docblock stałej) — a ślad powstawał z `get_error_message()` bez
+	 * sprawdzenia, czy komunikat w ogóle jest. `WP_Error` z samym kodem i bez
+	 * treści zwraca pusty łańcuch, więc wtyczka blokująca zapis w ten sposób
+	 * zostawiała ślad NIEODRÓŻNIALNY od powodzenia: strony nie ma, panel milczy,
+	 * a administrator widzi wyłącznie „Wtyczka włączona".
+	 *
+	 * Kolejność jest od najbardziej do najmniej konkretnej wskazówki: treść,
+	 * potem sam kod błędu (bo i on kieruje do właściwej wtyczki), na końcu zdanie
+	 * o braku przyczyny. Każda z nich jest niepusta, więc warunek „pusto = strona
+	 * jest" znowu mówi prawdę.
+	 *
+	 * @param mixed $page_id Wynik `wp_insert_post()`.
+	 * @return string
+	 */
+	private static function powod_awarii( $page_id ) {
+		if ( is_wp_error( $page_id ) ) {
+			$tresc = trim( (string) $page_id->get_error_message() );
+
+			if ( '' !== $tresc ) {
+				return $tresc;
+			}
+
+			$kod = trim( (string) $page_id->get_error_code() );
+
+			if ( '' !== $kod ) {
+				return sprintf(
+					/* translators: %s: kod błędu WP_Error zgłoszony przez WordPressa albo inną wtyczkę. */
+					__( 'Zapis strony zablokowany bez opisu; jedyna wskazówka to kod błędu: %s', 'mp-lead-intake' ),
+					$kod
+				);
+			}
+		}
+
+		return __( 'WordPress odrzucił zapis strony bez podania przyczyny.', 'mp-lead-intake' );
+	}
+
+	/**
 	 * Co powiedzieć administratorowi o stanie strony z formularzem.
 	 *
 	 * JEDNO ŹRÓDŁO dla `create()` i `refresh_menu_status()`. Wcześniej każda
@@ -251,10 +291,7 @@ class MP_Lead_Intake_Page {
 		 */
 		update_option( self::OPTION_MENU_OK, 0 );
 
-		update_option(
-			self::OPTION_PAGE_ERROR,
-			is_wp_error( $page_id ) ? $page_id->get_error_message() : __( 'WordPress odrzucił zapis strony bez podania przyczyny.', 'mp-lead-intake' )
-		);
+		update_option( self::OPTION_PAGE_ERROR, self::powod_awarii( $page_id ) );
 	}
 
 	/**

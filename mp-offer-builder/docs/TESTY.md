@@ -293,7 +293,7 @@ PHPCS na plikach zmienionych w tej wersji: **0 błędów, 0 ostrzeżeń**.
 
 ## Stan na wydanie 1.3.11 (04.08.2026)
 
-Regresja **94/94** na bazie od zera, PHPCS kod wyjścia **0**. Wydanie powstawało
+Regresja **95/95** na bazie od zera, PHPCS kod wyjścia **0**. Wydanie powstawało
 w kilku rundach; niżej wszystkie pliki testowe, jakie w nich przybyły — każdy
 napisany PRZED naprawą i uruchomiony, żeby zobaczyć, jak pada.
 
@@ -328,6 +328,35 @@ i 11/11):
   sumy kontrolnej NIP rozróżnia „policzono i nie zgadza się" od „nie policzono";
   wynik weryfikacji VAT ma jedno kryterium prawdziwości; komunikat o stanie
   strony podaje etykietę statusu i miejsce, które tę stronę naprawdę pokazuje.
+
+### Trzecia runda: adres, którego klient nigdy nie podał
+
+Trzeci przebieg bramki dał kolejne cztery ustalenia średniej wagi. Najcięższe
+z nich to cicha podmiana danych, nie awaria — dlatego nie zauważył go żaden
+wcześniejszy test ani żaden scenariusz odbioru.
+
+- `mp-lead-intake/tests/naprawy/dane-klienta-nie-sa-podmieniane.php` (24 asercje) —
+  adres e-mail nie jest przepisywany po cichu, pola opisowe przechodzą
+  normalizację, a ślad po nieudanym utworzeniu strony nigdy nie jest pusty.
+
+Sekcja A zawiera **pomiar**, nie założenie: `sanitize_email( 'zażółć@firma.pl' )`
+zwraca `za@firma.pl`, a `is_email()` przyjmuje tę wartość bez zastrzeżeń.
+Walidacja sprawdzała już wersję przepisaną, więc pipeline kończył się sukcesem
+z adresem, którego klient nigdy nie podał. Ta sama sekcja utrwala, że jedna część
+zgłoszenia była **nieprawdziwa**: apostrof (`o'brien@firma.pl`) jest legalny
+i przechodzi bez zmian.
+
+### Jedno ustalenie NIE naprawione — świadomie
+
+Status `assigned` da się osiągnąć przez `status.change` bez wskazania handlowca,
+i wtedy startuje termin SLA dla nikogo. Naprawa przez odmowę **nie wchodzi**:
+`assigned` to jedyne wyjście ze statusu `new` w słowniku, więc odmowa uwięziłaby
+procesy założone wtedy, gdy nie ma żadnego handlowca — czyli odtworzyłaby błąd
+naprawiony w 1.3.7. Powiadomienie handlowca nie jest przy tym problemem: Dział 7
+pomija wiersz kolejki bez adresu i broni tego osobny test z pomiarem.
+
+Sprawa zapisana w rejestrze jako `OTW-2`, z dwiema możliwymi drogami do wyboru
+przez klienta. Zgadywanie tutaj kosztowałoby więcej niż milczenie.
 
 ### Druga runda po finalnym audycie
 

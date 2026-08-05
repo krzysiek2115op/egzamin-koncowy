@@ -70,4 +70,16 @@ DWA TESTY, KTORE KLAMALY O KODZIE. Oba klasy „test zalezny od czegos, co nie j
 
 FUNKCJA WORDPRESSA W KODZIE, KTORY CHODZI BEZ WORDPRESSA. Naprawa obrony w glab wprowadzila `wp_doing_cron()`, a przenosny harness procesu uruchamia ten pipeline na wlasnych zaslepkach. Caly harness — 110 niezmiennikow — konczyl sie bledem krytycznym zamiast werdyktem, a regresja pokazywala to jako „bez werdyktu", nie jako porazke.
 
-Regresja: 94 pliki testowe, wszystkie PASS, zero bez werdyktu. PHPCS: 160 plikow, kod wyjscia 0. Audyt gleboki: 37 par, bramka 26/26 i 11/11, pokrycie 100%.
+TRZECI PRZEBIEG BRAMKI — I NAJCIEZSZE ZNALEZISKO CALEJ RUNDY.
+
+ADRES, KTOREGO KLIENT NIGDY NIE PODAL. Zgloszenie normalizowalo e-mail funkcja WordPressa, a walidacja sprawdzala JUZ WERSJE PRZEPISANA. Ta funkcja nie czysci adresu — ona go ZMIENIA, wycinajac znaki spoza swojego zbioru, i oddaje wynik, ktory kontrola poprawnosci przyjmuje bez zastrzezen. Zmierzone wprost: „zażółć@firma.pl" staje sie „za@firma.pl", „Jan Kowalski@firma.pl" staje sie „JanKowalski@firma.pl". Caly proces konczyl sie wiec SUKCESEM, a w bazie ladowal inny adres niz wpisany: oferta szla na skrzynke, ktorej klient nigdy nie podal. Bez sladu w dzienniku, bez informacji dla klienta, bez informacji dla handlowca — po obu stronach wygladalo to jak powodzenie. Zadna wczesniejsza runda tego nie zlapala, bo nie bylo awarii do zlapania.
+
+Przy okazji: czesc zgloszenia byla nieprawdziwa. Apostrof w adresie („o'brien@firma.pl") jest legalny i przechodzi bez zmian — test to utrwala, zeby nikt tego nie „naprawil".
+
+POLA OPISOWE BEZ NORMALIZACJI. „Segment / branza" i „Przewidywany wolumen" mialy wylacznie limit dlugosci, mimo ze opis dzialu deklaruje normalizacje oficjalnymi funkcjami WordPressa. Do bazy szla wartosc surowa — ze znacznikami i zlamaniami linii — a stamtad do oferty i do PDF-a, gdzie znacznik przestaje byc tekstem.
+
+PUSTY SLAD ZNACZYL „STRONA JEST". Slad po nieudanym utworzeniu strony powstawal z komunikatu bledu bez sprawdzenia, czy komunikat w ogole jest. Wtyczka blokujaca zapis bez podania tresci zostawiala wiec slad NIEODROZNIALNY od powodzenia: strony nie ma, panel milczy, administrator widzi „Wtyczka wlaczona".
+
+JEDNO USTALENIE ZOSTAWIONE SWIADOMIE. Status „przypisany" da sie osiagnac zmiana statusu bez wskazania handlowca i wtedy termin SLA startuje dla nikogo. Naprawa przez odmowe nie wchodzi: to JEDYNE wyjscie ze statusu „nowy" w slowniku, wiec odmowa uwiezilaby procesy zalozone wtedy, gdy nie ma zadnego handlowca — czyli odtworzylaby blad naprawiony w 1.3.7. Istniejacy test juz raz obronil przed „naprawa" w te strone i ma na to pomiar. Sprawa jest w rejestrze jako OTW-2, z dwiema droznymi do wyboru przez klienta; zgadywanie kosztowaloby wiecej niz milczenie.
+
+Regresja: 95 plikow testowych, wszystkie PASS, zero bez werdyktu. PHPCS: 160 plikow, kod wyjscia 0. Audyt gleboki: 37 par, bramka 26/26 i 11/11, pokrycie 100%.
