@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-04T21:38:29+00:00\n"
+"POT-Creation-Date: 2026-08-05T02:32:29+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: mp-sales-workflow\n"
@@ -585,43 +585,49 @@ msgstr ""
 msgid "Przypisanie bez zapisanego uzasadnienia."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-05.php:200
+#. translators: %s: typ zdarzenia z koperty.
+#: includes/pipeline/departments/class-mp-sw-department-05.php:267
+#, php-format
+msgid "Typ zdarzenia „%s\" nie ma reguły w maszynie statusów — nie wiadomo, czy ma zmieniać status, czy nie."
+msgstr ""
+
+#: includes/pipeline/departments/class-mp-sw-department-05.php:276
 msgid "Zmiana statusu bez statusu docelowego."
 msgstr ""
 
 #. translators: %s: status docelowy z żądania.
-#: includes/pipeline/departments/class-mp-sw-department-05.php:301
+#: includes/pipeline/departments/class-mp-sw-department-05.php:391
 #, php-format
 msgid "Status „%s\" nie istnieje w słowniku statusów — stan bez zmian."
 msgstr ""
 
 #. translators: 1: status źródłowy, 2: status docelowy.
-#: includes/pipeline/departments/class-mp-sw-department-05.php:306
+#: includes/pipeline/departments/class-mp-sw-department-05.php:396
 #, php-format
 msgid "Przejście %1$s → %2$s spoza słownika — stan bez zmian."
 msgstr ""
 
 #. translators: 1: status żądany przez zdarzenie, 2: status z tablicy przejścia.
-#: includes/pipeline/departments/class-mp-sw-department-05.php:432
+#: includes/pipeline/departments/class-mp-sw-department-05.php:531
 #, php-format
 msgid "Przejście prowadzi gdzie indziej niż żądanie zdarzenia — zdarzenie: %1$s, przejście: %2$s."
 msgstr ""
 
 #. translators: 1: skutki nadmiarowe, 2: skutki brakujące.
-#: includes/pipeline/departments/class-mp-sw-department-05.php:458
+#: includes/pipeline/departments/class-mp-sw-department-05.php:568
 #, php-format
 msgid "Skutki niezgodne z regułą przejścia — nadmiarowe: %1$s, brakujące: %2$s"
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-05.php:469
+#: includes/pipeline/departments/class-mp-sw-department-05.php:579
 msgid "Skutek set_sla bez wyliczonego terminu."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-05.php:516
+#: includes/pipeline/departments/class-mp-sw-department-05.php:626
 msgid "Przejście nierozstrzygnięte przez maszynę statusów."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-05.php:526
+#: includes/pipeline/departments/class-mp-sw-department-05.php:636
 msgid "Decyzja bez wersji słownika przejść."
 msgstr ""
 

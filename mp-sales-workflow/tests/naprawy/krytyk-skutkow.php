@@ -293,6 +293,11 @@ foreach ( MP_SW_D5_Machine::statusless_events() as $typ_bez ) {
 // false. Zdarzenie prosi o `offer_sent` i `transition.to` mowi `offer_sent` —
 // zadany status juz obowiazuje, wiec brak zmiany jest tu zgodny ze zdarzeniem.
 // Gdyby `transition.to` mowilo co innego, sekcja F zatrzymuje taka koperte.
+//
+// `repeat_entry` w tablicy NIE JEST OZDOBNIKIEM. Ponowne wejscie w ten sam
+// status ze zdarzeniem niosacym nowy fakt (druga, poprawiona oferta) MA miec
+// skutki: powiadomienie klienta i follow-upy. Tablica bez tej flagi opisuje
+// stan sprzed naprawy, a krytyk ma ja od teraz odrzucac — patrz sekcja G.
 $ocena_powtorka = ks_ocena(
 	array(
 		'event'      => array( 'type' => MP_SW_Pipeline_Factory::EVENT_OFFER_APPROVED ),
@@ -302,6 +307,8 @@ $ocena_powtorka = ks_ocena(
 			'to'              => MP_Sales_Workflow_DB::STATUS_OFFER_SENT,
 			'allowed'         => true,
 			'changes_status'  => false,
+			'known_status'    => true,
+			'repeat_entry'    => true,
 			'machine_version' => MP_SW_D5_Machine::MACHINE_VERSION,
 		),
 	)
@@ -505,6 +512,8 @@ $ocena_powtorka_f = ks_ocena(
 			'to'              => MP_Sales_Workflow_DB::STATUS_OFFER_SENT,
 			'allowed'         => true,
 			'changes_status'  => false,
+			'known_status'    => true,
+			'repeat_entry'    => true,
 			'machine_version' => MP_SW_D5_Machine::MACHINE_VERSION,
 		),
 	)
@@ -562,6 +571,91 @@ ks_ok(
 	$ocena_bez_handlowca->is_ok(),
 	'F6: KONTR-ASERCJA — lead bez handlowca zostaje „nowy" i przechodzi',
 	'kod=' . $ocena_bez_handlowca->get_code()
+);
+
+
+/* ==================================================================== G */
+
+$GLOBALS['mp_ks']['lines'][] = '';
+$GLOBALS['mp_ks']['lines'][] = '=== G. ponowne wejscie bez skutkow jest odmawiane ===';
+
+/*
+ * BRAMKA, KTORA ZLAPALABY PIERWOTNY BLAD.
+ *
+ * Do 1.3.10 wlacznie druga oferta zatwierdzona dla procesu juz w `offer_sent`
+ * konczyla sie sukcesem z PUSTA lista skutkow: klient nie dostawal poczty,
+ * follow-upy nie powstawaly, a wtyczka 2 widziala HTTP 200. Tablica ponizej to
+ * doslownie tamten ksztalt wyniku — bez `repeat_entry`, wiec i bez skutkow.
+ *
+ * K5.2 odczytuje powtorke NIEZALEZNIE, z samego typu zdarzenia, wiec taka
+ * koperta rozjezdza sie z oczekiwaniem i konczy odmowa. Gdyby krytyk czytal
+ * flage z wyniku agenta, agent ktory o niej zapomnial uzgadnialby sam ze soba
+ * i bramka milczalaby tak samo jak wtedy.
+ */
+$ocena_powtorka_bez_flagi = ks_ocena(
+	array(
+		'event'      => array( 'type' => MP_SW_Pipeline_Factory::EVENT_OFFER_APPROVED ),
+		'flow'       => array( 'row' => array( 'status' => MP_Sales_Workflow_DB::STATUS_OFFER_SENT ) ),
+		'transition' => array(
+			'from'            => MP_Sales_Workflow_DB::STATUS_OFFER_SENT,
+			'to'              => MP_Sales_Workflow_DB::STATUS_OFFER_SENT,
+			'allowed'         => true,
+			'changes_status'  => false,
+			'machine_version' => MP_SW_D5_Machine::MACHINE_VERSION,
+		),
+	)
+);
+
+ks_ok(
+	! $ocena_powtorka_bez_flagi->is_ok(),
+	'G1: ponowne zatwierdzenie oferty BEZ skutkow konczy sie odmowa',
+	'kod=' . $ocena_powtorka_bez_flagi->get_code()
+);
+ks_ok(
+	'effects_mismatch' === $ocena_powtorka_bez_flagi->get_code(),
+	'G2: i odmowa nazywa rzecz po imieniu — skutki niezgodne z regula',
+	'kod=' . $ocena_powtorka_bez_flagi->get_code()
+);
+
+$ks_komunikat_g = implode( ' ', (array) $ocena_powtorka_bez_flagi->get_errors() );
+
+ks_ok(
+	false !== mb_strpos( $ks_komunikat_g, MP_SW_D5_Machine::EFFECT_NOTIFY_CLIENT ),
+	'G3: komunikat wskazuje BRAKUJACY skutek — poczte do klienta',
+	'komunikat=' . $ks_komunikat_g
+);
+
+/*
+ * KONTR-ASERCJA do sekcji G. Reczne potwierdzenie tego samego statusu
+ * (`status.change` na status juz obowiazujacy) NIE jest ponownym wejsciem:
+ * nie niesie nowego faktu, wiec pusta lista skutkow jest tam poprawna
+ * i ma przechodzic dalej. Inaczej naprawa zamienilaby jeden blad na drugi —
+ * klient dostawalby te sama oferte kazdorazowo, gdy ktos klika status.
+ */
+$ocena_reczne_potwierdzenie = ks_ocena(
+	array(
+		'event'      => array(
+			'type'      => MP_SW_Pipeline_Factory::EVENT_STATUS_CHANGE,
+			'to_status' => MP_Sales_Workflow_DB::STATUS_OFFER_SENT,
+		),
+		'to_status'  => MP_Sales_Workflow_DB::STATUS_OFFER_SENT,
+		'flow'       => array( 'row' => array( 'status' => MP_Sales_Workflow_DB::STATUS_OFFER_SENT ) ),
+		'transition' => array(
+			'from'            => MP_Sales_Workflow_DB::STATUS_OFFER_SENT,
+			'to'              => MP_Sales_Workflow_DB::STATUS_OFFER_SENT,
+			'allowed'         => true,
+			'changes_status'  => false,
+			'known_status'    => true,
+			'repeat_entry'    => false,
+			'machine_version' => MP_SW_D5_Machine::MACHINE_VERSION,
+		),
+	)
+);
+
+ks_ok(
+	$ocena_reczne_potwierdzenie->is_ok(),
+	'G4: KONTR-ASERCJA — reczne potwierdzenie statusu nadal przechodzi bez skutkow',
+	'kod=' . $ocena_reczne_potwierdzenie->get_code()
 );
 
 echo implode( "\n", $GLOBALS['mp_ks']['lines'] ) . "\n";

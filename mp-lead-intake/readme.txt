@@ -41,6 +41,19 @@ zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej 
   PDF i draw.io leżało w paczce bez możliwości odtworzenia — stąd stopka
   mówiąca „v1.2.3" przy wtyczce na 1.3.10. Numer wersji jest teraz czytany
   z nagłówka wtyczki przy budowaniu.
+* Status sumy kontrolnej NIP przestał twierdzić, że cyfra kontrolna się nie
+  zgadza, gdy sumy w ogóle nie policzono — przy pustym polu, złej długości
+  albo numerze z samych powtórzonych cyfr. Komunikat dla człowieka rozróżniał
+  te przypadki od dawna, pole statusu dopiero teraz.
+* Wynik weryfikacji VAT jest sprowadzany do jednej postaci raz, przed
+  rozgałęzieniem. Wartość prawdziwa, która nie była literalnym „true" —
+  a taka wraca z pamięci podręcznej i z bazy — rozjeżdżała wiersz: kolumna
+  mówiła „ważny", status obok „niepotwierdzony". Nikt takiego wiersza potem
+  nie prostował.
+* Ostrzeżenie o stronie z formularzem podaje nazwę statusu zamiast jego
+  technicznego identyfikatora i wskazuje miejsce, które tę stronę naprawdę
+  pokazuje. Na instalacji z własnymi statusami wpisów rada prowadziła na listę
+  bez tej strony.
 
 = 1.3.10 =
 * Paczka instalacyjna schudla ze 101 plikow do 54 — testy i dokumentacja wewnetrzna (w tym AUDYT.md i DEBUG-RAPORT.md) nie jada juz do publicznie dostepnego katalogu wtyczek. Dokumenty dla klienta przeszly do paczki materialow.

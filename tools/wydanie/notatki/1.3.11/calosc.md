@@ -26,4 +26,28 @@ MATERIALY DLA KLIENTA Z NUMEREM SPRZED CZTERECH WYDAN. Stopki mowily v1.1.0, v1.
 
 MOTYW POKAZOWY UCZYL ZLEGO NAWYKU. `<html lang="pl">` i `<meta charset="UTF-8">` wpisane wprost zamiast standardowych funkcji WordPressa: instalacja postawiona po angielsku oglaszala czytnikom ekranu i wyszukiwarkom polski. Trzy ikony spolecznosciowe byly odnosnikami prowadzacymi do samego krzyzyka — uzytkownik klawiatury dostawal trzy przystanki bez celu. Firma z pokazu jest fikcyjna i profili nie ma, wiec zostaly same ikony, oznaczone jako dekoracja.
 
-Regresja: 89 plikow testowych, wszystkie PASS, zero bez werdyktu. PHPCS: 160 plikow, kod wyjscia 0.
+PO TYCH JEDENASTU NAPRAWACH audyt gleboki poszedl JESZCZE RAZ, jako bramka zakonczenia — i przyniosl kolejne ustalenia. Dwie rundy triage'u zamknely go do konca.
+
+DWIE SLEPOTY WLASNEGO NARZEDZIA. Para „kontrakty hakow" szukala emisji wylacznie po literale `do_action( 'nazwa'`, wiec hak wystawiany przez stala byl dla niej niewidzialny; para „rejestr kontra testy" czytala pole `test` jak sciezke, a ono jest zdaniem („a.php + b.php", „x.php, sekcja L") i uzywa dwoch konwencji katalogu. Czterdziesci jeden wpisow ze stu dwudziestu jeden zglaszalo brak straznika tam, gdzie straznik stoi. Po naprawie: piecdziesiat ustalen spadlo do jednego. Narzedzie, ktore produkuje falszywe alarmy, uczy ignorowania alarmow.
+
+KWOTY NAGLOWKA OFERTY SZLY DO ZAPISU Z CICHYM ZEREM. Niekompletny kontekst konczyl sie oferta na 0 zl zamiast bledem. Straznik odroznia teraz brak klucza od legalnego zera i zatrzymuje zapis.
+
+KOMUNIKAT O STRONIE NADPISYWANY PRZY WEJSCIU DO PANELU. Pelne zdanie z rada zapisane przy aktywacji zastepowala wersja bez wskazania miejsca — naprawa z poprzedniego wydania zyla do pierwszego wejscia administratora w panel.
+
+DRUGA OFERTA DLA TEGO SAMEGO PROCESU GINELA PO CICHU. Handlowiec robi w wtyczce 2 poprawiona oferte i zatwierdza ja. Nowy identyfikator zdarzenia, wiec bramka idempotencji nie zatrzymuje. Proces jest juz w statusie „oferta wyslana", wiec galaz „przejscie w to samo miejsce" oddawala sukces z PUSTA lista skutkow: klient bez powiadomienia o nowej ofercie, zadania kontaktowe nie powstaja, a wtyczka 2 widzi HTTP 200 i uznaje, ze oferte wyslano. Rozroznienie, ktorego brakowalo: powtorka TEGO SAMEGO zdarzenia (od tego jest klucz idempotencji) to co innego niz NOWE zdarzenie prowadzace w ten sam status.
+
+STATUS SPOZA SLOWNIKA POTWIERDZANY SUKCESEM. Ta sama galaz nie pytala, czy status w ogole istnieje — a wynik tego sprawdzenia byl policzony linijke wyzej. Proces zapisany przez starsza wersje maszyny albo poprawiony recznie w bazie dostawal „stan potwierdzony" zamiast odmowy, wiec nigdy nie zglaszal sie jako zepsuty.
+
+KOMUNIKAT O POLU, KTOREGO NIKT NIE WYSLAL. Typ zdarzenia bez reguly w maszynie statusow odbijal sie zdaniem „Zmiana statusu bez statusu docelowego" i polem bledu `to_status`, choc wywolujacy o zadna zmiane statusu nie prosil.
+
+STATUS SUMY KONTROLNEJ NIP TWIERDZIL, ZE CYFRA SIE NIE ZGADZA — takze dla numeru, ktorego nikt nie podal. Sumy w trzech przypadkach w ogole nie liczono. Komunikat dla czlowieka rozroznial te przypadki od dawna; pole statusu bylo dwuwartosciowe i mowilo swoje.
+
+DWA KRYTERIA PRAWDZIWOSCI NA JEDNEJ ZMIENNEJ. Wynik weryfikacji VAT porownywano raz scisle, a dwie linie nizej luzno. Wartosc `1` z pamieci podrecznej dawala kolumne „wazny" obok statusu „niepotwierdzony" — i nikt takiego wiersza nie prostowal, bo weryfikator w tle bierze wylacznie wiersze nierozstrzygniete.
+
+SUROWY IDENTYFIKATOR STATUSU W POLSKIM ZDANIU. Ostrzezenie o stronie z formularzem wstawialo `post_status` i odsylalo do „Strony → Wszystkie strony" dla wszystkiego poza koszem. Na instalacji z wlasnymi statusami wpisow rada prowadzila na liste, ktora tej strony nie pokazuje.
+
+TRZY ZMIANY COFNIETE, BO ISTNIEJACE TESTY POKAZALY, ZE SA ZLE. Straznik IDOR mial pytac o tryb uruchomienia — pod WP-CLI stala `WP_CLI` jest zdefiniowana ZAWSZE, wiec obrona zniknelaby takze dla obcego uzytkownika zalogowanego. Etykieta miejsca awarii miala byc dokladniejsza dla znanego dzialu — kubelek wyciszania ma wtedy grubszy podzial, wiec dwa opisy trafilyby w jeden kubelek i drugi zniknalby bez sladu. Powody odrzucenia zapisano w kodzie i w testach: inaczej nastepna runda popelni ten sam blad, majac przed soba to samo ustalenie.
+
+JEDEN FALSZYWY ALARM POTWIERDZONY POMIAREM. Ustalenie mowilo, ze nieudany zapis leada nadpisze cudzy wiersz dziennika. Sonda zmierzyla, ze nieudany `insert()` ZERUJE `insert_id`, wiec straznik wystarcza. Test i tak powstal — pilnuje tego niezmiennika, bo gdyby przyszla wersja WordPressa go zmienila, scenariusz z ustalenia stalby sie prawdziwy.
+
+Regresja: 93 pliki testowe, wszystkie PASS, zero bez werdyktu. PHPCS: 160 plikow, kod wyjscia 0. Audyt gleboki: 37 par, bramka 26/26 i 11/11, pokrycie 100%.

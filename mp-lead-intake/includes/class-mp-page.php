@@ -89,18 +89,51 @@ class MP_Lead_Intake_Page {
 			);
 		}
 
-		// Kosz ma w panelu WŁASNY widok. „Strony → Wszystkie strony" wpisów
-		// w koszu nie pokazuje, więc dla statusu `trash` byłaby to rada nie do
-		// wykonania — ta sama klasa błędu co usunięte wcześniej „aktywuj wtyczkę
-		// ponownie".
-		$gdzie = 'trash' === $wpis->post_status
-			? __( 'Strony → Kosz', 'mp-lead-intake' )
-			: __( 'Strony → Wszystkie strony', 'mp-lead-intake' );
+		/*
+		 * ETYKIETA, NIE SLUG.
+		 *
+		 * Zdanie wstawiało surowy `post_status`, więc administrator czytał polską
+		 * radę z angielskim wtrętem („ma status „pending””), którego nie ma jak
+		 * odnieść do czegokolwiek w panelu — panel pokazuje „Oczekujące na
+		 * przegląd". Etykieta pochodzi z tego samego rejestru, z którego bierze
+		 * ją WordPress, więc działa też dla statusów dokładanych przez inne
+		 * wtyczki (PublishPress i podobne). Slug zostaje wyłącznie jako awaryjna
+		 * wartość, gdy status nie jest w ogóle zarejestrowany.
+		 */
+		$obiekt   = get_post_status_object( $wpis->post_status );
+		$etykieta = ( $obiekt && ! empty( $obiekt->label ) ) ? $obiekt->label : $wpis->post_status;
+
+		/*
+		 * MIEJSCE, KTÓRE NAPRAWDĘ POKAZUJE TEN WPIS.
+		 *
+		 * Kosz ma w panelu WŁASNY widok. „Strony → Wszystkie strony" wpisów
+		 * w koszu nie pokazuje, więc dla statusu `trash` byłaby to rada nie do
+		 * wykonania — ta sama klasa błędu co usunięte wcześniej „aktywuj wtyczkę
+		 * ponownie".
+		 *
+		 * Ten sam zarzut dotyczy jednak KAŻDEGO statusu z wyłączonym
+		 * `show_in_admin_all_list` — lista „Wszystkie strony" pomija je z definicji.
+		 * Wcześniej odsyłaliśmy tam wszystko poza koszem, więc na instalacji
+		 * z własnymi statusami wskazówka prowadziła na listę bez tego wpisu.
+		 * Dla takich statusów podajemy identyfikator: `post.php?post=<ID>` działa
+		 * niezależnie od tego, na której liście wpis się pokazuje.
+		 */
+		if ( 'trash' === $wpis->post_status ) {
+			$gdzie = __( 'Strony → Kosz', 'mp-lead-intake' );
+		} elseif ( ! $obiekt || ! empty( $obiekt->show_in_admin_all_list ) ) {
+			$gdzie = __( 'Strony → Wszystkie strony', 'mp-lead-intake' );
+		} else {
+			$gdzie = sprintf(
+				/* translators: %d: identyfikator wpisu WordPressa. */
+				__( 'edytorze wpisu o identyfikatorze %d (lista „Wszystkie strony" statusów tego rodzaju nie pokazuje)', 'mp-lead-intake' ),
+				(int) $wpis->ID
+			);
+		}
 
 		return sprintf(
-			/* translators: 1: status wpisu WordPressa (np. trash, draft). 2: miejsce w panelu, np. „Strony → Kosz”. */
+			/* translators: 1: etykieta statusu wpisu, np. „Szkic”. 2: miejsce w panelu, np. „Strony → Kosz”. */
 			__( 'Strona z formularzem istnieje, ale ma status „%1$s" zamiast „opublikowana" — klienci jej nie zobaczą. Przywróć ją do publikacji w %2$s.', 'mp-lead-intake' ),
-			$wpis->post_status,
+			$etykieta,
 			$gdzie
 		);
 	}

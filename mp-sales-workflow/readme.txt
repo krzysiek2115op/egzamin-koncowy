@@ -50,6 +50,16 @@ powiadomien do klientow.
   żądania, a nie w regule. Kod odmowy bez zmian.
 * Stopki materiałów dla klienta biorą numer wersji z nagłówka wtyczki. Mówiły
   „v1.0.0" przy wtyczce na 1.3.10.
+* Druga oferta dla tego samego procesu przestała ginąć po cichu. Poprawiona
+  oferta zatwierdzona dla procesu, który już jest w statusie „oferta wysłana",
+  kończyła się odpowiedzią „przyjęte" bez żadnego skutku: klient nie dostawał
+  powiadomienia o nowej ofercie, a zadania kontaktowe nie powstawały.
+* Status spoza słownika nie jest już potwierdzany sukcesem. Proces zapisany
+  przez starszą wersję maszyny statusów albo poprawiony ręcznie w bazie
+  dostawał „stan potwierdzony" zamiast odmowy, więc nigdy nie zgłaszał się
+  jako zepsuty.
+* Zdarzenie o nieobsługiwanym typie dostaje własny komunikat, zamiast rady
+  dotyczącej pola, którego nadawca nie wysyłał.
 
 = 1.3.10 =
 * Paczka instalacyjna schudla ze 117 plikow do 52 — testy i dokumentacja wewnetrzna nie jada juz do publicznie dostepnego katalogu wtyczek. Instrukcja wdrozenia przeszla do paczki materialow.

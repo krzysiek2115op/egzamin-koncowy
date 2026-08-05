@@ -88,16 +88,56 @@ function el_user( $login, $role ) {
 /**
  * Rysuje ekran leadow jako wskazany uzytkownik i zwraca HTML.
  *
+ * WSZYSTKIE STRONY, NIE PIERWSZA.
+ *
+ * Wersja sprzed tej poprawki renderowala jeden ekran i szukala zasianych leadow
+ * w jego HTML — czyli milczaco zakladala, ze cala tabela miesci sie na jednej
+ * stronie. Ekran sortuje `score DESC, id DESC` i pokazuje 25 wierszy naraz, wiec
+ * gdy w bazie uzbieralo sie 25 leadow z punktacja wyzsza niz zasiana, lead
+ * „Beta" wypadal na strone druga i asercja „manager widzi WSZYSTKIE leady"
+ * zaczynala oskarzac kod o blad, ktorego nie ma. Test przeszedl przez wiele
+ * wydan wylacznie dlatego, ze baza byla mala.
+ *
+ * Kryterium odbioru mowi „manager widzi leady wszystkich handlowcow" i nic nie
+ * mowi o tym, na ktorej stronie — wiec test chodzi po wszystkich.
+ *
  * @param int $user_id Uzytkownik.
- * @return string
+ * @return string HTML sklejony ze wszystkich stron listy.
  */
 function el_render( $user_id ) {
 	wp_set_current_user( $user_id );
 
-	ob_start();
-	MP_Lead_Intake_Admin::render();
+	$strony = 1;
+	$dane   = MP_Lead_Intake_Admin::fetch( 1 );
+	$razem  = isset( $dane['razem'] ) ? (int) $dane['razem'] : 0;
 
-	return (string) ob_get_clean();
+	if ( $razem > 0 && defined( 'MP_Lead_Intake_Admin::PER_PAGE' ) ) {
+		$strony = (int) ceil( $razem / MP_Lead_Intake_Admin::PER_PAGE );
+	} elseif ( $razem > 0 ) {
+		$strony = (int) ceil( $razem / 25 );
+	}
+
+	// Bezpiecznik: test ma padac na tresci, a nie wisiec na rozrosnietej bazie.
+	$strony = max( 1, min( $strony, 40 ) );
+	$html   = '';
+
+	$paged_pierwotne = isset( $_GET['paged'] ) ? $_GET['paged'] : null; // phpcs:ignore WordPress.Security.NonceVerification
+
+	for ( $i = 1; $i <= $strony; $i++ ) {
+		$_GET['paged'] = $i;
+
+		ob_start();
+		MP_Lead_Intake_Admin::render();
+		$html .= (string) ob_get_clean();
+	}
+
+	if ( null === $paged_pierwotne ) {
+		unset( $_GET['paged'] );
+	} else {
+		$_GET['paged'] = $paged_pierwotne;
+	}
+
+	return $html;
 }
 
 $klasa_jest = class_exists( 'MP_Lead_Intake_Admin' );

@@ -89,6 +89,25 @@ class MP_SW_D5_Machine {
 	}
 
 	/**
+	 * Skutki należne WEJŚCIU w status — jedna reguła dla agenta 5.2 i krytyka K5.2.
+	 *
+	 * Wejście jest dwojakie: zmiana statusu albo ponowne wejście w ten sam status
+	 * ze zdarzeniem, które niesie nowy fakt (`reentry_events()`). Warunek stał
+	 * wcześniej przepisany w dwóch miejscach i pytał wyłącznie o zmianę statusu;
+	 * trzymamy go tutaj, żeby nie dało się poprawić jednego miejsca i zapomnieć
+	 * o drugim — wtedy krytyk zgłaszałby skutek nadmiarowy albo brakujący za
+	 * każdym ponownym zatwierdzeniem oferty.
+	 *
+	 * @param bool   $changes_status Czy przejście zmienia status.
+	 * @param bool   $repeat_entry   Czy to ponowne wejście niosące nowy fakt.
+	 * @param string $to             Status, w który proces wchodzi.
+	 * @return string[]
+	 */
+	public static function effects_for_entry( $changes_status, $repeat_entry, $to ) {
+		return ( $changes_status || $repeat_entry ) ? self::effects_for( (string) $to ) : array();
+	}
+
+	/**
 	 * Status docelowy wynikający z typu zdarzenia.
 	 *
 	 * @param string $type    Typ zdarzenia.
@@ -140,6 +159,32 @@ class MP_SW_D5_Machine {
 			MP_SW_Pipeline_Factory::EVENT_TASK_DUE,
 			MP_SW_Pipeline_Factory::EVENT_DASHBOARD_VIEW,
 		);
+	}
+
+	/**
+	 * Typy zdarzeń, dla których PONOWNE wejście w ten sam status jest nowym
+	 * faktem, a nie potwierdzeniem stanu.
+	 *
+	 * Rozróżnienie, którego brakowało i które kosztowało cichą utratę wysyłki.
+	 * Gałąź „przejście w to samo miejsce" traktowała jednakowo dwie różne rzeczy:
+	 *
+	 *  - powtórkę TEGO SAMEGO zdarzenia — od tego jest `event_id` i token
+	 *    blokady, a odpowiedzią ma być ciche potwierdzenie stanu bez skutków;
+	 *  - NOWE zdarzenie prowadzące w ten sam status — czyli druga, poprawiona
+	 *    oferta zatwierdzona dla procesu, który już jest w `offer_sent`.
+	 *
+	 * W drugim przypadku skutki muszą się wykonać: klient ma dostać powiadomienie
+	 * o nowej ofercie. Bez tego P2 widziało HTTP 200 i uznawało, że ofertę
+	 * wysłano, podczas gdy nie poszło nic. Duplikatów zadań to nie tworzy —
+	 * broni przed nimi A6.2 kluczem `open_key` (jedno otwarte zadanie typu).
+	 *
+	 * `status.change` na ten sam status świadomie NIE jest tu wymieniony: to
+	 * ręczne potwierdzenie stanu, który już obowiązuje, a nie nowy fakt.
+	 *
+	 * @return string[]
+	 */
+	public static function reentry_events() {
+		return array( MP_SW_Pipeline_Factory::EVENT_OFFER_APPROVED );
 	}
 
 	/**
@@ -196,6 +241,37 @@ class MP_SW_D5_Agent_Transition extends MP_SW_Abstract_Agent {
 		 * próba z tym samym `event_id` odbiłaby się jako powtórka.
 		 */
 		if ( '' === $to && ! in_array( $type, MP_SW_D5_Machine::statusless_events(), true ) ) {
+			/*
+			 * DWIE RÓŻNE PRZYCZYNY PUSTEGO STATUSU, DWA RÓŻNE ADRESATY.
+			 *
+			 * Jeden komunikat obsługiwał oba przypadki i w drugim z nich opisywał
+			 * coś, co się nie stało. Dla `status.change` pusty `to_status` to
+			 * naprawdę niekompletna koperta — wina po stronie żądania, HTTP 400,
+			 * pole błędu wskazuje, co uzupełnić. Ale dla KAŻDEGO innego typu
+			 * wywołujący o żadną zmianę statusu nie prosił: wina jest po naszej
+			 * stronie, bo do fabryki doszedł typ, którego nikt nie dopisał ani do
+			 * `target_status()`, ani do `statusless_events()`. Odsyłanie go wtedy
+			 * do pola `to_status` kierowało diagnostykę na treść żądania zamiast
+			 * na brakujący wpis w liście — dokładnie ten sam błąd, który naprawiono
+			 * w K5.1, tylko w drugą stronę.
+			 *
+			 * Kod `unsupported_event_type` celowo NIE trafia do słownika
+			 * `MP_SW_Errors::map()` i nie niesie `http_status`: to inwariant
+			 * wewnętrzny i ma wychodzić jako MP3-E500, tak samo jak
+			 * `transition_not_from_event`.
+			 */
+			if ( MP_SW_Pipeline_Factory::EVENT_STATUS_CHANGE !== $type ) {
+				return MP_SW_Result::fail(
+					sprintf(
+						/* translators: %s: typ zdarzenia z koperty. */
+						__( 'Typ zdarzenia „%s" nie ma reguły w maszynie statusów — nie wiadomo, czy ma zmieniać status, czy nie.', 'mp-sales-workflow' ),
+						'' !== $type ? $type : '—'
+					),
+					array( 'errors' => array( 'event.type' ) ),
+					'unsupported_event_type'
+				);
+			}
+
 			return MP_SW_Result::fail(
 				__( 'Zmiana statusu bez statusu docelowego.', 'mp-sales-workflow' ),
 				array(
@@ -230,8 +306,20 @@ class MP_SW_D5_Agent_Transition extends MP_SW_Abstract_Agent {
 		 * nie jest błędem — status po prostu się nie zmienia. Rozróżnienie jest
 		 * istotne: inaczej ponowione zdarzenie kończyłoby się odmową zamiast
 		 * cichym potwierdzeniem stanu, który już obowiązuje.
+		 *
+		 * WARUNEK `$known` JEST TU KONIECZNY. Bez niego gałąź potwierdzała
+		 * sukcesem status, którego w słowniku nie ma: wiersz zapisany przez
+		 * starszą wersję maszyny (stała `MACHINE_VERSION` istnieje właśnie
+		 * dlatego, że słownik jest wersjonowany) albo poprawiony ręcznie w bazie
+		 * dostawał na `status.change` w ten sam status „stan potwierdzony"
+		 * zamiast odmowy, którą to samo żądanie dostaje dla każdego innego
+		 * wiersza. Zablokowany proces nigdy nie zgłaszał się jako zepsuty.
+		 * `$known` był policzony linijkę wyżej i tylko w tej gałęzi ignorowany.
+		 *
+		 * `known_status` idzie do wyniku tak samo jak w gałęzi głównej — K5.1
+		 * i dziennik mają wtedy komplet danych niezależnie od gałęzi.
 		 */
-		if ( ! $allowed && $from === $to ) {
+		if ( ! $allowed && $known && $from === $to ) {
 			return MP_SW_Result::ok(
 				array(
 					'transition' => array(
@@ -239,6 +327,8 @@ class MP_SW_D5_Agent_Transition extends MP_SW_Abstract_Agent {
 						'to'              => $to,
 						'allowed'         => true,
 						'changes_status'  => false,
+						'known_status'    => $known,
+						'repeat_entry'    => in_array( $type, MP_SW_D5_Machine::reentry_events(), true ),
 						'machine_version' => MP_SW_D5_Machine::MACHINE_VERSION,
 					),
 				)
@@ -338,9 +428,18 @@ class MP_SW_D5_Agent_Effects extends MP_SW_Abstract_Agent {
 	public function run( MP_SW_Context $context ) {
 		$transition = (array) $context->get( 'transition', array() );
 
-		$effects = empty( $transition['changes_status'] )
-			? array()
-			: MP_SW_D5_Machine::effects_for( (string) $transition['to'] );
+		/*
+		 * Skutki należą się także PONOWNEMU WEJŚCIU w ten sam status — patrz
+		 * `MP_SW_D5_Machine::reentry_events()`. Warunek pytał wyłącznie o zmianę
+		 * statusu, więc druga (poprawiona) oferta zatwierdzona dla procesu już
+		 * w `offer_sent` kończyła się sukcesem z pustą listą skutków: klient bez
+		 * powiadomienia, follow-upy nieplanowane, a P2 z odpowiedzią „przyjęte".
+		 */
+		$effects = MP_SW_D5_Machine::effects_for_entry(
+			! empty( $transition['changes_status'] ),
+			! empty( $transition['repeat_entry'] ),
+			isset( $transition['to'] ) ? (string) $transition['to'] : ''
+		);
 
 		$sla_due_at = '';
 
@@ -438,9 +537,20 @@ class MP_SW_D5_Critic_Effects extends MP_SW_Abstract_Critic {
 			);
 		}
 
-		$expected = empty( $transition['changes_status'] )
-			? array()
-			: MP_SW_D5_Machine::effects_for( $to_event );
+		/*
+		 * `repeat_entry` też jest odczytywany NIEZALEŻNIE od tablicy `transition`
+		 * — z samego typu zdarzenia, tak jak `$to_event`. Gdyby krytyk wziął flagę
+		 * z wyniku agenta, podmieniona koperta wymuszałaby skutki tam, gdzie się
+		 * nie należą, a porównanie i tak wychodziłoby na zero.
+		 */
+		$powtorne_wejscie = empty( $transition['changes_status'] )
+			&& in_array( $type, MP_SW_D5_Machine::reentry_events(), true );
+
+		$expected = MP_SW_D5_Machine::effects_for_entry(
+			! empty( $transition['changes_status'] ),
+			$powtorne_wejscie,
+			$to_event
+		);
 
 		/*
 		 * Porównanie w obie strony. Skutek nadmiarowy to dokładnie to „przy

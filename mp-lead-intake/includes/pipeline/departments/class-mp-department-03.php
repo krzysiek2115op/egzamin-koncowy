@@ -25,6 +25,18 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class MP_D3_Agent_Nip extends MP_Abstract_Agent {
 
+	/** Suma policzona i zgodna z cyfrą kontrolną. */
+	const CHECKSUM_ZGODNA = 'zgodna';
+
+	/** Suma policzona i różna od cyfry kontrolnej. */
+	const CHECKSUM_NIEZGODNA = 'niezgodna';
+
+	/** Do policzenia sumy w ogóle nie doszło. */
+	const CHECKSUM_NIE_POLICZONA = 'nie_policzona';
+
+	/** Reguła polska nie ma tu zastosowania (numer spoza Polski). */
+	const CHECKSUM_NIE_DOTYCZY = 'nie_dotyczy';
+
 	public function __construct() {
 		parent::__construct( '3.1', 'Weryfikuje NIP', 'Oficjalny algorytm sumy kontrolnej NIP (wagi 6,5,7,2,3,4,5,6,7 mod 11)' );
 	}
@@ -102,6 +114,39 @@ class MP_D3_Agent_Nip extends MP_Abstract_Agent {
 		return 'Niepoprawna suma kontrolna NIP';
 	}
 
+	/**
+	 * Stan sumy kontrolnej — trzy wartości, bo są trzy różne sytuacje.
+	 *
+	 * Pole `nip_checksum` powstawało wcześniej jako `$valid ? 'zgodna' : 'niezgodna'`,
+	 * czyli zdanie „cyfra kontrolna się nie zgadza" wychodziło także wtedy, gdy
+	 * sumy NIE POLICZONO: przy pustym polu, przy złej długości i przy numerze
+	 * z samych powtórzonych cyfr `checksum_valid()` wraca `false` PRZED pętlą
+	 * z wagami. Dla numeru, którego nikt nie podał, było to twierdzenie o czymś,
+	 * czego nie sprawdzono — ta sama wada, którą naprawiono już w komunikacie
+	 * (`rejection_reason()`), tylko w polu statusu.
+	 *
+	 * Kolejność sprawdzeń jest ta sama, co w `checksum_valid()` i w
+	 * `rejection_reason()`, bo to ta sama decyzja opisana trzeci raz.
+	 *
+	 * Reszta 10 zostaje `niezgodna`: modulo wtedy POLICZONO, tylko wynik nie ma
+	 * odpowiadającej mu cyfry kontrolnej.
+	 *
+	 * @param string $nip Wartość po normalizacji Działu 2.
+	 * @return string Jedna ze stałych CHECKSUM_*.
+	 */
+	public static function checksum_state( $nip ) {
+		$nip = (string) $nip;
+
+		if ( ! preg_match( '/\A\d{10}\z/', $nip ) ) {
+			return self::CHECKSUM_NIE_POLICZONA;
+		}
+
+		if ( preg_match( '/\A(\d)\1{9}\z/', $nip ) ) {
+			return self::CHECKSUM_NIE_POLICZONA;
+		}
+
+		return self::checksum_valid( $nip ) ? self::CHECKSUM_ZGODNA : self::CHECKSUM_NIEZGODNA;
+	}
 
 	/**
 	 * @param MP_Context $context Kontekst.
@@ -125,7 +170,7 @@ class MP_D3_Agent_Nip extends MP_Abstract_Agent {
 			return MP_Result::ok(
 				array(
 					'nip_valid'    => true,
-					'nip_checksum' => 'nie_dotyczy',
+					'nip_checksum' => self::CHECKSUM_NIE_DOTYCZY,
 					'errors'       => array(),
 				)
 			);
@@ -140,7 +185,7 @@ class MP_D3_Agent_Nip extends MP_Abstract_Agent {
 		return MP_Result::ok(
 			array(
 				'nip_valid'    => $valid,
-				'nip_checksum' => $valid ? 'zgodna' : 'niezgodna',
+				'nip_checksum' => self::checksum_state( $nip ),
 				'errors'       => $valid ? array() : array( 'nip' => $powod ),
 			)
 		);

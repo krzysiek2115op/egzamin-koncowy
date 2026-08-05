@@ -249,6 +249,26 @@ class MP_D7_Agent_Prepare extends MP_Abstract_Agent {
 		$wl_nierozstrzygnieta = is_null( $company_status )
 			&& 'pl_only' !== (string) $context->get( 'company_status_scope', '' );
 
+		/*
+		 * JEDNA ZMIENNA, JEDNO KRYTERIUM PRAWDZIWOŚCI.
+		 *
+		 * Status wybierało porównanie ścisłe (`true === $vat_valid`), a kolumnę
+		 * dwie linie niżej — rzutowanie luźne (`$vat_valid ? 1 : 0`). Dopóki do
+		 * kontekstu trafia literalny `true`, obie drogi dają to samo; wystarczy
+		 * jednak, żeby wartość przeszła przez cache albo bazę i wróciła jako `1`
+		 * czy `'1'` — typ logiczny tego nie przeżywa — a wiersz zaczyna twierdzić
+		 * dwie rzeczy naraz: `vat_valid = 1` przy `vat_status = 'checked'`, czyli
+		 * „numer jest ważny" obok „numeru nie potwierdzono".
+		 *
+		 * Nikt tego potem nie prostuje: wtyczka 2 rozpoznaje ważny VAT UE po
+		 * STATUSIE (komentarz F2 w tym samym pliku), a weryfikator w tle bierze
+		 * wyłącznie wiersze `pending`. Normalizacja idzie więc RAZ, przed
+		 * rozgałęzieniem, i dopiero na niej powstają obie wartości.
+		 *
+		 * `null` zostaje `null` — to trzeci stan („nie wiadomo"), a nie fałsz.
+		 */
+		$vat_valid = is_null( $vat_valid ) ? null : (bool) $vat_valid;
+
 		if ( $vat_pending || is_null( $vat_valid ) || $wl_nierozstrzygnieta ) {
 			$vat_status = 'pending';
 		} elseif ( true === $vat_valid ) {

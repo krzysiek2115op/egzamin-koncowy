@@ -293,8 +293,11 @@ PHPCS na plikach zmienionych w tej wersji: **0 błędów, 0 ostrzeżeń**.
 
 ## Stan na wydanie 1.3.11 (04.08.2026)
 
-Regresja **89/89** na bazie od zera, PHPCS kod wyjścia **0**. Cztery nowe pliki
-testowe, każdy napisany PRZED naprawą i uruchomiony, żeby zobaczyć, jak pada:
+Regresja **93/93** na bazie od zera, PHPCS kod wyjścia **0**. Wydanie powstawało
+w kilku rundach; niżej wszystkie pliki testowe, jakie w nich przybyły — każdy
+napisany PRZED naprawą i uruchomiony, żeby zobaczyć, jak pada.
+
+Cztery z rundy ustaleń poważnych:
 
 - `mp-sales-workflow/tests/naprawy/segment-dociera-do-procesu.php` (11 asercji) —
   segment ze zgłoszenia trafia do wiersza procesu i na ekran, także przy
@@ -311,6 +314,48 @@ Do tego trzy pliki z rundy drobnych ustaleń:
 `mp-lead-intake/tests/naprawy/slownik-alarmu-i-krotki-kod.php` (18),
 `mp-offer-builder/tests/naprawy/stawka-vat-i-komunikat-dokumentu.php` (16)
 oraz test motywu demo `tools/strona-pokazowa/tests/demo-nie-klamie-przegladarce.php` (12).
+
+Sześć z rundy po **finalnym audycie głębokim** (37 par, 2051 s, bramka 26/26
+i 11/11):
+
+- `mp-sales-workflow/tests/naprawy/powtorne-zatwierdzenie-oferty.php` (26) —
+  druga, poprawiona oferta zatwierdzona dla procesu już w statusie „oferta
+  wysłana" ma skutki: powiadomienie klienta i zadania kontaktowe. Sekcja E
+  pilnuje przy tym, że **nie** powstaje druga para terminów — broni przed nimi
+  klucz `open_key` w agencie 6.2, więc naprawa nie zamienia braku wysyłki na
+  nadmiar.
+- `mp-lead-intake/tests/naprawy/status-sumy-i-etykieta-strony.php` (25) — status
+  sumy kontrolnej NIP rozróżnia „policzono i nie zgadza się" od „nie policzono";
+  wynik weryfikacji VAT ma jedno kryterium prawdziwości; komunikat o stanie
+  strony podaje etykietę statusu i miejsce, które tę stronę naprawdę pokazuje.
+
+### Kontr-asercja jako dowód, nie jako przeszkoda
+
+Dwie zmiany z tej rundy **cofnięto**, bo istniejące testy pokazały, że są złe.
+
+Pierwsza: strażnik IDOR w Dziale 10 wtyczki 2 miał pytać o tryb uruchomienia
+zamiast o obecność użytkownika. Pod WP-CLI stała `WP_CLI` jest zdefiniowana
+**zawsze**, także gdy ustawiono bieżącego użytkownika — obrona zniknęłaby więc
+również dla obcego użytkownika zalogowanego. Złapał to
+`mp-offer-builder/tests/naprawy/wlasciciel-oferty-i-wersji.php`.
+
+Druga: etykieta miejsca awarii w alarmie miała dopisywać `plik:linia` także dla
+znanego działu. Kubełek wyciszania nazywa się wtedy `mp_notify_exception_<dział>`,
+więc dwa różne opisy trafiłyby do jednego kubełka i drugi zniknąłby bez śladu.
+Złapał to `mp-lead-intake/tests/naprawy/alarm-mowi-prawde.php`.
+
+W obu przypadkach powód odrzucenia zapisano w kodzie i w teście — inaczej
+następna runda popełniłaby ten sam błąd, mając przed sobą to samo ustalenie.
+
+### Test, który potwierdził fałszywy alarm
+
+Ustalenie mówiło, że nieudany zapis leada nadpisze cudzy wiersz dziennika, bo
+kod czyta `insert_id` po nieudanym `insert()`. Sonda zmierzyła to wprost:
+`wpdb::insert()` przy porażce **zeruje** `insert_id`, więc strażnik `> 0`
+wystarcza. Ustalenie odrzucone, ale test
+`mp-lead-intake/tests/naprawy/nieudany-wpis-nie-psuje-cudzego.php` (11) powstał
+i został — pilnuje tego niezmiennika, bo gdyby przyszła wersja WordPressa go
+zmieniła, opisany scenariusz stałby się prawdziwy.
 
 ### Reguła, która chroniła błąd
 
