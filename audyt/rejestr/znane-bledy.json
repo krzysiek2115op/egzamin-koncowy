@@ -1580,6 +1580,97 @@
       "lekcja": "Zaslepka rejestru to brak danych, nie dana. Sprowadzenie do postaci uzytecznej ma sie dziac RAZ, przed obydwoma zapisami — inaczej cache przechowuje smiec przez dobe.",
       "test": "mp-lead-intake/tests/naprawy/nazwa-z-vies-i-miejsce-awarii.php",
       "para": "1.25"
+    },
+    {
+      "id": "U-57",
+      "data": "2026-08-05",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "Druga oferta dla tego samego procesu ginie po cichu — sukces bez skutkow",
+      "klasa": "sukces-bez-operacji",
+      "plik": "mp-sales-workflow/includes/pipeline/departments/class-mp-sw-department-05.php",
+      "dowod": "Galaz `if ( ! $allowed && $from === $to )` oddawala `changes_status = false`, a A5.2 liczyla skutki wylacznie przy zmianie statusu. Zatwierdzenie DRUGIEJ, poprawionej oferty dla procesu juz w `offer_sent` przechodzilo wiec z pusta lista skutkow.",
+      "skutek": "Klient nie dostawal powiadomienia o nowej ofercie, follow-upy d+3/d+7 nie powstawaly, a wtyczka 2 widziala HTTP 200 i uznawala, ze oferte wyslano. Nowy `event_id` sprawia, ze bramka idempotencji tego nie zatrzymuje.",
+      "lekcja": "Powtorka TEGO SAMEGO zdarzenia (klucz idempotencji) to co innego niz NOWE zdarzenie prowadzace w ten sam status. Pierwsza ma byc cicha, druga ma miec skutki. Duplikatow zadan sie nie boimy — broni przed nimi `open_key` w A6.2.",
+      "test": "mp-sales-workflow/tests/naprawy/powtorne-zatwierdzenie-oferty.php + tests/naprawy/krytyk-skutkow.php sekcja G",
+      "para": "1.25"
+    },
+    {
+      "id": "U-58",
+      "data": "2026-08-05",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "Status spoza slownika potwierdzany sukcesem, gdy rowna sie sam sobie",
+      "klasa": "wynik-policzony-i-zignorowany",
+      "plik": "mp-sales-workflow/includes/pipeline/departments/class-mp-sw-department-05.php",
+      "dowod": "`$known` bylo liczone linijke wyzej, a galaz „przejscie w to samo miejsce\" go nie pytala i nie wkladala `known_status` do wyniku. Wiersz ze statusem spoza `MP_Sales_Workflow_DB::statuses()` dostawal na `status.change` w ten sam status odpowiedz „stan potwierdzony\".",
+      "skutek": "Proces zapisany przez starsza wersje maszyny albo poprawiony recznie w bazie nigdy nie zglaszal sie jako zepsuty — to samo zadanie dla kazdego innego wiersza konczy sie odmowa. K5.1 nie mial przy tym czego czytac, bo klucza w tablicy nie bylo.",
+      "lekcja": "Kazda galaz zwracajaca `transition` ma oddawac ten sam komplet pol. Rozroznienie policzone i niewykorzystane jest gorsze niz niepoliczone: wyglada na obsluzone.",
+      "test": "mp-sales-workflow/tests/naprawy/powtorne-zatwierdzenie-oferty.php, sekcja B",
+      "para": "1.25"
+    },
+    {
+      "id": "U-59",
+      "data": "2026-08-05",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "Komunikat odsylal do pola `to_status`, ktorego wywolujacy nie wyslal",
+      "klasa": "komunikat-o-czyms-innym",
+      "plik": "mp-sales-workflow/includes/pipeline/departments/class-mp-sw-department-05.php",
+      "dowod": "Warunek `'' === $to && ! in_array( $type, statusless_events() )` obejmowal takze typy zdarzen spoza trzech obslugiwanych, a zwracal `missing_target_status` z polem bledu `to_status` i HTTP 400.",
+      "skutek": "Nowy typ zdarzenia dopisany do fabryki, a zapomniany w `statusless_events()`, odbijalby sie komunikatem o niekompletnym zadaniu — diagnostyka szlaby w tresc zadania zamiast w brakujacy wpis w liscie. To ten sam blad, ktory naprawiono w K5.1, tylko w druga strone.",
+      "lekcja": "Wina po stronie zadania i wina po stronie kodu to dwa rozne adresaty i dwa rozne kody. `unsupported_event_type` celowo nie ma wpisu w `MP_SW_Errors::map()` — ma wychodzic jako MP3-E500.",
+      "test": "mp-sales-workflow/tests/naprawy/powtorne-zatwierdzenie-oferty.php, sekcja C",
+      "para": "1.25"
+    },
+    {
+      "id": "U-60",
+      "data": "2026-08-05",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Pole `nip_checksum` mowilo „niezgodna\" takze wtedy, gdy sumy nie policzono",
+      "klasa": "twierdzenie-o-niesprawdzonym",
+      "plik": "mp-lead-intake/includes/pipeline/departments/class-mp-department-03.php",
+      "dowod": "`'nip_checksum' => $valid ? 'zgodna' : 'niezgodna'`, a `checksum_valid()` wraca `false` PRZED petla z wagami dla pustego pola, zlej dlugosci i numeru z samych powtorzonych cyfr.",
+      "skutek": "Dla numeru, ktorego nikt nie podal, status twierdzil, ze cyfra kontrolna sie nie zgadza. Rownolegly komunikat (`rejection_reason()`) mowil poprawnie „NIP jest wymagany\" — jeden wynik dzialu niosl dwa sprzeczne zdania.",
+      "lekcja": "Ta sama wada naprawiona w komunikacie zostaje w polu statusu, jesli naprawia sie tekst zamiast decyzji. `checksum_state()` idzie ta sama kolejnoscia sprawdzen co `checksum_valid()` i `rejection_reason()`.",
+      "test": "mp-lead-intake/tests/naprawy/status-sumy-i-etykieta-strony.php, sekcja A",
+      "para": "1.25"
+    },
+    {
+      "id": "U-61",
+      "data": "2026-08-05",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Dwa kryteria prawdziwosci na jednej zmiennej `vat_valid`",
+      "klasa": "niespojnosc-typow",
+      "plik": "mp-lead-intake/includes/pipeline/departments/class-mp-department-07.php",
+      "dowod": "Status wybieralo `true === $vat_valid`, a kolumne dwie linie nizej `$vat_valid ? 1 : 0`. Wartosc `1` albo `'1'` — typ logiczny nie przezywa cache ani bazy — spelnia drugi warunek i nie spelnia pierwszego.",
+      "skutek": "Wiersz z `vat_valid = 1` przy `vat_status = 'checked'`: „numer jest wazny\" obok „numeru nie potwierdzono\". Nikt tego nie prostuje — wtyczka 2 czyta waznosc ze STATUSU, a weryfikator w tle bierze wylacznie wiersze `pending`.",
+      "lekcja": "Normalizacja raz, przed rozgalezieniem. `null` zostaje `null`, bo to trzeci stan („nie wiadomo\"), a nie falsz.",
+      "test": "mp-lead-intake/tests/naprawy/status-sumy-i-etykieta-strony.php, sekcja B",
+      "para": "1.25"
+    },
+    {
+      "id": "U-62",
+      "data": "2026-08-05",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Surowy slug statusu wpisu w polskim komunikacie i rada prowadzaca na zla liste",
+      "klasa": "komunikat-dla-czlowieka",
+      "plik": "mp-lead-intake/includes/class-mp-page.php",
+      "dowod": "`sprintf( ..., $wpis->post_status, $gdzie )` wstawialo slug, a `$gdzie` rozpoznawalo tylko `trash` — kazdy inny status dostawal „Strony → Wszystkie strony\".",
+      "skutek": "Instalacja z wlasnymi statusami wpisow (PublishPress i podobne) dawala zdanie z technicznym wtretem („ma status „pitch\"\") i odsylala na liste, ktora wpisow z `show_in_admin_all_list = false` nie pokazuje. Rada nie do wykonania.",
+      "lekcja": "Etykieta z `get_post_status_object()`, a miejsce w panelu dobrane do tego, czy ta lista naprawde ten wpis pokazuje. Gdy nie pokazuje — identyfikator wpisu, bo `post.php?post=<ID>` dziala dla kazdego statusu.",
+      "test": "mp-lead-intake/tests/naprawy/status-sumy-i-etykieta-strony.php, sekcja C",
+      "para": "1.26"
+    },
+    {
+      "id": "TEST-F2",
+      "data": "2026-08-05",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Test ekranu leadow zakladal, ze cala tabela miesci sie na jednej stronie",
+      "klasa": "test-zalezny-od-stanu-bazy",
+      "plik": "mp-lead-intake/tests/naprawy/ekran-leadow.php",
+      "dowod": "`el_render()` renderowalo JEDEN ekran i szukalo zasianych leadow w jego HTML. Ekran sortuje `score DESC, id DESC` i pokazuje `PER_PAGE = 25` wierszy naraz.",
+      "skutek": "Gdy w bazie uzbieralo sie 25 leadow z punktacja wyzsza niz zasiana, lead z 12 punktami wypadal na strone druga i asercja „manager widzi WSZYSTKIE leady\" zaczynala oskarzac kod o blad, ktorego nie ma. Test przeszedl przez wiele wydan wylacznie dlatego, ze baza byla mala — to fałszywy alarm czekajacy na swoj moment, dokladnie w bramce kryterium odbioru U-5.",
+      "lekcja": "Test, ktory czyta widok stronicowany, musi chodzic po stronach albo zawezic zapytanie. Kryterium odbioru mowi „manager widzi leady wszystkich handlowcow\" i nic nie mowi o tym, na ktorej stronie.",
+      "test": "mp-lead-intake/tests/naprawy/ekran-leadow.php (sam test, po poprawce chodzi po wszystkich stronach)",
+      "para": "1.24"
     }
   ]
 }
