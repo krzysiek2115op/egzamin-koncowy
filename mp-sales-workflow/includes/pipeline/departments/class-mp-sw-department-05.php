@@ -282,8 +282,17 @@ class MP_SW_D5_Agent_Transition extends MP_SW_Abstract_Agent {
 			);
 		}
 
-		// Zdarzenie, które nie rusza statusu, jest legalne z definicji — nie ma
-		// przejścia do sprawdzenia.
+		/*
+		 * Zdarzenie, które nie rusza statusu, jest legalne z definicji — nie ma
+		 * przejścia do sprawdzenia.
+		 *
+		 * `known_status` i `repeat_entry` mimo to trafiają do wyniku: docblock
+		 * gałęzi „w to samo miejsce" nazywa komplet pól inwariantem NIEZALEŻNYM
+		 * od gałęzi, a ta jedna go łamała. Odbiorca musiałby wtedy rozróżniać,
+		 * z której gałęzi przyszła tablica — czyli dokładnie to, przed czym
+		 * inwariant chroni. Status źródłowy sprawdzamy w słowniku tak samo jak
+		 * docelowy w gałęzi głównej.
+		 */
 		if ( '' === $to ) {
 			return MP_SW_Result::ok(
 				array(
@@ -292,6 +301,8 @@ class MP_SW_D5_Agent_Transition extends MP_SW_Abstract_Agent {
 						'to'              => $from,
 						'allowed'         => true,
 						'changes_status'  => false,
+						'known_status'    => in_array( $from, MP_Sales_Workflow_DB::statuses(), true ),
+						'repeat_entry'    => false,
 						'machine_version' => MP_SW_D5_Machine::MACHINE_VERSION,
 					),
 				)
@@ -343,6 +354,10 @@ class MP_SW_D5_Agent_Transition extends MP_SW_Abstract_Agent {
 					'allowed'         => $allowed,
 					'changes_status'  => $allowed,
 					'known_status'    => $known,
+					// Zawsze `false`: ponowne wejscie to osobna galaz wyzej. Klucz
+					// jest tu po to, zeby WSZYSTKIE galezie oddawaly ten sam komplet
+					// pol — odbiorca nie ma rozpoznawac galezi po brakujacym kluczu.
+					'repeat_entry'    => false,
 					'machine_version' => MP_SW_D5_Machine::MACHINE_VERSION,
 				),
 			)

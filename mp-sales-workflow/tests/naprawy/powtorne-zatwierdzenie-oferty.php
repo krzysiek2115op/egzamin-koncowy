@@ -398,3 +398,54 @@ po_ok(
 	array() === (array) ( $po_pl['close'] ?? array( 'x' ) ),
 	'i nic nie jest zamykane — otwarte terminy zostaja wazne'
 );
+
+/* ==================================================================== F */
+
+$GLOBALS['mp_po']['lines'][] = '';
+$GLOBALS['mp_po']['lines'][] = '=== F. komplet pol w KAZDEJ galezi ===';
+
+/*
+ * Docblock galezi „w to samo miejsce" nazywa komplet pol tablicy `transition`
+ * inwariantem NIEZALEZNYM od galezi. Galaz dla zdarzen bez statusu docelowego
+ * (`task.due`, `dashboard.view`) go lamala: oddawala tablice bez `known_status`.
+ * Odbiorca musialby wtedy rozrozniac, z ktorej galezi przyszla tablica — czyli
+ * dokladnie to, przed czym inwariant chroni.
+ */
+foreach ( MP_SW_D5_Machine::statusless_events() as $po_typ_bez ) {
+	$po_bez = po_przejscie( $po_typ_bez, MP_Sales_Workflow_DB::STATUS_ASSIGNED );
+	$po_bt  = (array) ( $po_bez->get_data()['transition'] ?? array() );
+
+	po_ok(
+		array_key_exists( 'known_status', $po_bt ),
+		'F: ' . $po_typ_bez . ' — tablica przejscia niesie known_status',
+		'klucze=' . implode( ',', array_keys( $po_bt ) )
+	);
+	po_ok(
+		array_key_exists( 'repeat_entry', $po_bt ) && false === $po_bt['repeat_entry'],
+		'F: ' . $po_typ_bez . ' — i repeat_entry rowne false',
+		'repeat_entry=' . var_export( $po_bt['repeat_entry'] ?? null, true )
+	);
+}
+
+$po_widmo = po_przejscie( MP_SW_Pipeline_Factory::EVENT_TASK_DUE, 'status-po-starej-maszynie' );
+$po_wt    = (array) ( $po_widmo->get_data()['transition'] ?? array() );
+
+po_ok(
+	false === ( $po_wt['known_status'] ?? null ),
+	'F: status wiersza spoza slownika jest widoczny takze przy zdarzeniu bez statusu',
+	'known_status=' . var_export( $po_wt['known_status'] ?? null, true )
+);
+
+$po_klucze_a = array_keys( (array) ( po_przejscie( MP_SW_Pipeline_Factory::EVENT_OFFER_APPROVED, MP_Sales_Workflow_DB::STATUS_OFFER_SENT )->get_data()['transition'] ?? array() ) );
+$po_klucze_b = array_keys( (array) ( po_przejscie( MP_SW_Pipeline_Factory::EVENT_TASK_DUE, MP_Sales_Workflow_DB::STATUS_ASSIGNED )->get_data()['transition'] ?? array() ) );
+$po_klucze_c = array_keys( (array) ( po_przejscie( MP_SW_Pipeline_Factory::EVENT_STATUS_CHANGE, MP_Sales_Workflow_DB::STATUS_OFFER_SENT, array( 'to_status' => MP_Sales_Workflow_DB::STATUS_WON ) )->get_data()['transition'] ?? array() ) );
+
+sort( $po_klucze_a );
+sort( $po_klucze_b );
+sort( $po_klucze_c );
+
+po_ok(
+	$po_klucze_a === $po_klucze_b && $po_klucze_b === $po_klucze_c,
+	'F: wszystkie trzy galezie A5.1 oddaja DOKLADNIE te same klucze',
+	'a=' . implode( ',', $po_klucze_a ) . ' | b=' . implode( ',', $po_klucze_b ) . ' | c=' . implode( ',', $po_klucze_c )
+);

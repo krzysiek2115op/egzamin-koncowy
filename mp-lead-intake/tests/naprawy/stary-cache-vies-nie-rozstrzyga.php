@@ -156,3 +156,40 @@ cv_ok(
 	'cache' === ( $dobry['vat_source'] ?? null ),
 	'ze zrodlem „cache", zeby bylo wiadomo, skad werdykt'
 );
+
+/* ====================================================================
+ * D. NOWY KSZTALT Z WERDYKTEM `null` TEZ NIE ROZSTRZYGA
+ *
+ * Straz `cache_rozstrzyga()` pytala o OBECNOSC klucza (`array_key_exists`),
+ * wiec wpis `array( 'valid' => null )` — czyli „nie ustalono" — liczyl sie jako
+ * rozstrzygajacy i wracal jako `vat_valid = false` z `vat_checked = true`.
+ * Krytyk 3.2 robi STOP dokladnie na tym warunku.
+ *
+ * To ten sam blad co w sekcjach wyzej, tylko dla ksztaltu NOWEGO. Sciezka HTTP
+ * tego pliku ma wlasciwa straz od dawna: `is_bool( $body['isValid'] )`.
+ *
+ * UCZCIWIE: zaden zapis w tym repozytorium nie tworzy dzis wpisu z `null`.
+ * To zabezpieczenie, nie naprawa dzialajacej awarii — a test istnieje po to,
+ * zeby przyszly zapis (choćby z weryfikatora w tle) nie wprowadzil jej z powrotem.
+ * ------------------------------------------------------------------ */
+
+$GLOBALS['mp_cv']['lines'][] = '';
+$GLOBALS['mp_cv']['lines'][] = '=== D. nowy ksztalt z valid=null nie rozstrzyga ===';
+
+$cv_null = cv_przebieg( '5260001246', array( 'valid' => null, 'name' => 'Firma Bez Werdyktu' ) );
+
+cv_ok(
+	true !== ( $cv_null['vat_checked'] ?? null ),
+	'D1: wpis bez werdyktu NIE jest traktowany jak sprawdzony',
+	'vat_checked=' . var_export( $cv_null['vat_checked'] ?? null, true )
+);
+cv_ok(
+	false !== ( $cv_null['vat_valid'] ?? 'brak' ),
+	'D2: i NIE zamienia sie w twarde „numer niewazny"',
+	'vat_valid=' . var_export( $cv_null['vat_valid'] ?? 'brak', true )
+);
+cv_ok(
+	'cache' !== ( $cv_null['vat_source'] ?? '' ),
+	'D3: werdykt nie pochodzi z cache — pipeline pyta rejestr jeszcze raz',
+	'vat_source=' . ( $cv_null['vat_source'] ?? '(brak)' )
+);

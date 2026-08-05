@@ -73,7 +73,11 @@ class MP_OB_D2_Agent_Products extends MP_OB_Abstract_Agent {
 			$lookup_id = MP_OB_Products::lookup_id( (array) $item );
 			$product   = isset( $produkty[ $lookup_id ] ) ? $produkty[ $lookup_id ] : false;
 
-			if ( ! $product instanceof WC_Product || 'publish' !== $product->get_status() ) {
+			// Pytanie o publikacje idzie przez `opublikowany()`, bo dla WARIANTU
+			// odpowiedz zalezy takze od statusu produktu nadrzednego — wariant
+			// wycofanego produktu ma wlasny status `publish` i przechodzil tedy
+			// do oferty. Patrz docblock tamtej metody.
+			if ( ! MP_OB_Products::opublikowany( $product ) ) {
 				$errors[] = array(
 					'field'   => "items.$i",
 					'message' => sprintf( 'Produkt/wariant %d nie istnieje w katalogu albo nie jest opublikowany.', $lookup_id ),

@@ -132,6 +132,50 @@ class MP_OB_Products {
 	 * @param array $items Pozycje oferty.
 	 * @return array<int,WC_Product>
 	 */
+	/**
+	 * Czy produkt jest naprawdę opublikowany — razem z rodzicem.
+	 *
+	 * WARIANT MA WŁASNY STATUS, NIEZALEŻNY OD PRODUKTU.
+	 *
+	 * Kontrola brzmiała `'publish' !== $product->get_status()` i dla pozycji
+	 * wskazującej wariant pytała o status SAMEGO WARIANTU. WooCommerce przy
+	 * wycofaniu produktu zmiennego z katalogu zmienia jednak status wyłącznie
+	 * wpisu nadrzędnego — warianty są osobnymi wpisami i zostają w `publish`.
+	 * Zmierzone wprost w `tests/naprawy/wariant-wycofanego-produktu.php`:
+	 * po przełączeniu rodzica na szkic wariant nadal raportuje `publish`,
+	 * a `get_parent_data()['status']` mówi `draft`.
+	 *
+	 * Skutkiem było przepuszczenie do oferty wariantu produktu, którego nie ma
+	 * w opublikowanym katalogu — a opis agenta 2.1 deklaruje „filtruje po
+	 * statusie publikacji".
+	 *
+	 * Status rodzica bierzemy z `get_parent_data()`, bo WooCommerce trzyma go
+	 * tam przy odczycie wariantu — bez drugiego zapytania do bazy.
+	 *
+	 * @param WC_Product $product Produkt albo wariant.
+	 * @return bool
+	 */
+	public static function opublikowany( $product ) {
+		if ( ! $product instanceof WC_Product || 'publish' !== $product->get_status() ) {
+			return false;
+		}
+
+		if ( ! $product instanceof WC_Product_Variation ) {
+			return true;
+		}
+
+		$rodzic = (array) $product->get_parent_data();
+		$status = isset( $rodzic['status'] ) ? (string) $rodzic['status'] : '';
+
+		/*
+		 * Pusty status rodzica znaczy „nie wiadomo" — wariant osierocony albo
+		 * dane niekompletne. Bezpieczniejszą stroną błędu jest tu odmowa:
+		 * pozycja bez pewności co do katalogu nie ma czego szukać na dokumencie
+		 * wychodzącym do klienta.
+		 */
+		return 'publish' === $status;
+	}
+
 	public static function for_items( array $items ) {
 		$ids = array();
 

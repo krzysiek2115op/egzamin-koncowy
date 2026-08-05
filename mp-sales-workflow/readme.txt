@@ -60,6 +60,9 @@ powiadomien do klientow.
   jako zepsuty.
 * Zdarzenie o nieobsługiwanym typie dostaje własny komunikat, zamiast rady
   dotyczącej pola, którego nadawca nie wysyłał.
+* Wynik maszyny statusów ma ten sam komplet pól we wszystkich przypadkach —
+  wcześniej zdarzenia niezmieniające statusu oddawały tablicę uboższą o jedno
+  pole, choć komentarz obok zapowiadał co innego.
 
 = 1.3.10 =
 * Paczka instalacyjna schudla ze 117 plikow do 52 — testy i dokumentacja wewnetrzna nie jada juz do publicznie dostepnego katalogu wtyczek. Instrukcja wdrozenia przeszla do paczki materialow.

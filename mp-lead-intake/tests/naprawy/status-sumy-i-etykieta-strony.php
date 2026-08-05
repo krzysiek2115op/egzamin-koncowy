@@ -339,3 +339,42 @@ se_ok(
 	'kontr-asercja: kosz nadal odsyla do Strony → Kosz',
 	'komunikat=' . $se_kosz
 );
+
+/*
+ * Status NIEZAREJESTROWANY — po wyłączeniu wtyczki, która go dodała. To jedyny
+ * przypadek, w którym do zdania trafia surowy slug (etykiety nie ma skąd wziąć),
+ * więc tym bardziej nie wolno odsyłać administratora na listę, która wpisu w tym
+ * statusie nie pokazuje: nazwy statusu nie znajdzie w panelu i zostałby bez
+ * jednej informacji, z którą da się cokolwiek zrobić.
+ */
+/*
+ * Slug dobrany tak, żeby NA PEWNO nie był zarejestrowany, i sprawdzony asercją.
+ * Pierwsza wersja tego testu użyła `in-progress` — który w tym środowisku jest
+ * zarejestrowany przez inną wtyczkę. Test „na status nieznany" badał wtedy
+ * status znany i nie mógł niczego wykazać.
+ *
+ * Druga wersja miała slug 30-znakowy. Kolumna `post_status` to `varchar(20)`,
+ * więc zapis w ogóle nie przechodził i wpis zostawał szkicem — test znowu badał
+ * co innego, niż deklarował. Stąd asercja C7 sprawdzająca teraz OBIE rzeczy:
+ * że status nie jest zarejestrowany i że naprawdę usiadł na wpisie.
+ */
+$se_slug_widmo = 'mp-status-widmo';
+
+se_ok(
+	null === get_post_status_object( $se_slug_widmo ) && strlen( $se_slug_widmo ) <= 20,
+	'C7: slug tej sekcji nie jest zarejestrowany i miesci sie w kolumnie post_status',
+	'slug=' . $se_slug_widmo . ' dlugosc=' . strlen( $se_slug_widmo )
+);
+
+$se_widmo = se_komunikat( $se_slug_widmo );
+
+se_ok(
+	false === mb_strpos( $se_widmo, 'publikacji w Strony' ),
+	'C8: status niezarejestrowany NIE odsyla na liste „Wszystkie strony"',
+	'komunikat=' . $se_widmo
+);
+se_ok(
+	false !== mb_strpos( $se_widmo, 'identyfikatorze' ),
+	'C9: dostaje identyfikator wpisu — droga dzialajaca dla kazdego statusu',
+	'komunikat=' . $se_widmo
+);

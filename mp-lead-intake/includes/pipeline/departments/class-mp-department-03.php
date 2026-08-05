@@ -216,7 +216,26 @@ class MP_D3_Agent_Vat extends MP_Abstract_Agent {
 	 * @return bool
 	 */
 	private static function cache_rozstrzyga( $cached ) {
-		return is_array( $cached ) && array_key_exists( 'valid', $cached );
+		/*
+		 * WERDYKT, NIE OBECNOSC KLUCZA.
+		 *
+		 * Warunek pytal `array_key_exists( 'valid', ... )`, wiec wpis
+		 * `array( 'valid' => null )` — czyli „nie ustalono" — liczyl sie jako
+		 * rozstrzygajacy, a `z_cache_vies()` tlumaczyl go na `vat_valid = false`
+		 * z `vat_checked = true`. Krytyk 3.2 robi STOP dokladnie na tym warunku,
+		 * wiec legalny lead bylby odrzucany przez caly czas zycia transienta.
+		 *
+		 * To ten sam blad, ktory naprawiono w 1.3.11 dla STAREGO ksztaltu wpisu
+		 * (skalar 1/0) — tylko dla ksztaltu nowego. Sciezka HTTP tego pliku ma
+		 * juz wlasciwa straz: `is_bool( $body['isValid'] )`. Tutaj brakowalo jej
+		 * odpowiednika, choc pytanie jest to samo: czy ktos to ROZSTRZYGNAL.
+		 *
+		 * Dzis zaden zapis w tym repozytorium nie tworzy wpisu z `null` — to
+		 * zabezpieczenie, nie naprawa dzialajacej awarii. Zostaje, bo caly ten
+		 * rodzaj bledu wzial sie z ksztaltu cache, ktory nie odrozniał „numer
+		 * niewazny" od „nie wiadomo".
+		 */
+		return is_array( $cached ) && isset( $cached['valid'] ) && ( is_bool( $cached['valid'] ) || is_numeric( $cached['valid'] ) );
 	}
 
 	/**

@@ -54,6 +54,12 @@ zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej 
   technicznego identyfikatora i wskazuje miejsce, które tę stronę naprawdę
   pokazuje. Na instalacji z własnymi statusami wpisów rada prowadziła na listę
   bez tej strony.
+* Wpis w pamięci podręcznej VIES bez rozstrzygnięcia nie udaje werdyktu
+  „numer nieważny". Odczyt pytał o obecność pola, a nie o jego treść.
+* Dziennik: opis miejsca awarii jest tłumaczony we wszystkich przypadkach (jedna
+  gałąź wychodziła po polsku niezależnie od języka witryny), czas wyciszenia
+  alarmu bierze się ze stałej zamiast z tekstu, a nieudany zapis losu alarmu
+  zostawia ślad zamiast milczeć.
 
 = 1.3.10 =
 * Paczka instalacyjna schudla ze 101 plikow do 54 — testy i dokumentacja wewnetrzna (w tym AUDYT.md i DEBUG-RAPORT.md) nie jada juz do publicznie dostepnego katalogu wtyczek. Dokumenty dla klienta przeszly do paczki materialow.

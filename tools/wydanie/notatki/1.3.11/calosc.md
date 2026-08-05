@@ -50,4 +50,24 @@ TRZY ZMIANY COFNIETE, BO ISTNIEJACE TESTY POKAZALY, ZE SA ZLE. Straznik IDOR mia
 
 JEDEN FALSZYWY ALARM POTWIERDZONY POMIAREM. Ustalenie mowilo, ze nieudany zapis leada nadpisze cudzy wiersz dziennika. Sonda zmierzyla, ze nieudany `insert()` ZERUJE `insert_id`, wiec straznik wystarcza. Test i tak powstal — pilnuje tego niezmiennika, bo gdyby przyszla wersja WordPressa go zmienila, scenariusz z ustalenia stalby sie prawdziwy.
 
-Regresja: 93 pliki testowe, wszystkie PASS, zero bez werdyktu. PHPCS: 160 plikow, kod wyjscia 0. Audyt gleboki: 37 par, bramka 26/26 i 11/11, pokrycie 100%.
+AUDYT PO TYCH NAPRAWACH — I ZNOWU CZTERY SREDNIE. Puszczony jako bramka zakonczenia, przyniosl kolejne ustalenia; dwa z nich dotyczyly kodu dopisanego GODZINE WCZESNIEJ. Pisanie kodu i pisanie bledow to ta sama czynnosc, wiec bramka musi chodzic po kazdej rundzie, nie po ostatniej.
+
+WARIANT WYCOFANEGO PRODUKTU WCHODZIL DO OFERTY. Kontrola publikacji pytala o status samego wariantu, a WooCommerce przy wycofaniu produktu zmiennego z katalogu zmienia status TYLKO wpisu glownego — warianty zostaja osobnymi wpisami w stanie „opublikowany". Zmierzone sonda, nie zalozone: po przelaczeniu rodzica na szkic wariant nadal raportuje `publish`, a status rodzica siedzi obok, w `get_parent_data()`. Handlowiec wstawial wiec do oferty pozycje, ktorej nie ma w katalogu, i szla ona na dokument dla klienta.
+
+OBRONA W GLAB WYLACZALA SIE DLA KAZDEGO ZADANIA BEZ SESJI. Kontrola wlasciciela oferty pomijala sie, gdy nie bylo zalogowanego uzytkownika — nie tylko dla zadan w tle, ale i dla zwyklego zadania HTTP od goscia. Czyli dokladnie w sytuacji, dla ktorej ta warstwa powstala. Regula „kto jest podmiotem obcym" zostala przy okazji WYJETA do osobnej metody, bo inaczej nie da sie jej sprawdzic: testy chodza pod WP-CLI, gdzie stala `WP_CLI` jest zdefiniowana zawsze, wiec przebieg z definicji wyglada tam na bezsesyjny.
+
+KOMUNIKAT O STRONIE — NIEROZPOZNANY STATUS DOSTAWAL NAJGORSZA RADE. Naprawa z poprzedniej rundy obejmowala statusy zarejestrowane; status po wylaczonej wtyczce trafial nadal na liste, ktora go nie pokazuje, i to bez etykiety, bo etykiety nie ma skad wziac. Dwie polowy komunikatu bezuzyteczne naraz.
+
+CACHE VIES PYTAL O OBECNOSC POLA, NIE O JEGO TRESC. Wpis bez rozstrzygniecia liczyl sie jako werdykt „numer niewazny". Uczciwie: zaden zapis w tym repozytorium nie tworzy dzis takiego wpisu — to zabezpieczenie, nie naprawa dzialajacej awarii. Zostaje, bo caly ten rodzaj bledu wzial sie z ksztaltu cache, ktory nie odrozniał „niewazny" od „nie wiadomo".
+
+TRZY USTERKI DZIENNIKA. Jedna galaz opisu miejsca awarii nie przechodzila przez tlumaczenie, choc wynik idzie do tematu i tresci maila. Czas wyciszenia alarmu byl wpisany w zdanie jako „15 minut", a ustawialy go dwa inne miejsca tego samego pliku. Nieudany zapis losu alarmu nie zostawial sladu — wpis mowil „los nieustalony" i nic nie wskazywalo, ze to skutek awarii zapisu, a nie decyzji.
+
+WYSCIG ZATWIERDZEN OPISANY JAKO AWARIA. „Stan spoza slownika zglos administratorowi" doklejalo sie bezwarunkowo, takze wtedy, gdy przyczyna byla najzwyklejsza: ktos zatwierdzil oferte pierwszy. Handlowiec dostawal polecenie zglaszania sytuacji normalnej, a prawdziwa informacja do niego nie docierala.
+
+INWARIANT ZADEKLAROWANY I NIEDOTRZYMANY. Komentarz w maszynie statusow nazywa komplet pol wyniku inwariantem niezaleznym od galezi — a galaz dla zdarzen niezmieniajacych statusu oddawala tablice ubozsza o jedno pole. Ustalenie z audytu na kodzie dopisanym tego samego dnia.
+
+DWA TESTY, KTORE KLAMALY O KODZIE. Oba klasy „test zalezny od czegos, co nie jest kodem". Test ekranu leadow renderowal JEDEN ekran i szukal w nim zasianych leadow — czyli zakladal, ze cala tabela miesci sie na jednej stronie; przy 25 leadach z wyzsza punktacja zasiany lead wypadal na strone druga i test zaczynal oskarzac kod o blad, ktorego nie ma, w bramce kryterium odbioru. Test zatwierdzania oferty budowal dwa numery z tego samego znacznika czasu dwoma roznymi wzorami; gdy szesciocyfrowa seria zaczyna sie od dziewiatki, oba daja TEN SAM numer, zapis odbija sie o klucz unikalnosci i zatwierdzenie odmawia. Okno trwa okolo 28 godzin i wraca co 11,6 dnia — zmierzone wprost: „Duplicate entry 'OF/2999/901437-1'".
+
+FUNKCJA WORDPRESSA W KODZIE, KTORY CHODZI BEZ WORDPRESSA. Naprawa obrony w glab wprowadzila `wp_doing_cron()`, a przenosny harness procesu uruchamia ten pipeline na wlasnych zaslepkach. Caly harness — 110 niezmiennikow — konczyl sie bledem krytycznym zamiast werdyktem, a regresja pokazywala to jako „bez werdyktu", nie jako porazke.
+
+Regresja: 94 pliki testowe, wszystkie PASS, zero bez werdyktu. PHPCS: 160 plikow, kod wyjscia 0. Audyt gleboki: 37 par, bramka 26/26 i 11/11, pokrycie 100%.

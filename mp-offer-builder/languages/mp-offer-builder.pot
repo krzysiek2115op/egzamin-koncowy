@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-04T21:38:28+00:00\n"
+"POT-Creation-Date: 2026-08-05T03:59:07+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: mp-offer-builder\n"
@@ -146,7 +146,7 @@ msgstr ""
 
 #: includes/admin/class-mp-offer-builder-admin.php:110
 #: includes/admin/class-mp-offer-builder-admin.php:188
-#: includes/class-mp-offer-builder-approval.php:392
+#: includes/class-mp-offer-builder-approval.php:407
 msgid "Brak uprawnień."
 msgstr ""
 
@@ -344,94 +344,98 @@ msgstr ""
 msgid "Oferta nie ma zapisanego stanu, więc nie da się jej zatwierdzić — zgłoś to administratorowi, bo wiersz w bazie jest niekompletny."
 msgstr ""
 
+#: includes/class-mp-offer-builder-approval.php:106
+msgid "Ta oferta została już zatwierdzona — być może przez kogoś innego przed chwilą. Odśwież widok, żeby zobaczyć jej aktualny stan."
+msgstr ""
+
 #. translators: %s: status zapisany przy ofercie.
-#: includes/class-mp-offer-builder-approval.php:96
+#: includes/class-mp-offer-builder-approval.php:111
 #, php-format
 msgid "Oferta jest w stanie „%s\", z którego nie da się jej zatwierdzić — zatwierdzać można wyłącznie szkice. Stan spoza słownika dokumentu zgłoś administratorowi."
 msgstr ""
 
-#: includes/class-mp-offer-builder-approval.php:127
-#: includes/class-mp-offer-builder-approval.php:547
+#: includes/class-mp-offer-builder-approval.php:142
+#: includes/class-mp-offer-builder-approval.php:562
 msgid "Oferta nie istnieje albo nie masz do niej dostępu."
 msgstr ""
 
-#: includes/class-mp-offer-builder-approval.php:136
-#: includes/class-mp-offer-builder-approval.php:295
+#: includes/class-mp-offer-builder-approval.php:151
+#: includes/class-mp-offer-builder-approval.php:310
 msgid "Ta oferta była już zatwierdzona."
 msgstr ""
 
-#: includes/class-mp-offer-builder-approval.php:170
+#: includes/class-mp-offer-builder-approval.php:185
 msgid "Oferta nie ma jeszcze numeru ani pliku PDF — najpierw ją dokończ i wygeneruj dokument."
 msgstr ""
 
-#: includes/class-mp-offer-builder-approval.php:172
+#: includes/class-mp-offer-builder-approval.php:187
 msgid "Oferta nie ma jeszcze numeru — najpierw ją dokończ, żeby dostała numer."
 msgstr ""
 
-#: includes/class-mp-offer-builder-approval.php:174
+#: includes/class-mp-offer-builder-approval.php:189
 msgid "Oferta nie ma jeszcze pliku PDF — wygeneruj dokument przed zatwierdzeniem."
 msgstr ""
 
-#: includes/class-mp-offer-builder-approval.php:194
+#: includes/class-mp-offer-builder-approval.php:209
 msgid "Plik PDF tej oferty nie istnieje — wygeneruj dokument ponownie przed zatwierdzeniem."
 msgstr ""
 
-#: includes/class-mp-offer-builder-approval.php:252
+#: includes/class-mp-offer-builder-approval.php:267
 msgid "Nie udało się zapisać zatwierdzenia — spróbuj ponownie za chwilę, a jeśli problem wraca, zgłoś to administratorowi."
 msgstr ""
 
-#: includes/class-mp-offer-builder-approval.php:282
+#: includes/class-mp-offer-builder-approval.php:297
 msgid "Oferta zniknęła w trakcie zatwierdzania — zapis nie doszedł do skutku. Odśwież listę ofert; jeśli oferta wróci, spróbuj ponownie."
 msgstr ""
 
 #. translators: 1: numer oferty, 2: identyfikator leada.
-#: includes/class-mp-offer-builder-approval.php:341
+#: includes/class-mp-offer-builder-approval.php:356
 #, php-format
 msgid "Oferta %1$s zatwierdzona (lead_id=%2$d) — zdarzenie mp_offer_approved zaraz zostanie wystawione."
 msgstr ""
 
 #. translators: %s: numer oferty.
-#: includes/class-mp-offer-builder-approval.php:484
+#: includes/class-mp-offer-builder-approval.php:499
 #, php-format
 msgid "Oferta %s"
 msgstr ""
 
-#: includes/class-mp-offer-builder-approval.php:487
+#: includes/class-mp-offer-builder-approval.php:502
 msgid "Oferta"
 msgstr ""
 
 #. translators: %s: „Oferta OF/2026/000123" albo samo „Oferta".
-#: includes/class-mp-offer-builder-approval.php:507
+#: includes/class-mp-offer-builder-approval.php:522
 #, php-format
 msgid "%s zatwierdzona. Moduł sprzedażowy przejmuje wysyłkę do klienta."
 msgstr ""
 
 #. translators: %s: „Oferta OF/2026/000123" albo samo „Oferta".
-#: includes/class-mp-offer-builder-approval.php:512
+#: includes/class-mp-offer-builder-approval.php:527
 #, php-format
 msgid "%s zatwierdzona, ale ŻADEN moduł nie nasłuchuje wysyłki — wyślij ją klientowi ręcznie albo włącz wtyczkę MP Sales Workflow."
 msgstr ""
 
 #. translators: %s: „Oferta OF/2026/000123" albo samo „Oferta".
-#: includes/class-mp-offer-builder-approval.php:520
+#: includes/class-mp-offer-builder-approval.php:535
 #, php-format
 msgid "%s była już zatwierdzona — nic się nie zmieniło."
 msgstr ""
 
 #. translators: %s: „Oferta OF/2026/000123" albo samo „Oferta".
-#: includes/class-mp-offer-builder-approval.php:530
+#: includes/class-mp-offer-builder-approval.php:545
 #, php-format
 msgid "%s: nie udało się zapisać zatwierdzenia — spróbuj ponownie za chwilę, a jeśli problem wraca, zgłoś to administratorowi."
 msgstr ""
 
 #. translators: %s: „Oferta OF/2026/000123" albo samo „Oferta".
-#: includes/class-mp-offer-builder-approval.php:541
+#: includes/class-mp-offer-builder-approval.php:556
 #, php-format
 msgid "%s nie ma jeszcze kompletnego dokumentu — brakuje numeru albo pliku PDF. Dokończ ją i wygeneruj dokument."
 msgstr ""
 
 #. translators: %s: „Oferta OF/2026/000123" albo samo „Oferta".
-#: includes/class-mp-offer-builder-approval.php:552
+#: includes/class-mp-offer-builder-approval.php:567
 #, php-format
 msgid "%s jest w stanie, z którego nie da się jej zatwierdzić."
 msgstr ""

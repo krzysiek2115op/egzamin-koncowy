@@ -27,6 +27,16 @@ class MP_Pipeline_Logger {
 	 * miała jak się ujawnić. Literówka w nazwie stałej jest błędem PHP i wychodzi
 	 * przy pierwszym uruchomieniu.
 	 */
+	/**
+	 * Jak długo alarm z tego samego miejsca jest wyciszony.
+	 *
+	 * Jedna stała, bo tę samą wartość ustawiają dwa `set_transient()` i podaje ją
+	 * człowiekowi etykieta `ALARM_WYCISZONY`. Wpisana z ręki w trzech miejscach
+	 * rozjeżdżała się po pierwszej zmianie — a wpis w dzienniku twierdziłby wtedy
+	 * co innego, niż zrobił kod.
+	 */
+	const WYCISZENIE_ALARMU = 15 * MINUTE_IN_SECONDS;
+
 	const ALARM_WYSLANY = 'wyslany';
 
 	/** Alarm pominięty, bo z tego samego miejsca poszedł już przed chwilą. */
@@ -93,7 +103,19 @@ class MP_Pipeline_Logger {
 			 * Gałąź poniżej dokleja pochodzenie właśnie dlatego, że tam kubełek
 			 * liczy się z pochodzenia — opis i wyciszanie zgadzają się w obie strony.
 			 */
-			return sprintf( 'dziale %d', $dept_num );
+
+			/*
+			 * Przez `__()` jak obie pozostałe gałęzie tej metody. Wynik trafia —
+			 * zgodnie z docblokiem — do TEMATU i TREŚCI maila oraz do opisu wpisu
+			 * w dzienniku, czyli wprost do tekstu czytanego przez człowieka.
+			 * Jedna gałąź nietłumaczona znaczy, że na instalacji z tłumaczeniem
+			 * to samo zdanie wychodzi w dwóch językach naraz.
+			 */
+			return sprintf(
+				/* translators: %d: numer działu pipeline'u. */
+				__( 'dziale %d', 'mp-lead-intake' ),
+				$dept_num
+			);
 		}
 
 		if ( '' === $origin ) {
@@ -137,7 +159,19 @@ class MP_Pipeline_Logger {
 			case self::ALARM_WYSLANY:
 				return __( '[alarm: wysłany do administratora]', 'mp-lead-intake' );
 			case self::ALARM_WYCISZONY:
-				return __( '[alarm: wyciszony — z tego samego miejsca poszedł już w ciągu ostatnich 15 minut]', 'mp-lead-intake' );
+				/*
+				 * Czas WYLICZONY ze stałej, nie wpisany w zdanie. Etykieta podawała
+				 * człowiekowi „15 minut" jako tekst, a długość wyciszenia ustawiał
+				 * `set_transient()` w dwóch innych miejscach tego pliku. Zmiana
+				 * któregokolwiek z nich zostawiłaby wpis mówiący co innego, niż
+				 * zrobił kod — czyli dokładnie ten rozjazd, przed którym broni
+				 * `failure_throttle_key()`.
+				 */
+				return sprintf(
+					/* translators: %d: liczba minut, przez które alarm z tego samego miejsca jest wyciszony. */
+					__( '[alarm: wyciszony — z tego samego miejsca poszedł już w ciągu ostatnich %d minut]', 'mp-lead-intake' ),
+					(int) ( self::WYCISZENIE_ALARMU / MINUTE_IN_SECONDS )
+				);
 			case self::ALARM_NIEUDANY:
 				return __( '[alarm: NIE dotarł do administratora]', 'mp-lead-intake' );
 		}
@@ -177,7 +211,7 @@ class MP_Pipeline_Logger {
 
 		$meta['alarm'] = $stan;
 
-		$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$wynik = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			MP_Lead_Intake_DB::activity_log_table(),
 			array(
 				'description' => $opis . ' ' . $this->etykieta_alarmu( $stan ),
@@ -185,6 +219,27 @@ class MP_Pipeline_Logger {
 			),
 			array( 'id' => $wpis_id )
 		);
+
+		/*
+		 * NIEUDANE OZNACZENIE MA ZOSTAWIĆ ŚLAD.
+		 *
+		 * Wynik `update()` nie był sprawdzany, więc gdy zapis nie przeszedł, wpis
+		 * zostawał z opisem BEZ etykiety alarmu i z `meta_json` mówiącym
+		 * `alarm = 'nieustalony'` — czyli dokładnie w stanie, przed którym broni
+		 * docblock tej metody, i bez jednego znaku, że oznaczenie się nie udało.
+		 * Czytający dziennik nie miał jak odróżnić „alarmu nie wysłano" od
+		 * „alarm wysłano, ale nie zdążyliśmy tego zapisać".
+		 *
+		 * Do dziennika tego nie dopiszemy — właśnie zawiódł zapis do dziennika.
+		 * Zostaje log serwera, ten sam kanał, którym idzie nieudana poczta.
+		 */
+		if ( false === $wynik ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log(
+				'[MP Lead Intake] Nie udalo sie oznaczyc losu alarmu we wpisie dziennika #'
+				. $wpis_id . ' (los: ' . $stan . '); powod: ' . $wpdb->last_error
+			);
+		}
 	}
 
 	/**
@@ -399,7 +454,7 @@ class MP_Pipeline_Logger {
 
 			return;
 		}
-		set_transient( $throttle_key, 1, 15 * MINUTE_IN_SECONDS );
+		set_transient( $throttle_key, 1, self::WYCISZENIE_ALARMU );
 
 		$to = get_option( 'admin_email' );
 
@@ -572,7 +627,7 @@ class MP_Pipeline_Logger {
 
 			return;
 		}
-		set_transient( $throttle_key, 1, 15 * MINUTE_IN_SECONDS );
+		set_transient( $throttle_key, 1, self::WYCISZENIE_ALARMU );
 
 		$to = get_option( 'admin_email' );
 

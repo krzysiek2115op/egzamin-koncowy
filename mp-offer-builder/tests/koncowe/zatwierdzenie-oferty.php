@@ -398,7 +398,31 @@ if ( ! class_exists( 'MP_Lead_Intake_DB' ) || ! class_exists( 'MP_Sales_Workflow
 	$oferta3 = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$offers_t} WHERE lead_id = %d", $lead3 ), ARRAY_A ); // phpcs:ignore
 	mz_ok( is_array( $oferta3 ), 'E1: szkic dla leada-fixture powstal' );
 
-	$numer3 = sprintf( 'OF/2999/9%05d', $seria % 100000 );
+	/*
+	 * NUMER MUSI SIE ROZNIC OD SEKCJI C — I TO ZAWSZE, NIE PRZEWAZNIE.
+	 *
+	 * Bylo `sprintf( 'OF/2999/9%05d', $seria % 100000 )`, a sekcja C uzywa
+	 * `sprintf( 'OF/2999/%06d', $seria % 1000000 )`. Gdy szesciocyfrowa seria
+	 * ZACZYNA SIE OD DZIEWIATKI, oba wyrazenia daja DOKLADNIE ten sam numer:
+	 * dla seria = 901437 wychodzi „OF/2999/901437" w obu miejscach. Wtedy UPDATE
+	 * w tej sekcji odbija sie o `uq_offer_number_version`, oferta zostaje bez
+	 * numeru i bez PDF-a, a `approve()` odmawia kodem `no_document` — czyli test
+	 * oskarza kod o blad, ktorego nie ma.
+	 *
+	 * `substr( time(), -6 )` zaczyna sie od dziewiatki przez okolo 100 000 sekund
+	 * (~28 h) na kazde 1 000 000 (~11,6 dnia). Test przechodzil wiec przez wiele
+	 * wydan i padal w oknie, ktore trwa ponad dobe.
+	 *
+	 * Ten sam wzor i jawne przesuniecie — a niżej asercja, ze trzy numery uzyte
+	 * w tym pliku sa naprawde rozne.
+	 */
+	$numer3 = sprintf( 'OF/2999/%06d', ( $seria + 300000 ) % 1000000 );
+
+	mz_ok(
+		$numer3 !== $numer && $numer3 !== sprintf( 'OF/2999/%06d', ( $seria + 7 ) % 1000000 ),
+		'E1b: numer tej sekcji rozni sie od numerow sekcji C i F',
+		'C=' . $numer . ' E=' . $numer3
+	);
 	$wpdb->update( // phpcs:ignore
 		$offers_t,
 		array(

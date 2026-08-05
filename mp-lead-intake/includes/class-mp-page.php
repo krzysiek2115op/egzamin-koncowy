@@ -117,10 +117,18 @@ class MP_Lead_Intake_Page {
 		 * z własnymi statusami wskazówka prowadziła na listę bez tego wpisu.
 		 * Dla takich statusów podajemy identyfikator: `post.php?post=<ID>` działa
 		 * niezależnie od tego, na której liście wpis się pokazuje.
+		 *
+		 * Status NIEZAREJESTROWANY idzie tą samą drogą, i to z dwóch powodów.
+		 * Po pierwsze lista „Wszystkie strony" filtruje po statusach znanych
+		 * WordPressowi, więc wpisu w statusie po wyłączonej wtyczce tam nie ma.
+		 * Po drugie tylko w tym przypadku do zdania trafia surowy slug — nie ma
+		 * skąd wziąć etykiety — więc administrator czyta nazwę, której nie znajdzie
+		 * w panelu; identyfikator jest wtedy jedyną informacją, z którą da się
+		 * cokolwiek zrobić.
 		 */
 		if ( 'trash' === $wpis->post_status ) {
 			$gdzie = __( 'Strony → Kosz', 'mp-lead-intake' );
-		} elseif ( ! $obiekt || ! empty( $obiekt->show_in_admin_all_list ) ) {
+		} elseif ( $obiekt && ! empty( $obiekt->show_in_admin_all_list ) ) {
 			$gdzie = __( 'Strony → Wszystkie strony', 'mp-lead-intake' );
 		} else {
 			$gdzie = sprintf(

@@ -73,6 +73,16 @@ RODO/GDPR:
   dokumentu. Trzy przypadki mają teraz trzy zdania.
 * Stopki materiałów dla klienta biorą numer wersji z nagłówka wtyczki. Mówiły
   „v1.0.3" przy wtyczce na 1.3.10, bo numer był wpisany w źródłach z ręki.
+* Wariant wycofanego produktu nie wchodzi już do oferty. WooCommerce przy
+  wycofaniu produktu zmiennego z katalogu zmienia status tylko wpisu głównego —
+  warianty zostają „opublikowane", więc kontrola patrzyła o jeden poziom za
+  płytko i pozycja trafiała na dokument dla klienta.
+* Kontrola właściciela oferty działa także dla żądania bez zalogowanego
+  użytkownika. Wyłączała się dla każdego takiego żądania, nie tylko dla zadań
+  w tle — czyli dokładnie w sytuacji, na którą została zaprojektowana.
+* Ponowne zatwierdzenie oferty, którą ktoś zatwierdził przed chwilą, mówi teraz
+  o tym wprost, zamiast polecać zgłoszenie administratorowi stanu, który jest
+  najzupełniej normalny.
 
 = 1.3.10 =
 * Paczka instalacyjna slucha wreszcie pliku .distignore. Zmiana zapowiadana

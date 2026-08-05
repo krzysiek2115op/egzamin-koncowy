@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-05T02:32:28+00:00\n"
+"POT-Creation-Date: 2026-08-05T03:59:07+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: mp-lead-intake\n"
@@ -170,12 +170,12 @@ msgid "Dziękujemy! Zapytanie zostało zarejestrowane."
 msgstr ""
 
 #: includes/class-mp-form.php:111
-#: includes/class-mp-page.php:638
+#: includes/class-mp-page.php:646
 msgid "Zapytanie ofertowe"
 msgstr ""
 
 #: includes/class-mp-form.php:112
-#: includes/class-mp-page.php:697
+#: includes/class-mp-page.php:705
 msgid "Wypełnij formularz zapytania ofertowego, a nasz zespół skontaktuje się z Tobą z indywidualną ofertą."
 msgstr ""
 
@@ -225,47 +225,47 @@ msgstr ""
 msgid "Strona z formularzem została usunięta. Opublikuj nową stronę zawierającą krótki kod %s."
 msgstr ""
 
-#: includes/class-mp-page.php:122
+#: includes/class-mp-page.php:130
 msgid "Strony → Kosz"
 msgstr ""
 
-#: includes/class-mp-page.php:124
+#: includes/class-mp-page.php:132
 msgid "Strony → Wszystkie strony"
 msgstr ""
 
 #. translators: %d: identyfikator wpisu WordPressa.
-#: includes/class-mp-page.php:128
+#: includes/class-mp-page.php:136
 #, php-format
 msgid "edytorze wpisu o identyfikatorze %d (lista „Wszystkie strony\" statusów tego rodzaju nie pokazuje)"
 msgstr ""
 
 #. translators: 1: etykieta statusu wpisu, np. „Szkic”. 2: miejsce w panelu, np. „Strony → Kosz”.
-#: includes/class-mp-page.php:135
+#: includes/class-mp-page.php:143
 #, php-format
 msgid "Strona z formularzem istnieje, ale ma status „%1$s\" zamiast „opublikowana\" — klienci jej nie zobaczą. Przywróć ją do publikacji w %2$s."
 msgstr ""
 
-#: includes/class-mp-page.php:248
+#: includes/class-mp-page.php:256
 msgid "WordPress odrzucił zapis strony bez podania przyczyny."
 msgstr ""
 
-#: includes/class-mp-page.php:518
+#: includes/class-mp-page.php:526
 msgid "Strona z formularzem zapytania ofertowego NIE POWSTAŁA podczas aktywacji, więc klienci nie mają gdzie go wypełnić. Wyłącz i włącz wtyczkę ponownie albo utwórz stronę ręcznie, wstawiając na niej krótki kod:"
 msgstr ""
 
-#: includes/class-mp-page.php:520
+#: includes/class-mp-page.php:528
 msgid "Powód zgłoszony przez WordPress:"
 msgstr ""
 
-#: includes/class-mp-page.php:572
+#: includes/class-mp-page.php:580
 msgid "Twój motyw ma lokalizacje menu, ale żadna nie ma PRZYPISANEGO menu — nie było więc gdzie wstawić linku. Przypisz menu w Wygląd → Menu, a link do formularza dołoży się sam przy następnej aktywacji. Możesz też dodać ręcznie link do:"
 msgstr ""
 
-#: includes/class-mp-page.php:576
+#: includes/class-mp-page.php:584
 msgid "Menu motywu jest przypisane, ale WordPress nie zapisał w nim pozycji z linkiem do formularza (mogła to zablokować inna wtyczka albo uprawnienia). Dodaj ręcznie link do:"
 msgstr ""
 
-#: includes/class-mp-page.php:579
+#: includes/class-mp-page.php:587
 msgid "Twój motyw nie rejestruje standardowego menu WordPressa — wtyczka spróbowała automatycznie dołożyć link do formularza w wykrytym menu strony (element <nav>). Sprawdź na stronie, czy się pojawił; jeśli nie, dodaj ręcznie link do:"
 msgstr ""
 
@@ -281,38 +281,46 @@ msgstr ""
 msgid "Zanonimizowano zgłoszenia: %d."
 msgstr ""
 
-#: includes/pipeline/class-mp-pipeline-logger.php:100
+#. translators: %d: numer działu pipeline'u.
+#: includes/pipeline/class-mp-pipeline-logger.php:116
+#, php-format
+msgid "dziale %d"
+msgstr ""
+
+#: includes/pipeline/class-mp-pipeline-logger.php:122
 msgid "nieustalonym miejscu pipeline'u"
 msgstr ""
 
 #. translators: %s: plik i linia, w których powstał wyjątek.
-#: includes/pipeline/class-mp-pipeline-logger.php:105
+#: includes/pipeline/class-mp-pipeline-logger.php:127
 #, php-format
 msgid "nieustalonym miejscu pipeline'u (%s)"
 msgstr ""
 
-#: includes/pipeline/class-mp-pipeline-logger.php:138
+#: includes/pipeline/class-mp-pipeline-logger.php:160
 msgid "[alarm: wysłany do administratora]"
 msgstr ""
 
-#: includes/pipeline/class-mp-pipeline-logger.php:140
-msgid "[alarm: wyciszony — z tego samego miejsca poszedł już w ciągu ostatnich 15 minut]"
+#. translators: %d: liczba minut, przez które alarm z tego samego miejsca jest wyciszony.
+#: includes/pipeline/class-mp-pipeline-logger.php:172
+#, php-format
+msgid "[alarm: wyciszony — z tego samego miejsca poszedł już w ciągu ostatnich %d minut]"
 msgstr ""
 
-#: includes/pipeline/class-mp-pipeline-logger.php:142
+#: includes/pipeline/class-mp-pipeline-logger.php:176
 msgid "[alarm: NIE dotarł do administratora]"
 msgstr ""
 
-#: includes/pipeline/class-mp-pipeline-logger.php:145
+#: includes/pipeline/class-mp-pipeline-logger.php:179
 msgid "[alarm: los nieustalony]"
 msgstr ""
 
-#: includes/pipeline/class-mp-pipeline-logger.php:217
+#: includes/pipeline/class-mp-pipeline-logger.php:272
 msgid "wp_mail() zgłosiło niepowodzenie; przyczyny kod nie zna — sprawdź konfigurację poczty, adres w ustawieniach witryny i wtyczki podpięte pod wysyłkę."
 msgstr ""
 
 #. translators: %s: klasa wyjątku, np. RuntimeException.
-#: includes/pipeline/class-mp-pipeline-logger.php:331
+#: includes/pipeline/class-mp-pipeline-logger.php:386
 #, php-format
 msgid "wyjątek bez komunikatu (typ: %s)"
 msgstr ""

@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-05T02:32:29+00:00\n"
+"POT-Creation-Date: 2026-08-05T03:59:08+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: mp-sales-workflow\n"
@@ -596,38 +596,38 @@ msgid "Zmiana statusu bez statusu docelowego."
 msgstr ""
 
 #. translators: %s: status docelowy z żądania.
-#: includes/pipeline/departments/class-mp-sw-department-05.php:391
+#: includes/pipeline/departments/class-mp-sw-department-05.php:406
 #, php-format
 msgid "Status „%s\" nie istnieje w słowniku statusów — stan bez zmian."
 msgstr ""
 
 #. translators: 1: status źródłowy, 2: status docelowy.
-#: includes/pipeline/departments/class-mp-sw-department-05.php:396
+#: includes/pipeline/departments/class-mp-sw-department-05.php:411
 #, php-format
 msgid "Przejście %1$s → %2$s spoza słownika — stan bez zmian."
 msgstr ""
 
 #. translators: 1: status żądany przez zdarzenie, 2: status z tablicy przejścia.
-#: includes/pipeline/departments/class-mp-sw-department-05.php:531
+#: includes/pipeline/departments/class-mp-sw-department-05.php:546
 #, php-format
 msgid "Przejście prowadzi gdzie indziej niż żądanie zdarzenia — zdarzenie: %1$s, przejście: %2$s."
 msgstr ""
 
 #. translators: 1: skutki nadmiarowe, 2: skutki brakujące.
-#: includes/pipeline/departments/class-mp-sw-department-05.php:568
+#: includes/pipeline/departments/class-mp-sw-department-05.php:583
 #, php-format
 msgid "Skutki niezgodne z regułą przejścia — nadmiarowe: %1$s, brakujące: %2$s"
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-05.php:579
+#: includes/pipeline/departments/class-mp-sw-department-05.php:594
 msgid "Skutek set_sla bez wyliczonego terminu."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-05.php:626
+#: includes/pipeline/departments/class-mp-sw-department-05.php:641
 msgid "Przejście nierozstrzygnięte przez maszynę statusów."
 msgstr ""
 
-#: includes/pipeline/departments/class-mp-sw-department-05.php:636
+#: includes/pipeline/departments/class-mp-sw-department-05.php:651
 msgid "Decyzja bez wersji słownika przejść."
 msgstr ""
 

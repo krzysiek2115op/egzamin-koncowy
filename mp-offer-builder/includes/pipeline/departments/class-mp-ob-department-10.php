@@ -40,6 +40,37 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 
+	/**
+	 * Czy zapisujący jest wobec tej oferty PODMIOTEM OBCYM.
+	 *
+	 * Decyzja wyjęta z `run()` do osobnej metody nie dla elegancji, tylko dlatego,
+	 * że inaczej nie da się jej sprawdzić testem. Testy chodzą pod WP-CLI, gdzie
+	 * `WP_CLI` jest zdefiniowane ZAWSZE — przebieg z definicji wygląda więc na
+	 * bezsesyjny i przypadku „żądanie HTTP bez zalogowanego użytkownika" nie da
+	 * się w nim odtworzyć przez uruchomienie agenta. Metoda przyjmuje tryb jako
+	 * ARGUMENT, więc ten przypadek jest sprawdzalny wprost.
+	 *
+	 * Reguła: gdy podmiot JEST, decyduje porównanie tożsamości. Gdy podmiotu nie
+	 * ma, decyduje to, czy przebieg jest bezsesyjny z natury (cron, WP-CLI) — bo
+	 * tylko tam brak użytkownika jest normalnym stanem rzeczy, a nie brakiem
+	 * sesji w żądaniu, które sesję mieć powinno.
+	 *
+	 * @param int  $wlasciciel Właściciel oferty (`created_by`); 0 = oferta niczyja.
+	 * @param int  $biezacy    Bieżący użytkownik; 0 = brak podmiotu.
+	 * @param bool $bezsesyjny Czy przebieg jest bezsesyjny z natury (cron/WP-CLI).
+	 * @return bool
+	 */
+	public static function obcy_podmiot( $wlasciciel, $biezacy, $bezsesyjny ) {
+		$wlasciciel = (int) $wlasciciel;
+		$biezacy    = (int) $biezacy;
+
+		if ( $biezacy > 0 ) {
+			return $biezacy !== $wlasciciel;
+		}
+
+		return ! $bezsesyjny;
+	}
+
 	/** Limity długości pól tekstowych — lustro schematu w class-mp-offer-builder-db.php. */
 	const FIELD_LIMITS = array(
 		'offer_number'      => 30,
@@ -167,34 +198,50 @@ class MP_OB_D10_Agent_Plan extends MP_OB_Abstract_Agent {
 		// własność jeszcze raz, tuż przed zapisem, niezależnym odczytem z Działu 2.
 
 		/*
-		 * Kontrola ma sens tylko wtedy, gdy sa OBIE strony: wlasciciel i ten,
-		 * kto probuje zapisac. Zero po ktorejkolwiek stronie to nie „ktos inny",
-		 * tylko BRAK PODMIOTU:
+		 * Kontrola ma sens tylko wtedy, gdy jest wlasciciel: `$wlasciciel === 0`
+		 * to oferta niczyja (nowa albo sprzed normalizacji) i nie ma tu czego
+		 * bronic.
 		 *
-		 *   - `$wlasciciel === 0` — oferta niczyja (nowa albo sprzed normalizacji);
-		 *   - `$biezacy === 0`    — zapis bez zalogowanego uzytkownika, czyli cron
-		 *     albo WP-CLI. Ta sciezka nie ma sesji przegladarki, wiec nie ma tu
-		 *     czego bronic przed IDOR-em, a `current_user_can()` bez uzytkownika
-		 *     jest zawsze falszem — warunek odmawial wiec KAZDEJ ofercie
-		 *     z wlascicielem w trybie, ktory docblock wyzej opisuje jako
-		 *     obslugiwany.
+		 * BRAK ZALOGOWANEGO UZYTKOWNIKA TO DWIE ROZNE SYTUACJE.
 		 *
-		 * Obcy ZALOGOWANY uzytkownik dostaje odmowe jak dotad — to jest ten
-		 * przypadek, dla ktorego ta obrona w glab powstala.
+		 * Warunek brzmial `$biezacy > 0` i traktowal je jednakowo, wiec obrona
+		 * wylaczala sie dla KAZDEGO zadania bez sesji — takze dla zwyklego
+		 * zadania HTTP od goscia. Czyli dokladnie w sytuacji, dla ktorej ta
+		 * warstwa powstala: „gdyby kontrola w Dziale 1 zawiodla albo zostala
+		 * ominieta". Gosc z cudzym `offer_id` planowal UPDATE cudzej oferty
+		 * (klient, pozycje, kwoty, sciezka PDF), a `created_by` zostawalo przy
+		 * poprzednim wlascicielu — podmiana nie zostawiala sladu.
 		 *
-		 * Audyt zaproponowal, zeby zamiast `$biezacy > 0` pytac o TRYB uruchomienia
-		 * (`wp_doing_cron()`, `WP_CLI`) — bo brak zalogowanego uzytkownika zdarza sie
-		 * takze przy zwyklym zadaniu HTTP od goscia. Sprawdzone i ODRZUCONE:
-		 * pod WP-CLI stala `WP_CLI` jest zdefiniowana ZAWSZE, takze wtedy, gdy
-		 * przebieg ma ustawionego uzytkownika przez `wp_set_current_user()`.
-		 * Warunek na tryb wylaczalby wiec obrone rowniez dla OBCEGO ZALOGOWANEGO
-		 * uzytkownika — czyli dokladnie w przypadku, dla ktorego powstala.
-		 * Zlapal to test `wlasciciel-oferty-i-wersji.php`.
+		 * Rozdzielenie: przebieg BEZSESYJNY Z NATURY (cron, WP-CLI) nie ma
+		 * przegladarki ani zadnego podmiotu do porownania, a `current_user_can()`
+		 * bez uzytkownika jest zawsze falszem — tam kontrole pomijamy, inaczej
+		 * odmawialaby KAZDEJ ofercie z wlascicielem w trybie, ktory docblock
+		 * wyzej opisuje jako obslugiwany. Zadanie HTTP bez sesji przebiegiem
+		 * bezsesyjnym nie jest i dostaje odmowe.
 		 *
-		 * Pytanie „czy jest podmiot" (`$biezacy > 0`) jest wlasciwe: gdy podmiotu
-		 * nie ma, nie ma czego porownywac, a `current_user_can()` i tak zwroci falsz.
+		 * UWAGA NA POPRZEDNIA, BLEDNA PROBE. Wczesniejsza wersja tej poprawki
+		 * pytala WYLACZNIE o tryb uruchomienia, bez `$biezacy`. Pod WP-CLI stala
+		 * `WP_CLI` jest zdefiniowana ZAWSZE, takze gdy przebieg ma ustawionego
+		 * uzytkownika przez `wp_set_current_user()` — obrona znikala wiec rowniez
+		 * dla OBCEGO ZALOGOWANEGO uzytkownika. Zlapal to test
+		 * `wlasciciel-oferty-i-wersji.php`. Dlatego tryb rozstrzyga TYLKO wtedy,
+		 * gdy podmiotu naprawde nie ma; gdy jest, decyduje porownanie tozsamosci.
 		 */
-		if ( $wlasciciel > 0 && $biezacy > 0 && $biezacy !== $wlasciciel && ! current_user_can( 'manage_options' ) ) {
+
+		/*
+		 * `function_exists()` nie jest ostroznoscia na wyrost: harness procesu
+		 * (`tests/process-harness/run-process.php`) uruchamia ten pipeline BEZ
+		 * WordPressa, na wlasnych zaslepkach, i `wp_doing_cron()` tam nie istnieje.
+		 * Brak tego sprawdzenia wywalal caly harness bledem krytycznym. Przebieg
+		 * bez WordPressa jest z definicji bezsesyjny — nie ma tam ani crona, ani
+		 * przegladarki.
+		 */
+		$bezsesyjny = ! function_exists( 'wp_doing_cron' )
+			|| wp_doing_cron()
+			|| ( defined( 'WP_CLI' ) && WP_CLI );
+		$obcy       = self::obcy_podmiot( $wlasciciel, $biezacy, $bezsesyjny );
+
+		if ( $wlasciciel > 0 && $obcy && ! current_user_can( 'manage_options' ) ) {
 			return MP_OB_Result::fail( 'Brak uprawnień do zapisu wskazanej oferty.', array(), 'not_offer_owner' );
 		}
 

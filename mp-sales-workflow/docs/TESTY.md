@@ -200,7 +200,7 @@ Uczciwa granica zakresu:
 
 ## Stan na wydanie 1.3.11 (04.08.2026)
 
-Regresja **93/93** na bazie od zera, PHPCS kod wyjścia **0**. Wydanie powstawało
+Regresja **94/94** na bazie od zera, PHPCS kod wyjścia **0**. Wydanie powstawało
 w kilku rundach; niżej wszystkie pliki testowe, jakie w nich przybyły — każdy
 napisany PRZED naprawą i uruchomiony, żeby zobaczyć, jak pada.
 
@@ -235,6 +235,44 @@ i 11/11):
   sumy kontrolnej NIP rozróżnia „policzono i nie zgadza się" od „nie policzono";
   wynik weryfikacji VAT ma jedno kryterium prawdziwości; komunikat o stanie
   strony podaje etykietę statusu i miejsce, które tę stronę naprawdę pokazuje.
+
+### Druga runda po finalnym audycie
+
+Audyt puszczony PO tamtych naprawach przyniósł cztery ustalenia średniej wagi.
+Dwa z nich dotyczyły kodu dopisanego godzinę wcześniej — pisanie kodu i pisanie
+błędów to ta sama czynność.
+
+- `mp-offer-builder/tests/naprawy/wariant-wycofanego-produktu.php` (16 asercji) —
+  wariant wycofanego produktu nie wchodzi do oferty (sekcja A zawiera POMIAR:
+  po przełączeniu rodzica na szkic wariant nadal raportuje `publish`), a kontrola
+  właściciela oferty działa również dla żądania bez sesji.
+
+Decyzja warta odnotowania: reguła „kto jest podmiotem obcym" została **wyjęta
+z `run()` do osobnej metody**, bo inaczej nie dałoby się jej sprawdzić. Testy
+chodzą pod WP-CLI, gdzie stała `WP_CLI` jest zdefiniowana zawsze — przebieg
+z definicji wygląda tam na bezsesyjny i przypadku „żądanie HTTP bez zalogowanego
+użytkownika" nie da się odtworzyć uruchomieniem agenta.
+
+### Dwa testy, które kłamały o kodzie
+
+Ta runda złapała też dwa **fałszywe alarmy w samych testach** — oba klasy
+„test zależny od czegoś, co nie jest kodem".
+
+`ekran-leadow.php` renderował jeden ekran i szukał w nim zasianych leadów, czyli
+milcząco zakładał, że cała tabela mieści się na jednej stronie. Przy 25 leadach
+z wyższą punktacją (`PER_PAGE = 25`, sortowanie po punktacji) zasiany lead
+wypadał na stronę drugą i test zaczynał oskarżać kod o błąd, którego nie ma —
+w bramce kryterium odbioru U-5.
+
+`zatwierdzenie-oferty.php` budował dwa numery ofert z tego samego znacznika
+czasu dwoma różnymi wzorami: `OF/2999/%06d` i `OF/2999/9%05d`. Gdy sześciocyfrowa
+seria zaczyna się od dziewiątki, oba dają **ten sam numer** — zapis odbijał się
+o klucz unikalności, oferta zostawała bez numeru i PDF-a, a zatwierdzenie
+odmawiało kodem `no_document`. Okno trwa ~28 godzin i wraca co ~11,6 dnia.
+Zmierzone, nie zgadnięte: `Duplicate entry 'OF/2999/901437-1'`.
+
+Obie naprawy są w testach, nie w kodzie wtyczek. Metoda z poprzednich rund:
+**kod zły → naprawa; reguła zła → zawężenie reguły i test na to zawężenie.**
 
 ### Kontr-asercja jako dowód, nie jako przeszkoda
 

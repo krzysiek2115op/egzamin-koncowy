@@ -91,6 +91,21 @@ class MP_Offer_Builder_Approval {
 			return __( 'Oferta nie ma zapisanego stanu, więc nie da się jej zatwierdzić — zgłoś to administratorowi, bo wiersz w bazie jest niekompletny.', 'mp-offer-builder' );
 		}
 
+		/*
+		 * DWIE PRZYCZYNY, DWA ZAKONCZENIA ZDANIA.
+		 *
+		 * Zdanie „Stan spoza słownika dokumentu zgłoś administratorowi" doklejało
+		 * się BEZWARUNKOWO, a ta metoda wraca — zgodnie z własnym docblokiem —
+		 * także po nieudanym UPDATE. Najczęstsza przyczyna takiego nieudanego
+		 * zapisu to zwykły wyścig: ktoś zatwierdził tę ofertę pierwszy, więc stan
+		 * brzmi `approved` i jest jak najbardziej w słowniku. Handlowiec dostawał
+		 * polecenie zgłoszenia administratorowi sytuacji, która nie jest awarią,
+		 * a prawdziwa informacja — „ktoś Cię ubiegł" — do niego nie docierała.
+		 */
+		if ( MP_Offer_Builder_DB::STATUS_APPROVED === $status ) {
+			return __( 'Ta oferta została już zatwierdzona — być może przez kogoś innego przed chwilą. Odśwież widok, żeby zobaczyć jej aktualny stan.', 'mp-offer-builder' );
+		}
+
 		return sprintf(
 			/* translators: %s: status zapisany przy ofercie. */
 			__( 'Oferta jest w stanie „%s", z którego nie da się jej zatwierdzić — zatwierdzać można wyłącznie szkice. Stan spoza słownika dokumentu zgłoś administratorowi.', 'mp-offer-builder' ),
