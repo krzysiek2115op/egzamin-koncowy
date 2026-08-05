@@ -1840,6 +1840,32 @@
       "lekcja": "NIE NAPRAWIONE SWIADOMIE. `assigned` to JEDYNE wyjscie ze statusu `new` w slowniku — nawet oznaczenie procesu jako przegrany wymaga przejscia tamtedy. Odmowa uwiezilaby procesy zalozone, gdy nie ma zadnego handlowca, czyli odtworzyla blad naprawiony w 1.3.7. Test `odbiorcy-niekompletni.php` juz raz obronil przed „naprawa\" w te strone i ma na to pomiar. Decyzja nalezy do klienta: albo SLA nie startuje bez wlasciciela, albo status.change wymaga wskazania handlowca w tej samej kopercie.",
       "test": "mp-sales-workflow/tests/naprawy/odbiorcy-niekompletni.php (kontr-asercje przeciw bledna naprawie)",
       "para": "1.25"
+    },
+    {
+      "id": "U-73",
+      "data": "2026-08-05",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Mechanizm podatkowy spoza slownika konczyl sie zerowym VAT-em",
+      "klasa": "ciche-zero-na-dokumencie",
+      "plik": "mp-offer-builder/includes/pipeline/departments/class-mp-ob-department-06.php",
+      "dowod": "Agent 6.2 pytal wylacznie o rownosc z `'domestic'`. Kazda inna wartosc — literowka, wartosc z innej dziedziny, a przede wszystkim domyslny pusty lancuch z `get( 'tax_mechanism', '' )` — szla galezia zerowego VAT-u.",
+      "skutek": "Zero z BRAKU DECYZJI wygladalo identycznie jak zero Z PRAWA. W pelnym przebiegu sciezka nie powstaje (agent 6.1 oddaje jedna z trzech wartosci, K6.1 pilnuje pola), ale to ten sam ksztalt bledu, ktory w TYM SAMYM wydaniu naprawiono w Dziale 10 — a roznica trafia na dokument wychodzacy do klienta.",
+      "lekcja": "Naprawa w jednym dziale, a w drugim nie, znaczylaby, ze regula zalezy od tego, ktoredy dane przyszly. Stala `MECHANIZMY` zamyka liste, a kontr-asercja w tescie porownuje OBA konce — czwarty mechanizm dodany w 6.1 zglosi sie w 6.2 zanim zglosi sie na fakturze.",
+      "test": "mp-offer-builder/tests/naprawy/mechanizm-vat-ze-slownika.php",
+      "para": "1.25"
+    },
+    {
+      "id": "U-74",
+      "data": "2026-08-05",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Komunikat o odrzuconym adresie wymienial tylko dwa z wielu powodow",
+      "klasa": "komunikat-wezszy-niz-regula",
+      "plik": "mp-lead-intake/includes/pipeline/departments/class-mp-department-02.php",
+      "dowod": "Odmowa z powodu `email_zmieniony` obejmuje kazdy znak spoza waskiego zbioru `sanitize_email()`, a komunikat (dopisany w tej samej rundzie) wskazywal wylacznie polskie litery i spacje.",
+      "skutek": "Adres odrzucony z innego powodu zostawal bez wskazowki, co poprawic — czyli ta sama klasa bledu, ktora ten komunikat mial usunac. Ustalenie z audytu na tekscie dopisanym godzine wczesniej.",
+      "lekcja": "Komunikat ma mowic, CO jest nie tak i CO zrobic; przyklady podaje jako najczestsze, nie jako komplet. Wyliczanie zamkniete jest bezpieczne tylko wtedy, gdy regula tez jest zamknieta.",
+      "test": "mp-lead-intake/tests/naprawy/dane-klienta-nie-sa-podmieniane.php, sekcja A",
+      "para": "1.25"
     }
   ]
 }
