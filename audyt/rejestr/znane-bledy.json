@@ -2067,6 +2067,20 @@
       "test": "",
       "para": "1.15",
       "uwaga": "Naprawione w 1.3.12: pliki usuniete ze sledzenia, wzorce dopisane do .gitignore. Brak testu — bramka repo nie oglada .gitignore."
+    },
+    {
+      "id": "ODB-1",
+      "data": "2026-08-05",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "WooCommerce wypychal handlowca i managera z panelu — role nie docieraly do wlasnych ekranow",
+      "klasa": "blokada-w-cudzej-wtyczce",
+      "plik": "mp-sales-workflow/includes/class-mp-sw-roles.php, mp-sales-workflow/mp-sales-workflow.php",
+      "dowod": "`GET /wp-admin/admin.php?page=mp-sales-workflow` zalogowanym uzytkownikiem w roli `mp_handlowiec` konczyl sie `302` na `/my-account/`. WooCommerce filtrem `woocommerce_prevent_admin_access` wyrzuca z panelu kazdego bez `edit_posts` i `manage_woocommerce`; role wtyczki maja `read` i uprawnienia wlasne.",
+      "skutek": "Na KAZDEJ instalacji zgodnej z wymaganiami produktu (wtyczka 2 wymaga WooCommerce) dwie z trzech rol nie mialy dostepu do jedynego ekranu, ktory wtyczka dla nich robi. Kryterium odbioru 5.4 („dzialajace role”) bylo w praktyce niespelnione, choc wszystkie testy uprawnien przechodzily.",
+      "lekcja": "Regresja WOLA FUNKCJE, nie klika: `current_user_can()` odpowiadalo poprawnie, bo uprawnienia byly poprawne — blokada stala pietro wyzej, w cudzej wtyczce. Zadne narzedzie ogladajace tylko NASZ kod tego nie zobaczy. Pytanie „czy czlowiek w tej roli dojdzie do tego ekranu” wymaga zalogowania sie i wejscia.",
+      "test": "mp-sales-workflow/tests/naprawy/rola-nie-jest-wypychana-z-panelu.php (16 asercji) + raporty/ODBIOR-1.3.12.md, sekcja E",
+      "para": "1.15",
+      "uwaga": "Naprawione i opublikowane w 1.3.13. Przy okazji wyszlo, ze asercja „handlowiec nie oglada listy zgloszen” przechodzila WYLACZNIE dzieki tej blokadzie — ochrona przez przypadek. Handlowiec ma `mp_view_leads` i lista jest dla niego."
     }
   ]
 }
