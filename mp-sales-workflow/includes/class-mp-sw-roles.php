@@ -180,6 +180,44 @@ class MP_SW_Roles {
 	}
 
 	/**
+	 * Odpowiedź na pytanie WooCommerce, czy wypchnąć użytkownika z `/wp-admin/`.
+	 *
+	 * WooCommerce filtrem `woocommerce_prevent_admin_access` wyrzuca z panelu
+	 * każdego, kto nie ma `edit_posts` ani `manage_woocommerce`, i odsyła go na
+	 * stronę „Moje konto". Role tej wtyczki mają `read` i uprawnienia własne —
+	 * i tak ma zostać, bo handlowiec nie ma powodu edytować wpisów bloga.
+	 *
+	 * Skutek był jednak taki, że na KAŻDEJ instalacji zgodnej z wymaganiami
+	 * produktu (wtyczka 2 wymaga WooCommerce) handlowiec i manager dostawali
+	 * `302` na `/my-account/` zamiast jedynego ekranu, który ta wtyczka dla nich
+	 * robi. Znalezione dopiero wejściem na ten ekran prawdziwym logowaniem —
+	 * czytanie `current_user_can()` niczego by nie pokazało, bo uprawnienia są
+	 * poprawne; blokada stała piętro wyżej, w cudzej wtyczce.
+	 *
+	 * Odpowiadamy WĄSKO i tylko na cudze „tak":
+	 *  - decyzję zmieniamy wyłącznie posiadaczom NASZYCH uprawnień,
+	 *  - gdy WooCommerce nikogo nie wypycha, milczymy — inaczej wtyczka zaczęłaby
+	 *    wypychać ludzi z panelu na własną rękę,
+	 *  - nikomu niczego nie dodajemy: `edit_posts` nadal nie mają.
+	 *
+	 * @param bool $wypchnij Decyzja WooCommerce.
+	 * @return bool
+	 */
+	public static function pozwol_na_panel( $wypchnij ) {
+		if ( ! $wypchnij ) {
+			return $wypchnij;
+		}
+
+		foreach ( self::all_caps() as $cap ) {
+			if ( current_user_can( $cap ) ) {
+				return false;
+			}
+		}
+
+		return $wypchnij;
+	}
+
+	/**
 	 * Zakłada role wtyczki i doprowadza uprawnienia do stanu wzorcowego.
 	 *
 	 * Wywoływane przy aktywacji. Operacja jest idempotentna: `add_role()` nie

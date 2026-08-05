@@ -4,7 +4,7 @@ Tags: sprzedaz, crm, workflow, follow-up
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.3.12
+Stable tag: 1.3.13
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,6 +33,21 @@ rekordow SPF/DKIM/DMARC oraz blokady katalogu z ofertami PDF. Pelna checklista:
 powiadomien do klientow.
 
 == Changelog ==
+
+= 1.3.13 =
+* Handlowiec i manager wracaja do panelu. Na kazdej instalacji z WooCommerce —
+  a wtyczka 2 go wymaga — obie role wtyczki byly wyrzucane z `/wp-admin/` na
+  strone „Moje konto": WooCommerce odsyla stamtad kazdego bez uprawnienia do
+  edycji wpisow, a role sprzedazowe go nie maja i miec nie powinny. Skutek byl
+  taki, ze jedyny ekran, ktory ta wtyczka dla nich robi, byl dla nich
+  niedostepny. Odpowiadamy teraz WooCommerce, ze posiadacz uprawnien tej wtyczki
+  ma w panelu robote — waska, tylko dla wlasnych uprawnien, bez dokladania
+  komukolwiek czegokolwiek.
+
+Znalezione przy odbiorze wydania 1.3.12: wejsciem na ten ekran prawdziwym
+logowaniem, na czystej instalacji z pobranych paczek. Czytanie kodu uprawnien
+nic by nie pokazalo — uprawnienia byly poprawne, blokada stala pietro wyzej,
+w cudzej wtyczce.
 
 = 1.3.12 =
 * Wydanie porządkowe. Wtyczka nie dostała żadnej zmiany w działaniu — poprawione

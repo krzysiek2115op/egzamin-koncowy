@@ -22,7 +22,7 @@ danych między formularzem, WooCommerce i pocztą.
 |---|---------|--------|------|------|
 | 1 | `mp-lead-intake` | 1.3.12 | BD-3 | Przyjęcie i kwalifikacja lead-a z formularza |
 | 2 | `mp-offer-builder` | 1.3.12 | BD-2 | Kalkulacja cenowa, integracja WooCommerce, oferty PDF |
-| 3 | `mp-sales-workflow` | 1.3.12 | BD-1 | Statusy procesu, handlowiec, powiadomienia, follow-up, dashboard |
+| 3 | `mp-sales-workflow` | 1.3.13 | BD-1 | Statusy procesu, handlowiec, powiadomienia, follow-up, dashboard |
 
 Kolejność instalacji ma znaczenie: **1, potem 2, potem 3**. Wtyczka 2 nasłuchuje
 zdarzenia z wtyczki 1, a wtyczka 3 — zdarzeń z obu poprzednich. Gotowe paczki
@@ -249,6 +249,39 @@ co dałoby się wziąć za prawdziwy adres.
 
 Raporty z kolejnych przebiegów leżą w `audyt/raport-*.txt` na gałęzi
 `audyt-projektu`, a szczegółowy opis narzędzia — w `audyt/README.md`.
+
+---
+
+## Wydanie 1.3.13 — dwie z trzech ról nie docierały do własnych ekranów
+
+Znalezione **przy odbiorze 1.3.12** — nie czytaniem kodu, tylko wejściem na ekran
+prawdziwym logowaniem, na czystej instalacji postawionej z **pobranych** paczek.
+
+`GET /wp-admin/admin.php?page=mp-sales-workflow` zalogowanym handlowcem kończyło
+się **302 na `/my-account/`**. Powód stał piętro wyżej niż nasz kod: WooCommerce
+filtrem `woocommerce_prevent_admin_access` wyrzuca z panelu każdego bez
+`edit_posts` i `manage_woocommerce`. Role sprzedażowe mają `read` i uprawnienia
+własne — i tak ma zostać. Skutek: na **każdej** instalacji zgodnej z wymaganiami
+produktu (wtyczka 2 wymaga WooCommerce) handlowiec i manager nie mieli dostępu do
+jedynego ekranu, który wtyczka dla nich robi.
+
+Naprawa jest wąska i odpowiada tylko na cudze „tak": posiadaczom uprawnień tej
+wtyczki mówimy WooCommerce, że mają w panelu robotę. Nikomu niczego nie dodajemy —
+subskrybent nadal jest wypychany, a użytkownik bez uprawnienia dostaje `403`.
+
+**Dlaczego żadne z naszych narzędzi tego nie złapało.** Regresja *woła funkcje*,
+nie klika — `current_user_can()` odpowiadało poprawnie, bo uprawnienia były
+poprawne. Audyt czyta trzy nasze wtyczki i nie ogląda cudzych filtrów. Bramka repo
+porównuje wersje i paczki. Żaden z tych przyrządów nie zadaje pytania „czy człowiek
+w tej roli dojdzie do tego ekranu".
+
+**Wtyczki 1 i 2 zostają na 1.3.12** — nie miały żadnej zmiany. To pierwsze wydanie,
+w którym reguła *„wtyczka bez zmian nie dostaje numeru"* naprawdę się wykonuje;
+do 1.3.12 istniała w kodzie i nie została użyta ani razu.
+
+Zapis odbioru: [raporty/ODBIOR-1.3.12.md](raporty/ODBIOR-1.3.12.md) — przejście
+przez HTTP 42/42, dziesięć scenariuszy odbioru 102/102, demo z opublikowanego
+blueprintu 27/27.
 
 ---
 
