@@ -1983,6 +1983,48 @@
       "lekcja": "Gdy wprowadza sie znormalizowana zmienna, trzeba przejsc WSZYSTKIE porownania tego pola w metodzie, nie tylko to, ktore zglosil audyt.",
       "test": "mp-offer-builder/tests/naprawy/komunikat-stanu-oferty.php, sekcja C",
       "para": "1.26"
+    },
+    {
+      "id": "U-84",
+      "data": "2026-08-05",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "„NIP jest wymagany\" dla pola, ktore klient wypelnil",
+      "klasa": "komunikat-o-czyms-innym",
+      "plik": "mp-lead-intake/includes/pipeline/departments/class-mp-department-02.php",
+      "dowod": "Agent 2.3 widzi wartosc PO kanonizacji Dzialu 2.2, ktora dla Polski wycina wszystko poza cyframi. Wpis „---\", „brak\" czy „.-/\" redukuje sie do pustego lancucha i wpada w galaz „NIP jest wymagany\".",
+      "skutek": "Nadawca widzial swoj wpis w formularzu i obok komunikat twierdzacy, ze pola nie podal. Rada nie do wykonania, bo pole JEST wypelnione.",
+      "lekcja": "Rozroznienie bierzemy z wartosci SUROWEJ (`nip_surowy`), jedynej, ktora pamieta, co czlowiek wpisal. Same biale znaki to nadal PUSTE pole — kontr-asercja to utrwala, bo pierwsza wersja testu wrzucila je omylkowo do listy wpisow bez cyfr.",
+      "test": "mp-lead-intake/tests/naprawy/dane-klienta-nie-sa-podmieniane.php, sekcja F",
+      "para": "1.25",
+      "uwaga": "NAPRAWIONE PO WYDANIU 1.3.11 — jest w main, nie ma w opublikowanych paczkach 1.3.11."
+    },
+    {
+      "id": "U-85",
+      "data": "2026-08-05",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Krytyk 2.2 opisywal nieudana normalizacje pola, ktorego nikt nie wypelnil",
+      "klasa": "kod-odmowy-o-operacji-ktora-nie-zaszla",
+      "plik": "mp-lead-intake/includes/pipeline/departments/class-mp-department-02.php",
+      "dowod": "Krytyk zwracal `normalize_failed` i zdanie „Puste pole po normalizacji: X\" takze dla pol, ktorych klient w ogole nie wypelnil — nie bylo wtedy czego normalizowac.",
+      "skutek": "Kod odmowy i komunikat opisywaly operacje, ktora nigdy nie zaszla, i robily to ZAMIAST wyniku agenta 2.1, ktory ma na brak pola wlasny kod.",
+      "lekcja": "Kontr-asercja z rundy 7 utrwalila przy okazji stary kod. Poprawiona: pilnuje ROZROZNIENIA dwoch sytuacji („puste od poczatku\" kontra „sciete do pustego\"), a nie konkretnej nazwy — plus asercja, ze oba kody sa ROZNE.",
+      "test": "mp-lead-intake/tests/naprawy/dane-klienta-nie-sa-podmieniane.php, sekcja E",
+      "para": "1.25",
+      "uwaga": "NAPRAWIONE PO WYDANIU 1.3.11 — jest w main, nie ma w opublikowanych paczkach 1.3.11."
+    },
+    {
+      "id": "U-86",
+      "data": "2026-08-05",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Komunikat o nieudanym utworzeniu strony podawal przyczyne i milkl",
+      "klasa": "diagnoza-bez-rady",
+      "plik": "mp-lead-intake/includes/class-mp-page.php",
+      "dowod": "`powod_awarii()` oddawal sama przyczyne, podczas gdy blizniaczy komunikat z `komunikat_o_stanie()` zawsze konczy sie instrukcja naprawy z krotkim kodem.",
+      "skutek": "Administrator dowiadywal sie, ze cos nie wyszlo, i zostawal z tym sam — mimo ze wyjscie miesci sie w jednym zdaniu.",
+      "lekcja": "Krotki kod ze stalej, nie z reki: rada ma dotyczyc kodu, ktory wtyczka naprawde rejestruje.",
+      "test": "mp-lead-intake/tests/naprawy/dane-klienta-nie-sa-podmieniane.php, sekcja C",
+      "para": "1.26",
+      "uwaga": "NAPRAWIONE PO WYDANIU 1.3.11 — jest w main, nie ma w opublikowanych paczkach 1.3.11."
     }
   ]
 }
