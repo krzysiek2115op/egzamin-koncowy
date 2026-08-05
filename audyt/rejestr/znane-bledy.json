@@ -1837,7 +1837,7 @@
       "plik": "mp-sales-workflow/includes/pipeline/departments/class-mp-sw-department-05.php",
       "dowod": "Regula „przypisany bez przypisanego to zdanie nieprawdziwe\" pilnowana jest tylko na sciezce `lead.created`. `status.change` z `to_status=assigned` przechodzi bez sprawdzenia wlasciciela i uruchamia skutki zaprojektowane dla procesu, ktory wlasciciela ma: SET_SLA i NOTIFY_SALESMAN.",
       "skutek": "Wiersz dostaje status `assigned` mimo braku handlowca, a termin SLA zaczyna biec dla nikogo. Powiadomienie handlowca NIE jest przy tym problemem — Dzial 7 pomija wiersz kolejki bez adresu, co jest zachowaniem SWIADOMYM (patrz tests/naprawy/odbiorcy-niekompletni.php).",
-      "lekcja": "NIE NAPRAWIONE SWIADOMIE. `assigned` to JEDYNE wyjscie ze statusu `new` w slowniku — nawet oznaczenie procesu jako przegrany wymaga przejscia tamtedy. Odmowa uwiezilaby procesy zalozone, gdy nie ma zadnego handlowca, czyli odtworzyla blad naprawiony w 1.3.7. Test `odbiorcy-niekompletni.php` juz raz obronil przed „naprawa\" w te strone i ma na to pomiar. Decyzja nalezy do klienta: albo SLA nie startuje bez wlasciciela, albo status.change wymaga wskazania handlowca w tej samej kopercie.",
+      "lekcja": "NIE NAPRAWIONE SWIADOMIE. `assigned` to JEDYNE wyjscie ze statusu `new` w slowniku — nawet oznaczenie procesu jako przegrany wymaga przejscia tamtedy. Odmowa uwiezilaby procesy zalozone, gdy nie ma zadnego handlowca, czyli odtworzyla blad naprawiony w 1.3.7. Test `odbiorcy-niekompletni.php` juz raz obronil przed „naprawa\" w te strone i ma na to pomiar. Decyzja nalezy do klienta: albo SLA nie startuje bez wlasciciela, albo status.change wymaga wskazania handlowca w tej samej kopercie. AKTUALIZACJA (U-77): dopisanie przejscia `new -> lost` usunelo najostrzejszy skutek — proces bez handlowca da sie teraz zamknac bez przechodzenia przez `assigned`. Otwarte zostaje samo pytanie o SLA startujace dla nikogo.",
       "test": "mp-sales-workflow/tests/naprawy/odbiorcy-niekompletni.php (kontr-asercje przeciw bledna naprawie)",
       "para": "1.25"
     },
@@ -1891,6 +1891,45 @@
       "skutek": "Powstawalo zdanie: „Oferta jest w stanie „draft\", z ktorego nie da sie jej zatwierdzic — zatwierdzac mozna wylacznie szkice\". Czytajacy dostawal informacje, ktora sama sobie przeczy, i zadnej wskazowki — a stan faktyczny byl zupelnie inny niz opisywany: zapis sie nie udal, bo ktos pisal do tego wiersza w tym samym czasie.",
       "lekcja": "Metoda wolana z dwoch miejsc o roznym znaczeniu musi miec galaz dla KAZDEGO stanu, jaki moze przyjsc z obu. Test porownuje teraz cztery przypadki i wymaga, zeby kazdy mial WLASNE zdanie.",
       "test": "mp-offer-builder/tests/naprawy/komunikat-stanu-oferty.php",
+      "para": "1.26"
+    },
+    {
+      "id": "U-77",
+      "data": "2026-08-05",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "Procesu w statusie `new` nie dalo sie zamknac jako przegranego",
+      "klasa": "slepy-zaulek-w-slowniku",
+      "plik": "mp-sales-workflow/includes/pipeline/departments/class-mp-sw-department-05.php",
+      "dowod": "Slownik przejsc: `STATUS_NEW => array( STATUS_ASSIGNED )`. Kazdy inny status nieterminalny ma wyjscie do `lost`, ten jeden nie mial — mimo ze `target_status()` ma JAWNA galaz zostawiajaca proces w `new`, gdy Dzial 4 nie wskazal wlasciciela.",
+      "skutek": "Proces zalozony wtedy, gdy nie ma zadnego handlowca (albo zaden nie przyjmuje), nie dawal sie zamknac inaczej niz przez `assigned` — czyli przez przypisanie go komus na niby tylko po to, zeby zaraz oznaczyc jako przegrany. Slepy zaulek w danych, nie w kodzie.",
+      "lekcja": "Zawęża to sprawe OTW-2: przejscie przez `assigned` przestaje byc jedyna droga wyjscia ze statusu `new`. Asercja G7 liczy symetrie z samego slownika, wiec nowy status dodany bez wyjscia do `lost` zglosi sie sam.",
+      "test": "mp-sales-workflow/tests/naprawy/powtorne-zatwierdzenie-oferty.php, sekcja G",
+      "para": "1.25"
+    },
+    {
+      "id": "U-78",
+      "data": "2026-08-05",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Odmowa `required_missing` nie niosla informacji, ktorego pola brakuje",
+      "klasa": "klucz-podany-raz-i-zle",
+      "plik": "mp-lead-intake/includes/pipeline/departments/class-mp-department-02.php",
+      "dowod": "Krytyk K2.1 dostawal `errors` jako klucz z brakami, a agent 2.1 zwraca je pod kluczem `missing_fields`. Klucza `errors` w tej kopercie nie ma.",
+      "skutek": "Odmowa szla z pusta lista brakow. Zla nazwa klucza nie rzuca bledu: `isset()` jest falszem, lista wychodzi pusta i wyglada jak „braki nieznane\" zamiast jak literowka — najgorszy rodzaj pomylki, bo udaje stan faktyczny.",
+      "lekcja": "Test sprawdza teraz OBA konce: ze krytyk wymienia brakujace pola po nazwie i ze agent naprawde oddaje je pod tym kluczem (`missing_fields` jest, `errors` nie ma). Inaczej test utrwalilby te sama literowke, ktora naprawia.",
+      "test": "mp-lead-intake/tests/naprawy/dane-klienta-nie-sa-podmieniane.php, sekcja D",
+      "para": "1.25"
+    },
+    {
+      "id": "U-79",
+      "data": "2026-08-05",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Pozycja menu zostawala po stronie, ktora przestala byc opublikowana",
+      "klasa": "ostrzezenie-zamiast-naprawy",
+      "plik": "mp-lead-intake/includes/class-mp-page.php",
+      "dowod": "Galaz `create()` wykrywajaca strone w stanie innym niz `publish` zapisywala slad i wychodzila, zostawiajac nietknieta pozycje menu dolozona wczesniej przez `add_to_menus()`. Metoda `remove_from_menus()` istniala, ale byla wolana tylko przy deinstalacji.",
+      "skutek": "Administrator widzial ostrzezenie w panelu, a GOSC dalej widzial w menu motywu „Zapytanie ofertowe\" i trafial na 404 albo na wpis w koszu. Ostrzezenie dla jednej osoby nie naprawia tego, co widza wszyscy pozostali.",
+      "lekcja": "Kasowanie jest bezpieczne, bo powrot do publikacji dokłada pozycje z powrotem (`refresh_menu_status()` i `create()`). Naprawa z 1.3.11 dotyczyla METODY oddajacej adres; ta dotyczy pozycji, ktora juz w menu stoi — dwie polowy tego samego problemu.",
+      "test": "mp-lead-intake/tests/naprawy/link-do-strony-ktorej-nie-ma.php, sekcja E",
       "para": "1.26"
     }
   ]
