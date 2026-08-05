@@ -1957,6 +1957,32 @@
       "lekcja": "Normalizacja RAZ, przed bramka; obie sciezki (bramka i po nieudanym UPDATE) czytaja ta sama wartosc. Ustalenie przyszlo z audytu na kodzie dopisanym w poprzedniej rundzie.",
       "test": "mp-offer-builder/tests/naprawy/komunikat-stanu-oferty.php, sekcja C",
       "para": "1.26"
+    },
+    {
+      "id": "U-82",
+      "data": "2026-08-05",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Brak sumy pozycji dawal oferte na 0 zl ze statusem OK",
+      "klasa": "ciche-zero-na-dokumencie",
+      "plik": "mp-offer-builder/includes/pipeline/departments/class-mp-ob-department-06.php",
+      "dowod": "`get( 'subtotal_grosze', 0 )` traktowal nieobecny klucz tak samo jak legalne zero — dzial konczyl sie statusem OK z netto 0, VAT 0, brutto 0.",
+      "skutek": "Oferta na 0 zl wychodzila do klienta bez jednego sladu, ze czegokolwiek zabraklo. To ten sam ksztalt bledu, ktory ten sam plik jawnie odrzuca dla `tax_mechanism` (U-73) — tylko o jedno pole dalej. Trzeci raz w tym wydaniu ta sama klasa: brak decyzji wygladajacy jak decyzja o zerze.",
+      "lekcja": "Rozroznienie robi OBECNOSC klucza, nie jego wartosc — zero podane wprost zostaje legalne, bo oferta na pozycje o wartosci zero jest rzadka, ale mozliwa. Kontr-asercja musiala przy tym zgodzic sumę pozycji z podstawa, inaczej badalaby innego straznika (`tax_base_mismatch`).",
+      "test": "mp-offer-builder/tests/naprawy/mechanizm-vat-ze-slownika.php, sekcja D",
+      "para": "1.25"
+    },
+    {
+      "id": "U-83",
+      "data": "2026-08-05",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Druga bramka statusu nadal czytala wartosc surowa",
+      "klasa": "polowiczna-naprawa",
+      "plik": "mp-offer-builder/includes/class-mp-offer-builder-approval.php",
+      "dowod": "Naprawa U-81 wprowadzila `$status_oferty = trim( ... )` i podpiela go pod bramke `approved` oraz pod komunikat. Bramka `draft` linijke nizej nadal porownywala `(string) $offer['status']`.",
+      "skutek": "Stan „ draft \" odbijal sie o te bramke, a komunikat — skladany juz z wartosci przycietej — twierdzil, ze zapis sie nie powiodl, choc zadnego zapisu nie bylo. Naprawa polowiczna zostawila dokladnie ten sam rodzaj sprzecznosci, ktory usuwala.",
+      "lekcja": "Gdy wprowadza sie znormalizowana zmienna, trzeba przejsc WSZYSTKIE porownania tego pola w metodzie, nie tylko to, ktore zglosil audyt.",
+      "test": "mp-offer-builder/tests/naprawy/komunikat-stanu-oferty.php, sekcja C",
+      "para": "1.26"
     }
   ]
 }
