@@ -148,8 +148,24 @@ class MP_OB_D6_Agent_Mechanism extends MP_OB_Abstract_Agent {
 			$basis     = 'Polska — stawka krajowa.';
 		} elseif ( in_array( $country, self::EU_COUNTRIES, true ) ) {
 			if ( 'valid' === $vat_status ) {
+				/*
+				 * PODSTAWA, KTORA WOLNO NAM POWOLAC.
+				 *
+				 * Stalo tu samo „art. 196". Ten artykul dotyczy USLUG swiadczonych
+				 * na rzecz podatnika z innego panstwa czlonkowskiego (w zwiazku
+				 * z art. 44) — dla wewnatrzwspolnotowej DOSTAWY TOWAROW podstawa
+				 * jest inna (art. 138). Wtyczka stoi na WooCommerce, wiec pozycja
+				 * jest najczesciej towarem: drukowany artykul byl czesciej zly niz
+				 * dobry, a szedl na dokument wychodzacy do klienta.
+				 *
+				 * Danych, ktore pozwolilyby odroznic towar od uslugi, tu nie ma
+				 * i zgadywanie po `virtual`/`downloadable` byloby zgadywaniem.
+				 * Podajemy wiec MECHANIZM (ktory jest pewny) i obie mozliwe
+				 * podstawy z zaznaczeniem, od czego zaleza — zamiast jednego
+				 * artykulu podanego jako fakt.
+				 */
 				$mechanism = 'reverse_charge';
-				$basis     = 'Dyrektywa 2006/112/WE art. 196 — odwrotne obciążenie, ważny VAT UE.';
+				$basis     = 'Odwrotne obciążenie — podatek rozlicza nabywca (dyrektywa 2006/112/WE: art. 196 dla usług, art. 138 dla wewnątrzwspólnotowej dostawy towarów).';
 			} else {
 				// Brak potwierdzenia ważnego VAT = bezpieczny domyślny wybór:
 				// stawka krajowa, NIE ciche 0% (patrz docblock pliku).

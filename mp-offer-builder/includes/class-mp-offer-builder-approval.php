@@ -102,6 +102,19 @@ class MP_Offer_Builder_Approval {
 		 * polecenie zgłoszenia administratorowi sytuacji, która nie jest awarią,
 		 * a prawdziwa informacja — „ktoś Cię ubiegł" — do niego nie docierała.
 		 */
+		/*
+		 * STAN `draft` W TYM MIEJSCU TO NIE ZLY STAN — TO NIEUDANY ZAPIS.
+		 *
+		 * Metoda wraca — wg wlasnego docbloku — takze po nieudanym UPDATE, gdy
+		 * w wierszu NADAL stoi `draft`. Bez tej galezi powstawalo zdanie
+		 * wewnetrznie sprzeczne: „oferta jest w stanie draft, z ktorego nie da
+		 * sie jej zatwierdzic — zatwierdzac mozna wylacznie szkice". Czytajacy
+		 * dostawal informacje, ktora sama sobie przeczy, i zadnej wskazowki.
+		 */
+		if ( MP_Offer_Builder_DB::STATUS_DRAFT === $status ) {
+			return __( 'Zatwierdzenie nie doszło do skutku — oferta nadal jest szkicem. Ktoś zapisał ją w tym samym czasie albo zapis został odrzucony. Odśwież widok i spróbuj ponownie.', 'mp-offer-builder' );
+		}
+
 		if ( MP_Offer_Builder_DB::STATUS_APPROVED === $status ) {
 			return __( 'Ta oferta została już zatwierdzona — być może przez kogoś innego przed chwilą. Odśwież widok, żeby zobaczyć jej aktualny stan.', 'mp-offer-builder' );
 		}

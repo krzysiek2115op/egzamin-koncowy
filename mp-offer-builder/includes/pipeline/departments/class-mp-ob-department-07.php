@@ -270,7 +270,11 @@ class MP_OB_D7_Agent_Merge extends MP_OB_Abstract_Agent {
 		$mechanism = (string) $context->get( 'tax_mechanism', '' );
 		if ( 'reverse_charge' === $mechanism ) {
 			$note = 'pl' === $lang
-				? 'Odwrotne obciążenie — art. 196 dyrektywy 2006/112/WE. Podatek rozlicza nabywca.'
+				// Ta sama zasada co w Dziale 6: art. 196 dotyczy USLUG (w zwiazku
+				// z art. 44), a dla wewnatrzwspolnotowej dostawy TOWAROW podstawa
+				// jest art. 138. Nie mamy danych, zeby to rozstrzygnac, wiec nie
+				// podajemy jednego artykulu jako faktu.
+				? 'Odwrotne obciążenie — podatek rozlicza nabywca (dyrektywa 2006/112/WE: art. 196 dla usług, art. 138 dla dostawy towarów).'
 				: 'Reverse charge — Article 196 of Directive 2006/112/EC. VAT to be accounted for by the recipient.';
 		} else {
 			$note = '';

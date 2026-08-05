@@ -87,6 +87,15 @@ RODO/GDPR:
   brzmiała „cokolwiek innego niż krajowy", więc brak rozstrzygnięcia wyglądał
   dokładnie tak samo jak zero wynikające z prawa — a różnica trafia na dokument
   wychodzący do klienta.
+* Podstawa prawna odwrotnego obciążenia nie wskazuje już jednego artykułu jako
+  faktu. Drukowany był art. 196 dyrektywy 2006/112/WE, który dotyczy **usług**;
+  dla wewnątrzwspólnotowej dostawy towarów podstawą jest art. 138. Wtyczka nie ma
+  danych, żeby to rozstrzygnąć, więc dokument podaje mechanizm i obie możliwe
+  podstawy z zaznaczeniem, od czego zależą.
+* Nieudane zatwierdzenie oferty, po którym w bazie nadal stoi szkic, mówi teraz
+  o nieudanym zapisie. Wcześniej powstawało zdanie przeczące samo sobie:
+  „oferta jest w stanie draft, z którego nie da się jej zatwierdzić — zatwierdzać
+  można wyłącznie szkice".
 
 = 1.3.10 =
 * Paczka instalacyjna slucha wreszcie pliku .distignore. Zmiana zapowiadana

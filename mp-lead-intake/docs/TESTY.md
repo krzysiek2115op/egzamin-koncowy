@@ -132,7 +132,7 @@ testów manualnych jako niezależnej warstwy weryfikacji, uzupełniającej audyt
 
 ## Stan na wydanie 1.3.11 (04.08.2026)
 
-Regresja **96/96** na bazie od zera, PHPCS kod wyjścia **0**. Wydanie powstawało
+Regresja **97/97** na bazie od zera, PHPCS kod wyjścia **0**. Wydanie powstawało
 w kilku rundach; niżej wszystkie pliki testowe, jakie w nich przybyły — każdy
 napisany PRZED naprawą i uruchomiony, żeby zobaczyć, jak pada.
 
@@ -167,6 +167,30 @@ i 11/11):
   sumy kontrolnej NIP rozróżnia „policzono i nie zgadza się" od „nie policzono";
   wynik weryfikacji VAT ma jedno kryterium prawdziwości; komunikat o stanie
   strony podaje etykietę statusu i miejsce, które tę stronę naprawdę pokazuje.
+
+### Piąta runda: tekst prawny na dokumencie klienta
+
+- `mp-offer-builder/tests/naprawy/komunikat-stanu-oferty.php` (11 asercji) —
+  cztery możliwe stany oferty, każdy z własnym zdaniem.
+- sekcja C w `mechanizm-vat-ze-slownika.php` (5) — podstawa prawna nie twierdzi
+  więcej, niż wiadomo.
+
+Art. 196 dyrektywy 2006/112/WE dotyczy **usług** (w związku z art. 44); dla
+wewnątrzwspólnotowej dostawy **towarów** podstawą jest art. 138. Wtyczka stoi na
+WooCommerce, więc pozycja jest najczęściej towarem — drukowany artykuł był
+częściej zły niż dobry, a szedł na dokument wychodzący do klienta jako fakt.
+Danych pozwalających odróżnić towar od usługi w tym miejscu nie ma, a zgadywanie
+po `virtual`/`downloadable` byłoby zgadywaniem. Dokument podaje więc mechanizm
+(pewny) i obie możliwe podstawy z zaznaczeniem, od czego zależą.
+
+**To zmiana tekstu prawnego i warto ją potwierdzić z doradcą podatkowym.**
+Wpisana do rejestru jako U-75 właśnie z tą uwagą.
+
+Drugie ustalenie: `wrong_status_message()` nie miała gałęzi dla stanu `draft`,
+choć wraca też po nieudanym zapisie, gdy w wierszu nadal stoi szkic. Powstawało
+zdanie przeczące samo sobie — „oferta jest w stanie draft, z którego nie da się
+jej zatwierdzić, bo zatwierdzać można wyłącznie szkice" — a stan faktyczny był
+zupełnie inny niż opisywany.
 
 ### Czwarta runda: ta sama reguła w dwóch działach
 

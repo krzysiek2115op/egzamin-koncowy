@@ -190,3 +190,61 @@ foreach ( array_unique( $mv_z_61 ) as $mv_m ) {
 		'B: mechanizm „' . $mv_m . '" z agenta 6.1 jest przyjmowany przez 6.2'
 	);
 }
+
+/* ==================================================================== C */
+
+$GLOBALS['mp_mv']['lines'][] = '';
+$GLOBALS['mp_mv']['lines'][] = '=== C. podstawa prawna nie twierdzi wiecej, niz wiemy ===';
+
+/*
+ * Art. 196 dyrektywy 2006/112/WE dotyczy USLUG swiadczonych na rzecz podatnika
+ * z innego panstwa czlonkowskiego (w zwiazku z art. 44). Dla wewnatrzwspolnotowej
+ * DOSTAWY TOWAROW podstawa jest inna — art. 138. Wtyczka stoi na WooCommerce,
+ * wiec pozycja jest najczesciej towarem, a drukowany artykul szedl na dokument
+ * wychodzacy do klienta jako fakt.
+ *
+ * Danych pozwalajacych odroznic towar od uslugi tu nie ma. Test pilnuje wiec
+ * dwoch rzeczy naraz: ze MECHANIZM jest nazwany (bo to wiemy na pewno) i ze
+ * artykul nie jest podany jako jedyny (bo tego nie wiemy).
+ */
+$mv_ue = ( new MP_OB_D6_Agent_Mechanism() )->run(
+	new MP_OB_Context(
+		array(
+			'client' => array(
+				'country'    => 'DE',
+				'vat_status' => 'valid',
+			),
+		)
+	)
+);
+$mv_pod = (string) ( $mv_ue->get_data()['tax_basis'] ?? '' );
+
+mv_ok(
+	false !== mb_stripos( $mv_pod, 'odwrotne obciążenie' ),
+	'C1: podstawa nazywa mechanizm — to wiemy na pewno',
+	'podstawa=' . $mv_pod
+);
+mv_ok(
+	false !== mb_strpos( $mv_pod, '196' ) && false !== mb_strpos( $mv_pod, '138' ),
+	'C2: i wymienia OBIE mozliwe podstawy, a nie jedna jako fakt',
+	'podstawa=' . $mv_pod
+);
+mv_ok(
+	false !== mb_stripos( $mv_pod, 'usług' ) && false !== mb_stripos( $mv_pod, 'towar' ),
+	'C3: z zaznaczeniem, od czego zaleza — uslugi kontra towary',
+	'podstawa=' . $mv_pod
+);
+mv_ok(
+	false !== mb_stripos( $mv_pod, 'nabywca' ),
+	'C4: i mowi wprost, kto rozlicza podatek'
+);
+
+$mv_kraj = (string) ( ( new MP_OB_D6_Agent_Mechanism() )->run(
+	new MP_OB_Context( array( 'client' => array( 'country' => 'PL', 'vat_status' => 'valid' ) ) )
+)->get_data()['tax_basis'] ?? '' );
+
+mv_ok(
+	false !== mb_stripos( $mv_kraj, 'krajowa' ) && false === mb_strpos( $mv_kraj, '196' ),
+	'C5: KONTR-ASERCJA — sprzedaz krajowa nie powoluje sie na dyrektywe',
+	'podstawa=' . $mv_kraj
+);

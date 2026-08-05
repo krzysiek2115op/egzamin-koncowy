@@ -86,4 +86,8 @@ CZWARTY PRZEBIEG: TA SAMA REGULA W DWOCH DZIALACH. Dzial liczacy podatek pytal w
 
 Drugie ustalenie tej rundy dotyczylo TEKSTU DOPISANEGO GODZINE WCZESNIEJ: komunikat o odrzuconym adresie wymienial dwa najczestsze powody jako komplet, wiec adres odrzucony z innego powodu zostawal bez wskazowki — czyli ta sama klasa bledu, ktora ten komunikat mial usunac.
 
-Regresja: 96 plikow testowych, wszystkie PASS, zero bez werdyktu. PHPCS: 160 plikow, kod wyjscia 0. Audyt gleboki: 37 par, bramka 26/26 i 11/11, pokrycie 100%.
+PIATA RUNDA: TEKST PRAWNY NA DOKUMENCIE KLIENTA. Oferta dla firmy z UE z waznym VAT-em drukowala podstawe „dyrektywa 2006/112/WE art. 196". Ten artykul dotyczy USLUG swiadczonych na rzecz podatnika z innego panstwa czlonkowskiego; dla wewnatrzwspolnotowej dostawy TOWAROW podstawa jest art. 138. Wtyczka stoi na WooCommerce, wiec pozycja jest najczesciej towarem — drukowany artykul byl czesciej zly niz dobry, a szedl na dokument klienta jako fakt. Danych pozwalajacych odroznic towar od uslugi w tym miejscu nie ma, wiec dokument podaje teraz mechanizm (pewny) i obie mozliwe podstawy z zaznaczeniem, od czego zaleza. TO ZMIANA TEKSTU PRAWNEGO — warto ja potwierdzic z doradca podatkowym, i tak jest zapisana w rejestrze.
+
+KOMUNIKAT, KTORY PRZECZYL SAM SOBIE. Nieudane zatwierdzenie oferty, po ktorym w bazie nadal stoi szkic, dawalo zdanie: „oferta jest w stanie draft, z ktorego nie da sie jej zatwierdzic — zatwierdzac mozna wylacznie szkice". Stan faktyczny byl zupelnie inny niz opisywany: zapis sie nie udal, bo ktos pisal do tego wiersza w tym samym czasie.
+
+Regresja: 97 plikow testowych, wszystkie PASS, zero bez werdyktu. PHPCS: 160 plikow, kod wyjscia 0. Audyt gleboki: 37 par, bramka 26/26 i 11/11, pokrycie 100%.
