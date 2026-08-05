@@ -401,8 +401,76 @@ $dk_puste = ( new MP_D2_Normalize_Critic( 'K2.2', 'test' ) )->review(
 	$dk_puste_kontekst
 );
 
+/*
+ * Ta asercja pilnuje ROZROZNIENIA dwoch sytuacji, a nie konkretnej nazwy kodu.
+ * W rundzie 7 utrwalila przy okazji `normalize_failed` dla pola, ktorego klient
+ * NIGDY nie wypelnil — a to opisuje operacje, ktora nie zaszla: nie bylo czego
+ * normalizowac. Od braku pola jest `required_missing`. Sens zostaje ten sam:
+ * „puste od poczatku" ma konczyc sie INACZEJ niz „sciete do pustego".
+ */
 dk_ok(
-	! $dk_puste->is_ok() && 'normalize_failed' === $dk_puste->get_code(),
-	'E: KONTR-ASERCJA — pusta nazwa firmy nadal konczy sie normalize_failed',
+	! $dk_puste->is_ok() && 'required_missing' === $dk_puste->get_code(),
+	'E: KONTR-ASERCJA — pusta nazwa firmy to BRAK POLA, nie nieudana normalizacja',
 	'kod=' . $dk_puste->get_code()
+);
+dk_ok(
+	$dk_puste->get_code() !== ( ( new MP_D2_Normalize_Critic( 'K2.2', 'test' ) )->review(
+		( new MP_D2_Agent_Normalize() )->run(
+			new MP_Context( array( 'company_name' => 'Firma Testowa', 'email' => 'żółć@firma.pl', 'nip' => '5260001246', 'country' => 'PL' ) )
+		),
+		new MP_Context( array( 'company_name' => 'Firma Testowa', 'email' => 'żółć@firma.pl', 'nip' => '5260001246', 'country' => 'PL' ) )
+	) )->get_code(),
+	'E: i obie sytuacje maja ROZNE kody odmowy — o to w tej asercji chodzi'
+);
+
+/* ==================================================================== F */
+
+$GLOBALS['mp_dk']['lines'][] = '';
+$GLOBALS['mp_dk']['lines'][] = '=== F. „NIP jest wymagany" tylko gdy NIP-u NIE PODANO ===';
+
+/*
+ * Agent 2.3 widzi wartosc PO kanonizacji, ktora dla Polski wycina wszystko poza
+ * cyframi. Klient, ktory wpisal „---" albo „brak", dostawal wiec zdanie „NIP
+ * jest wymagany" o polu, ktore wypelnil — widzial swoj wpis w formularzu i obok
+ * komunikat twierdzacy, ze go nie ma.
+ */
+$dk_bez_cyfr = array( '---', 'brak', 'nie dotyczy', '.-/' );
+
+foreach ( $dk_bez_cyfr as $dk_wpis ) {
+	$dk_kom = (string) ( dk_walidacja( array( 'nip' => $dk_wpis ) )['errors']['nip'] ?? '' );
+
+	dk_ok(
+		'' !== $dk_kom && false === mb_stripos( $dk_kom, 'jest wymagany' ),
+		'F (' . wp_json_encode( $dk_wpis ) . '): odmowa NIE mowi, ze pola nie podano',
+		'komunikat=' . $dk_kom
+	);
+	dk_ok(
+		false !== mb_stripos( $dk_kom, 'cyfr' ),
+		'F (' . wp_json_encode( $dk_wpis ) . '): tylko ze nie ma w nim cyfr',
+		'komunikat=' . $dk_kom
+	);
+}
+
+$dk_puste_nip = (string) ( dk_walidacja( array( 'nip' => '' ) )['errors']['nip'] ?? '' );
+
+dk_ok(
+	false !== mb_stripos( $dk_puste_nip, 'jest wymagany' ),
+	'F: KONTR-ASERCJA — pole NAPRAWDE puste nadal dostaje „NIP jest wymagany"',
+	'komunikat=' . $dk_puste_nip
+);
+dk_ok(
+	! isset( dk_walidacja( array( 'nip' => '526-000-12-46' ) )['errors']['nip'] ),
+	'F: KONTR-ASERCJA — NIP z myslnikami nadal przechodzi po kanonizacji'
+);
+
+/*
+ * SAME BIALE ZNAKI TO PUSTE POLE, nie „wpis bez cyfr". Pierwsza wersja tej
+ * sekcji wrzucila je do listy wpisow — i asercja slusznie padla. Wartosc surowa
+ * jest przycinana, wiec „   " znaczy dokladnie tyle, co pole niewypelnione,
+ * a „NIP jest wymagany" jest tam komunikatem wlasciwym.
+ */
+dk_ok(
+	false !== mb_stripos( (string) ( dk_walidacja( array( 'nip' => '   ' ) )['errors']['nip'] ?? '' ), 'jest wymagany' ),
+	'F: KONTR-ASERCJA — same biale znaki to puste pole, nie wpis bez cyfr',
+	'komunikat=' . ( dk_walidacja( array( 'nip' => '   ' ) )['errors']['nip'] ?? '' )
 );

@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-05T08:04:55+00:00\n"
+"POT-Creation-Date: 2026-08-05T09:36:25+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: mp-lead-intake\n"
@@ -170,12 +170,12 @@ msgid "Dziękujemy! Zapytanie zostało zarejestrowane."
 msgstr ""
 
 #: includes/class-mp-form.php:111
-#: includes/class-mp-page.php:698
+#: includes/class-mp-page.php:720
 msgid "Zapytanie ofertowe"
 msgstr ""
 
 #: includes/class-mp-form.php:112
-#: includes/class-mp-page.php:757
+#: includes/class-mp-page.php:779
 msgid "Wypełnij formularz zapytania ofertowego, a nasz zespół skontaktuje się z Tobą z indywidualną ofertą."
 msgstr ""
 
@@ -230,48 +230,54 @@ msgid "WordPress odrzucił zapis strony bez podania przyczyny."
 msgstr ""
 
 #. translators: %s: krótki kod formularza wraz z nawiasami.
-#: includes/class-mp-page.php:127
+#: includes/class-mp-page.php:121
+#, php-format
+msgid "Utwórz stronę ręcznie i wstaw na niej krótki kod %s."
+msgstr ""
+
+#. translators: %s: krótki kod formularza wraz z nawiasami.
+#: includes/class-mp-page.php:149
 #, php-format
 msgid "Strona z formularzem została usunięta. Opublikuj nową stronę zawierającą krótki kod %s."
 msgstr ""
 
-#: includes/class-mp-page.php:170
+#: includes/class-mp-page.php:192
 msgid "Strony → Kosz"
 msgstr ""
 
-#: includes/class-mp-page.php:172
+#: includes/class-mp-page.php:194
 msgid "Strony → Wszystkie strony"
 msgstr ""
 
 #. translators: %d: identyfikator wpisu WordPressa.
-#: includes/class-mp-page.php:176
+#: includes/class-mp-page.php:198
 #, php-format
 msgid "edytorze wpisu o identyfikatorze %d (lista „Wszystkie strony\" statusów tego rodzaju nie pokazuje)"
 msgstr ""
 
 #. translators: 1: etykieta statusu wpisu, np. „Szkic”. 2: miejsce w panelu, np. „Strony → Kosz”.
-#: includes/class-mp-page.php:183
+#: includes/class-mp-page.php:205
 #, php-format
 msgid "Strona z formularzem istnieje, ale ma status „%1$s\" zamiast „opublikowana\" — klienci jej nie zobaczą. Przywróć ją do publikacji w %2$s."
 msgstr ""
 
-#: includes/class-mp-page.php:578
+#: includes/class-mp-page.php:600
 msgid "Strona z formularzem zapytania ofertowego NIE POWSTAŁA podczas aktywacji, więc klienci nie mają gdzie go wypełnić. Wyłącz i włącz wtyczkę ponownie albo utwórz stronę ręcznie, wstawiając na niej krótki kod:"
 msgstr ""
 
-#: includes/class-mp-page.php:580
+#: includes/class-mp-page.php:602
 msgid "Powód zgłoszony przez WordPress:"
 msgstr ""
 
-#: includes/class-mp-page.php:632
+#: includes/class-mp-page.php:654
 msgid "Twój motyw ma lokalizacje menu, ale żadna nie ma PRZYPISANEGO menu — nie było więc gdzie wstawić linku. Przypisz menu w Wygląd → Menu, a link do formularza dołoży się sam przy następnej aktywacji. Możesz też dodać ręcznie link do:"
 msgstr ""
 
-#: includes/class-mp-page.php:636
+#: includes/class-mp-page.php:658
 msgid "Menu motywu jest przypisane, ale WordPress nie zapisał w nim pozycji z linkiem do formularza (mogła to zablokować inna wtyczka albo uprawnienia). Dodaj ręcznie link do:"
 msgstr ""
 
-#: includes/class-mp-page.php:639
+#: includes/class-mp-page.php:661
 msgid "Twój motyw nie rejestruje standardowego menu WordPressa — wtyczka spróbowała automatycznie dołożyć link do formularza w wykrytym menu strony (element <nav>). Sprawdź na stronie, czy się pojawił; jeśli nie, dodaj ręcznie link do:"
 msgstr ""
 

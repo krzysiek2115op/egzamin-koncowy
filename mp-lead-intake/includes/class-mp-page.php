@@ -102,6 +102,28 @@ class MP_Lead_Intake_Page {
 	}
 
 	/**
+	 * Powód awarii ZAKOŃCZONY instrukcją naprawy.
+	 *
+	 * Bliźniaczy komunikat z `komunikat_o_stanie()` zawsze kończy się tym, co
+	 * administrator ma zrobić — ten podawał samą przyczynę i milkł. Człowiek
+	 * dowiadywał się, że coś nie wyszło, i zostawał z tym sam, mimo że wyjście
+	 * jest proste i mieści się w jednym zdaniu.
+	 *
+	 * Krótki kod ze stałej, nie z ręki: rada ma dotyczyć kodu, który wtyczka
+	 * naprawdę rejestruje.
+	 *
+	 * @param mixed $page_id Wynik `wp_insert_post()`.
+	 * @return string
+	 */
+	private static function powod_z_rada( $page_id ) {
+		return self::powod_awarii( $page_id ) . ' ' . sprintf(
+			/* translators: %s: krótki kod formularza wraz z nawiasami. */
+			__( 'Utwórz stronę ręcznie i wstaw na niej krótki kod %s.', 'mp-lead-intake' ),
+			'[' . MP_Lead_Intake_Form::SHORTCODE . ']'
+		);
+	}
+
+	/**
 	 * Co powiedzieć administratorowi o stanie strony z formularzem.
 	 *
 	 * JEDNO ŹRÓDŁO dla `create()` i `refresh_menu_status()`. Wcześniej każda
@@ -306,7 +328,7 @@ class MP_Lead_Intake_Page {
 		 */
 		update_option( self::OPTION_MENU_OK, 0 );
 
-		update_option( self::OPTION_PAGE_ERROR, self::powod_awarii( $page_id ) );
+		update_option( self::OPTION_PAGE_ERROR, self::powod_z_rada( $page_id ) );
 	}
 
 	/**

@@ -95,6 +95,14 @@ class MP_D2_Agent_Normalize extends MP_Abstract_Agent {
 				// Kanonizacja zależy od kraju: w Polsce giną wszystkie znaki poza cyframi,
 				// poza nią litery bywają częścią numeru — patrz MP_Vat_Number::normalize().
 				'nip'             => MP_Vat_Number::normalize( $context->get( 'nip', '' ), $context->get( 'country', '' ) ),
+
+				/*
+				 * Wartość SUROWA idzie dalej, bo tylko ona pamięta, co człowiek
+				 * wpisał. Kanonizacja dla Polski wycina wszystko poza cyframi,
+				 * więc „---" i puste pole wyglądają w Dziale 2.3 identycznie —
+				 * a to dwa różne komunikaty dla dwóch różnych sytuacji.
+				 */
+				'nip_surowy'      => trim( (string) $context->get( 'nip', '' ) ),
 				'phone'           => sanitize_text_field( (string) $context->get( 'phone', '' ) ),
 
 				/*
@@ -187,7 +195,24 @@ class MP_D2_Agent_Validate_Formats extends MP_Abstract_Agent {
 		// cyfr (np. same myślniki) — nie wolno go przepuścić do działu 3.
 		$nip     = (string) $context->get( 'nip', '' );
 		$country = (string) $context->get( 'country', '' );
-		if ( '' === $nip ) {
+
+		/*
+		 * PUSTO PO KANONIZACJI TO NIE JEST PUSTE POLE.
+		 *
+		 * Ten agent widzi wartość PO Dziale 2.2, który dla Polski wycina wszystko
+		 * poza cyframi. Klient, który wpisał „---" albo „brak", dostawał więc
+		 * zdanie „NIP jest wymagany" — o polu, które wypełnił. Status nie
+		 * odpowiadał temu, co się stało, a rada była nie do wykonania: nadawca
+		 * widział swój wpis w formularzu i komunikat twierdzący, że go nie ma.
+		 *
+		 * Rozróżnienie bierzemy z wartości SUROWEJ — jedynej, która pamięta,
+		 * co człowiek naprawdę wpisał.
+		 */
+		$nip_surowy = trim( (string) $context->get( 'nip_surowy', $nip ) );
+
+		if ( '' === $nip && '' !== $nip_surowy ) {
+			$errors['nip'] = 'W numerze NIP nie ma ani jednej cyfry — przepisz go z dokumentu firmy';
+		} elseif ( '' === $nip ) {
 			$errors['nip'] = 'NIP jest wymagany';
 		} elseif ( ! MP_Vat_Number::format_valid( $nip, $country ) ) {
 			/*
@@ -287,8 +312,6 @@ class MP_D2_Normalize_Critic extends MP_Abstract_Critic {
 	 * @return MP_Result
 	 */
 	public function review( MP_Result $agent_result, MP_Context $context ) {
-		unset( $context );
-
 		if ( ! $agent_result->is_ok() ) {
 			return $agent_result;
 		}
@@ -315,6 +338,23 @@ class MP_D2_Normalize_Critic extends MP_Abstract_Critic {
 						MP_D2_Agent_Validate_Formats::MSG_EMAIL_NIEOBSLUGIWANY,
 						array( 'errors' => array( 'email' => MP_D2_Agent_Validate_Formats::MSG_EMAIL_NIEOBSLUGIWANY ) ),
 						'format_invalid'
+					);
+				}
+
+				/*
+				 * Ten krytyk opisuje NORMALIZACJĘ, więc ma się odzywać tylko wtedy,
+				 * gdy normalizacja naprawdę coś zabrała. Dla pola, którego klient
+				 * w ogóle nie wypełnił, zdanie „Puste pole po normalizacji" i kod
+				 * `normalize_failed` opisują operację, która nigdy nie zaszła —
+				 * a od braku pola jest agent 2.1 i jego własny kod odmowy.
+				 */
+				$surowe = trim( (string) $context->get( $key, '' ) );
+
+				if ( '' === $surowe ) {
+					return MP_Result::fail(
+						sprintf( 'Pole wymagane, a nie zostało wypełnione: %s', $key ),
+						array( 'errors' => array( $key => 'To pole jest wymagane' ) ),
+						'required_missing'
 					);
 				}
 
