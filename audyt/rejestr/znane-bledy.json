@@ -1866,6 +1866,32 @@
       "lekcja": "Komunikat ma mowic, CO jest nie tak i CO zrobic; przyklady podaje jako najczestsze, nie jako komplet. Wyliczanie zamkniete jest bezpieczne tylko wtedy, gdy regula tez jest zamknieta.",
       "test": "mp-lead-intake/tests/naprawy/dane-klienta-nie-sa-podmieniane.php, sekcja A",
       "para": "1.25"
+    },
+    {
+      "id": "U-75",
+      "data": "2026-08-05",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Na dokumencie klienta drukowany byl artykul dyrektywy, ktory dotyczy czego innego",
+      "klasa": "twierdzenie-o-niesprawdzonym",
+      "plik": "mp-offer-builder/includes/pipeline/departments/class-mp-ob-department-06.php",
+      "dowod": "Podstawa `Dyrektywa 2006/112/WE art. 196` byla drukowana dla KAZDEJ sprzedazy B2B do UE z waznym VAT-em. Art. 196 dotyczy USLUG swiadczonych na rzecz podatnika z innego panstwa czlonkowskiego (w zwiazku z art. 44); dla wewnatrzwspolnotowej DOSTAWY TOWAROW podstawa jest art. 138.",
+      "skutek": "Wtyczka stoi na WooCommerce, wiec pozycja jest najczesciej TOWAREM — drukowany artykul byl czesciej zly niz dobry, a szedl na dokument wychodzacy do klienta jako fakt. Ten sam tekst byl w trzech miejscach: Dzial 6, Dzial 7 (dokument) i podpowiedz w panelu.",
+      "lekcja": "Danych pozwalajacych odroznic towar od uslugi w tym miejscu nie ma, a zgadywanie po `virtual`/`downloadable` byloby zgadywaniem. Podajemy MECHANIZM (pewny) i obie mozliwe podstawy z zaznaczeniem, od czego zaleza. UWAGA: brzmienie warto potwierdzic z doradca podatkowym — to zmiana tekstu prawnego na dokumencie.",
+      "test": "mp-offer-builder/tests/naprawy/mechanizm-vat-ze-slownika.php, sekcja C",
+      "para": "1.25"
+    },
+    {
+      "id": "U-76",
+      "data": "2026-08-05",
+      "wtyczka": "mp-offer-builder",
+      "tytul": "Komunikat o stanie oferty przeczyl sam sobie dla stanu `draft`",
+      "klasa": "komunikat-wewnetrznie-sprzeczny",
+      "plik": "mp-offer-builder/includes/class-mp-offer-builder-approval.php",
+      "dowod": "`wrong_status_message()` wraca — wg wlasnego docbloku — takze po nieudanym UPDATE, gdy w wierszu NADAL stoi `draft`, a galezi dla tego stanu nie bylo.",
+      "skutek": "Powstawalo zdanie: „Oferta jest w stanie „draft\", z ktorego nie da sie jej zatwierdzic — zatwierdzac mozna wylacznie szkice\". Czytajacy dostawal informacje, ktora sama sobie przeczy, i zadnej wskazowki — a stan faktyczny byl zupelnie inny niz opisywany: zapis sie nie udal, bo ktos pisal do tego wiersza w tym samym czasie.",
+      "lekcja": "Metoda wolana z dwoch miejsc o roznym znaczeniu musi miec galaz dla KAZDEGO stanu, jaki moze przyjsc z obu. Test porownuje teraz cztery przypadki i wymaga, zeby kazdy mial WLASNE zdanie.",
+      "test": "mp-offer-builder/tests/naprawy/komunikat-stanu-oferty.php",
+      "para": "1.26"
     }
   ]
 }
