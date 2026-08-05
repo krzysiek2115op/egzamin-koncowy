@@ -147,3 +147,11 @@ Pelny zapis obu przebiegow: patrz historia commita.
 
 ----- PASS: 27 / FAIL: 0 -----
 ```
+
+---
+
+## Po naprawie: wydanie 1.3.13
+
+Blad z sekcji E naprawiony i opublikowany jako 1.3.13 (tylko wtyczka 3).
+Weryfikacja z POBRANYCH paczek 1.3.13: 48/48. Assety demo odswiezone i sprawdzone ponownie: 27/27.
+Bramka repo: „wszystko sie zgadza” — 8 potwierdzen, w tym dwa nowe o wtyczkach bez zmian.
