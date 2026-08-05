@@ -248,3 +248,68 @@ mv_ok(
 	'C5: KONTR-ASERCJA — sprzedaz krajowa nie powoluje sie na dyrektywe',
 	'podstawa=' . $mv_kraj
 );
+
+/* ==================================================================== D */
+
+$GLOBALS['mp_mv']['lines'][] = '';
+$GLOBALS['mp_mv']['lines'][] = '=== D. brak podstawy to nie jest podstawa zero ===';
+
+/**
+ * Uruchamia agenta 6.2 bez klucza `subtotal_grosze` albo z podana wartoscia.
+ *
+ * @param mixed $podstawa Wartosc klucza (null = klucza nie ma).
+ * @return MP_OB_Result
+ */
+function mv_podstawa( $podstawa, $kwota_pozycji = 10000 ) {
+	// Pozycje musza sumowac sie do podstawy — pilnuje tego osobny straznik
+	// (`tax_base_mismatch`). Bez tego kontr-asercja o zerze badalaby ten inny
+	// straznik zamiast tego, o ktory pyta.
+	$dane = array(
+		'items'          => array( array( 'product_id' => 1, 'qty' => 1 ) ),
+		'lines'          => array( array( 'unit_grosze' => (int) $kwota_pozycji, 'line_grosze' => (int) $kwota_pozycji ) ),
+		'products'       => array( array( 'id' => 1, 'tax_class' => '', 'tax_status' => 'taxable' ) ),
+		'tax_rates'      => array( '' => array( 'rate' => 23.0 ) ),
+		'discount_total' => 0,
+		'tax_mechanism'  => 'reverse_charge',
+	);
+
+	if ( null !== $podstawa ) {
+		$dane['subtotal_grosze'] = $podstawa;
+	}
+
+	return ( new MP_OB_D6_Agent_Rounding() )->run( new MP_OB_Context( $dane ) );
+}
+
+$mv_bez = mv_podstawa( null );
+$mv_bd  = (array) $mv_bez->get_data();
+
+mv_ok(
+	! $mv_bez->is_ok(),
+	'D1: brak klucza `subtotal_grosze` konczy sie ODMOWA, nie oferta na 0 zl',
+	'ok=' . var_export( $mv_bez->is_ok(), true ) . ' brutto=' . var_export( $mv_bd['gross_grosze'] ?? null, true )
+);
+mv_ok(
+	'missing_subtotal' === $mv_bez->get_code(),
+	'D2: z kodem nazywajacym brakujaca podstawe',
+	'kod=' . $mv_bez->get_code()
+);
+
+$mv_zero = mv_podstawa( 0, 0 );
+
+mv_ok(
+	$mv_zero->is_ok(),
+	'D3: KONTR-ASERCJA — zero PODANE WPROST nadal jest legalne',
+	'kod=' . $mv_zero->get_code() . ' ' . implode( ' ', (array) $mv_zero->get_errors() )
+);
+mv_ok(
+	0 === (int) ( $mv_zero->get_data()['gross_grosze'] ?? -1 ),
+	'D4: i daje brutto 0, bo tak wyliczono'
+);
+
+$mv_normalna = mv_podstawa( 10000 );
+
+mv_ok(
+	$mv_normalna->is_ok() && 10000 === (int) ( $mv_normalna->get_data()['net_grosze'] ?? 0 ),
+	'D5: KONTR-ASERCJA — normalna podstawa przechodzi bez zmian',
+	'netto=' . var_export( $mv_normalna->get_data()['net_grosze'] ?? null, true )
+);

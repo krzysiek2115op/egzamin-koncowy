@@ -273,6 +273,28 @@ class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 		 * Rabat RÓWNY sumie jest dopuszczony świadomie: „zero do zapłaty" to
 		 * decyzja handlowa, a nie błąd arytmetyczny.
 		 */
+		/*
+		 * BRAK PODSTAWY TO NIE JEST PODSTAWA ZERO.
+		 *
+		 * `get( 'subtotal_grosze', 0 )` traktowal nieobecny klucz tak samo jak
+		 * legalne zero, wiec dzial konczyl sie statusem OK z netto 0, VAT 0
+		 * i brutto 0. To dokladnie ten sam ksztalt bledu, ktory ten plik jawnie
+		 * odrzuca dla `tax_mechanism` — „zero z braku decyzji wyglada jak zero
+		 * z prawa" — tylko o jedno pole dalej. Oferta na 0 zl wychodzi przy tym
+		 * do klienta bez jednego sladu, ze czegokolwiek zabraklo.
+		 *
+		 * Zero PODANE WPROST zostaje legalne: oferta na same pozycje o wartosci
+		 * zero to rzadki, ale mozliwy przypadek. Rozroznienie robi obecnosc
+		 * klucza, nie jego wartosc.
+		 */
+		if ( null === $context->get( 'subtotal_grosze' ) ) {
+			return MP_OB_Result::fail(
+				'Brak podstawy do naliczenia — Dział 4 nie przekazał sumy pozycji, a zero z braku danych to nie jest zero z wyliczenia.',
+				array( 'errors' => array( array( 'field' => 'subtotal_grosze', 'message' => 'Klucz nieobecny w kontekście.' ) ) ),
+				'missing_subtotal'
+			);
+		}
+
 		$podstawa_pozycji = (int) $context->get( 'subtotal_grosze', 0 );
 		$rabat            = (int) $context->get( 'discount_total', 0 );
 

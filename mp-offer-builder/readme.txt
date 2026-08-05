@@ -99,6 +99,9 @@ RODO/GDPR:
 * Stan oferty ze zbędnymi białymi znakami (po imporcie albo migracji) nie daje
   już dwóch sprzecznych odpowiedzi: odmowy „stan spoza słownika" i zdania
   „oferta jest już zatwierdzona" w jednym przebiegu.
+* Brak sumy pozycji kończy się odmową, a nie ofertą na 0 zł ze statusem
+  „w porządku". Zero z braku danych wyglądało tak samo jak zero z wyliczenia —
+  a różnica trafia na dokument klienta.
 
 = 1.3.10 =
 * Paczka instalacyjna slucha wreszcie pliku .distignore. Zmiana zapowiadana

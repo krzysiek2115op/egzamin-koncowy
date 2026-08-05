@@ -176,7 +176,10 @@ class MP_Offer_Builder_Approval {
 			);
 		}
 
-		if ( MP_Offer_Builder_DB::STATUS_DRAFT !== (string) $offer['status'] ) {
+		// Ta sama, PRZYCIETA wartosc co bramka wyzej — inaczej stan " draft "
+		// odbijal sie tutaj, a komunikat (skladany juz z wartosci przycietej)
+		// twierdzil, ze zapis sie nie powiodl, choc zadnego zapisu nie bylo.
+		if ( MP_Offer_Builder_DB::STATUS_DRAFT !== $status_oferty ) {
 			return new WP_Error(
 				'wrong_status',
 				self::wrong_status_message( $status_oferty )
