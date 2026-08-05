@@ -449,3 +449,73 @@ po_ok(
 	'F: wszystkie trzy galezie A5.1 oddaja DOKLADNIE te same klucze',
 	'a=' . implode( ',', $po_klucze_a ) . ' | b=' . implode( ',', $po_klucze_b ) . ' | c=' . implode( ',', $po_klucze_c )
 );
+
+/* ==================================================================== G */
+
+$GLOBALS['mp_po']['lines'][] = '';
+$GLOBALS['mp_po']['lines'][] = '=== G. proces w statusie „nowy" da sie zamknac ===';
+
+/*
+ * Ze statusu `new` slownik pozwalal wyjsc WYLACZNIE do `assigned`, choc kazdy
+ * inny status nieterminalny ma wyjscie do „przegrany". A `target_status()` ma
+ * JAWNA galaz zostawiajaca proces w `new`, gdy Dzial 4 nie wskazal wlasciciela
+ * (brak handlowcow albo zaden nie przyjmuje procesow). Takiego procesu nie dalo
+ * sie zamknac inaczej niz przez przypisanie go komus na niby.
+ */
+$po_zamkniecie = po_przejscie(
+	MP_SW_Pipeline_Factory::EVENT_STATUS_CHANGE,
+	MP_Sales_Workflow_DB::STATUS_NEW,
+	array( 'to_status' => MP_Sales_Workflow_DB::STATUS_LOST )
+);
+$po_zt = (array) ( $po_zamkniecie->get_data()['transition'] ?? array() );
+
+po_ok(
+	$po_zamkniecie->is_ok() && true === ( $po_zt['allowed'] ?? null ),
+	'G1: proces bez handlowca da sie oznaczyc jako przegrany',
+	'kod=' . $po_zamkniecie->get_code() . ' allowed=' . var_export( $po_zt['allowed'] ?? null, true )
+);
+po_ok(
+	true === ( $po_zt['changes_status'] ?? null ),
+	'G2: i jest to prawdziwa zmiana statusu, nie potwierdzenie stanu'
+);
+po_ok(
+	in_array( MP_SW_D5_Machine::EFFECT_CLOSE_TASKS, po_skutki( $po_zt, MP_SW_Pipeline_Factory::EVENT_STATUS_CHANGE, array( 'to_status' => MP_Sales_Workflow_DB::STATUS_LOST ) ), true ),
+	'G3: ze skutkiem zamkniecia otwartych zadan'
+);
+
+/*
+ * KONTR-ASERCJE. Slownik ma sie zmienic w JEDNYM miejscu, a nie rozluznic.
+ */
+po_ok(
+	MP_SW_D5_Machine::is_allowed( MP_Sales_Workflow_DB::STATUS_NEW, MP_Sales_Workflow_DB::STATUS_ASSIGNED ),
+	'G4: KONTR-ASERCJA — new -> assigned nadal dozwolone'
+);
+po_ok(
+	! MP_SW_D5_Machine::is_allowed( MP_Sales_Workflow_DB::STATUS_NEW, MP_Sales_Workflow_DB::STATUS_WON ),
+	'G5: KONTR-ASERCJA — new -> won nadal ZABRONIONE (nie ma jak wygrac bez oferty)'
+);
+po_ok(
+	! MP_SW_D5_Machine::is_allowed( MP_Sales_Workflow_DB::STATUS_NEW, MP_Sales_Workflow_DB::STATUS_OFFER_SENT ),
+	'G6: KONTR-ASERCJA — new -> offer_sent nadal ZABRONIONE'
+);
+
+/*
+ * Kazdy status NIETERMINALNY ma wyjscie do „przegrany" — to jest ta symetria,
+ * ktorej brak byl bledem. Asercja liczy ja z samego slownika, wiec nowy status
+ * dodany bez tego wyjscia zglosi sie tutaj.
+ */
+$po_bez_wyjscia = array();
+foreach ( MP_SW_D5_Machine::transitions() as $po_od => $po_do ) {
+	if ( empty( $po_do ) ) {
+		continue; // status terminalny — z niego nic nie wychodzi z definicji.
+	}
+	if ( ! in_array( MP_Sales_Workflow_DB::STATUS_LOST, $po_do, true ) ) {
+		$po_bez_wyjscia[] = $po_od;
+	}
+}
+
+po_ok(
+	array() === $po_bez_wyjscia,
+	'G7: kazdy status nieterminalny ma wyjscie do „przegrany"',
+	'bez wyjscia: ' . implode( ', ', $po_bez_wyjscia )
+);

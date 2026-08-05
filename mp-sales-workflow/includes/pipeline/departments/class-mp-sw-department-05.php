@@ -59,7 +59,19 @@ class MP_SW_D5_Machine {
 	 */
 	public static function transitions() {
 		return array(
-			MP_Sales_Workflow_DB::STATUS_NEW         => array( MP_Sales_Workflow_DB::STATUS_ASSIGNED ),
+			/*
+			 * `new -> lost` MUSI BYC. Kazdy inny status nieterminalny ma wyjscie
+			 * do „przegrany", a `new` go nie mial — mimo ze `target_status()`
+			 * ma JAWNA galaz zostawiajaca proces w tym statusie, gdy Dzial 4 nie
+			 * wskazal wlasciciela (brak handlowcow albo zaden nie przyjmuje).
+			 * Takiego procesu nie dalo sie zamknac inaczej niz przez `assigned`,
+			 * czyli przez przypisanie go komus na niby tylko po to, zeby zaraz
+			 * oznaczyc go jako przegrany.
+			 *
+			 * To zawęża tez sprawe otwarta OTW-2: przejscie przez `assigned`
+			 * przestaje byc jedyna droga wyjscia ze statusu `new`.
+			 */
+			MP_Sales_Workflow_DB::STATUS_NEW         => array( MP_Sales_Workflow_DB::STATUS_ASSIGNED, MP_Sales_Workflow_DB::STATUS_LOST ),
 			MP_Sales_Workflow_DB::STATUS_ASSIGNED    => array( MP_Sales_Workflow_DB::STATUS_OFFER_DRAFT, MP_Sales_Workflow_DB::STATUS_LOST ),
 			MP_Sales_Workflow_DB::STATUS_OFFER_DRAFT => array( MP_Sales_Workflow_DB::STATUS_OFFER_SENT, MP_Sales_Workflow_DB::STATUS_LOST ),
 			MP_Sales_Workflow_DB::STATUS_OFFER_SENT  => array( MP_Sales_Workflow_DB::STATUS_NEGOTIATION, MP_Sales_Workflow_DB::STATUS_WON, MP_Sales_Workflow_DB::STATUS_LOST ),

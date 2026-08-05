@@ -336,7 +336,13 @@ class MP_Department_02 {
 		$pairs = array(
 			array(
 				'agent'  => new MP_D2_Agent_Required_Fields(),
-				'critic' => new MP_Flag_Critic( 'K2.1', 'Krytyk 2.1 — weryfikuje kompletność pól', 'required_ok', 'errors', 'required_missing' ),
+				// Klucz z brakami to `missing_fields` — tak nazywa go agent 2.1.
+				// Krytyk wskazywal `errors`, klucza o tej nazwie w tej kopercie
+				// nie ma, wiec odmowa `required_missing` szla BEZ informacji,
+				// ktorego pola brakuje. Nazwa podana raz i zle nie rzuca bledu:
+				// `isset()` jest falszem, lista wychodzi pusta i wyglada jak
+				// „braki nieznane" zamiast jak literowka.
+				'critic' => new MP_Flag_Critic( 'K2.1', 'Krytyk 2.1 — weryfikuje kompletność pól', 'required_ok', 'missing_fields', 'required_missing' ),
 			),
 			array(
 				'agent'  => new MP_D2_Agent_Normalize(),

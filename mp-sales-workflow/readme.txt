@@ -63,6 +63,10 @@ powiadomien do klientow.
 * Wynik maszyny statusów ma ten sam komplet pól we wszystkich przypadkach —
   wcześniej zdarzenia niezmieniające statusu oddawały tablicę uboższą o jedno
   pole, choć komentarz obok zapowiadał co innego.
+* Proces, który został w statusie „nowy" (bo w chwili zgłoszenia nie było
+  żadnego handlowca), da się teraz oznaczyć jako przegrany. Wcześniej jedynym
+  wyjściem z tego statusu było „przypisany", więc taki proces trzeba było
+  najpierw przypisać komuś na niby.
 
 = 1.3.10 =
 * Paczka instalacyjna schudla ze 117 plikow do 52 — testy i dokumentacja wewnetrzna nie jada juz do publicznie dostepnego katalogu wtyczek. Instrukcja wdrozenia przeszla do paczki materialow.

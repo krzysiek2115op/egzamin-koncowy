@@ -168,6 +168,35 @@ i 11/11):
   wynik weryfikacji VAT ma jedno kryterium prawdziwości; komunikat o stanie
   strony podaje etykietę statusu i miejsce, które tę stronę naprawdę pokazuje.
 
+### Szósta runda: ślepy zaułek i dwie połówki tego samego problemu
+
+- sekcja G w `powtorne-zatwierdzenie-oferty.php` (7 asercji) — proces w statusie
+  „nowy" da się zamknąć jako przegrany.
+- sekcja D w `dane-klienta-nie-sa-podmieniane.php` (6) — odmowa wymienia
+  brakujące pola po nazwie.
+- sekcja E w `link-do-strony-ktorej-nie-ma.php` (4) — pozycja menu znika razem
+  z opublikowaną stroną.
+
+Słownik przejść pozwalał wyjść ze statusu „nowy" **wyłącznie** do „przypisany",
+choć każdy inny status nieterminalny ma wyjście do „przegrany" — a maszyna ma
+jawną gałąź zostawiającą proces w „nowy", gdy nie ma żadnego handlowca. Taki
+proces trzeba było najpierw przypisać komuś na niby, żeby móc go zamknąć.
+Asercja G7 liczy tę symetrię **z samego słownika**, więc nowy status dodany bez
+wyjścia do „przegrany" zgłosi się sam.
+
+To zawęża sprawę otwartą `OTW-2`: przejście przez „przypisany" przestaje być
+jedyną drogą wyjścia. Otwarte zostaje samo pytanie o SLA startujący dla nikogo.
+
+Drugie ustalenie to **zła nazwa klucza podana raz**: krytyk czytał listę braków
+spod `errors`, a agent zwraca ją pod `missing_fields`. Taka pomyłka nie rzuca
+błędu — `isset()` jest fałszem, lista wychodzi pusta i wygląda jak „braki
+nieznane" zamiast jak literówka. Test sprawdza teraz **oba końce**.
+
+Trzecie: naprawa z tego samego wydania („menu przestało prowadzić do strony,
+której nie ma") dotyczyła **metody oddającej adres**. Pozycja, która już w menu
+stała, zostawała — administrator widział ostrzeżenie, a gość dalej klikał
+i trafiał donikąd. Dwie połówki tego samego problemu.
+
 ### Piąta runda: tekst prawny na dokumencie klienta
 
 - `mp-offer-builder/tests/naprawy/komunikat-stanu-oferty.php` (11 asercji) —

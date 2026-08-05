@@ -260,3 +260,73 @@ dk_ok(
 	false !== mb_strpos( (string) $dk_metoda->invoke( null, new WP_Error( 'zablokowane_przez_wtyczke', '' ) ), 'zablokowane_przez_wtyczke' ),
 	'C: przy pustej tresci do sladu idzie przynajmniej KOD bledu — jedyna wskazowka, jaka zostala'
 );
+
+/* ==================================================================== D */
+
+$GLOBALS['mp_dk']['lines'][] = '';
+$GLOBALS['mp_dk']['lines'][] = '=== D. odmowa mowi, KTOREGO pola brakuje ===';
+
+/*
+ * Krytyk K2.1 dostawal `errors` jako klucz z brakami, a agent 2.1 zwraca je pod
+ * kluczem `missing_fields`. Nazwa podana raz i zle nie rzuca bledu: `isset()`
+ * jest falszem, lista wychodzi pusta i wyglada jak „braki nieznane" zamiast jak
+ * literowka. Odmowa `required_missing` szla wiec BEZ informacji, co uzupelnic.
+ */
+$dk_agent21 = ( new MP_D2_Agent_Required_Fields() )->run(
+	new MP_Context(
+		array(
+			'company_name' => '',
+			'email'        => 'kontakt@firma.pl',
+			'nip'          => '',
+		)
+	)
+);
+$dk_d21 = (array) $dk_agent21->get_data();
+
+dk_ok(
+	false === ( $dk_d21['required_ok'] ?? null ),
+	'D1: agent 2.1 zglasza braki'
+);
+
+$dk_krytyk = new MP_Flag_Critic( 'K2.1', 'test', 'required_ok', 'missing_fields', 'required_missing' );
+$dk_ocena  = $dk_krytyk->review( $dk_agent21, new MP_Context( array() ) );
+/*
+ * Braki ida do DANYCH wyniku pod kluczem `errors` (tak sklada odmowe
+ * `MP_Flag_Critic`), a `get_errors()` niesie samo zdanie o niespelnionym
+ * warunku. Asercja pyta wiec o to miejsce, w ktorym lista naprawde jest —
+ * inaczej sprawdzalaby komunikat zamiast tresci odmowy.
+ */
+$dk_bledy = (array) ( $dk_ocena->get_data()['errors'] ?? array() );
+
+dk_ok(
+	! $dk_ocena->is_ok() && 'required_missing' === $dk_ocena->get_code(),
+	'D2: krytyk odmawia z kodem required_missing',
+	'kod=' . $dk_ocena->get_code()
+);
+dk_ok(
+	! empty( $dk_bledy ),
+	'D3: i odmowa NIESIE liste brakow, a nie pusta tablice',
+	'bledy=' . wp_json_encode( $dk_bledy )
+);
+
+$dk_plaskie = wp_json_encode( $dk_bledy );
+
+dk_ok(
+	false !== mb_strpos( (string) $dk_plaskie, 'company_name' ) && false !== mb_strpos( (string) $dk_plaskie, 'nip' ),
+	'D4: wymienia OBA brakujace pola po nazwie',
+	'bledy=' . $dk_plaskie
+);
+dk_ok(
+	false === mb_strpos( (string) $dk_plaskie, 'email' ),
+	'D5: KONTR-ASERCJA — pola podanego nie wymienia'
+);
+
+/*
+ * Klucz sprawdzony PRZECIWKO temu, co agent naprawde zwraca — inaczej test
+ * utrwalilby te sama literowke, ktora naprawia.
+ */
+dk_ok(
+	array_key_exists( 'missing_fields', $dk_d21 ) && ! array_key_exists( 'errors', $dk_d21 ),
+	'D6: agent 2.1 oddaje braki pod kluczem `missing_fields` i nie ma klucza `errors`',
+	'klucze=' . implode( ',', array_keys( $dk_d21 ) )
+);

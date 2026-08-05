@@ -188,3 +188,93 @@ lk_ok(
 // permalink dla identyfikatora 0.
 delete_option( MP_Lead_Intake_Page::OPTION );
 lk_ok( '' === MP_Lead_Intake_Page::url(), 'brak zapisanej strony to brak adresu' );
+
+/* ==================================================================== E */
+
+/*
+ * OSTRZEZENIE DLA JEDNEJ OSOBY NIE NAPRAWIA TEGO, CO WIDZA WSZYSCY POZOSTALI.
+ *
+ * Galaz `create()` wykrywajaca strone w stanie innym niz `publish` zapisywala
+ * slad dla administratora i wychodzila, ZOSTAWIAJAC nietknieta pozycje menu
+ * dolozona wczesniej przez `add_to_menus()`. Administrator widzial ostrzezenie
+ * w panelu, a GOSC dalej widzial w menu motywu „Zapytanie ofertowe" i trafial
+ * na 404 albo na wpis w koszu.
+ */
+
+$GLOBALS['mp_lk']['lines'][] = '';
+$GLOBALS['mp_lk']['lines'][] = '=== E. pozycja menu znika razem z opublikowana strona ===';
+
+$ln_menu_id = wp_create_nav_menu( 'mp-test-menu-' . wp_generate_password( 6, false ) );
+
+if ( is_wp_error( $ln_menu_id ) ) {
+	lk_ok( false, 'E: menu testowe zalozone', $ln_menu_id->get_error_message() );
+} else {
+	$ln_strona = wp_insert_post(
+		array(
+			'post_title'   => 'Zapytanie ofertowe (test menu)',
+			'post_type'    => 'page',
+			'post_status'  => 'publish',
+			'post_content' => '[' . MP_Lead_Intake_Form::SHORTCODE . ']',
+		)
+	);
+
+	update_option( MP_Lead_Intake_Page::OPTION, (int) $ln_strona );
+
+	wp_update_nav_menu_item(
+		(int) $ln_menu_id,
+		0,
+		array(
+			'menu-item-title'     => 'Zapytanie ofertowe',
+			'menu-item-object'    => 'page',
+			'menu-item-object-id' => (int) $ln_strona,
+			'menu-item-type'      => 'post_type',
+			'menu-item-status'    => 'publish',
+		)
+	);
+
+	/**
+	 * Ile pozycji menu wskazuje na te strone.
+	 *
+	 * @param int $menu_id   Menu.
+	 * @param int $strona_id Strona.
+	 * @return int
+	 */
+	function ln_pozycji( $menu_id, $strona_id ) {
+		$ile = 0;
+		foreach ( (array) wp_get_nav_menu_items( $menu_id ) as $poz ) {
+			if ( 'page' === $poz->object && (int) $poz->object_id === (int) $strona_id ) {
+				++$ile;
+			}
+		}
+		return $ile;
+	}
+
+	lk_ok(
+		ln_pozycji( (int) $ln_menu_id, (int) $ln_strona ) > 0,
+		'E1: stan wyjsciowy — pozycja menu wskazuje na opublikowana strone'
+	);
+
+	// Administrator wrzuca strone do kosza.
+	wp_trash_post( (int) $ln_strona );
+	clean_post_cache( (int) $ln_strona );
+
+	MP_Lead_Intake_Page::create();
+
+	lk_ok(
+		0 === ln_pozycji( (int) $ln_menu_id, (int) $ln_strona ),
+		'E2: po wykryciu strony w koszu pozycja menu ZNIKA',
+		'pozycji=' . ln_pozycji( (int) $ln_menu_id, (int) $ln_strona )
+	);
+	lk_ok(
+		'' !== (string) get_option( MP_Lead_Intake_Page::OPTION_PAGE_ERROR, '' ),
+		'E3: KONTR-ASERCJA — slad dla administratora nadal powstaje'
+	);
+	lk_ok(
+		'0' === (string) get_option( MP_Lead_Intake_Page::OPTION_MENU_OK, '1' ),
+		'E4: KONTR-ASERCJA — flaga menu nadal zgaszona'
+	);
+
+	wp_delete_post( (int) $ln_strona, true );
+	wp_delete_nav_menu( (int) $ln_menu_id );
+	delete_option( MP_Lead_Intake_Page::OPTION_PAGE_ERROR );
+}

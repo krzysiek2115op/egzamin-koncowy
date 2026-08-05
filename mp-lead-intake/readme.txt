@@ -67,6 +67,12 @@ zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej 
 * Ślad po nieudanym utworzeniu strony nigdy nie jest pusty. Wtyczka blokująca
   zapis bez podania treści błędu zostawiała ślad nieodróżnialny od powodzenia —
   strony nie było, a panel milczał.
+* Odmowa z powodu niekompletnego formularza mówi, KTÓREGO pola brakuje.
+  Krytyk czytał listę braków spod nazwy, której agent nie używa, więc odmowa
+  szła z pustą listą i wyglądała jak „braki nieznane".
+* Pozycja menu znika razem z opublikowaną stroną. Gdy strona z formularzem
+  trafiała do kosza albo wracała do szkicu, administrator dostawał ostrzeżenie,
+  ale gość dalej widział w menu „Zapytanie ofertowe" i trafiał donikąd.
 * Dziennik: opis miejsca awarii jest tłumaczony we wszystkich przypadkach (jedna
   gałąź wychodziła po polsku niezależnie od języka witryny), czas wyciszenia
   alarmu bierze się ze stałej zamiast z tekstu, a nieudany zapis losu alarmu

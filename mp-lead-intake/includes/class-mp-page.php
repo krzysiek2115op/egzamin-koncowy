@@ -241,6 +241,21 @@ class MP_Lead_Intake_Page {
 			 */
 			update_option( self::OPTION_MENU_OK, 0 );
 
+			/*
+			 * POZYCJA MENU ZNIKA RAZEM Z OPUBLIKOWANA STRONA.
+			 *
+			 * Ta galaz zapisywala slad dla administratora i wychodzila, zostawiajac
+			 * NIETKNIETA pozycje menu dolozona wczesniej przez `add_to_menus()`.
+			 * Administrator widzial ostrzezenie w panelu, ale GOSC dalej widzial
+			 * w menu motywu „Zapytanie ofertowe" i trafial na 404 albo na wpis
+			 * w koszu. Ostrzezenie dla jednej osoby nie naprawia tego, co widza
+			 * wszyscy pozostali.
+			 *
+			 * Kasowanie jest bezpieczne: gdy strona wroci do publikacji,
+			 * `refresh_menu_status()` i `create()` dokladaja pozycje z powrotem.
+			 */
+			self::remove_from_menus( $existing );
+
 			update_option( self::OPTION_PAGE_ERROR, self::komunikat_o_stanie( $wpis ) );
 
 			return;
