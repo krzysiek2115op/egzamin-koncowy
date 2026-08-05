@@ -156,7 +156,18 @@ class MP_Offer_Builder_Approval {
 			);
 		}
 
-		if ( MP_Offer_Builder_DB::STATUS_APPROVED === (string) $offer['status'] ) {
+		/*
+		 * STATUS PRZYCINANY RAZ, PRZED BRAMKA.
+		 *
+		 * Bramka porownywala surowa wartosc kolumny, a `wrong_status_message()`
+		 * przycina ja przez `trim()`. Dla wartosci z bialymi znakami — „approved "
+		 * po imporcie albo migracji — oferta byla odrzucana jako stan spoza
+		 * slownika, a czlowiek dostawal zdanie twierdzace, ze oferta JUZ jest
+		 * zatwierdzona. Dwie odpowiedzi na to samo pytanie w jednym przebiegu.
+		 */
+		$status_oferty = trim( (string) $offer['status'] );
+
+		if ( MP_Offer_Builder_DB::STATUS_APPROVED === $status_oferty ) {
 			// Podwójne kliknięcie albo odświeżenie strony. Stan docelowy jest
 			// osiągnięty, ale zdarzenie już poszło — drugi raz wystawić go nie wolno.
 			return new WP_Error(
@@ -168,7 +179,7 @@ class MP_Offer_Builder_Approval {
 		if ( MP_Offer_Builder_DB::STATUS_DRAFT !== (string) $offer['status'] ) {
 			return new WP_Error(
 				'wrong_status',
-				self::wrong_status_message( (string) $offer['status'] )
+				self::wrong_status_message( $status_oferty )
 			);
 		}
 
@@ -311,10 +322,14 @@ class MP_Offer_Builder_Approval {
 				);
 			}
 
-			if ( MP_Offer_Builder_DB::STATUS_APPROVED !== (string) $aktualna['status'] ) {
+			// Ta sama normalizacja co przy bramce wyzej — inaczej po nieudanym
+			// UPDATE wracalaby ta sama niezgodnosc, tylko druga sciezka.
+			$status_aktualny = trim( (string) $aktualna['status'] );
+
+			if ( MP_Offer_Builder_DB::STATUS_APPROVED !== $status_aktualny ) {
 				return new WP_Error(
 					'wrong_status',
-					self::wrong_status_message( (string) $aktualna['status'] )
+					self::wrong_status_message( $status_aktualny )
 				);
 			}
 

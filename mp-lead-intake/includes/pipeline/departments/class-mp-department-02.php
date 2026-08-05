@@ -118,6 +118,18 @@ class MP_D2_Agent_Normalize extends MP_Abstract_Agent {
  */
 class MP_D2_Agent_Validate_Formats extends MP_Abstract_Agent {
 
+	/**
+	 * Zdanie dla klienta, gdy z adresu wypadly znaki.
+	 *
+	 * Stala, bo to samo zdanie musi paść w DWÓCH miejscach: tutaj, gdy adres po
+	 * normalizacji nadal jest adresem, i w krytyku K2.2, gdy normalizacja zetnie
+	 * go do pustej wartości. Bez wspólnego źródła klient dostawał w tym drugim,
+	 * GORSZYM przypadku komunikat techniczny („Puste pole po normalizacji:
+	 * email") — czyli starannie napisane zdanie nie docierało do niego dokładnie
+	 * wtedy, gdy było najbardziej potrzebne.
+	 */
+	const MSG_EMAIL_NIEOBSLUGIWANY = 'Adres e-mail zawiera znaki, których nie obsługujemy — najczęściej są to polskie litery lub spacja. Przepisz adres dokładnie tak, jak wygląda w Twojej skrzynce, albo podaj inny.';
+
 	public function __construct() {
 		parent::__construct( '2.3', 'Waliduje formaty', 'Poprawność e-maila (is_email) i wstępny format numeru VAT (PL: 10 cyfr, UE: sanity-check)' );
 	}
@@ -168,7 +180,7 @@ class MP_D2_Agent_Validate_Formats extends MP_Abstract_Agent {
 			 * bez wskazówki, co poprawić. Zdanie mówi więc, CO jest nie tak
 			 * i CO zrobić, a przykłady podaje jako najczęstsze, nie jako komplet.
 			 */
-			$errors['email'] = 'Adres e-mail zawiera znaki, których nie obsługujemy — najczęściej są to polskie litery lub spacja. Przepisz adres dokładnie tak, jak wygląda w Twojej skrzynce, albo podaj inny.';
+			$errors['email'] = self::MSG_EMAIL_NIEOBSLUGIWANY;
 		}
 
 		// NIP jest wymagany. Po normalizacji (2.2) puste pole oznacza wejście bez
@@ -284,6 +296,28 @@ class MP_D2_Normalize_Critic extends MP_Abstract_Critic {
 		$data = $agent_result->get_data();
 		foreach ( array( 'company_name', 'email' ) as $key ) {
 			if ( '' === trim( (string) ( isset( $data[ $key ] ) ? $data[ $key ] : '' ) ) ) {
+				/*
+				 * PUSTE PO NORMALIZACJI TO NIE TO SAMO CO PUSTE OD POCZATKU.
+				 *
+				 * Gdy `sanitize_email()` zetnie adres do zera — a robi to dla
+				 * adresu zlozonego z samych znaków spoza swojego zbioru — klient
+				 * dostawal komunikat techniczny „Puste pole po normalizacji:
+				 * email". Zdanie napisane wlasnie dla tego przypadku stalo dwa
+				 * agenty dalej i nigdy do niego nie docieralo, bo ten krytyk
+				 * zatrzymuje potok wczesniej.
+				 *
+				 * Rozroznienie bierzemy z flagi `email_zmieniony`, ktora agent 2.2
+				 * i tak juz liczy. Komunikat jest TEN SAM, co w agencie 2.3 —
+				 * z jednej stalej, zeby dwa miejsca nie mogly sie rozjechac.
+				 */
+				if ( 'email' === $key && ! empty( $data['email_zmieniony'] ) ) {
+					return MP_Result::fail(
+						MP_D2_Agent_Validate_Formats::MSG_EMAIL_NIEOBSLUGIWANY,
+						array( 'errors' => array( 'email' => MP_D2_Agent_Validate_Formats::MSG_EMAIL_NIEOBSLUGIWANY ) ),
+						'format_invalid'
+					);
+				}
+
 				return MP_Result::fail( sprintf( 'Puste pole po normalizacji: %s', $key ), array(), 'normalize_failed' );
 			}
 		}

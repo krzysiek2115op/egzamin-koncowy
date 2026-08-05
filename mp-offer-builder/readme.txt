@@ -96,6 +96,9 @@ RODO/GDPR:
   o nieudanym zapisie. Wcześniej powstawało zdanie przeczące samo sobie:
   „oferta jest w stanie draft, z którego nie da się jej zatwierdzić — zatwierdzać
   można wyłącznie szkice".
+* Stan oferty ze zbędnymi białymi znakami (po imporcie albo migracji) nie daje
+  już dwóch sprzecznych odpowiedzi: odmowy „stan spoza słownika" i zdania
+  „oferta jest już zatwierdzona" w jednym przebiegu.
 
 = 1.3.10 =
 * Paczka instalacyjna slucha wreszcie pliku .distignore. Zmiana zapowiadana

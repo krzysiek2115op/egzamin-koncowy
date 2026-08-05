@@ -73,6 +73,9 @@ zgłoszenia z formularza, wstępną kwalifikację lead-a i zapis do dedykowanej 
 * Pozycja menu znika razem z opublikowaną stroną. Gdy strona z formularzem
   trafiała do kosza albo wracała do szkicu, administrator dostawał ostrzeżenie,
   ale gość dalej widział w menu „Zapytanie ofertowe" i trafiał donikąd.
+* Adres e-mail, z którego po odfiltrowaniu nie zostaje nic, dostaje to samo
+  zdanie co adres częściowo przepisany — wcześniej ten najgorszy przypadek
+  kończył się komunikatem technicznym.
 * Dziennik: opis miejsca awarii jest tłumaczony we wszystkich przypadkach (jedna
   gałąź wychodziła po polsku niezależnie od języka witryny), czas wyciszenia
   alarmu bierze się ze stałej zamiast z tekstu, a nieudany zapis losu alarmu

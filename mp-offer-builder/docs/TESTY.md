@@ -329,6 +329,25 @@ i 11/11):
   wynik weryfikacji VAT ma jedno kryterium prawdziwości; komunikat o stanie
   strony podaje etykietę statusu i miejsce, które tę stronę naprawdę pokazuje.
 
+### Siódma runda: dwie usterki wprowadzone przez własne naprawy
+
+- sekcja E w `dane-klienta-nie-sa-podmieniane.php` (9 asercji) — adres ścięty do
+  zera dostaje zdanie dla człowieka, nie komunikat techniczny.
+- sekcja C w `komunikat-stanu-oferty.php` (10) — bramka i komunikat czytają tę
+  samą wartość.
+
+Obie usterki są **skutkiem napraw z tej samej serii**. Zdanie o nieobsługiwanych
+znakach powstało w rundzie trzeciej — ale w agencie 2.3, a ścieżka, w której
+adres znika **całkowicie**, zatrzymuje się wcześniej, na krytyku 2.2. Najgorszy
+wariant dostawał więc najgorszy komunikat. Gałąź `approved` powstała w rundzie
+drugiej i porównywała wartość przyciętą, podczas gdy bramka wyżej porównuje
+surową — stan `"approved "` po imporcie dawał odmowę „stan spoza słownika"
+i zdanie „oferta jest już zatwierdzona" w jednym przebiegu.
+
+Wniosek praktyczny, ważniejszy niż same naprawy: **każda naprawa jest nowym
+kodem i wymaga własnego przebiegu bramki.** Siedem rund z rzędu audyt znajdował
+coś w kodzie napisanym tego samego dnia.
+
 ### Szósta runda: ślepy zaułek i dwie połówki tego samego problemu
 
 - sekcja G w `powtorne-zatwierdzenie-oferty.php` (7 asercji) — proces w statusie

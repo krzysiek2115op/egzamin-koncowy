@@ -161,3 +161,41 @@ kso_ok(
 	'B6: kazdy z czterech przypadkow ma WLASNE zdanie',
 	'roznych=' . count( $kso_rozne ) . ' z ' . count( $kso_wszystkie )
 );
+
+/* ==================================================================== C */
+
+$GLOBALS['mp_ks']['lines'][] = '';
+$GLOBALS['mp_ks']['lines'][] = '=== C. bramka i komunikat czytaja TE SAMA wartosc ===';
+
+/*
+ * Bramka w `approve()` porownywala SUROWA wartosc kolumny, a
+ * `wrong_status_message()` przycina ja przez `trim()`. Dla wartosci z bialymi
+ * znakami — „approved " po imporcie albo migracji — oferta byla odrzucana jako
+ * stan spoza slownika, a czlowiek dostawal zdanie twierdzace, ze oferta JUZ
+ * jest zatwierdzona. Dwie odpowiedzi na to samo pytanie w jednym przebiegu.
+ */
+$kso_z_bialymi = array( 'approved ', ' approved', "approved\n", "\tapproved\t" );
+
+foreach ( $kso_z_bialymi as $kso_stan ) {
+	kso_ok(
+		kso_komunikat( $kso_stan ) === kso_komunikat( MP_Offer_Builder_DB::STATUS_APPROVED ),
+		'C (' . wp_json_encode( $kso_stan ) . '): komunikat taki sam jak dla czystego „approved"',
+		'komunikat=' . kso_komunikat( $kso_stan )
+	);
+	kso_ok(
+		false === mb_stripos( kso_komunikat( $kso_stan ), 'administrator' ),
+		'C (' . wp_json_encode( $kso_stan ) . '): i NIE odsyla do administratora'
+	);
+}
+
+$kso_draft_bialy = kso_komunikat( ' draft ' );
+
+kso_ok(
+	$kso_draft_bialy === kso_komunikat( MP_Offer_Builder_DB::STATUS_DRAFT ),
+	'C: to samo dla szkicu z bialymi znakami',
+	'komunikat=' . $kso_draft_bialy
+);
+kso_ok(
+	kso_komunikat( ' wysłana_kurierem ' ) !== kso_komunikat( MP_Offer_Builder_DB::STATUS_APPROVED ),
+	'C: KONTR-ASERCJA — stan spoza slownika nadal ma SWOJE zdanie, nie zatwierdzone'
+);

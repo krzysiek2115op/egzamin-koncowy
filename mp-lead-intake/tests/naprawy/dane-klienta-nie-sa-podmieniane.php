@@ -330,3 +330,79 @@ dk_ok(
 	'D6: agent 2.1 oddaje braki pod kluczem `missing_fields` i nie ma klucza `errors`',
 	'klucze=' . implode( ',', array_keys( $dk_d21 ) )
 );
+
+/* ==================================================================== E */
+
+$GLOBALS['mp_dk']['lines'][] = '';
+$GLOBALS['mp_dk']['lines'][] = '=== E. adres SCIETY DO ZERA tez dostaje zdanie dla czlowieka ===';
+
+/*
+ * Gdy `sanitize_email()` zetnie adres do pustej wartosci — a robi to dla adresu
+ * zlozonego z samych znakow spoza swojego zbioru — potok zatrzymywal sie na
+ * krytyku K2.2 z komunikatem technicznym „Puste pole po normalizacji: email".
+ * Zdanie napisane WLASNIE dla tego przypadku stalo dwa agenty dalej i nigdy do
+ * klienta nie docieralo. Czyli najgorszy przypadek dostawal najgorszy komunikat.
+ */
+$dk_scinane = array( 'żółć@firma.pl', 'ąęćń@firma.pl' );
+
+foreach ( $dk_scinane as $dk_adres ) {
+	$dk_po = sanitize_email( $dk_adres );
+
+	dk_ok(
+		'' === $dk_po,
+		'E-pomiar (' . $dk_adres . '): sanitize_email scina adres DO ZERA',
+		'wynik=' . wp_json_encode( $dk_po )
+	);
+
+	$dk_kontekst = new MP_Context(
+		array(
+			'company_name' => 'Firma Testowa',
+			'email'        => $dk_adres,
+			'nip'          => '5260001246',
+			'country'      => 'PL',
+		)
+	);
+	$dk_wynik = ( new MP_D2_Normalize_Critic( 'K2.2', 'test' ) )->review(
+		( new MP_D2_Agent_Normalize() )->run( $dk_kontekst ),
+		$dk_kontekst
+	);
+	$dk_tresc = implode( ' ', (array) $dk_wynik->get_errors() );
+
+	dk_ok(
+		! $dk_wynik->is_ok(),
+		'E (' . $dk_adres . '): zgloszenie nadal jest odrzucane'
+	);
+	dk_ok(
+		false === mb_stripos( $dk_tresc, 'po normalizacji' ),
+		'E (' . $dk_adres . '): i NIE dostaje komunikatu technicznego',
+		'komunikat=' . $dk_tresc
+	);
+	dk_ok(
+		$dk_tresc === MP_D2_Agent_Validate_Formats::MSG_EMAIL_NIEOBSLUGIWANY,
+		'E (' . $dk_adres . '): tylko to samo zdanie, co przy adresie przepisanym',
+		'komunikat=' . $dk_tresc
+	);
+}
+
+/*
+ * KONTR-ASERCJA. Puste pole OD POCZATKU to zupelnie inna sytuacja — tam
+ * komunikat techniczny jest na miejscu, bo nie ma czego „przepisywac".
+ */
+$dk_puste_kontekst = new MP_Context(
+	array(
+		'company_name' => '',
+		'email'        => 'kontakt@firma.pl',
+		'nip'          => '5260001246',
+		'country'      => 'PL',
+	)
+);
+$dk_puste = ( new MP_D2_Normalize_Critic( 'K2.2', 'test' ) )->review(
+	( new MP_D2_Agent_Normalize() )->run( $dk_puste_kontekst ),
+	$dk_puste_kontekst
+);
+
+dk_ok(
+	! $dk_puste->is_ok() && 'normalize_failed' === $dk_puste->get_code(),
+	'E: KONTR-ASERCJA — pusta nazwa firmy nadal konczy sie normalize_failed',
+	'kod=' . $dk_puste->get_code()
+);
