@@ -82,4 +82,8 @@ PUSTY SLAD ZNACZYL „STRONA JEST". Slad po nieudanym utworzeniu strony powstawa
 
 JEDNO USTALENIE ZOSTAWIONE SWIADOMIE. Status „przypisany" da sie osiagnac zmiana statusu bez wskazania handlowca i wtedy termin SLA startuje dla nikogo. Naprawa przez odmowe nie wchodzi: to JEDYNE wyjscie ze statusu „nowy" w slowniku, wiec odmowa uwiezilaby procesy zalozone wtedy, gdy nie ma zadnego handlowca — czyli odtworzylaby blad naprawiony w 1.3.7. Istniejacy test juz raz obronil przed „naprawa" w te strone i ma na to pomiar. Sprawa jest w rejestrze jako OTW-2, z dwiema droznymi do wyboru przez klienta; zgadywanie kosztowaloby wiecej niz milczenie.
 
-Regresja: 95 plikow testowych, wszystkie PASS, zero bez werdyktu. PHPCS: 160 plikow, kod wyjscia 0. Audyt gleboki: 37 par, bramka 26/26 i 11/11, pokrycie 100%.
+CZWARTY PRZEBIEG: TA SAMA REGULA W DWOCH DZIALACH. Dzial liczacy podatek pytal wylacznie, czy mechanizm jest krajowy — wiec kazda inna wartosc, w tym brak wartosci, szla galezia zerowego VAT-u. Zero z BRAKU DECYZJI wygladalo identycznie jak zero Z PRAWA. W pelnym przebiegu ta sciezka nie powstaje, bo poprzedni agent zawsze oddaje jedna z trzech wartosci — ale to ten sam ksztalt bledu, ktory w TYM SAMYM wydaniu naprawiono w dziale zapisujacym oferte. Zostawienie go tutaj znaczyloby, ze regula zalezy od tego, ktoredy dane przyszly. Kontr-asercja porownuje teraz oba konce: czwarty mechanizm dodany po jednej stronie zglosi sie w tescie, zanim zglosi sie na fakturze.
+
+Drugie ustalenie tej rundy dotyczylo TEKSTU DOPISANEGO GODZINE WCZESNIEJ: komunikat o odrzuconym adresie wymienial dwa najczestsze powody jako komplet, wiec adres odrzucony z innego powodu zostawal bez wskazowki — czyli ta sama klasa bledu, ktora ten komunikat mial usunac.
+
+Regresja: 96 plikow testowych, wszystkie PASS, zero bez werdyktu. PHPCS: 160 plikow, kod wyjscia 0. Audyt gleboki: 37 par, bramka 26/26 i 11/11, pokrycie 100%.

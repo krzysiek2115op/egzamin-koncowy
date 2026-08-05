@@ -132,7 +132,7 @@ testów manualnych jako niezależnej warstwy weryfikacji, uzupełniającej audyt
 
 ## Stan na wydanie 1.3.11 (04.08.2026)
 
-Regresja **95/95** na bazie od zera, PHPCS kod wyjścia **0**. Wydanie powstawało
+Regresja **96/96** na bazie od zera, PHPCS kod wyjścia **0**. Wydanie powstawało
 w kilku rundach; niżej wszystkie pliki testowe, jakie w nich przybyły — każdy
 napisany PRZED naprawą i uruchomiony, żeby zobaczyć, jak pada.
 
@@ -167,6 +167,26 @@ i 11/11):
   sumy kontrolnej NIP rozróżnia „policzono i nie zgadza się" od „nie policzono";
   wynik weryfikacji VAT ma jedno kryterium prawdziwości; komunikat o stanie
   strony podaje etykietę statusu i miejsce, które tę stronę naprawdę pokazuje.
+
+### Czwarta runda: ta sama reguła w dwóch działach
+
+- `mp-offer-builder/tests/naprawy/mechanizm-vat-ze-slownika.php` (16 asercji) —
+  nieznany mechanizm podatkowy kończy się odmową, a nie zerowym VAT-em.
+
+W pełnym przebiegu ta ścieżka nie powstaje: agent 6.1 oddaje jedną z trzech
+wartości i nigdy pustej, a krytyk pilnuje pola. Naprawa i tak weszła, bo to
+**dokładnie ten sam kształt błędu**, który w tym samym wydaniu naprawiono
+w Dziale 10. Zostawienie go w Dziale 6 znaczyłoby, że reguła zależy od tego,
+którędy dane przyszły.
+
+Kontr-asercja porównuje **oba końce**: wylicza mechanizmy zwracane przez agenta
+6.1 i sprawdza, że każdy z nich przyjmuje agent 6.2. Czwarty mechanizm dodany
+w 6.1 zgłosi się więc w teście, zanim zgłosi się na fakturze klienta.
+
+Drugie ustalenie tej rundy dotyczyło **tekstu dopisanego godzinę wcześniej**:
+komunikat o odrzuconym adresie e-mail wymieniał dwa najczęstsze powody jako
+komplet, więc adres odrzucony z innego powodu zostawał bez wskazówki — czyli
+ta sama klasa błędu, którą ten komunikat miał usunąć.
 
 ### Trzecia runda: adres, którego klient nigdy nie podał
 

@@ -160,7 +160,15 @@ class MP_D2_Agent_Validate_Formats extends MP_Abstract_Agent {
 			 * wysłanie oferty do kogoś innego. Komunikat celowo NIE pokazuje
 			 * wersji po przepisaniu — klient wziąłby ją za swój adres.
 			 */
-			$errors['email'] = 'Adres e-mail zawiera znaki, których nie obsługujemy — sprawdź go i wpisz bez polskich liter oraz spacji';
+			/*
+			 * Komunikat nie wylicza znaków, bo lista jest dłuższa niż „polskie
+			 * litery i spacje" — pierwsza wersja wymieniała tylko te dwa
+			 * najczęstsze przypadki i adres odrzucony z innego powodu (znak
+			 * legalny wg RFC, ale spoza wąskiego zbioru WordPressa) zostawał
+			 * bez wskazówki, co poprawić. Zdanie mówi więc, CO jest nie tak
+			 * i CO zrobić, a przykłady podaje jako najczęstsze, nie jako komplet.
+			 */
+			$errors['email'] = 'Adres e-mail zawiera znaki, których nie obsługujemy — najczęściej są to polskie litery lub spacja. Przepisz adres dokładnie tak, jak wygląda w Twojej skrzynce, albo podaj inny.';
 		}
 
 		// NIP jest wymagany. Po normalizacji (2.2) puste pole oznacza wejście bez

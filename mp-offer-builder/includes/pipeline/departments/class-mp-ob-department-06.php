@@ -176,6 +176,16 @@ class MP_OB_D6_Agent_Mechanism extends MP_OB_Abstract_Agent {
  */
 class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 
+	/**
+	 * Mechanizmy podatkowe, jakie ten agent umie obsłużyć.
+	 *
+	 * Ta sama trójka, którą wylicza agent 6.1: stawka krajowa, odwrotne
+	 * obciążenie (dyrektywa 2006/112/WE art. 196) i sprzedaż poza zakresem
+	 * dyrektywy. Lista jest zamknięta, bo „nie krajowy" nie znaczy „zerowy" —
+	 * zero na dokumencie musi mieć podstawę, a nie brać się z braku dopasowania.
+	 */
+	const MECHANIZMY = array( 'domestic', 'reverse_charge', 'out_of_scope' );
+
 	/** Syntetyczna "klasa" dla pozycji zwolnionych z VAT (tax_status='none') — zawsze 0%. */
 	const TAX_NONE = '__mp_ob_none__';
 
@@ -264,6 +274,38 @@ class MP_OB_D6_Agent_Rounding extends MP_OB_Abstract_Agent {
 		$net_grosze     = $podstawa_pozycji - $rabat;
 		$mechanism      = (string) $context->get( 'tax_mechanism', '' );
 		$line_tax_rates = array();
+
+		/*
+		 * MECHANIZM MUSI BYĆ ZE SŁOWNIKA — NIE „COKOLWIEK POZA KRAJOWYM".
+		 *
+		 * Warunek niżej pyta wyłącznie o równość z `domestic`, więc KAŻDA inna
+		 * wartość szła gałęzią zerowego VAT-u: literówka, wartość z innej
+		 * dziedziny, a przede wszystkim domyślny pusty łańcuch z
+		 * `get( 'tax_mechanism', '' )`, gdy klucza w kontekście nie ma. Zero
+		 * z BRAKU DECYZJI wyglądało wtedy identycznie jak zero Z PRAWA.
+		 *
+		 * W pełnym przebiegu ta ścieżka nie powstaje: agent 6.1 oddaje jedną
+		 * z trzech wartości i nigdy pustej, a K6.1 pilnuje pola. To jednak
+		 * DOKŁADNIE ten sam kształt błędu, który w tym samym wydaniu naprawiono
+		 * w Dziale 10 — a różnica trafia na dokument wychodzący do klienta.
+		 * Naprawa w jednym dziale, a w drugim nie, znaczyłaby, że reguła zależy
+		 * od tego, którędy dane przyszły.
+		 *
+		 * Lista jest ta sama, co w agencie 6.1: krajowa, odwrotne obciążenie,
+		 * poza zakresem dyrektywy. Kontr-asercja w teście porównuje oba końce,
+		 * więc czwarty mechanizm dodany w 6.1 zgłosi się tutaj — zanim zgłosi
+		 * się na fakturze.
+		 */
+		if ( ! in_array( $mechanism, self::MECHANIZMY, true ) ) {
+			return MP_OB_Result::fail(
+				sprintf(
+					'Nieznany mechanizm podatkowy „%s" — bez rozstrzygniętej podstawy nie naliczamy ani stawki, ani zera.',
+					'' === $mechanism ? '—' : $mechanism
+				),
+				array( 'tax_mechanism' => $mechanism ),
+				'unknown_tax_mechanism'
+			);
+		}
 
 		if ( 'domestic' === $mechanism ) {
 			$tax_rates = is_array( $context->get( 'tax_rates' ) ) ? $context->get( 'tax_rates' ) : array();

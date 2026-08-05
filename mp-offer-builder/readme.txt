@@ -83,6 +83,10 @@ RODO/GDPR:
 * Ponowne zatwierdzenie oferty, którą ktoś zatwierdził przed chwilą, mówi teraz
   o tym wprost, zamiast polecać zgłoszenie administratorowi stanu, który jest
   najzupełniej normalny.
+* Nieznany mechanizm podatkowy kończy się odmową, a nie zerowym VAT-em. Reguła
+  brzmiała „cokolwiek innego niż krajowy", więc brak rozstrzygnięcia wyglądał
+  dokładnie tak samo jak zero wynikające z prawa — a różnica trafia na dokument
+  wychodzący do klienta.
 
 = 1.3.10 =
 * Paczka instalacyjna slucha wreszcie pliku .distignore. Zmiana zapowiadana
