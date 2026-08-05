@@ -1788,6 +1788,58 @@
       "lekcja": "Kazda nowa funkcja WordPressa w kodzie dzialow pipeline'u wymaga `function_exists()` albo zaslepki w harnessie. Przebieg bez WordPressa jest z definicji bezsesyjny.",
       "test": "mp-offer-builder/tests/process-harness/run-process.php (110 niezmiennikow)",
       "para": "1.24"
+    },
+    {
+      "id": "U-70",
+      "data": "2026-08-05",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Adres e-mail klienta po cichu PRZEPISYWANY, a walidacja sprawdzala juz wersje przepisana",
+      "klasa": "ciche-podmienienie-danych",
+      "plik": "mp-lead-intake/includes/pipeline/departments/class-mp-department-02.php",
+      "dowod": "Agent 2.2 normalizowal `sanitize_email()`, agent 2.3 sprawdzal `is_email()` na wartosci JUZ przepisanej. Zmierzone sonda: `zażółć@firma.pl` -> `za@firma.pl` (is_email: tak), `Jan Kowalski@firma.pl` -> `JanKowalski@firma.pl` (is_email: tak).",
+      "skutek": "Caly proces konczyl sie sukcesem, a w BD-3 ladowal INNY adres niz wpisany. Oferta z wtyczki 2 szla na skrzynke, ktorej klient nigdy nie podal — bez sladu w dzienniku, bez informacji dla klienta i dla handlowca. Najgorszy wariant cichej awarii: wyglada jak powodzenie po obu stronach.",
+      "lekcja": "`sanitize_email()` nie czysci — ono ZMIENIA. Walidacja musi widziec ROZNICE miedzy tym, co wpisal czlowiek, a tym, co zostalo po normalizacji; agent 2.2 zostawia flage `email_zmieniony`, bo agent 2.3 ma juz tylko wynik. Zgloszenie mylilo sie co do apostrofu — `o'brien@firma.pl` przechodzi bez zmian i test to utrwala.",
+      "test": "mp-lead-intake/tests/naprawy/dane-klienta-nie-sa-podmieniane.php, sekcja A",
+      "para": "1.25"
+    },
+    {
+      "id": "U-71",
+      "data": "2026-08-05",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Pola `segment` i `est_volume` szly do bazy bez normalizacji",
+      "klasa": "opis-dzialu-szerszy-niz-kod",
+      "plik": "mp-lead-intake/includes/pipeline/departments/class-mp-department-02.php",
+      "dowod": "Agent 2.2 sanityzowal `company_name`, `email`, `nip` i `phone`. `segment` i `est_volume` mialy wylacznie limit dlugosci, mimo ze opis dzialu deklaruje „normalizacje danych oficjalnymi funkcjami WordPressa\".",
+      "skutek": "Do BD-3 szla wartosc surowa — ze znacznikami HTML, zlamaniami linii i ewentualnym niepoprawnym UTF-8. Ta sama wartosc idzie potem do oferty i do PDF-a we wtyczce 2, gdzie znacznik przestaje byc tekstem.",
+      "lekcja": "Limit dlugosci to nie normalizacja. Kazde pole tekstowe przechodzace do bazy ma miec `sanitize_text_field()`, a kontr-asercja pilnuje, ze polskie znaki i spacje przezywaja.",
+      "test": "mp-lead-intake/tests/naprawy/dane-klienta-nie-sa-podmieniane.php, sekcja B",
+      "para": "1.25"
+    },
+    {
+      "id": "U-72",
+      "data": "2026-08-05",
+      "wtyczka": "mp-lead-intake",
+      "tytul": "Pusty slad po awarii znaczyl w tej klasie „strona jest\"",
+      "klasa": "wartosc-pusta-o-dwoch-znaczeniach",
+      "plik": "mp-lead-intake/includes/class-mp-page.php",
+      "dowod": "`update_option( OPTION_PAGE_ERROR, $page_id->get_error_message() )` bez sprawdzenia, czy komunikat jest niepusty. `WP_Error` z samym kodem zwraca pusty lancuch, a docblock stalej mowi wprost: „pusta = strona jest\".",
+      "skutek": "Wtyczka blokujaca zapis w ten sposob zostawiala slad NIEODROZNIALNY od powodzenia: strony nie ma, panel milczy, administrator widzi wylacznie „Wtyczka wlaczona\".",
+      "lekcja": "Kolejnosc od najbardziej do najmniej konkretnej wskazowki: tresc, potem sam KOD bledu (tez kieruje do wlasciwej wtyczki), na koncu zdanie o braku przyczyny. Kazda niepusta, wiec warunek „pusto = strona jest\" znowu mowi prawde.",
+      "test": "mp-lead-intake/tests/naprawy/dane-klienta-nie-sa-podmieniane.php, sekcja C",
+      "para": "1.26"
+    },
+    {
+      "id": "OTW-2",
+      "data": "2026-08-05",
+      "wtyczka": "mp-sales-workflow",
+      "tytul": "SPRAWA OTWARTA: status `assigned` osiagalny przez status.change bez wlasciciela",
+      "klasa": "decyzja-dla-klienta",
+      "plik": "mp-sales-workflow/includes/pipeline/departments/class-mp-sw-department-05.php",
+      "dowod": "Regula „przypisany bez przypisanego to zdanie nieprawdziwe\" pilnowana jest tylko na sciezce `lead.created`. `status.change` z `to_status=assigned` przechodzi bez sprawdzenia wlasciciela i uruchamia skutki zaprojektowane dla procesu, ktory wlasciciela ma: SET_SLA i NOTIFY_SALESMAN.",
+      "skutek": "Wiersz dostaje status `assigned` mimo braku handlowca, a termin SLA zaczyna biec dla nikogo. Powiadomienie handlowca NIE jest przy tym problemem — Dzial 7 pomija wiersz kolejki bez adresu, co jest zachowaniem SWIADOMYM (patrz tests/naprawy/odbiorcy-niekompletni.php).",
+      "lekcja": "NIE NAPRAWIONE SWIADOMIE. `assigned` to JEDYNE wyjscie ze statusu `new` w slowniku — nawet oznaczenie procesu jako przegrany wymaga przejscia tamtedy. Odmowa uwiezilaby procesy zalozone, gdy nie ma zadnego handlowca, czyli odtworzyla blad naprawiony w 1.3.7. Test `odbiorcy-niekompletni.php` juz raz obronil przed „naprawa\" w te strone i ma na to pomiar. Decyzja nalezy do klienta: albo SLA nie startuje bez wlasciciela, albo status.change wymaga wskazania handlowca w tej samej kopercie.",
+      "test": "mp-sales-workflow/tests/naprawy/odbiorcy-niekompletni.php (kontr-asercje przeciw bledna naprawie)",
+      "para": "1.25"
     }
   ]
 }
